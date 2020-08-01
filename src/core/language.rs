@@ -1,25 +1,45 @@
 #![allow(warnings)]
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
+use std::fmt::Debug;
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum Usage {
-    Unique,
-    Shared
+pub fn w(term: InnerTerm<()>) -> Term<()> { (Box::new(term), ()) }
+
+type Context<T> = Vec<(usize, Term<T>)>;
+
+fn find<T>(context: Context<T>, index: usize) -> Option<Term<T>> {
+    for (k, v) in context.into_iter() {
+        if k == index {
+            return Some(v);
+        }
+    }
+    None
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct TypeAttribs<T> {
-    usage: Term<T>
+fn inc<T>(context: Context<T>, amount: usize) -> Context<T> {
+    let mut context = context;
+    for i in 0..context.len() {
+        context[i].0 += amount;
+    }
+    context
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub enum Type<T> {
-    Pi(Term<T>, Term<T>, Term<T>),
-    Sigma(Term<T>, Term<T>),
-    EnumType(usize),
-    Universe(usize),
-    UsageType,
-    CapturesListType
+fn insert<T>(context: Context<T>, index: usize, to_insert: Term<T>) -> Context<T> {
+    let mut context = context;
+    for i in 0..context.len() {
+        if context[i].0 == index {
+            panic!("BUG: shadowed var");
+        }
+    }
+    context.push((index, to_insert));
+    context
+}
+
+fn indices<T>(context: &Context<T>) -> HashSet<usize> {
+    let mut set = HashSet::new();
+    for (k, _) in context {
+        set.insert(*k);
+    }
+    set
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -31,16 +51,26 @@ pub enum CapturesList<T> { // ex: `Int -> <(Int, Nil)> Int -> Int`, type of `+`
 #[derive(Clone, Debug, PartialEq)]
 pub enum InnerTerm<T> {
     Ann(Term<T>, Term<T>),
-    Type(Type<T>, TypeAttribs<T>),
-    Function(Term<T>),
-    Apply(Term<T>, Term<T>),
-    Pair(Term<T>, Term<T>),
-    Split(Term<T>, Term<T>),
-    Constant(usize),
-    Case(Term<T>, Vec<Term<T>>),
+    UniverseIntro(usize),
     Var(usize),
-    Usage(Usage),
-    CapturesList(CapturesList<T>)
+    Rec(Term<T>),
+    FunctionTypeIntro(Term<T>, Term<T>, Term<T>),
+    FunctionIntro(Term<T>),
+    FunctionElim(Term<T>, Term<T>),
+    PairTypeIntro(Term<T>, Term<T>),
+    PairIntro(Term<T>, Term<T>),
+    PairElim(Term<T>, Term<T>),
+    EnumTypeIntro(usize),
+    EnumIntro(usize),
+    EnumElim(Term<T>, Vec<Term<T>>),
+    CapturesListTypeIntro,
+    CapturesListIntro(CapturesList<T>),
+    UniqueTypeIntro(Term<T>),
+    UniqueIntro(Term<T>),
+    UniqueElim(Term<T>),
+    FoldTypeIntro(Term<T>),
+    FoldIntro(Term<T>),
+    FoldElim(Term<T>)
 }
 
 pub type Term<T> = (Box<InnerTerm<T>>, T);
@@ -48,16 +78,17 @@ pub type Term<T> = (Box<InnerTerm<T>>, T);
 pub enum InnerCheckError<T> {
     CantInferType,
     MismatchedTypes { exp_type: Term<T>, giv_type: Term<T> },
-    NonexistentVar
+    NonexistentVar,
+    ExpectedUniverse(usize)
 }
 
 pub struct CheckError<'a, T> {
-    offending_term: &'a Term<T>
+    offending_term: &'a Term<T>,
     error: InnerCheckError<T>
 }
 
-impl CheckError {
-    fn new<'a, T>(offending_term: &'a Term<T>, error: InnerCheckError<T>) -> CheckError<'a, T> {
+impl<'a, T> CheckError<'a, T> {
+    fn new(offending_term: &'a Term<T>, error: InnerCheckError<T>) -> CheckError<'a, T> {
         CheckError {
             offending_term,
             error
@@ -65,226 +96,222 @@ impl CheckError {
     }
 }
 
-pub fn shift<T>(term: Term<T>, amount: usize) -> Term<T> {
-    fn shift_inner<T>(term: Term<T>, cutoff: usize, amount: isize) -> Term<T> {
-        use self::Type::*;
-        use InnerTerm::*;
-
-        let rec = |rec_term| shift_inner(rec_term, cutoff, amount);
-        let rec_inc = |rec_term| shift_inner(rec_term, cutoff + 1, amount);
-        let rec_arb = |rec_term, cutoff_inc| shift_inner(rec_term, cutoff_inc, amount);
-
-        let term_inner: InnerTerm<T> =
-            match *term.0 {
-                Ann(annd_term, type_ann) => Ann(rec(annd_term), rec(type_ann)),
-                Type(r#type, type_attrs) =>
-                    Type(match r#type {
-                        Pi(capture_types, in_type, out_type) => self::Type::Pi(rec(capture_types), rec(in_type), rec_inc(out_type)),
-                        Sigma(fst_type, snd_type) => self::Type::Sigma(rec_inc(fst_type), rec_inc(snd_type)),
-                        _ => r#type
-                    }, type_attrs),
-                Function(body) => Function(rec_inc(body)),
-                Apply(abs, arg) => Apply(rec(abs), rec(arg)),
-                Pair(fst, snd) => {
-                    let shifted_fst = rec(fst);
-                    let shifted_snd = rec(snd);
-                    Pair(shifted_fst, shifted_snd)
-                },
-                Split(discrim, body) => Split(rec(discrim), rec_arb(body, 2)),
-                Constant(label) => Constant(label),
-                Case(discrim, branches) => Case(rec(discrim), branches.into_iter().map(|b| rec_inc(b)).collect()),
-                Var(index) => if index < cutoff { Var(index) } else { Var(index + amount) },
-                Multiplicity(m) => Multiplicity(m),
-                Stage(s) => Stage(s),
-                CapturesList(list) => {
-                    use self::CapturesList::*;
-                    CapturesList(match list {
-                        Cons(data, next) => Cons(rec(data), rec(next)),
-                        Nil => Nil
-                    })
-                }
-            };
-        (Box::new(term_inner), term.1)
-    }
-    shift_inner(term, 0, amount) // shifts all the free variables in `term` by `amount`
-}
-
-pub fn substitute<T: Clone>(subst_term: Term<T>, with_term: Term<T>, target_index: usize) -> Term<T> {
-    use self::Type::*;
+pub fn shift<T>(term: Term<T>, bounds: HashSet<usize>, amount: isize) -> Term<T> {
     use InnerTerm::*;
-    use self::CapturesList::*;
 
-    (Box::new(match *subst_term.0 {
-        Ann(annd_term, type_ann) => Ann(substitute(annd_term, with_term.clone(), target_index), substitute(type_ann, with_term, target_index)),
-        Type(r#type, type_attrs) =>
-            Type(match r#type {
-                Pi(capture_types, in_type, out_type) =>
-                    self::Type::Pi(
-                        substitute(capture_types, with_term.clone(), target_index),
-                        substitute(in_type, with_term.clone(), target_index),
-                        substitute(out_type, with_term, target_index + 1)),
-                Sigma(fst_type, snd_type) => self::Type::Sigma(substitute(fst_type, with_term.clone(), target_index + 1), substitute(snd_type, with_term, target_index + 1)),
-                _ => r#type
-            }, type_attrs),
-        Function(body) => Function(substitute(body, with_term, target_index + 1)),
-        Apply(abs, arg) => Apply(substitute(abs, with_term.clone(), target_index), substitute(arg, with_term, target_index)),
-        Pair(fst, snd) => {
-            let substd_fst = substitute(fst, with_term.clone(), target_index);
-            let substd_snd = substitute(snd, with_term, target_index);
-            Pair(substd_fst, substd_snd)
-        },
-        Split(discrim, body) => Split(substitute(discrim, with_term.clone(), target_index), substitute(body, with_term, target_index + 2)),
-        Constant(label) => Constant(label),
-        Case(discrim, branches) => Case(substitute(discrim, with_term.clone(), target_index), branches.into_iter().map(|b| substitute(b, with_term.clone(), target_index + 1)).collect()),
-        Var(index) => if index == target_index { *with_term.0 } else { Var(index) },
-        Multiplicity(m) => Multiplicity(m),
-        Stage(s) => Stage(s),
-        CapturesList(list) =>
-            CapturesList(match list {
-                Cons(data, next) => Cons(substitute(data, with_term.clone(), target_index), substitute(next, with_term, target_index)),
-                Nil => Nil
-            })
-    }), subst_term.1)
-}
-
-pub fn normalize<T: Clone>(term: Term<T>) -> Term<T> {
-    fn normalize_inner<T: Clone>(term: Term<T>) -> Term<T> {
-        use self::Type::*;
-        use InnerTerm::*;
-        use self::CapturesList::*;
-
-        fn rec<T: Clone>(term: Term<T>) -> Result<Term<T>, ()> { normalize_inner(term) }
-
+    let term_inner: InnerTerm<T> =
         match *term.0 {
-            Ann(annd_term, type_ann) => rec(annd_term),
-            Type(r#type, type_attrs) =>
-                Ok((Box::new(Type(match r#type {
-                    Pi(capture_types, in_type, out_type) => {
-                        let normal_capture_types = rec(capture_types.clone()).unwrap_or(capture_types);
-                        let normal_in_type = rec(in_type.clone()).unwrap_or(in_type);
-                        let normal_out_type = rec(out_type.clone()).unwrap_or(out_type);
-                        Pi(normal_capture_types, normal_in_type, normal_out_type)
-                    },
-                    Sigma(fst_type, snd_type) => {
-                        let normal_fst_type = rec(fst_type.clone()).unwrap_or(fst_type);
-                        let normal_snd_type = rec(snd_type.clone()).unwrap_or(snd_type);
-                        Sigma(normal_fst_type, normal_snd_type)
-                    },
-                    _ => r#type
-                }, type_attrs)), term.1)),
-            Apply(abs, arg) => {
-                let normal_abs = rec(abs.clone()).unwrap_or(abs);
-                let normal_arg = rec(arg.clone()).unwrap_or(arg);
-                match *normal_abs.0 {
-                    Function(body) => {
-                        let substd_arg_body = substitute(body, shift(normal_arg, 1), 0);
-                        Ok(rec(substd_arg_body.clone()).unwrap_or((Box::new(Function(substd_arg_body)), term.1)))
-                    },
-                    _ => Err(())
-                }
-            },
-            Pair(fst, snd) => {
-                let normal_fst = rec(fst.clone()).unwrap_or(fst);
-                let normal_snd = rec(snd.clone()).unwrap_or(snd);
-                Ok((Box::new(Pair(normal_fst, normal_snd)), term.1))
-            }
-            Split(discrim, body) => {
-                let normal_discrim = rec(discrim.clone()).unwrap_or(discrim);
-                match *(normal_discrim.clone()).0 {
-                    Pair(fst, snd) => {
-                        let substd_fst_body = substitute(body.clone(), shift(fst, 1), 0);
-                        let substd_snd_body = substitute(substd_fst_body, shift(snd, 2), 1);
-                        Ok(rec(substd_snd_body).unwrap_or((Box::new(Split(normal_discrim, body)), term.1)))
-                    },
-                    _ => Err(())
-                }
-            },
-            Case(discrim, branches) => {
-                let normal_discrim = rec(discrim.clone()).unwrap_or(discrim);
-                match *normal_discrim.0 {
-                    Constant(label) =>
-                        if label < branches.len() {
-                            let normal_branch = rec(substitute(branches[label].clone(), normal_discrim.clone(), 0))
-                            Ok(normal_branch.unwrap_or((Box::new(Case(normal_discrim, branches)), term.1))))
-                        } else {
-                            Err(())
-                        },
-                    _ => Err(())
-                }
-            },
-            Var(_) => Err(()),
-            CapturesList(list) =>
-                Ok((Box::new(CapturesList(match list {
-                    Cons(data, next) => {
-                        let normal_data = rec(data.clone()).unwrap_or(data);
-                        let normal_next = rec(next.clone()).unwrap_or(next);
-                        Cons(normal_data, normal_next)
-                    }
-                    Nil => Nil
-                })), term.1)),
-            _ => Ok(term)
-        }
-    }
-
-    normalize_inner(term.clone()).unwrap_or(term)
-}
-
-fn infer<T>(term: &'a Term<T>, context: Vec<Term<T>>) -> Result<Term, Vec<CheckError<'a, T>>> {
-    match term.0 {
-        Ann(_, type_ann) => Ok(type_ann.clone())
-        Var(index) => if index < context.len() { Ok(context[index]) } else { Err(Vec::new(CheckError::new(term, NonexistentVar))) }
-        _ => Err(vec![CheckError::new(term, CantInferType)])
-    }
-}
-
-pub fn check<'a, T>(term: &'a Term<T>, context: Vec<Term<T>>, exp_type: Term<T>) -> Result<(), Vec<CheckError<'a, T>>> {
-    match term.0 {
-        Ann(ref annd_term, ref type_ann) =>
-            match check(annd_term, context, normalize(type_ann)) {
-                Ok(_) =>
-                    if normalize(type_ann) == exp_type {
-                        Ok(())
-                    } else {
-                        Err(vec![CheckError::new(annd_term, MismatchedTypes { exp_type, giv_type: normalize(type_ann) })])
-                    },
-                Err(errs) => Err(errs)
-            },
-        Type(r#type, type_attrs) =>
-            match r#type {
-                Pi(capture_types, in_type, out_type) => {
-                    let normal_in_type = normalize(in_type);
-                    let normal_out_type = normalize(out_type);
-
-                    match (check(capture_types, context, CapturesListType), infer(normal_in_type, context)) {
-                        (Ok(_), Ok(in_type_type)) => {
-                            let new_context = context.clone();
-                            new_context.insert(0, normal_in_type)
-
-                            match infer(normal_out_type, new_context) { // universe levels are bogus right now, fix later
-                                Ok(out_type_type) =>
-                                    match (in_type_type.0, out_type_type.0) {
-                                        (Universe(in_type_type_level), Universe(out_type_type_level)) =>
-                                            match exp_type {
-                                                Universe(max_level) =>
-                                                other => Err(ve![CheckError::new(MismatchedTypes { exp_type: Universe(42), giv_type: other })])
-                                            }
-                                        (Universe(_), err_out_type_type) =>
-                                            Err(vec![CheckError::new(MismatchedTypes { exp_type: Universe(0), giv_type: err_out_type_type })]),
-                                        (err_in_type_type, Universe(_)) =>
-                                            Err(vec![CheckError::new(MismatchedTypes { exp_type: Universe(0), giv_type: err_in_type_type })]),
-                                        (err_in_type_type, err_out_type_type) =>
-                                            Err(vec![
-                                                CheckError::new(MismatchedTypes { exp_type: Universe(0), giv_type: err_in_type_type }),
-                                                CheckError::new(MismatchedTypes { exp_type: Universe(0), giv_type: err_out_type_type })])
-                                    }
-                                Err(errs) => Err(errs)
-                            }
-                        }
-                        (Err(errs), Ok(_)) => Err(errs),
-                        (Ok(_), Err(errs)) => Err(errs),
-                        (Err(errs1), Err(errs2)) => errs1.append(&mut errs2)
-                    }
+            Ann(annd_term, type_ann) => Ann(shift(annd_term, bounds.clone(), amount), shift(type_ann, bounds, amount)),
+            Var(index) =>
+                if !bounds.contains(&index) {
+                    Var(((index as isize) + amount) as usize)
+                } else {
+                    Var(index)
                 },
+            Rec(inner_term) => Rec(shift(inner_term, bounds.into_iter().map(|i| i + 1).collect(), amount)),
+            UniverseIntro(level) => UniverseIntro(level),
+            FunctionTypeIntro(caps_list, in_type, out_type) => {
+                let out_type_bounds = {
+                    let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 1).collect();
+                    tmp.insert(0);
+                    tmp
+                };
+                FunctionTypeIntro(
+                    shift(caps_list, bounds.clone(), amount),
+                    shift(in_type, bounds, amount),
+                    shift(out_type, out_type_bounds, amount))
+            },
+            FunctionIntro(body) => {
+                let body_bounds = {
+                    let mut tmp: HashSet<usize> = bounds.into_iter().map(|i| i + 1).collect();
+                    tmp.insert(0);
+                    tmp
+                };
+                FunctionIntro(shift(body, body_bounds, amount))
+            },
+            FunctionElim(abs, arg) => FunctionElim(shift(abs, bounds.clone(), amount), shift(arg, bounds, amount)),
+            PairTypeIntro(fst_type, snd_type) => {
+                let fst_type_bounds = {
+                    let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 1).collect();
+                    tmp.insert(0);
+                    tmp
+                };
+                let snd_type_bounds = fst_type_bounds.clone();
+                PairTypeIntro(shift(fst_type, fst_type_bounds, amount), shift(snd_type, snd_type_bounds, amount))
+            },
+            PairIntro(fst, snd) => PairIntro(shift(fst, bounds.clone(), amount), shift(snd, bounds, amount)),
+            PairElim(discrim, body) => {
+                let body_bounds = {
+                    let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 2).collect();
+                    tmp.insert(0);
+                    tmp.insert(1);
+                    tmp
+                };
+                PairElim(shift(discrim, bounds, amount), shift(body, body_bounds, amount))
+            },
+            EnumTypeIntro(num_mems) => EnumTypeIntro(num_mems),
+            EnumIntro(label) => EnumIntro(label),
+            EnumElim(discrim, branches) => {
+                let branches_bounds = {
+                    let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 1).collect();
+                    tmp.insert(0);
+                    tmp
+                };
+                EnumElim(shift(discrim, bounds, amount), branches.into_iter().map(|b| shift(b, branches_bounds.clone(), amount)).collect())
+            },
+            CapturesListTypeIntro => CapturesListTypeIntro,
+            CapturesListIntro(list) => CapturesListIntro(list),
+            UniqueTypeIntro(inner_type) => UniqueTypeIntro(shift(inner_type, bounds, amount)),
+            UniqueIntro(inner_term) => UniqueIntro(shift(inner_term, bounds, amount)),
+            UniqueElim(unique_term) => UniqueElim(shift(unique_term, bounds, amount)),
+            FoldTypeIntro(inner_type) => FoldTypeIntro(shift(inner_type, bounds, amount)),
+            FoldIntro(inner_term) => FoldIntro(shift(inner_term, bounds, amount)),
+            FoldElim(inner_term) => FoldElim(shift(inner_term, bounds, amount))
+        };
+    (Box::new(term_inner), term.1)
+}
+
+pub fn substitute<T: Clone>(subst_term: Term<T>, context: Context<T>) -> Term<T> {
+    use InnerTerm::*;
+
+    let term_inner: InnerTerm<T> =
+        match *subst_term.0 {
+            Ann(annd_term, type_ann) => Ann(substitute(annd_term, context.clone()), substitute(type_ann, context)),
+            Var(index) =>
+                match find(context, index) {
+                    Some(val) => *val.0,
+                    None => Var(index)
+                }
+            Rec(inner_term) => Rec(substitute(inner_term, inc(context, 1))),
+            UniverseIntro(level) => UniverseIntro(level),
+            FunctionTypeIntro(caps_list, in_type, out_type) => {
+                let out_type_context = inc(context.clone(), 1);
+                FunctionTypeIntro(
+                    substitute(caps_list, context.clone()),
+                    substitute(in_type, context),
+                    substitute(out_type, out_type_context))
+            },
+            FunctionIntro(body) => {
+                let body_context = inc(context, 1);
+                FunctionIntro(substitute(body, body_context))
+            },
+            FunctionElim(abs, arg) => FunctionElim(substitute(abs, context.clone()), substitute(arg, context)),
+            PairTypeIntro(fst_type, snd_type) => {
+                let fst_type_context = inc(context.clone(), 1);
+                let snd_type_context = fst_type_context.clone();
+                PairTypeIntro(substitute(fst_type, fst_type_context), substitute(snd_type, snd_type_context))
+            },
+            PairIntro(fst, snd) => PairIntro(substitute(fst, context.clone()), substitute(snd, context)),
+            PairElim(discrim, body) => {
+                let body_context = inc(context.clone(), 2);
+                PairElim(substitute(discrim, context), substitute(body, body_context))
+            },
+            EnumTypeIntro(num_mems) => EnumTypeIntro(num_mems),
+            EnumIntro(label) => EnumIntro(label),
+            EnumElim(discrim, branches) => {
+                let branches_context = inc(context.clone(), 1);
+                EnumElim(substitute(discrim, context), branches.into_iter().map(|b| substitute(b, branches_context.clone())).collect())
+            },
+            CapturesListTypeIntro => CapturesListTypeIntro,
+            CapturesListIntro(list) => CapturesListIntro(list),
+            UniqueTypeIntro(inner_type) => UniqueTypeIntro(substitute(inner_type, context)),
+            UniqueIntro(inner_term) => UniqueIntro(substitute(inner_term, context)),
+            UniqueElim(unique_term) => UniqueElim(substitute(unique_term, context)),
+            FoldTypeIntro(inner_type) => FoldTypeIntro(substitute(inner_type, context)),
+            FoldIntro(inner_term) => FoldIntro(substitute(inner_term, context)),
+            FoldElim(inner_term) => FoldElim(substitute(inner_term, context))
+        };
+    (Box::new(term_inner), subst_term.1)
+}
+
+pub fn normalize<T: Clone + Debug>(term: Term<T>, context: Context<T>) -> Term<T> {
+    use InnerTerm::*;
+    use CapturesList::*;
+
+    match *term.0 {
+        Ann(annd_term, type_ann) => normalize(annd_term, context),
+        Var(index) => find(context, index).unwrap_or(term),
+        Rec(inner_term) => {
+            println!("recd");
+            let new_context = insert(inc(context, 1), 0, (Box::new(Rec(inner_term.clone())), term.1));
+            normalize(inner_term, new_context)
+        }
+        UniverseIntro(level) => term,
+        FunctionTypeIntro(caps_list, in_type, out_type) => {
+            let out_type_context = inc(context.clone(), 1);
+            (Box::new(FunctionTypeIntro(normalize(caps_list, context.clone()), normalize(in_type, context), normalize(out_type, out_type_context))), term.1)
+        },
+        FunctionIntro(body) => (Box::new(FunctionIntro(substitute(body, inc(context, 1)))), term.1),
+        FunctionElim(abs, arg) => {
+            let normal_abs = normalize(abs, context.clone());
+            let normal_arg = normalize(arg, context.clone());
+
+            match *normal_abs.0 {
+                FunctionIntro(body) => {
+                    let body_context = insert(inc(context.clone(), 1), 0, shift(normal_arg, HashSet::new(), 1));
+                    shift(normalize(body, body_context), HashSet::new(), -1)
+                },
+                _ => {
+                    println!("not func {:?}", normal_abs);
+                    (Box::new(FunctionElim(normal_abs, normal_arg)), term.1)
+                }
             }
+        },
+        PairTypeIntro(fst_type, snd_type) => {
+            let new_context = inc(context, 1);
+            (Box::new(PairTypeIntro(normalize(fst_type, new_context.clone()), normalize(snd_type, new_context))), term.1)
+        },
+        PairIntro(fst, snd) => (Box::new(PairIntro(normalize(fst, context.clone()), normalize(snd, context))), term.1),
+        PairElim(discrim, body) => {
+            let normal_discrim = normalize(discrim, context.clone());
+            match *normal_discrim.0 {
+                PairIntro(fst, snd) => {
+                    let normal_fst = normalize(fst, context.clone());
+                    let normal_snd = normalize(snd, context.clone());
+                    let new_context = insert(insert(inc(context.clone(), 2), 0, normal_fst), 1, normal_snd);
+                    shift(normalize(body, new_context), HashSet::new(), -2)
+                },
+                _ => (Box::new(PairElim(normal_discrim, normalize(body, inc(context, 2)))), term.1)
+            }
+        },
+        EnumTypeIntro(num_mems) => term,
+        EnumIntro(label) => term,
+        EnumElim(discrim, branches) => {
+            let normal_discrim = normalize(discrim, context.clone());
+            let fail_term = (Box::new(EnumElim(normal_discrim.clone(), branches.clone().into_iter().map(|b| normalize(b, inc(context.clone(), 1))).collect())), term.1);
+            match *normal_discrim.0 {
+                EnumIntro(label) =>
+                    if label < branches.len() {
+                        shift(normalize(branches[label].clone(), insert(inc(context, 1), 0, normal_discrim)), HashSet::new(), -1)
+                    } else {
+                        fail_term
+                    }
+                _ => fail_term
+            }
+        },
+        CapturesListTypeIntro => term,
+        CapturesListIntro(list) =>
+            (Box::new(CapturesListIntro(match list {
+                Cons(data, next) => Cons(normalize(data, context.clone()), normalize(next, context)),
+                Nil => Nil
+            })), term.1),
+        UniqueTypeIntro(inner_type) => (Box::new(UniqueTypeIntro(normalize(inner_type, context))), term.1),
+        UniqueIntro(inner_term) => (Box::new(UniqueIntro(normalize(inner_term, context))), term.1),
+        UniqueElim(unique_term) => {
+            let normal_unique_term = normalize(unique_term, context);
+            match *normal_unique_term.0 {
+                UniqueIntro(inner_term) => inner_term,
+                _ => (Box::new(UniqueElim(normal_unique_term)), term.1)
+            }
+        },
+        FoldTypeIntro(inner_type) => (Box::new(FoldTypeIntro(substitute(inner_type, context))), term.1),
+        FoldIntro(inner_term) => (Box::new(FoldIntro(normalize(inner_term, context))), term.1),
+        FoldElim(folded_term) => {
+            let normal_folded_term = normalize(folded_term, context);
+            match *normal_folded_term.0 {
+                FoldIntro(inner_term) => inner_term,
+                _ => (Box::new(FoldElim(normal_folded_term)), term.1)
+            }
+        }
     }
 }

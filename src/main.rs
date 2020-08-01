@@ -9,14 +9,13 @@ use InnerTerm::*;
 fn w(term: InnerTerm<()>) -> Term<()> { (Box::new(term), ()) }
 
 fn main() {
-    let test_term: Term<()> = w(
-        Apply(
-            w(Function(
+    let test_term: Term<()> =
+        w(FunctionElim(
+            w(FunctionIntro(
                 w(Var(0))
             )),
-            w(Constant(42))
-        )
-    );
+            w(Var(0))
+        ));
 
-    println!("{:?}", normalize(test_term));
+    println!("{:?}", normalize(test_term, Vec::new()));
 }
