@@ -5,6 +5,7 @@ extern crate pest_derive;
 mod core;
 use crate::core::language::*;
 use InnerTerm::*;
+use self::core::context::*;
 
 fn w(term: InnerTerm<()>) -> Term<()> { (Box::new(term), ()) }
 
@@ -17,5 +18,5 @@ fn main() {
             w(Var(0))
         ));
 
-    println!("{:?}", normalize(test_term, Vec::new()));
+    println!("{:?}", normalize(test_term, Context::new()));
 }

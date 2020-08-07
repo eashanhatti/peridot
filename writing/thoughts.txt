@@ -298,3 +298,30 @@ map _ _ _ _ _ [] = []
 
 -- this would fail with an error like 'anonymous function returned by map of stage 0..1 calls map of stage 1, 0..1 notin 1'
 ```
+
+checking pairs:
+    fst:
+        inc context by 2
+        insert snd type as 1
+        check fst
+    snd:
+        inc context by 2
+        insert fst type as 0
+        check snd
+checking case branch:
+    if normal discrim is a var, normalize context with branch val as var
+
+
+"""
+user Today at 7:42 PM
+iirc the distinction is that you can "make something linear" and "forget that something is unique", i.e. you can write a -> Linear a and Unique a -> a, but not vice versa
+and while a function Linear a -> b must use its argument once, a function Unique a -> b gets the guarnatee that its unique but can use it multiple times
+so ownership in rust is more like affine values that happen to be unique because they were cretaed at a unique point in time (e.g. by Box::new)
+
+brendanzab Today at 7:45 PM
+ahh, I'm not sure how one could forget the uniqueness of something in Rust if it had it :confounded:
+trying to apply this stuff to Rust always makes my brain hurt
+need to read Oxide more closely at some point so I actually understand it better
+"""
+
+"high performance at high abstraction"

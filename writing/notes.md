@@ -4,8 +4,12 @@
 - think this: you could implement a garbage collector in it
 - allows to deal with pointers
 - referential transparency
-- control over monomorphization
-- control over boxing, since pointers are explicit
+- control over inlining
+- control over boxing
+- zero cost abstractions
+
+adding a new feature to the type system is fine as long as it does not depend on any other features
+whenever a feature subsumes two or more features, that feature should be added and the multiple removed
 
 ## 1 uniqueness types
 
@@ -102,7 +106,7 @@ bad_main' : (Ptr Int) 0..1
 bad_main' = alloc Int -- also does not typecheck, bad_main' is declared to be able to exist at stage 0 or 1, while alloc can exist only at stage 0
 ```
 
-here is an example of a `map` function which is gauranteed by the type system to be monomorphized, and yeilds a type error if such is not possible:
+here is an example of a `map` function which is gauranteed by the type system to be monomorphized, and yields a type error if such is not possible:
 ```
 map : (A B : Type 1) -> (A -> B) -> List A -> List B
 map _ _ f list =
