@@ -11,7 +11,8 @@ pub enum InnerError<T> {
     NonexistentVar(usize),
     ExpectedUniverse { giv_type: Term<T> },
     ExpectedFunctionType { giv_type: Term<T> },
-    ExpectedPairType { giv_type: Term<T> }
+    ExpectedPairType { giv_type: Term<T> },
+    ExpectedEnumType { giv_type: Term<T> }
 }
 
 pub struct Error<'a, T> {
@@ -122,8 +123,8 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 		},
 		FunctionTypeIntro(ref in_type, ref out_type) => {
 			let mut errors = Vec::new();
-			let normal_in_type = normalize(in_type.clone(), context.clone());
 
+			let normal_in_type = normalize(in_type.clone(), context.clone());
 			let in_type_type = infer(&in_type, context.clone());
 			let in_type_check = check(&in_type, in_type_type.clone(), context.clone());
 
@@ -181,6 +182,7 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 		},
 		PairTypeIntro(ref fst_type, ref snd_type) => {
 			let mut errors = Vec::new();
+
 			let normal_fst_type = normalize(fst_type.clone(), context.clone().inc_and_shift(2));
 			let normal_snd_type = normalize(snd_type.clone(), context.clone().inc_and_shift(2));
 
@@ -232,12 +234,35 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 				_ => Err(vec![Error::new(&term, ExpectedPairType { giv_type: exp_type })])
 			}
 		},
-		// PairElim(ref discrim, ref body) => {
-		// 	let discrim_type = infer(&discrim, context.clone());
-		// 	match discrim_type {
-		// 		PairTypeIntro(fst_type, snd_type)
-		// 	}
-		// }
+		PairElim(ref discrim, ref body) => {
+			let mut errors = Vec::new();
+
+			let discrim_type = infer(&discrim, context.clone());
+			let discrim_check = check(&discrim, discrim_type.clone(), context.clone());
+			push_check(&mut errors, discrim_check);
+
+			match *(discrim_type.clone()).0 {
+				PairTypeIntro(fst_type, snd_type) => {
+					let body_context = context.inc_and_shift(2).insert(0, fst_type).insert(1, snd_type);
+					let body_type = infer(&body, body_context.clone());
+					let body_check = check(&body, body_type, body_context);
+					push_check(&mut errors, body_check);
+				}
+				_ => errors.push(Error::new(&discrim, ExpectedPairType { giv_type: discrim_type }))
+			}
+
+			wrap_checks(errors)
+		},
+		EnumTypeIntro(num_mems) =>
+			match *(exp_type.clone()).0 {
+				UniverseIntro(_) => Ok(()),
+				_ => Err(vec![Error::new(&term, ExpectedUniverse { giv_type: exp_type.clone() })])
+			},
+		EnumIntro(label) =>
+			match *(exp_type.clone()).0 {
+				EnumTypeIntro(num_mems) => if label < num_mems { Ok(()) } else { unimplemented!() }
+				_ => Err(vec![Error::new(&term, ExpectedEnumType { giv_type: exp_type.clone() })])
+			},
 		_ => unimplemented!()
 	}
 }
