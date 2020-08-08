@@ -53,15 +53,77 @@ fn push_check<'a, T>(errors: &mut Vec<Error<'a, T>>, this_check: CheckResult<'a,
 }
 
 // returned type should always be in normal form
-fn infer<'a, T: Clone>(term: &'a Term<T>, context: Context<T>) -> Term<T> { // core lang is explicitly typed, so inference should always succede
+// core lang is explicitly typed, so inference should always succede
+fn infer<'a, T: Clone>(term: &'a Term<T>, context: Context<T>) -> Term<T> {
 	match *term.0 {
 		Ann(_, ref type_ann) => normalize(type_ann.clone(), context),
-		_ => panic!("infer must be called on `Ann`s")
+		Var(index) =>
+			if let Some(r#type) = context.find(index) {
+				r#type
+			} else {
+				panic!("can't infer type")
+			}
+		_ => panic!("can't infer type")
 	}
 }
 
 fn is_terms_eq<T>(type1: &Term<T>, type2: &Term<T>) -> bool { // checks if two terms are equal, disregarding elab info
-	unimplemented!()
+	match (&(*type1.0), &(*type2.0)) {
+		(&Ann(ref annd_term1, ref type_ann1), &Ann(ref annd_term2, ref type_ann2)) =>
+			is_terms_eq(&annd_term1, &annd_term2) && is_terms_eq(&type_ann1, &type_ann2),
+		(&UniverseIntro(level1), &UniverseIntro(level2)) =>
+			level1 == level2,
+		(&Var(index1), &Var(index2)) =>
+			index1 == index2,
+		(&Rec(ref inner_term1), &Rec(ref inner_term2)) =>
+			is_terms_eq(&inner_term1, &inner_term2),
+		(&FunctionTypeIntro(ref in_type1, ref out_type1), &FunctionTypeIntro(ref in_type2, ref out_type2)) =>
+			is_terms_eq(&in_type1, &in_type2) && is_terms_eq(&out_type1, out_type2),
+		(&FunctionIntro(ref body1), &FunctionIntro(ref body2)) =>
+			is_terms_eq(&body1, &body2),
+		(&FunctionElim(ref abs1, ref arg1), &FunctionElim(ref abs2, ref arg2)) =>
+			is_terms_eq(&abs1, &abs2) && is_terms_eq(&arg1, &arg2),
+		(&PairTypeIntro(ref fst_type1, ref snd_type1), &PairTypeIntro(ref fst_type2, ref snd_type2)) =>
+			is_terms_eq(&fst_type1, &snd_type1) && is_terms_eq(&fst_type2, &snd_type2),
+		(&PairIntro(ref fst1, ref snd1), &PairIntro(ref fst2, ref snd2)) =>
+			is_terms_eq(&fst1, &fst2) && is_terms_eq(&snd1, &snd2),
+		(&PairElim(ref discrim1, ref body1), &PairElim(ref discrim2, ref body2)) =>
+			is_terms_eq(&discrim1, &discrim2) && is_terms_eq(&body1, &body2),
+		(&EnumTypeIntro(num_mems1), &EnumTypeIntro(num_mems2)) =>
+			num_mems1 == num_mems2,
+		(&EnumIntro(label1), &EnumIntro(label2)) =>
+			label1 == label2,
+		(&EnumElim(ref discrim1, ref branches1), &EnumElim(ref discrim2, ref branches2)) => {
+			let discrims_eq = is_terms_eq(&discrim1, &discrim2);
+			let mut branches_eq = true;
+
+			if branches1.len() == branches2.len() {
+				for i in 0..branches1.len() {
+					if !is_terms_eq(&branches1[i], &branches2[i]) {
+						branches_eq = false;
+						break;
+					}
+				}
+			} else {
+				branches_eq = false;
+			}
+
+			discrims_eq && branches_eq
+		},
+		(&UniqueTypeIntro(ref inner_type1), &UniqueTypeIntro(ref inner_type2)) =>
+			is_terms_eq(&inner_type1, &inner_type2),
+		(&UniqueIntro(ref inner_term1), &UniqueIntro(ref inner_term2)) =>
+			is_terms_eq(&inner_term1, &inner_term2),
+		(&UniqueElim(ref inner_term1), &UniqueElim(ref inner_term2)) =>
+			is_terms_eq(&inner_term1, &inner_term2),
+		(&FoldTypeIntro(ref inner_type1), &FoldTypeIntro(ref inner_type2)) =>
+			is_terms_eq(&inner_type1, &inner_type2),
+		(&FoldIntro(ref inner_term1), &FoldIntro(ref inner_term2)) =>
+			is_terms_eq(&inner_term1, &inner_term2),
+		(&FoldElim(ref inner_term1), &FoldElim(ref inner_term2)) =>
+			is_terms_eq(&inner_term1, &inner_term2),
+		_ => false
+	}
 }
 
 fn wrap_checks<'a, T>(errors: Vec<Error<'a, T>>) -> CheckResult<'a, T> {
@@ -300,7 +362,7 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 		},
 		UniqueTypeIntro(ref inner_type) => unimplemented!(),
 		UniqueIntro(ref inner_term) => unimplemented!(),
-		UniqueElim(ref unique_term) => unimplemented!(),
+		UniqueElim(ref inner_term) => unimplemented!(),
 		FoldTypeIntro(ref inner_type) =>
 			match *(exp_type.clone()).0 {
 				UniverseIntro(_) => Ok(()),
