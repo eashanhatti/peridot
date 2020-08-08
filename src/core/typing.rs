@@ -12,7 +12,9 @@ pub enum InnerError<T> {
     ExpectedUniverse { giv_type: Term<T> },
     ExpectedFunctionType { giv_type: Term<T> },
     ExpectedPairType { giv_type: Term<T> },
-    ExpectedEnumType { giv_type: Term<T> }
+    ExpectedEnumType { giv_type: Term<T> },
+    ExpectedFoldType { giv_type: Term<T> },
+    NonexaustiveEnumElim
 }
 
 pub struct Error<'a, T> {
@@ -102,7 +104,7 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 					if type_ann_level == level + 1 {
 						Ok(())
 					} else {
-						Err(vec![Error::new(&term, MismatchedTypes { exp_type: (Box::new(UniverseIntro(level + 1)), Default::default()), giv_type: exp_type.clone()})])
+						Err(vec![Error::new(&term, MismatchedTypes { exp_type: wrap(UniverseIntro(level + 1)), giv_type: exp_type.clone()})])
 					}
 				_ => Err(vec![Error::new(&term, ExpectedUniverse { giv_type: exp_type })])
 			},
@@ -141,8 +143,8 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 							errors.push(Error::new(
 								&term,
 								MismatchedTypes {
-									exp_type: (Box::new(UniverseIntro(max_level)), Default::default()),
-									giv_type: (Box::new(UniverseIntro(max(in_level, out_level))), Default::default())
+									exp_type: wrap(UniverseIntro(max_level)),
+									giv_type: wrap(UniverseIntro(max(in_level, out_level)))
 								}));
 						}
 					} else {
@@ -202,8 +204,8 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 							errors.push(Error::new(
 								&term,
 								MismatchedTypes {
-									exp_type: (Box::new(UniverseIntro(max_level)), Default::default()),
-									giv_type: (Box::new(UniverseIntro(max(fst_level, snd_level))), Default::default())
+									exp_type: wrap(UniverseIntro(max_level)),
+									giv_type: wrap(UniverseIntro(max(fst_level, snd_level)))
 								}));
 						}
 					} else {
@@ -263,6 +265,59 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 				EnumTypeIntro(num_mems) => if label < num_mems { Ok(()) } else { unimplemented!() }
 				_ => Err(vec![Error::new(&term, ExpectedEnumType { giv_type: exp_type.clone() })])
 			},
-		_ => unimplemented!()
+		EnumElim(ref discrim, ref branches) => {
+			let mut errors = Vec::new();
+
+			let discrim_type = infer(&discrim, context.clone());
+			let discrim_check = check(&discrim, discrim_type.clone(), context.clone());
+			push_check(&mut errors, discrim_check);
+
+			match *(discrim_type.clone()).0 {
+				EnumTypeIntro(num_mems) => {
+					push_check( // exaustiveness check
+						&mut errors,
+						if branches.len() == num_mems {
+							Ok(())
+						} else {
+							Err(vec![Error::new(&term, NonexaustiveEnumElim)])
+						});
+
+					for i in 0..branches.len() { // branch : exp_type check
+						let branch_context =
+							match *discrim.0 { // updates context with the now known value of discrim if it is a var
+								Var(index) => context.clone().update(index, wrap(EnumIntro(i))),
+								_ => context.clone()
+							};
+
+						let branch_check = check(&branches[i], exp_type.clone(), branch_context);
+						push_check(&mut errors, branch_check)
+					}
+				},
+				_ => errors.push(Error::new(&discrim, ExpectedEnumType { giv_type: discrim_type }))
+			}
+
+			wrap_checks(errors)
+		},
+		UniqueTypeIntro(ref inner_type) => unimplemented!(),
+		UniqueIntro(ref inner_term) => unimplemented!(),
+		UniqueElim(ref unique_term) => unimplemented!(),
+		FoldTypeIntro(ref inner_type) =>
+			match *(exp_type.clone()).0 {
+				UniverseIntro(_) => Ok(()),
+				_ => Err(vec![Error::new(&term, ExpectedUniverse { giv_type: exp_type.clone() })])
+			},
+		FoldIntro(ref inner_term) =>
+			match *(exp_type.clone()).0 {
+				FoldTypeIntro(inner_type) => check(&inner_term, normalize(inner_type, context.clone()), context),
+				_ => Err(vec![Error::new(&term, ExpectedFoldType { giv_type: exp_type.clone() })])
+			},
+		FoldElim(ref folded_term) => {
+			let folded_term_type = infer(&folded_term, context);
+			if is_terms_eq(&folded_term_type, &exp_type) {
+				Ok(())
+			} else {
+				Err(vec![Error::new(&term, MismatchedTypes { exp_type: exp_type.clone(), giv_type: folded_term_type.clone() })])
+			}
+		}
 	}
 }

@@ -2,9 +2,10 @@
 
 use std::collections::HashSet;
 use std::fmt::Debug;
+use std::default::*;
 use super::context::*;
 
-pub fn wrap(term: InnerTerm<()>) -> Term<()> { (Box::new(term), ()) }
+pub fn wrap<T: Default>(term: InnerTerm<T>) -> Term<T> { (Box::new(term), Default::default()) }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum CapturesList<T> { // ex: `Int -> <(Int, Nil)> Int -> Int`, type of `+`
