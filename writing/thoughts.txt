@@ -325,3 +325,109 @@ need to read Oxide more closely at some point so I actually understand it better
 """
 
 "high performance at high abstraction"
+
+
+UniqueType
+NormalType
+
+1. terms of UniqueType and all other terms can be used once
+2. terms of NormalType are unrestricted
+
+first rule is so uniqueness still works with polymorphism,
+	if the rule "terms of NormalType and all other terms are unrestricted", this erroneous program
+	would be valid:
+
+dupe : (d : {u n}) -> (A : case d | u -> UniqueType | n -> NormalType) -> A -> Pair A A
+dupe _ _ _ x = pair x x
+
+dupe 'u Int 0 = pair 0 0
+
+that would duplicate the unique value 0
+because of that, when the kind is unknown, we must assume a usage of 1
+
+
+
+f : *Int -> Pair *Int *Int
+f x = pair x x
+
+let u : *Int = 0
+in f u
+
+// simply typed `if`
+if_helper : Bool -> A -> A -> A
+if_helper t b1 b2 =
+    match t
+    | true -> b1
+    | false -> b2
+
+// better `if`
+if : (t : Bool) -> (A : Type (if_helper t 1 0)) -> (B : Type (if_helper t 0 1)) -> A -> B -> if_helper t A B
+if =
+    lam t .
+        match t
+        | true -> lam A B x y . x
+        | false -> lam A B x y . y
+
+let u : *Int = 0
+in
+    if (0 == 0) u u
+
+could add a `Zero` usage, to complement `Unique` and `Shared`, might rename `Unique` to `One` and `Shared` to `Many`, just for the sake of consistancy (also to get in line with QTT)
+
+f : (t : Bool) -> (match t | true => Unused Int | false => Unique Int) -> Int
+f t =
+    match t
+    | true => 42
+    | false => lam x . x
+
+f true (2 : Unique Int) -- invalid
+f false (2 : Unique Int) -- valid
+
+now how can i make something like this work with `if`?
+
+let u : Unique Int
+in if (0 == 0) u u
+
+it appears to the typecheck that `u` is used twice, but we know that since only one branch will be used, only one of the `u`s will be used, how do we convey that to the typechecker?
+
+
+
+captureslist
+context for a function to run in
+`+` : Int -> [Int] Int -> Int
+
+if :
+    (t : Bool) ->
+    (Ctx : ContextType : Type 1) ->
+    (ctx : Cs) ->
+    (A : Type n) ->
+    (B : Type m) ->
+    ((Ctx Unit -> A) (match t | true => 1 | false => 0)) ->
+    ((Ctx Unit -> B) (match t | true => 0 | false => 1)) ->
+    match t | true -> A | false -> B
+if =
+    lam t.
+        match t
+        | true => lam _ _ x y . x unit cs
+        | false => lam _ _ x y . y unit cs
+
+let u : Int : Type 1 = 42
+in if (0 == 0) Int Int [Int : Type 1] [u] (lam cu _ . cu) (lam cu _ . cu)
+
+better version:
+
+if : [
+    (t : Bool),
+    (Ctx : ContextType 1),
+    (ctx : Ctx),
+    ((Unit::Ctx -> A) : Type (match t | true => 1 | false => 0)),
+    ((Unit::Ctx -> A) : Type (match t | true => 0 | false => 1)),
+    ] -> A
+if =
+    fn . t _ ctx b1 b2 ->
+        match t
+        | true -> b1 unit::ctx
+        | false -> b2 unit::ctx
+
+let u : Int : Type 1 = 42
+in if (0 == 0) [Int : Type 1] [u] (fn u . u) (fn u . u) -- no seperate syntax for `ContextType`s and contexts, should change this

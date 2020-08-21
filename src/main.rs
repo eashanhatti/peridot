@@ -3,11 +3,12 @@ extern crate pest;
 extern crate pest_derive;
 
 mod core;
-use crate::core::language::*;
+use self::core::language::*;
 use InnerTerm::*;
 use self::core::context::*;
+use self::core::eval::*;
 
-fn w(term: InnerTerm<()>) -> Term<()> { (Box::new(term), ()) }
+fn w(term: InnerTerm<()>) -> Term<()> { Term(Box::new(term), ()) }
 
 fn main() {
     let test_term: Term<()> =

@@ -2,6 +2,7 @@
 
 use super::language::*;
 use std::collections::HashSet;
+use super::eval::*;
 
 #[derive(Clone, Debug)]
 pub struct Context<T>(Vec<(usize, Term<T>)>);
@@ -71,5 +72,9 @@ impl<T: Clone> Context<T> {
 
     pub fn inc_and_shift(self, amount: usize) -> Self {
         self.inc(amount).shift(amount as isize)
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
