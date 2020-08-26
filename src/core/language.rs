@@ -3,9 +3,11 @@
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::default::*;
-use super::context::*;
-use super::eval::*;
-use super::typing::*;
+use super::{
+    context::*,
+    eval::*,
+    typing::*
+};
 
 pub fn wrap<T: Default>(term: InnerTerm<T>) -> Term<T> { Term(Box::new(term), Default::default()) }
 
@@ -61,7 +63,7 @@ impl<T: Clone + Default + PartialEq> Term<T> {
                 if errors.len() > 0 {
                     Err(errors)
                 } else {
-                    Ok(normalize(type_ann.clone(), context))
+                    Ok(type_ann.clone())
                 }
             }
             UniverseIntro(level, usage) => Ok(wrap(UniverseIntro(level + 1, Usage::Unique))),

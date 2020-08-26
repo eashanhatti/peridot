@@ -1,8 +1,10 @@
 #![allow(warnings)]
 
-use super::language::*;
+use super::{
+    language::*,
+    eval::*
+};
 use std::collections::HashSet;
-use super::eval::*;
 
 #[derive(Clone, Debug)]
 pub struct Context<T>(Vec<(usize, Term<T>)>);

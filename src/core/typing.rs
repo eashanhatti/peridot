@@ -1,12 +1,18 @@
 #![allow(warnings)]
 
-use super::language::*;
-use InnerTerm::*;
-use super::context::*;
-use super::eval::*;
-use std::default::*;
-use std::cmp::max;
-use std::collections::HashMap;
+use super::{
+	language::{
+		*,
+		InnerTerm::*
+	},
+	eval::*,
+	context::*
+};
+use std::{
+	default::*,
+	cmp::max,
+	collections::HashMap
+};
 
 // for the `Expected...` errors, imagine a universe `U` for each error, the error
 // can then be thought of as `MismatchedTypes { exp_type: U, giv_type: ... }
@@ -21,7 +27,8 @@ pub enum InnerError<T> {
     ExpectedUniqueType { giv_type: Term<T> },
     MismatchedUsage { var_index: usize, exp_usage: (usize, usize), giv_usage: (usize, usize) },
     UniqueTypeInSharedType,
-    NonexaustiveEnumElim
+    NonexaustiveEnumElim,
+    ExpectedSharedUniverse
 }
 
 pub struct Error<'a, T> {
@@ -115,7 +122,7 @@ pub fn is_terms_eq<T>(type1: &Term<T>, type2: &Term<T>) -> bool { // checks if t
 // can i make this more sophisticated?
 pub fn count_uses<T>(term: &Term<T>, target_index: usize) -> (usize, usize) {
 	fn collapse(intervals: Vec<(usize, usize)>) -> (usize, usize) {
-		let mut min = usize::MAX;
+		let mut min = std::usize::MAX;
 		let mut max = 0;
 		for (b1, b2) in intervals {
 			if b1 < min { min = b1 }
@@ -204,9 +211,57 @@ pub fn check_usage<'a, T: Clone + Default + PartialEq>(binder: &'a Term<T>, term
 	}
 }
 
+// r#type should be checked with `check` before being checked with this
 pub fn check_type<'a, T>(r#type: &'a Term<T>, context: Context<T>) -> CheckResult<'a, T, ()> {
-	// unimplemented!()
-	Ok(())
+	// panic!("`check_type` is not finished");
+
+	// fn check_type_aux<'a, T>(r#type: &'a Term<T>, context: Context<T>, exp_shared: bool) -> CheckResult<'a, T, ()> {
+	// 	let exp_usage =
+	// 		match r#type.usage(context.clone()) {
+	// 			Shared => true,
+	// 			Unique => false
+	// 		};
+
+	// 	match *r#type.0 {
+	// 		Ann(ref annd_term, ref type_ann) => {
+	// 			let mut errors = Vec::new();
+	// 			push_check(&mut errors, check_type_aux(type_ann, context.clone()));
+	// 			push_check(&mut errors, check_type_aux(annd_term, context, exp_usage));
+	// 			wrap_checks(errors)
+	// 		},
+	// 		// Rec(ref inner_term) => check_type_aux(inner_term, context, exp_usage),
+	// 		FunctionTypeIntro(ref in_type, ref out_type) => {
+	// 			let mut errors = Vec::new();
+	// 			push_check(&mut errors, check_type_aux(in_type, context.clone()));
+	// 			push_check(&mut errors, check_type_aux(out_type, context));
+	// 			wrap_checks(errors)
+	// 		},
+	// 		FunctionIntro(ref body) => check_type_aux(body, context, exp_usage),
+	// 		// FunctionElim(ref abs, ref arg) => {
+	// 		// 	let errors = Vec::new();
+	// 		// 	push_check(&mut errors, check_type_aux(abs,))
+	// 		// }
+	// 		PairTypeIntro(ref fst_type, ref snd_type) => {
+	// 			let mut errors = Vec::new();
+	// 			push_check(&mut errors, check_type_aux(fst_type, context.clone(), exp_usage));
+	// 			push_check(&mut errors, check_type_aux(snd_type, context, exp_usage));
+	// 			wrap_checks(errors)
+	// 		},
+	// 		FoldTypeIntro(ref inner_type) => check_type_aux(inner_type, context, exp_usage),
+	// 		_ =>
+	// 			match (r#type.usage(), exp_shared) {
+	// 				(Shared, true) => Ok(()),
+	// 				(Unique, true) => Err(vec![Error::new(r#type, ExpectedSharedUniverse)]),
+	// 				(Shared, false) => Ok(()),
+	// 				(Unique, false) => Ok(())
+	// 			}
+	// 	}
+	// }
+
+	// let mut errors = Vec::new();
+	// push_check(&mut errors, check_type_aux(r#type, context, should_expect_shared(r#type)));
+	// wrap_checks(errors)
+	Ok(()) // until i figure out how this is supposed to work
 }
 
 // exp_type should always be checked and in normal form

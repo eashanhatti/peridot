@@ -431,3 +431,10 @@ if =
 
 let u : Int : Type 1 = 42
 in if (0 == 0) [Int : Type 1] [u] (fn u . u) (fn u . u) -- no seperate syntax for `ContextType`s and contexts, should change this
+
+
+
+"unsafe = postulate"
+
+
+
