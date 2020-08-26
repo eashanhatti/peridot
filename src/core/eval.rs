@@ -1,7 +1,9 @@
 #![allow(warnings)]
 
-use super::context::*;
-use super::language::*;
+use super::{
+    context::*,
+    language::*
+};
 use InnerTerm::*;
 use std::collections::HashSet;
 

@@ -273,17 +273,16 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 			let mut errors = Vec::new();
 			
 			let type_ann_type = type_ann.r#type(context.clone())?;
-			let normal_type_ann = normalize(type_ann.clone(), context.clone());
 
 			push_check(&mut errors, check(type_ann, type_ann_type, context.clone()));
 			push_check(&mut errors, check_type(type_ann, context.clone()));
-			push_check(&mut errors, check(annd_term, normal_type_ann.clone(), context));
+			push_check(&mut errors, check(annd_term, type_ann.clone(), context));
 			push_check(
 				&mut errors,
-				if is_terms_eq(&normal_type_ann, &exp_type) {
+				if is_terms_eq(type_ann, &exp_type) {
 					Ok(())
 				} else {
-					Err(vec![Error::new(term, MismatchedTypes { exp_type: exp_type.clone(), giv_type: normal_type_ann.clone() })])
+					Err(vec![Error::new(term, MismatchedTypes { exp_type: exp_type.clone(), giv_type: type_ann.clone() })])
 				});
 
 			wrap_checks(errors)
@@ -325,7 +324,6 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 		FunctionTypeIntro(ref in_type, ref out_type) => {
 			let mut errors = Vec::new();
 
-			let normal_in_type = normalize(in_type.clone(), context.clone());
 			let in_type_type = in_type.r#type(context.clone())?;
 			let out_type_type = out_type.r#type(context.clone())?;
 			push_check(
@@ -333,9 +331,9 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 				check(in_type, in_type_type.clone(), context.clone()));
 			push_check(
 				&mut errors,
-				check(out_type, out_type_type.clone(), context.clone().inc_and_shift(1).insert(0, normal_in_type.clone())));
+				check(out_type, out_type_type.clone(), context.clone().inc_and_shift(1).insert(0, in_type.clone())));
 
-			push_check(&mut errors, check_usage(&term, normal_in_type, &out_type, 0, context.clone()));
+			push_check(&mut errors, check_usage(&term, in_type.clone(), &out_type, 0, context.clone()));
 
 			match (*(in_type_type.clone()).0, *(out_type_type.clone()).0) {
 				(UniverseIntro(in_level, in_usage), UniverseIntro(out_level, out_usage)) =>
@@ -391,21 +389,18 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 		PairTypeIntro(ref fst_type, ref snd_type) => {
 			let mut errors = Vec::new();
 
-			let normal_fst_type = normalize(fst_type.clone(), context.clone().inc_and_shift(2));
-			let normal_snd_type = normalize(snd_type.clone(), context.clone().inc_and_shift(2));
-
 			let fst_type_type = fst_type.r#type(context.clone())?;
 			push_check(
 				&mut errors,
-				check(fst_type, fst_type_type.clone(), context.clone().inc_and_shift(2).insert(1, normal_snd_type.clone())));
+				check(fst_type, fst_type_type.clone(), context.clone().inc_and_shift(2).insert(1, snd_type.clone())));
 
 			let snd_type_type = snd_type.r#type(context.clone())?;
 			push_check(
 				&mut errors,
-				check(snd_type, snd_type_type.clone(), context.clone().inc_and_shift(2).insert(0, normal_fst_type.clone())));
+				check(snd_type, snd_type_type.clone(), context.clone().inc_and_shift(2).insert(0, fst_type.clone())));
 
-			push_check(&mut errors, check_usage(&term, normal_fst_type, snd_type, 0, context.clone()));
-			push_check(&mut errors, check_usage(&term, normal_snd_type, fst_type, 1, context.clone()));
+			push_check(&mut errors, check_usage(&term, fst_type.clone(), snd_type, 0, context.clone()));
+			push_check(&mut errors, check_usage(&term, snd_type.clone(), fst_type, 1, context.clone()));
 
 			match (*(fst_type_type.clone()).0, *(snd_type_type.clone()).0) {
 				(UniverseIntro(fst_level, fst_usage), UniverseIntro(snd_level, snd_usage)) =>
@@ -514,7 +509,7 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 			},
 		FoldIntro(ref inner_term) =>
 			match *(exp_type.clone()).0 {
-				FoldTypeIntro(inner_type) => check(inner_term, normalize(inner_type, context.clone()), context),
+				FoldTypeIntro(inner_type) => check(inner_term, inner_type, context),
 				_ => Err(vec![Error::new(term, ExpectedFoldType { giv_type: exp_type.clone() })])
 			},
 		FoldElim(ref folded_term) => {
