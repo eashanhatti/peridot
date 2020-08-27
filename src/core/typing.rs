@@ -11,35 +11,44 @@ use super::{
 use std::{
 	default::*,
 	cmp::max,
-	collections::HashMap
+	collections::{
+		HashMap,
+		HashSet
+	},
+	fmt::Debug
 };
 
 // for the `Expected...` errors, imagine a universe `U` for each error, the error
 // can then be thought of as `MismatchedTypes { exp_type: U, giv_type: ... }
+#[derive(Debug)]
 pub enum InnerError<T> {
     MismatchedTypes { exp_type: Term<T>, giv_type: Term<T> },
     NonexistentVar(usize),
-    ExpectedUniverse { giv_type: Term<T> },
-    ExpectedFunctionType { giv_type: Term<T> },
-    ExpectedPairType { giv_type: Term<T> },
-    ExpectedEnumType { giv_type: Term<T> },
-    ExpectedFoldType { giv_type: Term<T> },
-    ExpectedUniqueType { giv_type: Term<T> },
+    ExpectedOfUniverse { giv_type: Term<T> },
+    ExpectedOfFunctionType { giv_type: Term<T> },
+    ExpectedOfPairType { giv_type: Term<T> },
+    ExpectedOfEnumType { giv_type: Term<T> },
+    ExpectedOfFoldType { giv_type: Term<T> },
+    ExpectedOfUniqueType { giv_type: Term<T> },
     MismatchedUsage { var_index: usize, exp_usage: (usize, usize), giv_usage: (usize, usize) },
     UniqueTypeInSharedType,
     NonexaustiveEnumElim,
-    ExpectedSharedUniverse
+    ExpectedOfSharedUniverse,
+    EnumTypeTooSmall { giv_num_mems: usize, needed_num_mems: usize }
 }
 
+#[derive(Debug)]
 pub struct Error<'a, T> {
     term: &'a Term<T>,
+    context: Context<T>,
     error: InnerError<T>
 }
 
 impl<'a, T> Error<'a, T> {
-    pub fn new(term: &'a Term<T>, error: InnerError<T>) -> Error<'a, T> {
+    pub fn new(term: &'a Term<T>, context: Context<T>, error: InnerError<T>) -> Error<'a, T> {
         Error {
             term,
+            context,
             error
         }
     }
@@ -154,9 +163,7 @@ pub fn count_uses<T>(term: &Term<T>, target_index: usize) -> (usize, usize) {
 	fn singleton(bound: usize) -> (usize, usize) { (bound, bound) }
 
 	match *term.0 {
-		Ann(ref annd_term, ref type_ann) =>
-			// should uses in `type_ann` be counted or not?
-			sum(vec![count_uses(annd_term, target_index), /*count_uses(type_ann, target_index)*/]),
+		Ann(ref annd_term, ref type_ann) => count_uses(annd_term, target_index),
 		UniverseIntro(level, usage) => singleton(0),
 		Var(index) => if index == target_index { singleton(1) } else { singleton(0) },
 		Rec(ref inner_term) => count_uses(inner_term, target_index + 1),
@@ -168,7 +175,7 @@ pub fn count_uses<T>(term: &Term<T>, target_index: usize) -> (usize, usize) {
 				]),
 				count_uses(out_type, target_index + 1)
 			]),
-		FunctionIntro(ref body) => singleton(0),
+		FunctionIntro(ref body) => count_uses(body, target_index),
 		FunctionElim(ref abs, ref arg) => unimplemented!(),
 		PairTypeIntro(ref fst_type, ref snd_type) =>
 			sum(vec![count_uses(fst_type, target_index + 1), count_uses(snd_type, target_index + 1)]),
@@ -197,7 +204,7 @@ pub fn wrap_checks<'a, T>(errors: Vec<Error<'a, T>>) -> CheckResult<'a, T, ()> {
 	}
 }
 
-pub fn check_usage<'a, T: Clone + Default + PartialEq>(binder: &'a Term<T>, term_type: Term<T>, body: &'a Term<T>, target_index: usize, context: Context<T>) -> CheckResult<'a, T, ()> {
+pub fn check_usage<'a, T: Clone + Default + PartialEq + Debug>(binder: &'a Term<T>, term_type: Term<T>, body: &'a Term<T>, target_index: usize, context: Context<T>) -> CheckResult<'a, T, ()> {
 	use InnerError::*;
 
 	match term_type.usage(context.clone()) {
@@ -206,7 +213,7 @@ pub fn check_usage<'a, T: Clone + Default + PartialEq>(binder: &'a Term<T>, term
 			if count_uses(body, 0) == (1, 1) {
 				Ok(())
 			} else {
-				Err(vec![Error::new(binder, MismatchedUsage { var_index: target_index, exp_usage: (1, 1), giv_usage: count_uses(body, 0) })])
+				Err(vec![Error::new(binder, context, MismatchedUsage { var_index: target_index, exp_usage: (1, 1), giv_usage: count_uses(body, 0) })])
 			}
 	}
 }
@@ -265,7 +272,7 @@ pub fn check_type<'a, T>(r#type: &'a Term<T>, context: Context<T>) -> CheckResul
 }
 
 // exp_type should always be checked and in normal form
-pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Term<T>, context: Context<T>) -> CheckResult<'a, T, ()> {
+pub fn check<'a, T: Clone + PartialEq + Default + Debug>(term: &'a Term<T>, exp_type: Term<T>, context: Context<T>) -> CheckResult<'a, T, ()> {
 	use InnerError::*;
 
 	match *term.0 {
@@ -273,16 +280,17 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 			let mut errors = Vec::new();
 			
 			let type_ann_type = type_ann.r#type(context.clone())?;
+			let normal_type_ann = normalize(type_ann.clone(), Context::new());
 
 			push_check(&mut errors, check(type_ann, type_ann_type, context.clone()));
 			push_check(&mut errors, check_type(type_ann, context.clone()));
-			push_check(&mut errors, check(annd_term, type_ann.clone(), context));
+			push_check(&mut errors, check(annd_term, normal_type_ann.clone(), context.clone()));
 			push_check(
 				&mut errors,
-				if is_terms_eq(type_ann, &exp_type) {
+				if is_terms_eq(&normal_type_ann, &exp_type) {
 					Ok(())
 				} else {
-					Err(vec![Error::new(term, MismatchedTypes { exp_type: exp_type.clone(), giv_type: type_ann.clone() })])
+					Err(vec![Error::new(term, context, MismatchedTypes { exp_type: exp_type.clone(), giv_type: normal_type_ann.clone() })])
 				});
 
 			wrap_checks(errors)
@@ -293,9 +301,9 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 					if type_ann_level == level + 1 {
 						Ok(())
 					} else {
-						Err(vec![Error::new(term, MismatchedTypes { exp_type: wrap(UniverseIntro(level + 1, type_ann_usage)), giv_type: exp_type.clone()})])
+						Err(vec![Error::new(term, context, MismatchedTypes { exp_type: wrap(UniverseIntro(level + 1, type_ann_usage)), giv_type: exp_type.clone()})])
 					}
-				_ => Err(vec![Error::new(term, ExpectedUniverse { giv_type: exp_type })])
+				_ => Err(vec![Error::new(term, context, ExpectedOfUniverse { giv_type: exp_type })])
 			},
 		Var(index) =>
 			match context.find(index) {
@@ -303,9 +311,9 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 					if is_terms_eq(&var_type, &exp_type) {
 						Ok(())
 					} else {
-						Err(vec![Error::new(term, MismatchedTypes { exp_type, giv_type: var_type })])
+						Err(vec![Error::new(term, context, MismatchedTypes { exp_type, giv_type: var_type })])
 					}
-				None => Err(vec![Error::new(term, NonexistentVar(index))])
+				None => Err(vec![Error::new(term, context, NonexistentVar(index))])
 			},
 		Rec(ref inner_term) => {
 			let mut errors = Vec::new();
@@ -324,14 +332,16 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 		FunctionTypeIntro(ref in_type, ref out_type) => {
 			let mut errors = Vec::new();
 
+			let out_type_context = context.clone().inc_and_shift(1).insert(0, in_type.clone());
+
 			let in_type_type = in_type.r#type(context.clone())?;
-			let out_type_type = out_type.r#type(context.clone())?;
+			let out_type_type = out_type.r#type(out_type_context.clone())?;
 			push_check(
 				&mut errors,
 				check(in_type, in_type_type.clone(), context.clone()));
 			push_check(
 				&mut errors,
-				check(out_type, out_type_type.clone(), context.clone().inc_and_shift(1).insert(0, in_type.clone())));
+				check(out_type, out_type_type.clone(), out_type_context));
 
 			push_check(&mut errors, check_usage(&term, in_type.clone(), &out_type, 0, context.clone()));
 
@@ -341,19 +351,20 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 						if max(in_level, out_level) != max_level {
 							errors.push(Error::new(
 								term,
+								context,
 								MismatchedTypes {
 									exp_type: wrap(UniverseIntro(max_level, fn_usage)),
 									giv_type: wrap(UniverseIntro(max(in_level, out_level), fn_usage))
 								}));
 						}
 					} else {
-						errors.push(Error::new(term, ExpectedUniverse { giv_type: exp_type }))
+						errors.push(Error::new(term, context, ExpectedOfUniverse { giv_type: exp_type }))
 					},
-				(_, UniverseIntro(_, _)) => errors.push(Error::new(in_type, ExpectedUniverse { giv_type: in_type_type })),
-				(UniverseIntro(_, _), _) => errors.push(Error::new(out_type, ExpectedUniverse { giv_type: out_type_type })),
+				(_, UniverseIntro(_, _)) => errors.push(Error::new(in_type, context, ExpectedOfUniverse { giv_type: in_type_type })),
+				(UniverseIntro(_, _), _) => errors.push(Error::new(out_type, context, ExpectedOfUniverse { giv_type: out_type_type })),
 				(_, _) =>  {
-					errors.push(Error::new(in_type, ExpectedUniverse { giv_type: in_type_type }));
-					errors.push(Error::new(out_type, ExpectedUniverse { giv_type: out_type_type }));
+					errors.push(Error::new(in_type, context.clone(), ExpectedOfUniverse { giv_type: in_type_type }));
+					errors.push(Error::new(out_type, context, ExpectedOfUniverse { giv_type: out_type_type }));
 				}
 			}
 
@@ -364,10 +375,22 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 
 			match *exp_type.0 {
 				FunctionTypeIntro(in_type, out_type) => {
-					push_check(&mut errors, check(body, out_type, Context::new().insert(0, in_type.clone())));
-					push_check(&mut errors, check_usage(&term, in_type, &body, 0, context.clone()));
+					let body_context = context.clone().inc_and_shift(1).insert(0, shift(in_type.clone(), HashSet::new(), 1));
+
+					for (index, _) in body_context.clone().into_iter() {
+						if index == 0 { continue; }
+						push_check(
+							&mut errors,
+							if count_uses(body, index) == (0, 0) {
+								Ok(())
+							} else {
+								Err(vec![Error::new(&body, body_context.clone(), MismatchedUsage { var_index: index, exp_usage: (0, 0), giv_usage: count_uses(body, index) })])
+							});
+					}
+					push_check(&mut errors, check(body, out_type, body_context));
+					push_check(&mut errors, check_usage(&term, in_type, &body, 0, context));
 				},
-				_ => errors.push(Error::new(term, ExpectedFunctionType { giv_type: exp_type }))
+				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: exp_type }))
 			}
 
 			wrap_checks(errors)
@@ -381,7 +404,7 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 
 			match *abs_type.0 {
 				FunctionTypeIntro(in_type, out_type) => push_check(&mut errors, check(arg, in_type, context.clone())),
-				_ => errors.push(Error::new(term, ExpectedFunctionType { giv_type: abs_type }))
+				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: abs_type }))
 			}
 
 			wrap_checks(errors)
@@ -408,19 +431,20 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 						if max(fst_level, snd_level) != max_level {
 							errors.push(Error::new(
 								term,
+								context,
 								MismatchedTypes {
 									exp_type: wrap(UniverseIntro(max_level, pair_usage)),
 									giv_type: wrap(UniverseIntro(max(fst_level, snd_level), pair_usage))
 								}));
 						}
 					} else {
-						errors.push(Error::new(term, ExpectedUniverse { giv_type: exp_type }))
+						errors.push(Error::new(term, context, ExpectedOfUniverse { giv_type: exp_type }))
 					},
-				(_, UniverseIntro(_, _)) => errors.push(Error::new(fst_type, ExpectedUniverse { giv_type: fst_type_type })),
-				(UniverseIntro(_, _), _) => errors.push(Error::new(snd_type, ExpectedUniverse { giv_type: snd_type_type })),
+				(_, UniverseIntro(_, _)) => errors.push(Error::new(fst_type, context, ExpectedOfUniverse { giv_type: fst_type_type })),
+				(UniverseIntro(_, _), _) => errors.push(Error::new(snd_type, context, ExpectedOfUniverse { giv_type: snd_type_type })),
 				(_, _) =>  {
-					errors.push(Error::new(fst_type, ExpectedUniverse { giv_type: fst_type_type }));
-					errors.push(Error::new(snd_type, ExpectedUniverse { giv_type: snd_type_type }));
+					errors.push(Error::new(fst_type, context.clone(), ExpectedOfUniverse { giv_type: fst_type_type }));
+					errors.push(Error::new(snd_type, context, ExpectedOfUniverse { giv_type: snd_type_type }));
 				}
 			}
 
@@ -438,7 +462,7 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 
 					wrap_checks(errors)
 				},
-				_ => Err(vec![Error::new(term, ExpectedPairType { giv_type: exp_type })])
+				_ => Err(vec![Error::new(term, context, ExpectedOfPairType { giv_type: exp_type })])
 			}
 		},
 		PairElim(ref discrim, ref body) => {
@@ -456,7 +480,7 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 					push_check(&mut errors, check_usage(&term, fst_type.clone(), body, 0, context.clone()));
 					push_check(&mut errors, check_usage(&term, snd_type.clone(), body, 1, context.clone()));
 				}
-				_ => errors.push(Error::new(discrim, ExpectedPairType { giv_type: discrim_type }))
+				_ => errors.push(Error::new(discrim, context, ExpectedOfPairType { giv_type: discrim_type }))
 			}
 
 			wrap_checks(errors)
@@ -464,12 +488,12 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 		EnumTypeIntro(num_mems) =>
 			match *(exp_type.clone()).0 {
 				UniverseIntro(_, _) => Ok(()),
-				_ => Err(vec![Error::new(term, ExpectedUniverse { giv_type: exp_type.clone() })])
+				_ => Err(vec![Error::new(term, context, ExpectedOfUniverse { giv_type: exp_type.clone() })])
 			},
 		EnumIntro(label) =>
 			match *(exp_type.clone()).0 {
-				EnumTypeIntro(num_mems) => if label < num_mems { Ok(()) } else { unimplemented!() }
-				_ => Err(vec![Error::new(term, ExpectedEnumType { giv_type: exp_type.clone() })])
+				EnumTypeIntro(num_mems) => if label < num_mems { Ok(()) } else { Err(vec![Error::new(term, context, EnumTypeTooSmall { giv_num_mems: num_mems, needed_num_mems: label + 1 })]) }
+				_ => Err(vec![Error::new(term, context, ExpectedOfEnumType { giv_type: exp_type.clone() })])
 			},
 		EnumElim(ref discrim, ref branches) => {
 			let mut errors = Vec::new();
@@ -484,7 +508,7 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 						if branches.len() == num_mems {
 							Ok(())
 						} else {
-							Err(vec![Error::new(term, NonexaustiveEnumElim)])
+							Err(vec![Error::new(term, context.clone(), NonexaustiveEnumElim)])
 						});
 
 					for i in 0..branches.len() { // branch : exp_type check
@@ -497,7 +521,7 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 						push_check(&mut errors, check(&branches[i], exp_type.clone(), branch_context));
 					}
 				},
-				_ => errors.push(Error::new(discrim, ExpectedEnumType { giv_type: discrim_type }))
+				_ => errors.push(Error::new(discrim, context, ExpectedOfEnumType { giv_type: discrim_type }))
 			}
 
 			wrap_checks(errors)
@@ -505,23 +529,23 @@ pub fn check<'a, T: Clone + PartialEq + Default>(term: &'a Term<T>, exp_type: Te
 		FoldTypeIntro(ref inner_type) =>
 			match *(exp_type.clone()).0 {
 				UniverseIntro(_, _) => Ok(()),
-				_ => Err(vec![Error::new(term, ExpectedUniverse { giv_type: exp_type.clone() })])
+				_ => Err(vec![Error::new(term, context, ExpectedOfUniverse { giv_type: exp_type.clone() })])
 			},
 		FoldIntro(ref inner_term) =>
 			match *(exp_type.clone()).0 {
 				FoldTypeIntro(inner_type) => check(inner_term, inner_type, context),
-				_ => Err(vec![Error::new(term, ExpectedFoldType { giv_type: exp_type.clone() })])
+				_ => Err(vec![Error::new(term, context, ExpectedOfFoldType { giv_type: exp_type.clone() })])
 			},
 		FoldElim(ref folded_term) => {
 			let mut errors = Vec::new();
-			let folded_term_type = folded_term.r#type(context)?;
+			let folded_term_type = folded_term.r#type(context.clone())?;
 
 			push_check(
 				&mut errors,
 				if is_terms_eq(&folded_term_type, &exp_type) {
 					Ok(())
 				} else {
-					Err(vec![Error::new(term, MismatchedTypes { exp_type: exp_type.clone(), giv_type: folded_term_type.clone() })])
+					Err(vec![Error::new(term, context, MismatchedTypes { exp_type: exp_type.clone(), giv_type: folded_term_type.clone() })])
 				});
 
 			wrap_checks(errors)

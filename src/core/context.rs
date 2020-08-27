@@ -14,8 +14,8 @@ impl<T: Clone> Context<T> {
         Context(Vec::new())
     }
 
-    pub fn find(self, index: usize) -> Option<Term<T>> {
-        let context = self.0;
+    pub fn find(&self, index: usize) -> Option<Term<T>> {
+        let context = self.clone().0;
         for (k, v) in context.into_iter() {
             if k == index {
                 return Some(v);
@@ -78,5 +78,34 @@ impl<T: Clone> Context<T> {
 
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    pub fn into_iter(self) -> ContextIterator<T> {
+        ContextIterator::new(self)
+    }
+}
+
+pub struct ContextIterator<T> {
+    curr: usize,
+    context: Context<T>
+}
+
+impl<T> ContextIterator<T> {
+    fn new(context: Context<T>) -> ContextIterator<T> {
+        ContextIterator { curr: 0, context }
+    }
+}
+
+impl<T: Clone> Iterator for ContextIterator<T> {
+    type Item = (usize, Term<T>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.curr >= self.context.len() {
+            None
+        } else {
+            let it = Some(self.context.0[self.curr].clone()); // eh, `.clone`? yeah i should fix this later
+            self.curr += 1;
+            it
+        }
     }
 }

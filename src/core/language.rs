@@ -6,7 +6,10 @@ use std::default::*;
 use super::{
     context::*,
     eval::*,
-    typing::*
+    typing::{
+        *,
+        InnerError::*
+    }
 };
 
 pub fn wrap<T: Default>(term: InnerTerm<T>) -> Term<T> { Term(Box::new(term), Default::default()) }
@@ -46,7 +49,7 @@ pub enum InnerTerm<T> {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Term<T>(pub Box<InnerTerm<T>>, pub T);
 
-impl<T: Clone + Default + PartialEq> Term<T> {
+impl<T: Clone + Default + PartialEq + Debug> Term<T> {
 
     pub fn r#type<'a>(&'a self, context: Context<T>) -> CheckResult<'a, T, Self> {
         use InnerTerm::*;
@@ -63,11 +66,20 @@ impl<T: Clone + Default + PartialEq> Term<T> {
                 if errors.len() > 0 {
                     Err(errors)
                 } else {
-                    Ok(type_ann.clone())
+                    Ok(normalize(type_ann.clone(), Context::new()))
                 }
-            }
+            },
+            Var(index) =>
+                match context.find(index) {
+                    Some(var_type) => Ok(var_type),
+                    None => Err(vec![Error::new(self, context, NonexistentVar(index))])
+                },
             UniverseIntro(level, usage) => Ok(wrap(UniverseIntro(level + 1, Usage::Unique))),
-            _ => panic!("BUG: cannot infer type")
+            FunctionTypeIntro(_, _) => Ok(wrap(UniverseIntro(0, Usage::Unique))),
+            PairTypeIntro(_, _) => Ok(wrap(UniverseIntro(0, Usage::Unique))),
+            PairIntro(ref fst, ref snd) => Ok(wrap(PairTypeIntro(fst.r#type(context.clone())?, snd.r#type(context)?))),
+            EnumTypeIntro(_) => Ok(wrap(UniverseIntro(0, Usage::Unique))),
+            _ => panic!("BUG: cannot get type of {:?}", self)
         }
     }
 

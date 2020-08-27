@@ -1,23 +1,37 @@
 use super::language::*;
 
 enum Tree {
-	Usage(Usage),
-	Branch(Vec<Box<Tree>>)
+	Leaf(String),
+	Branch(String, Vec<Box<Tree>>)
 }
 
 pub fn parse(input: String) -> Term<()> {
 	use Tree:*;
 
-	let mut tree = Branch(Vec::new());
-	let mut focus = &mut tree.0;
+	let mut tree = Leaf("nil");
+	let mut focus = &mut tree;
 	let lines = input.lines();
 
 	for i in lines.len() {
 		line = lines[i];
 
 		match line {
-			"ann" => focus = ,
-			"kind" => ,
+			"ann" => {
+				*focus = Branch("Ann", vec![Leaf("nil")]);
+				if let Branch(_, ref mut branches) = *focus {
+					focus = &mut branches[0];
+				} else {
+					panic!();
+				}
+			},
+			"kind" => {
+				*focus = Branch("Universe", vec![Leaf("nil")]);
+				if let Branch(_, ref mut branches) = *focus {
+					focus = &mut branches[0];
+				} else {
+					panic!();
+				}
+			},
 			"var" => ,
 			"rec" => ,
 			"pi" => ,

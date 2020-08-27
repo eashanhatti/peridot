@@ -437,4 +437,15 @@ in if (0 == 0) [Int : Type 1] [u] (fn u . u) (fn u . u) -- no seperate syntax fo
 "unsafe = postulate"
 
 
+no closures, so how is `id` implemented?
 
+id : (A : Type) -> A -> A
+id A x = x
+
+id Unit unit
+
+id' : (A : Type) -> 
+id' = lam A . pair A (lam [A, x] . x : A)
+
+let (A, f) = id Unit
+in f (pair A unit)
