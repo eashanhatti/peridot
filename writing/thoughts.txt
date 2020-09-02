@@ -449,3 +449,9 @@ id' = lam A . pair A (lam [A, x] . x : A)
 
 let (A, f) = id Unit
 in f (pair A unit)
+
+
+
+data CapturesList : (l : Level) -> Universe (succ l) where
+    Cons : Universe l -> CapturesList l -> CapturesList l
+    Nil : CapturesList l

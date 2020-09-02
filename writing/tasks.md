@@ -1,0 +1,20 @@
+- [ ] core
+	- [ ] uniqueness types
+		- [x] usage checking
+		- [ ] uniqueness propagation checking
+		- [x] capture lists
+	- [ ] sized types
+		- [ ] pointers
+	- [ ] const eval tracking
+		- [ ] runtime eval typing
+	- [ ] totality tracking
+		- [ ] totality checker
+		- [ ] nontermination typing
+- [ ] frontend
+	- [ ] elaborator
+	- [ ] error reporting
+		- [ ] delaborator
+		- [ ] error synthesizer
+- [ ] backend
+	- [ ] IR
+	- [ ] codegen
