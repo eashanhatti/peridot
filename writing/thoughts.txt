@@ -453,5 +453,9 @@ in f (pair A unit)
 
 
 data CapturesList : (l : Level) -> Universe (succ l) where
-    Cons : Universe l -> CapturesList l -> CapturesList l
-    Nil : CapturesList l
+    cons : Universe l -> CapturesList l -> CapturesList l
+    nil : CapturesList l
+
+
+
+should fix `Context` to store both defs and decs

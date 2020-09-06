@@ -1,4 +1,4 @@
-use super::language::*;
+use super::lang::*;
 
 enum Tree {
 	Leaf(String),

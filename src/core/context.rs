@@ -1,27 +1,63 @@
 #![allow(warnings)]
 
 use super::{
-    language::*,
+    lang::*,
     eval::*
 };
 use std::collections::HashSet;
 
+#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
+pub enum ContextEntryKind {
+    Dec,
+    Def
+}
+
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+pub enum ContextEntry<T> {
+    Declaration(Term<T>),
+    Definition(Term<T>)
+}
+
+use ContextEntry::*;
+use ContextEntryKind::*;
+
+impl<T> ContextEntry<T> {
+    fn inner(self) -> Term<T> {
+        match self {
+            Declaration(d) => d,
+            Definition(d) => d
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
-pub struct Context<T>(Vec<(usize, Term<T>)>);
+pub struct Context<T>(Vec<(usize, ContextEntry<T>)>);
 
 impl<T: Clone> Context<T> {
     pub fn new() -> Self {
         Context(Vec::new())
     }
 
-    pub fn find(&self, index: usize) -> Option<Term<T>> {
+    pub fn find(&self, kind: ContextEntryKind, index: usize) -> Option<Term<T>> {
         let context = self.clone().0;
         for (k, v) in context.into_iter() {
             if k == index {
-                return Some(v);
+                match (v, kind) {
+                    (Declaration(d), Dec) => return Some(d),
+                    (Definition(d), Def) => return Some(d),
+                    _ => ()
+                }
             }
         }
         None
+    }
+
+    pub fn find_dec(&self, index: usize) -> Option<Term<T>> {
+        self.find(Dec, index)
+    }
+
+    pub fn find_def(&self, index: usize) -> Option<Term<T>> {
+        self.find(Def, index)
     }
 
     pub fn inc(self, amount: usize) -> Self {
@@ -33,16 +69,29 @@ impl<T: Clone> Context<T> {
         Context(context)
     }
 
-    pub fn insert(self, index: usize, to_insert: Term<T>) -> Self {
+    pub fn insert(self, index: usize, entry: ContextEntry<T>) -> Self {
         let context = self.0;
         let mut context = context;
         for i in 0..context.len() {
             if context[i].0 == index {
-                panic!("BUG: duplicate var");
+                match (&context[i].1, &entry) {
+                    (&Declaration(_), &Declaration(_)) => panic!("BUG: duplicate var"),
+                    (&Definition(_), &Definition(_)) => panic!("BUG: duplicate var"),
+                    _ => ()
+                }
             }
         }
-        context.push((index, to_insert));
+        context.push((index, entry));
+
         Context(context)
+    }
+
+    pub fn insert_dec(self, index: usize, entry: Term<T>) -> Self {
+        self.insert(index, Declaration(entry))
+    }
+
+    pub fn insert_def(self, index: usize, entry: Term<T>) -> Self {
+        self.insert(index, Definition(entry))
     }
 
     pub fn indices(&self) -> HashSet<usize> {
@@ -57,7 +106,10 @@ impl<T: Clone> Context<T> {
     pub fn shift(self, amount: isize) -> Self {
         let mut context = self.0;
         for i in 0..context.len() {
-            context[i].1 = shift(context[i].1.clone(), HashSet::new(), amount);
+            match context[i].1 {
+                Declaration(ref d) => context[i].1 = Declaration(shift(d.clone(), HashSet::new(), amount)),
+                Definition(ref d) => context[i].1 = Definition(shift(d.clone(), HashSet::new(), amount))
+            }
         }
         Context(context)
     }
@@ -66,8 +118,10 @@ impl<T: Clone> Context<T> {
     	let mut context = self.0;
     	for i in 0..context.len() {
     		let local_index = index + context[i].0;
-
-    		context[i].1 = normalize(context[i].1.clone(), Context::new().insert(local_index, val.clone()));
+            match context[i].1 {
+                Declaration(ref d) => context[i].1 = Declaration(normalize(d.clone(), Context::new().insert_def(local_index, val.clone()))),
+                Definition(ref d) => context[i].1 = Definition(normalize(d.clone(), Context::new().insert_def(local_index, val.clone())))
+            }
     	}
     	Context(context)
     }
@@ -97,7 +151,7 @@ impl<T> ContextIterator<T> {
 }
 
 impl<T: Clone> Iterator for ContextIterator<T> {
-    type Item = (usize, Term<T>);
+    type Item = (usize, ContextEntry<T>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.curr >= self.context.len() {

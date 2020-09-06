@@ -6,7 +6,7 @@ extern crate pest_derive;
 
 mod core;
 use self::core::{
-	language::{
+	lang::{
 		*,
 		InnerTerm::*
 	},

@@ -30,9 +30,15 @@ pub enum Usage {
 }
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
+pub enum Doub {
+    This,
+    That
+}
+
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum InnerTerm<T> {
     Ann(Term<T>, Term<T>),
-    UniverseIntro(usize, Usage),
+    TypeTypeIntro(usize, Usage),
     Var(usize),
     Rec(Term<T>),
     FunctionTypeIntro(Term<T>, Term<T>, Term<T>),
@@ -41,9 +47,12 @@ pub enum InnerTerm<T> {
     PairTypeIntro(Term<T>, Term<T>),
     PairIntro(Term<T>, Term<T>),
     PairElim(Term<T>, Term<T>),
-    EnumTypeIntro(usize),
-    EnumIntro(usize),
-    EnumElim(Term<T>, Vec<Term<T>>),
+    VoidTypeIntro,
+    UnitTypeIntro,
+    UnitIntro,
+    DoubTypeIntro,
+    DoubIntro(Doub),
+    DoubElim(Term<T>, Term<T>, Term<T>),
     FoldTypeIntro(Term<T>),
     FoldIntro(Term<T>),
     FoldElim(Term<T>),
@@ -83,27 +92,20 @@ impl<T: Clone + Default + PartialEq + Debug + Hash + Eq> Term<T> {
                 }
             },
             Var(index) =>
-                match context.find(index) {
+                match context.find_dec(index) {
                     Some(var_type) => Ok(var_type),
                     None => Err(vec![Error::new(self, context, NonexistentVar { index })])
                 },
-            UniverseIntro(level, usage) => Ok(wrap(UniverseIntro(level + 1, Usage::Unique))),
-            FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) =>
-                match (*(caps_list.r#type(context.clone())?).0, *(in_type.r#type(context.clone())?).0, *(out_type.r#type(context)?).0) {
-                    (CapturesListTypeIntro(level1), UniverseIntro(level2, _), UniverseIntro(level3, _)) =>
-                        Ok(wrap(UniverseIntro(max(level1, max(level2, level3)), Usage::Shared))),
-                    _ => panic!()
-                }
+            TypeTypeIntro(level, usage) => Ok(wrap(TypeTypeIntro(level + 1, Usage::Unique))),
             FunctionElim(ref abs, ref arg) => {
                 let abs_type = abs.r#type(context.clone())?;
                 match *abs_type.0 {
-                    FunctionTypeIntro(caps_list, in_type, out_type) => Ok(normalize(out_type, Context::new().insert(0, arg.clone()))),
+                    FunctionTypeIntro(caps_list, in_type, out_type) => Ok(normalize(out_type, Context::new().insert_def(0, arg.clone()))),
                     _ => Err(vec![Error::new(self, context, ExpectedOfFunctionType { giv_type: abs_type })])
                 }
             },
             PairIntro(ref fst, ref snd) => Ok(wrap(PairTypeIntro(fst.r#type(context.clone())?, snd.r#type(context)?))),
-            EnumTypeIntro(_) => Ok(wrap(UniverseIntro(0, Usage::Unique))),
-            CapturesListTypeIntro(level) => Ok(wrap(UniverseIntro(level + 1, Usage::Unique))),
+            CapturesListTypeIntro(level) => Ok(wrap(TypeTypeIntro(level + 1, Usage::Unique))),
             _ => panic!("BUG: cannot get type of {:?}", self)
         }
     }
@@ -113,7 +115,7 @@ impl<T: Clone + Default + PartialEq + Debug + Hash + Eq> Term<T> {
         use Usage::*;
 
         match *self.r#type(context)?.0 {
-            UniverseIntro(_, usage) => Ok(usage),
+            TypeTypeIntro(_, usage) => Ok(usage),
             _ => Ok(Unique) // so uniqueness types work with polymorphism
         }
     }

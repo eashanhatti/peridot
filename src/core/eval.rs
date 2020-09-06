@@ -2,10 +2,11 @@
 
 use super::{
     context::*,
-    language::{
+    lang::{
         *,
         InnerTerm::*,
-        List::*
+        List::*,
+        Doub::*
     }
 };
 use std::collections::HashSet;
@@ -21,7 +22,7 @@ pub fn shift<T>(term: Term<T>, bounds: HashSet<usize>, amount: isize) -> Term<T>
                     Var(index)
                 },
             Rec(inner_term) => Rec(shift(inner_term, bounds.into_iter().map(|i| i + 1).collect(), amount)),
-            UniverseIntro(level, usage) => UniverseIntro(level, usage),
+            TypeTypeIntro(level, usage) => TypeTypeIntro(level, usage),
             FunctionTypeIntro(caps_list, in_type, out_type) => {
                 let out_type_bounds = {
                     let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 1).collect();
@@ -61,9 +62,16 @@ pub fn shift<T>(term: Term<T>, bounds: HashSet<usize>, amount: isize) -> Term<T>
                 };
                 PairElim(shift(discrim, bounds, amount), shift(body, body_bounds, amount))
             },
-            EnumTypeIntro(num_mems) => EnumTypeIntro(num_mems),
-            EnumIntro(label) => EnumIntro(label),
-            EnumElim(discrim, branches) => EnumElim(shift(discrim, bounds.clone(), amount), branches.into_iter().map(|b| shift(b, bounds.clone(), amount)).collect()),
+            VoidTypeIntro => VoidTypeIntro,
+            UnitTypeIntro => UnitTypeIntro,
+            UnitIntro => UnitIntro,
+            DoubTypeIntro => DoubTypeIntro,
+            DoubIntro(label) => DoubIntro(label),
+            DoubElim(discrim, branch1, branch2) => 
+                DoubElim(
+                    shift(discrim, bounds.clone(), amount),
+                    shift(branch1, bounds.clone(), amount),
+                    shift(branch2, bounds, amount)),
             FoldTypeIntro(inner_type) => FoldTypeIntro(shift(inner_type, bounds, amount)),
             FoldIntro(inner_term) => FoldIntro(shift(inner_term, bounds, amount)),
             FoldElim(inner_term) => FoldElim(shift(inner_term, bounds, amount)),
@@ -83,12 +91,12 @@ pub fn substitute<T: Clone>(subst_term: Term<T>, context: Context<T>) -> Term<T>
         match *subst_term.0 {
             Ann(annd_term, type_ann) => Ann(substitute(annd_term, context.clone()), substitute(type_ann, context)),
             Var(index) =>
-                match context.find(index) {
+                match context.find_def(index) {
                     Some(val) => *val.0,
                     None => Var(index)
                 }
             Rec(inner_term) => Rec(substitute(inner_term, context.inc_and_shift(1))),
-            UniverseIntro(level, usage) => UniverseIntro(level, usage),
+            TypeTypeIntro(level, usage) => TypeTypeIntro(level, usage),
             FunctionTypeIntro(caps_list, in_type, out_type) => {
                 let out_type_context = context.clone().inc_and_shift(1);
                 FunctionTypeIntro(
@@ -108,9 +116,16 @@ pub fn substitute<T: Clone>(subst_term: Term<T>, context: Context<T>) -> Term<T>
                 let body_context = context.clone().inc_and_shift(2);
                 PairElim(substitute(discrim, context), substitute(body, body_context))
             },
-            EnumTypeIntro(num_mems) => EnumTypeIntro(num_mems),
-            EnumIntro(label) => EnumIntro(label),
-            EnumElim(discrim, branches) => EnumElim(substitute(discrim, context.clone()), branches.into_iter().map(|b| substitute(b, context.clone())).collect()),
+            VoidTypeIntro => VoidTypeIntro,
+            UnitTypeIntro => UnitTypeIntro,
+            UnitIntro => UnitIntro,
+            DoubTypeIntro => DoubTypeIntro,
+            DoubIntro(label) => DoubIntro(label),
+            DoubElim(discrim, branch1, branch2) =>
+                DoubElim(
+                    substitute(discrim, context.clone()),
+                    substitute(branch1, context.clone()),
+                    substitute(branch2, context)),
             FoldTypeIntro(inner_type) => FoldTypeIntro(substitute(inner_type, context)),
             FoldIntro(inner_term) => FoldIntro(substitute(inner_term, context)),
             FoldElim(inner_term) => FoldElim(substitute(inner_term, context)),
@@ -128,12 +143,12 @@ pub fn substitute<T: Clone>(subst_term: Term<T>, context: Context<T>) -> Term<T>
 pub fn normalize<T: Clone>(term: Term<T>, context: Context<T>) -> Term<T> {
     match *term.0 {
         Ann(annd_term, type_ann) => normalize(annd_term, context),
-        Var(index) => context.find(index).unwrap_or(term),
+        Var(index) => context.find_def(index).unwrap_or(term),
         Rec(inner_term) => {
-            let new_context = context.inc_and_shift(1).insert(0, Term(Box::new(Rec(inner_term.clone())), term.1)).shift(1);
+            let new_context = context.inc_and_shift(1).insert_def(0, Term(Box::new(Rec(inner_term.clone())), term.1)).shift(1);
             shift(normalize(inner_term, new_context), HashSet::new(), -1)
         }
-        UniverseIntro(level, usage) => term,
+        TypeTypeIntro(level, usage) => term,
         FunctionTypeIntro(caps_list, in_type, out_type) => {
             let out_type_context = context.clone().inc_and_shift(1);
             Term(Box::new(FunctionTypeIntro(normalize(caps_list, context.clone()), normalize(in_type, context), normalize(out_type, out_type_context))), term.1)
@@ -146,7 +161,7 @@ pub fn normalize<T: Clone>(term: Term<T>, context: Context<T>) -> Term<T> {
             match *normal_abs.0 {
                 FunctionIntro(body) => {
                     let shifted_normal_arg = shift(normal_arg, HashSet::new(), 1);
-                    shift(normalize(body, context.inc_and_shift(1).insert(0, shifted_normal_arg)), HashSet::new(), -1)
+                    shift(normalize(body, context.inc_and_shift(1).insert_def(0, shifted_normal_arg)), HashSet::new(), -1)
                 },
                 _ => Term(Box::new(FunctionElim(normal_abs, normal_arg)), term.1)
             }
@@ -162,25 +177,30 @@ pub fn normalize<T: Clone>(term: Term<T>, context: Context<T>) -> Term<T> {
                 PairIntro(fst, snd) => {
                     let normal_fst = normalize(fst, context.clone());
                     let normal_snd = normalize(snd, context.clone());
-                    let new_context = context.clone().inc_and_shift(2).insert(0, normal_fst).insert(1, normal_snd).shift(2);
+                    let new_context = context.clone().inc_and_shift(2).insert_def(0, normal_fst).insert_def(1, normal_snd).shift(2);
                     shift(normalize(body, new_context), HashSet::new(), -2)
                 },
                 _ => Term(Box::new(PairElim(normal_discrim, normalize(body, context.inc_and_shift(2)))), term.1)
             }
         },
-        EnumTypeIntro(num_mems) => term,
-        EnumIntro(label) => term,
-        EnumElim(discrim, branches) => {
+        VoidTypeIntro => term,
+        UnitTypeIntro => term,
+        UnitIntro => term,
+        DoubTypeIntro => term,
+        DoubIntro(_) => term,
+        DoubElim(discrim, branch1, branch2) => {
             let normal_discrim = normalize(discrim, context.clone());
-            let fail_term = Term(Box::new(EnumElim(normal_discrim.clone(), branches.clone().into_iter().map(|b| normalize(b, context.clone())).collect())), term.1);
-            match *normal_discrim.0 {
-                EnumIntro(label) =>
-                    if label < branches.len() {
-                        normalize(branches[label].clone(), context)
-                    } else {
-                        fail_term
+            match *(normal_discrim.clone()).0 {
+                DoubIntro(label) =>
+                    match label {
+                        This => normalize(branch1, context),
+                        That => normalize(branch2, context)
                     }
-                _ => fail_term
+                _ =>
+                    Term(Box::new(DoubElim(
+                        normal_discrim,
+                        normalize(branch1, Context::new()),
+                        normalize(branch2, Context::new()))), term.1)
             }
         },
         FoldTypeIntro(inner_type) => Term(Box::new(FoldTypeIntro(substitute(inner_type, context))), term.1),
