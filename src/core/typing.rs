@@ -671,7 +671,7 @@ pub fn check<'a, T>(term: &'a Term<T>, exp_type: Term<T>, context: Context<T>) -
 				DoubTypeIntro => {
 					let branch_context = |d|
 						match *normalize(discrim.clone(), context.clone()).0 { // updates context with the now known value of discrim if it is a var
-							Var(index) => context.clone().update(index, wrap(DoubIntro(d))),
+							Var(index) => context.clone().update(index, wrap(DoubIntro(d))).insert_def(index, wrap(DoubIntro(d))),
 							_ => context.clone()
 						};
 

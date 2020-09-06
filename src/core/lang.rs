@@ -29,7 +29,7 @@ pub enum Usage {
     Shared
 }
 
-#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Doub {
     This,
     That
@@ -88,7 +88,7 @@ impl<T: Clone + Default + PartialEq + Debug + Hash + Eq> Term<T> {
                 if errors.len() > 0 {
                     Err(errors)
                 } else {
-                    Ok(normalize(type_ann.clone(), Context::new()))
+                    Ok(normalize(type_ann.clone(), context))
                 }
             },
             Var(index) =>
@@ -100,7 +100,7 @@ impl<T: Clone + Default + PartialEq + Debug + Hash + Eq> Term<T> {
             FunctionElim(ref abs, ref arg) => {
                 let abs_type = abs.r#type(context.clone())?;
                 match *abs_type.0 {
-                    FunctionTypeIntro(caps_list, in_type, out_type) => Ok(normalize(out_type, Context::new().insert_def(0, arg.clone()))),
+                    FunctionTypeIntro(caps_list, in_type, out_type) => Ok(normalize(out_type, context.inc_and_shift(1).insert_def(0, arg.clone()))),
                     _ => Err(vec![Error::new(self, context, ExpectedOfFunctionType { giv_type: abs_type })])
                 }
             },
