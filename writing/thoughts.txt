@@ -459,3 +459,16 @@ data CapturesList : (l : Level) -> Universe (succ l) where
 
 
 should fix `Context` to store both defs and decs
+
+just finished fixing contexts and type normalization, now i'm short of work until i figure out how to write the frontend
+
+
+finally figured out what was wrong in my thinking. I was thinking that the process would go surface to core, find errors, then *somehow* *de*laborate the errors to be on the surface-level again. how it's actually supposed to be is that surface and core are seperate passes, core is not center of it all
+
+
+
+two ways to maintain referential transparency:
+    thread a world value
+    hide the impure data
+
+TODO: make core language explicitly typed

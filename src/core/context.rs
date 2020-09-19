@@ -13,16 +13,16 @@ pub enum ContextEntryKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
-pub enum ContextEntry<T> {
-    Declaration(Term<T>),
-    Definition(Term<T>)
+pub enum ContextEntry {
+    Declaration(Term),
+    Definition(Term)
 }
 
 use ContextEntry::*;
 use ContextEntryKind::*;
 
-impl<T> ContextEntry<T> {
-    fn inner(self) -> Term<T> {
+impl ContextEntry {
+    fn inner(self) -> Term {
         match self {
             Declaration(d) => d,
             Definition(d) => d
@@ -31,14 +31,14 @@ impl<T> ContextEntry<T> {
 }
 
 #[derive(Clone, Debug)]
-pub struct Context<T>(Vec<(usize, ContextEntry<T>)>);
+pub struct Context(Vec<(usize, ContextEntry)>);
 
-impl<T: Clone> Context<T> {
+impl Context {
     pub fn new() -> Self {
         Context(Vec::new())
     }
 
-    pub fn find(&self, kind: ContextEntryKind, index: usize) -> Option<Term<T>> {
+    pub fn find(&self, kind: ContextEntryKind, index: usize) -> Option<Term> {
         let context = self.clone().0;
         for (k, v) in context.into_iter() {
             if k == index {
@@ -52,11 +52,11 @@ impl<T: Clone> Context<T> {
         None
     }
 
-    pub fn find_dec(&self, index: usize) -> Option<Term<T>> {
+    pub fn find_dec(&self, index: usize) -> Option<Term> {
         self.find(Dec, index)
     }
 
-    pub fn find_def(&self, index: usize) -> Option<Term<T>> {
+    pub fn find_def(&self, index: usize) -> Option<Term> {
         self.find(Def, index)
     }
 
@@ -69,7 +69,7 @@ impl<T: Clone> Context<T> {
         Context(context)
     }
 
-    pub fn insert(self, index: usize, entry: ContextEntry<T>) -> Self {
+    pub fn insert(self, index: usize, entry: ContextEntry) -> Self {
         let context = self.0;
         let mut context = context;
         for i in 0..context.len() {
@@ -86,11 +86,11 @@ impl<T: Clone> Context<T> {
         Context(context)
     }
 
-    pub fn insert_dec(self, index: usize, entry: Term<T>) -> Self {
+    pub fn insert_dec(self, index: usize, entry: Term) -> Self {
         self.insert(index, Declaration(entry))
     }
 
-    pub fn insert_def(self, index: usize, entry: Term<T>) -> Self {
+    pub fn insert_def(self, index: usize, entry: Term) -> Self {
         self.insert(index, Definition(entry))
     }
 
@@ -114,7 +114,7 @@ impl<T: Clone> Context<T> {
         Context(context)
     }
 
-    pub fn update(self, index: usize, val: Term<T>) -> Self {
+    pub fn update(self, index: usize, val: Term) -> Self {
     	let mut context = self.0;
     	for i in 0..context.len() {
     		let local_index = index + context[i].0;
@@ -134,24 +134,24 @@ impl<T: Clone> Context<T> {
         self.0.len()
     }
 
-    pub fn into_iter(self) -> ContextIterator<T> {
+    pub fn into_iter(self) -> ContextIterator {
         ContextIterator::new(self)
     }
 }
 
-pub struct ContextIterator<T> {
+pub struct ContextIterator {
     curr: usize,
-    context: Context<T>
+    context: Context
 }
 
-impl<T> ContextIterator<T> {
-    fn new(context: Context<T>) -> ContextIterator<T> {
+impl ContextIterator {
+    fn new(context: Context) -> ContextIterator {
         ContextIterator { curr: 0, context }
     }
 }
 
-impl<T: Clone> Iterator for ContextIterator<T> {
-    type Item = (usize, ContextEntry<T>);
+impl Iterator for ContextIterator {
+    type Item = (usize, ContextEntry);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.curr >= self.context.len() {

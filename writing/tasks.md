@@ -10,11 +10,24 @@
 	- [ ] totality tracking
 		- [ ] totality checker
 		- [ ] nontermination typing
-- [ ] frontend
-	- [ ] elaborator
-	- [ ] error reporting
-		- [ ] delaborator
-		- [ ] error synthesizer
+	- [ ] explicitly typed
+- [ ] surface
+	- [ ] syntax
+		- [ ] enums
+		- [ ] functions
+		- [ ] records
+		- [ ] namespaces
+		- [ ] pattern matching
+	- [ ] elab
+		- [ ] enums
+		- [ ] functions
+		- [ ] records
+		- [ ] namespaces
+		- [ ] pattern matching
+	- [ ] checking
+	- [ ] errors
+		- [ ] pretty printing
+		- [ ] show code
 - [ ] backend
 	- [ ] IR
 	- [ ] codegen

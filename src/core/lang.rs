@@ -15,11 +15,9 @@ use super::{
     }
 };
 
-pub fn wrap<T: Default>(term: InnerTerm<T>) -> Term<T> { Term(Box::new(term), Default::default()) }
-
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
-pub enum List<T> { // ex: `Int -> <(Int, Nil)> Int -> Int`, type of `+`
-    Cons(Term<T>, Term<T>),
+pub enum List { // ex: `Int -> <(Int, Nil)> Int -> Int`, type of `+`
+    Cons(Term, Term),
     Nil
 }
 
@@ -36,32 +34,32 @@ pub enum Doub {
 }
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
-pub enum InnerTerm<T> {
-    Ann(Term<T>, Term<T>),
+pub enum InnerTerm {
     TypeTypeIntro(usize, Usage),
     Var(usize),
-    Rec(Term<T>),
-    FunctionTypeIntro(Term<T>, Term<T>, Term<T>),
-    FunctionIntro(Term<T>),
-    FunctionElim(Term<T>, Term<T>),
-    PairTypeIntro(Term<T>, Term<T>),
-    PairIntro(Term<T>, Term<T>),
-    PairElim(Term<T>, Term<T>),
+    Rec(Term),
+    FunctionTypeIntro(Term, Term, Term),
+    FunctionIntro(Term),
+    FunctionElim(Term, Term),
+    PairTypeIntro(Term, Term),
+    PairIntro(Term, Term),
+    PairElim(Term, Term),
     VoidTypeIntro,
     UnitTypeIntro,
     UnitIntro,
     DoubTypeIntro,
     DoubIntro(Doub),
-    DoubElim(Term<T>, Term<T>, Term<T>),
-    FoldTypeIntro(Term<T>),
-    FoldIntro(Term<T>),
-    FoldElim(Term<T>),
+    DoubElim(Term, Term, Term),
+    FoldTypeIntro(Term),
+    FoldIntro(Term),
+    FoldElim(Term),
     CapturesListTypeIntro(usize),
-    CapturesListIntro(List<T>)
+    CapturesListIntro(List)
 }
 
+// TODO: make .1 private and add constructors for each term
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
-pub struct Term<T>(pub Box<InnerTerm<T>>, pub T);
+pub struct Term(pub Box<InnerTerm>, pub Option<Box<Term>>);
 
 fn max(lop: usize, rop: usize) -> usize {
     if lop > rop {
@@ -71,52 +69,56 @@ fn max(lop: usize, rop: usize) -> usize {
     }
 }
 
-impl<T: Clone + Default + PartialEq + Debug + Hash + Eq> Term<T> {
-
-    pub fn r#type<'a>(&'a self, context: Context<T>) -> CheckResult<'a, T, Self> {
+impl Term {
+    // returns the normalized and checked type of a term
+    // type may be infered if the term is a universe, in all other cases the type must be given
+    // when given, the type of the type is checked as well
+    pub fn r#type<'a>(&'a self, context: Context) -> CheckResult<'a, Self> {
         use InnerTerm::*;
 
-        match *self.0 {
-            Ann(_, ref type_ann) => {
+        match &self.1 {
+            Some(r#type) => {
+                let r#type = &**r#type;
                 let mut errors = Vec::new();
-
-                let type_ann_type = type_ann.r#type(context.clone())?;
                 
-                push_check(&mut errors, check(type_ann, type_ann_type, context.clone()));
-                push_check(&mut errors, check_type(type_ann, context.clone()));
+                push_check(&mut errors, check(r#type, r#type.r#type(context.clone())?, context.clone()));
+                push_check(&mut errors, check_type(r#type, context.clone()));
 
                 if errors.len() > 0 {
-                    Err(errors)
+                    Ok(normalize(r#type.clone(), context))
                 } else {
-                    Ok(normalize(type_ann.clone(), context))
+                    Err(errors)
                 }
             },
-            Var(index) =>
-                match context.find_dec(index) {
-                    Some(var_type) => Ok(var_type),
-                    None => Err(vec![Error::new(self, context, NonexistentVar { index })])
-                },
-            TypeTypeIntro(level, usage) => Ok(wrap(TypeTypeIntro(level + 1, Usage::Unique))),
-            FunctionElim(ref abs, ref arg) => {
-                let abs_type = abs.r#type(context.clone())?;
-                match *abs_type.0 {
-                    FunctionTypeIntro(caps_list, in_type, out_type) => Ok(normalize(out_type, context.inc_and_shift(1).insert_def(0, arg.clone()))),
-                    _ => Err(vec![Error::new(self, context, ExpectedOfFunctionType { giv_type: abs_type })])
+            None =>
+                match *self.0 {
+                    TypeTypeIntro(level, _) => Ok(Term(Box::new(TypeTypeIntro(level + 1, Usage::Unique)), None)),
+                    _ => panic!("all terms should be explicitly typed")
                 }
-            },
-            PairIntro(ref fst, ref snd) => Ok(wrap(PairTypeIntro(fst.r#type(context.clone())?, snd.r#type(context)?))),
-            CapturesListTypeIntro(level) => Ok(wrap(TypeTypeIntro(level + 1, Usage::Unique))),
-            _ => panic!("BUG: cannot get type of {:?}", self)
         }
     }
 
-    pub fn usage<'a>(&'a self, context: Context<T>) -> CheckResult<'a, T, Usage> { // called on types
+    // returns the type of a term, unchecked. there is also no gaurantee the term is in normal form
+    pub fn type_raw(&self) -> Term {
+        use InnerTerm::*;
+
+        match &self.1 {
+            Some(r#type) => *r#type.clone(),
+            None =>
+                match *self.0 {
+                    TypeTypeIntro(level, _) => Term(Box::new(TypeTypeIntro(level + 1, Usage::Unique)), None),
+                    _ => panic!("all terms should be explicitly typed")
+                }
+        }
+    }
+
+    pub fn usage<'a>(&'a self, context: Context) -> CheckResult<'a, Usage> { // called on types
         use InnerTerm::*;
         use Usage::*;
 
         match *self.r#type(context)?.0 {
             TypeTypeIntro(_, usage) => Ok(usage),
-            _ => Ok(Unique) // so uniqueness types work with polymorphism
+            _ => Ok(Unique) // so uniqueness types work with polymorphic kinds
         }
     }
 }
