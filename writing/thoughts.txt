@@ -471,4 +471,26 @@ two ways to maintain referential transparency:
     thread a world value
     hide the impure data
 
-TODO: make core language explicitly typed
+i should make core language explicitly typed
+
+
+
+merging `Error` and `InnerError` into one type in `surface`, i should get around to doing this in core too. the reason is that not all errors might need to record the state or even what term caused the error, it's for the sake of being more flexible
+
+
+
+------------------------------------------------
+clamn is a *functional systems language*
+
+goals as a *functional* language:
+- making the type system ergonomic and expressive
+- enabling high abstraction
+
+goals as a *systems language*:
+- increasing the ease of writing performant code
+- enabling high optimization
+
+goals as a *functional systems language*:
+- abstractions should be zero cost, and when they aren't, the cost should be clear and knowable by the programmer
+- the type system should not just express properties useful for verification, but also properties useful for performance
+------------------------------------------------

@@ -1,19 +1,9 @@
 #![allow(warnings)]
 
-extern crate pest;
-#[macro_use]
-extern crate pest_derive;
-
-mod core;
-use self::core::{
-	lang::{
-		*,
-		InnerTerm::*
-	},
-	eval::*,
-	context::*,
-	typing::*
-};
+mod lang;
+use lang::*;
+mod pass;
+use pass::*;
 
 // fn w<'a>(info: &'a str, term: InnerTerm<&'a str>) -> Term<&'a str> { Term(Box::new(term), info) }
 

@@ -1,5 +1,5 @@
 [package]
-name = "moplec"
+name = "clamn"
 version = "0.1.0"
 authors = ["Eashan Hatti <eashanhatti@gmail.com>"]
 edition = "2018"
@@ -7,5 +7,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pest = "2.0"
-pest_derive = "2.0"
+earlgrey = "0.3.0"
+non-empty-collections = "0.1.9"
+contracts = "0.6.0"

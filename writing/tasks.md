@@ -13,21 +13,10 @@
 	- [ ] explicitly typed
 - [ ] surface
 	- [ ] syntax
-		- [ ] enums
-		- [ ] functions
-		- [ ] records
-		- [ ] namespaces
-		- [ ] pattern matching
-	- [ ] elab
-		- [ ] enums
-		- [ ] functions
-		- [ ] records
-		- [ ] namespaces
-		- [ ] pattern matching
-	- [ ] checking
-	- [ ] errors
-		- [ ] pretty printing
-		- [ ] show code
+	- [ ] surface_to_core
+		- [ ] checking
+		- [ ] elaboration
+	- [ ] core_to_surface
 - [ ] backend
 	- [ ] IR
 	- [ ] codegen
