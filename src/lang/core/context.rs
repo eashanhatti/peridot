@@ -17,8 +17,8 @@ pub enum ContextEntryKind {
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub struct ContextEntry {
-    dec: Option<Term>,
-    def: Option<Term>
+    pub dec: Option<Term>,
+    pub def: Option<Term>
 }
 
 #[derive(Clone, Debug)]
@@ -29,6 +29,22 @@ use ContextEntryKind::*;
 impl Context {
     pub fn new() -> Self {
         Context(HashMap::new())
+    }
+
+    pub fn exists_dec(&self, index: usize) -> bool {
+        if let Some(ContextEntry { dec: Some(_), def: _ }) = self.0.get(&index) {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn exists_def(&self, index: usize) -> bool {
+        if let Some(ContextEntry { dec: _, def: Some(_) }) = self.0.get(&index) {
+            true
+        } else {
+            false
+        }
     }
 
     pub fn get(&self, index: usize) -> Option<ContextEntry> {
