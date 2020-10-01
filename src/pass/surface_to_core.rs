@@ -32,6 +32,7 @@ impl State {
     pub fn with_dec(self, name: Name, r#type: core::Term) -> State {
         let context = self.context.inc_and_shift(1).insert_dec(0, r#type);
         let mut names_to_indices = self.names_to_indices;
+        names_to_indices.iter_mut().map(|i| *i += 1);
         names_to_indices.insert(name, 0);
         State { context, names_to_indices }
     }
