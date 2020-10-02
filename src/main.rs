@@ -1,12 +1,22 @@
 #![allow(warnings)]
 
 mod lang;
-use lang::*;
+use lang::{
+	core,
+	surface::{
+		Term,
+		InnerTerm::*,
+		Name
+	}
+};
 mod pass;
-use pass::*;
-
-// fn w<'a>(info: &'a str, term: InnerTerm<&'a str>) -> Term<&'a str> { Term(Box::new(term), info) }
+use pass::surface_to_core::*;
 
 fn main() {
-    
+    let term =
+    	Term {
+    		data: Box::new(Var(Name("foo".to_string()))),
+    		range: (0, 0),
+    	};
+    println!("{:?}", elab(&term, core::Term::new(Box::new(core::InnerTerm::DoubTypeIntro), None), State::new()))
 }

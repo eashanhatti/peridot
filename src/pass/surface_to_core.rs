@@ -1,6 +1,9 @@
 #![allow(warnings)]
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    cmp::max
+};
 use crate::lang::{
 	core::{
         self,
@@ -32,7 +35,7 @@ impl State {
     pub fn with_dec(self, name: Name, r#type: core::Term) -> State {
         let context = self.context.inc_and_shift(1).insert_dec(0, r#type);
         let mut names_to_indices = self.names_to_indices;
-        names_to_indices.iter_mut().map(|i| *i += 1);
+        names_to_indices.iter_mut().map(|(_, i)| *i += 1);
         names_to_indices.insert(name, 0);
         State { context, names_to_indices }
     }
@@ -68,11 +71,17 @@ impl State {
         let entry = self.get(name)?;
         Some((entry.0, entry.1.def?))
     }
+
+    pub fn raw_context(&self) -> &Context {
+        &self.context
+    }
 }
 
+#[derive(Debug)]
 pub enum Error<'a> {
     MismatchedTypes { term: &'a Term, state: State, exp_type: core::Term, giv_type: core::Term },
-    NonexistentVar { var: &'a Term, name: Name }
+    NonexistentVar { var: &'a Term, name: Name },
+    ExpectedOfTypeType { term: &'a Term, state: State, min_level: usize, giv_type: core::Term }
 }
 use Error::*;
 
@@ -80,25 +89,29 @@ pub fn synth_type<'a>(term: &'a Term, state: State) -> Result<core::Term, Vec<Er
     unimplemented!()
 }
 
-macro_rules! unwrap_checks {
-    ($checks:expr) => {{
-        let mut errors = Vec::new();
-        let mut elabd_terms = Vec::new();
-        for check in checks {
-            match check {
+macro_rules! with_terms {
+    ($(let $name:ident = $check:expr);*; $body:expr) => {{
+        let mut _errors = Vec::new();
+        $(
+            let mut $name: core::Term;
+            match $check {
+                Ok(elabd_term) => $name = elabd_term,
                 Err(errs) =>
                     for err in errs {
-                        errors.push(err);
-                    },
-                Ok(term) => elabd_terms.push(term)
+                        _errors.push(err);
+                    }
             }
-        }
-        if errors.len() > 0 {
-            return Err(errors);
+        )*
+        if _errors.len() > 0 {
+            return Err(_errors);
         } else {
-            elabd_terms
+            $body
         }
     }};
+}
+
+fn context_to_caps_list(context: &Context) -> core::Term {
+    unimplemented!()
 }
 
 // checks a surface term, and either returns the elaborated term or errors
@@ -121,6 +134,50 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Result<co
                     },
                 None => Err(vec![NonexistentVar { var: term, name: name.clone() }])
             },
+        FunctionTypeIntro(var_name, ref in_type, ref out_type) => {
+            // TODO: remove the `?` and add proper error handling
+            let mut errors = Vec::new();
+            let core_in_type = elab(in_type, synth_type(in_type, state.clone())?, state.clone())?;
+            let core_out_type = elab(out_type, core_in_type.clone(), state.clone().with_dec(var_name.clone(), core_in_type.clone()))?;
+            let core_in_type_type = core_in_type.r#type();
+            let core_out_type_type = core_out_type.r#type();
+            let caps_list = context_to_caps_list(&state.raw_context());
+
+            match (*(core_in_type_type.clone()).data, *(core_out_type_type.clone()).data) {
+                (core::TypeTypeIntro(in_level, in_usage), core::TypeTypeIntro(out_level, out_usage)) =>
+                    if let core::TypeTypeIntro(max_level, pair_usage) = *exp_type.clone().data {
+                        if max(in_level, out_level) != max_level {
+                            errors.push(
+                                MismatchedTypes {
+                                    term,
+                                    state,
+                                    exp_type: core::Term::new(Box::new(core::TypeTypeIntro(max_level, pair_usage)), None),
+                                    giv_type: core::Term::new(Box::new(core::TypeTypeIntro(max(in_level, out_level), pair_usage)), None) });
+                        }
+                    } else {
+                        errors.push(ExpectedOfTypeType { term, state, min_level: max(in_level, out_level), giv_type: exp_type.clone() })
+                    },
+                (_, core::TypeTypeIntro(level, _)) =>
+                    errors.push(ExpectedOfTypeType { term: in_type, state, min_level: level, giv_type: core_in_type_type }),
+                (core::TypeTypeIntro(level, _), _) =>
+                    errors.push(ExpectedOfTypeType { term: out_type, state, min_level: level, giv_type: core_out_type_type }),
+                (_, _) =>  {
+                    errors.push(ExpectedOfTypeType { term: in_type, state: state.clone(), min_level: 0, giv_type: core_in_type_type });
+                    errors.push(ExpectedOfTypeType { term: out_type, state, min_level: 0, giv_type: core_out_type_type });
+                }
+            }
+
+            if errors.len() > 0 {
+                Err(errors)
+            } else {
+                Ok(core::Term::new(
+                    Box::new(core::FunctionTypeIntro(
+                        caps_list,
+                        core_in_type,
+                        core_out_type)),
+                    Some(Box::new(exp_type))))
+            }
+        },
         _ => unimplemented!()
     }
 }

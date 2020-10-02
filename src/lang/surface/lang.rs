@@ -8,13 +8,13 @@ use non_empty_collections::{
 };
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
-pub struct Name(String);
+pub struct Name(pub String);
 
 #[derive(Debug, Clone)]
 pub enum InnerTerm {
 	Ann(Term, Term),
 	Var(Name),
-	FunctionTypeIntro(Term, Term),
+	FunctionTypeIntro(Name, Term, Term),
 	FunctionIntro(HashSet<Name>, Term),
 	FunctionElim(Term, Vec<Term>),
 	TypeTypeIntro(usize),

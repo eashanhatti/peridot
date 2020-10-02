@@ -156,10 +156,10 @@ pub fn count_uses(term: &Term, target_index: usize) -> (usize, usize) {
 pub fn level_of<'a>(r#type: &'a Term, context: Context) -> CheckResult<'a, usize> {
 	use InnerError::*;
 
-	let r#type_type = synth_type(r#type, context)?;
+	let r#type_type = synth_type(r#type, context.clone())?;
 	match *r#type_type.data {
 		TypeTypeIntro(level, _) => Ok(level),
-		_ => Err(vec![Error::new(r#type, context.clone(), ExpectedOfTypeType { min_level: 1, giv_type: r#type_type })])
+		_ => Err(vec![Error::new(r#type, context, ExpectedOfTypeType { min_level: 1, giv_type: r#type_type })])
 	}
 }
 
@@ -392,8 +392,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 			push_check(
 				&mut errors,
-				check(inner_term, type_ann.clone(), new_context.insert_dec(0, type_ann.clone())));
-			push_check(&mut errors, check_usage(inner_term, type_ann, 0, new_context.clone()));
+				check(inner_term, type_ann.clone(), new_context.clone().insert_dec(0, type_ann.clone())));
+			push_check(&mut errors, check_usage(inner_term, type_ann, 0, new_context));
 
 			wrap_checks(errors)
 
@@ -523,18 +523,18 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 			match *abs_type.data {
 				FunctionTypeIntro(caps_list, in_type, out_type) => {
-					push_check(&mut errors, check(arg, in_type, context.clone()));
+					push_check(&mut errors, check(arg, in_type.clone(), context.clone()));
 					// normalize out_type with normalized `arg` as var 0
 					let normal_out_type =
 						normalize(
 							out_type,
-							context.clone().inc_and_shift(1).insert_dec(0, in_type).insert_def(0, normalize(arg, context.clone())));
+							context.clone().inc_and_shift(1).insert_dec(0, in_type).insert_def(0, normalize(arg.clone(), context.clone())));
 					push_check(
 						&mut errors,
 						if is_terms_eq(&type_ann, &normal_out_type) {
 							Ok(())
 						} else {
-							Err(vec![Error::new(&inner_term, context, MismatchedTypes { exp_type: type_ann, giv_type: normal_out_type })])
+							Err(vec![Error::new(&term, context, MismatchedTypes { exp_type: type_ann, giv_type: normal_out_type })])
 						});
 				},
 				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: abs_type }))
@@ -606,7 +606,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				PairTypeIntro(fst_type, snd_type) => {
 					let body_context = context.clone().inc_and_shift(2).insert_dec(0, fst_type.clone()).insert_dec(1, snd_type.clone());
 					let body_type = synth_type(body, body_context.clone())?;
-					push_check(&mut errors, check(body, shift(type_ann, 2, HashSet::new()), body_context));
+					push_check(&mut errors, check(body, shift(type_ann, HashSet::new(), 0), body_context));
 					
 					push_check(&mut errors, check_usage(body, fst_type.clone(), 0, context.clone()));
 					push_check(&mut errors, check_usage(body, snd_type.clone(), 1, context.clone()));

@@ -98,7 +98,7 @@ impl Term {
         }
     }
 
-    pub fn usage<'a>(&'a self, context: Context) -> Usage { // called on types
+    pub fn usage<'a>(&'a self) -> Usage { // called on types
         use InnerTerm::*;
         use Usage::*;
 
