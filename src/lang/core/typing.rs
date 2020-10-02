@@ -153,6 +153,16 @@ pub fn count_uses(term: &Term, target_index: usize) -> (usize, usize) {
 		count_uses(&term.r#type(), target_index)])
 }
 
+pub fn level_of<'a>(r#type: &'a Term, context: Context) -> CheckResult<'a, usize> {
+	use InnerError::*;
+
+	let r#type_type = synth_type(r#type, context)?;
+	match *r#type_type.data {
+		TypeTypeIntro(level, _) => Ok(level),
+		_ => Err(vec![Error::new(r#type, context.clone(), ExpectedOfTypeType { min_level: 1, giv_type: r#type_type })])
+	}
+}
+
 // `term` should be checked before this is called
 // should make this more robust in the future
 fn get_free_vars(term: &Term) -> HashSet<(usize, Term)> {
@@ -245,16 +255,16 @@ pub fn wrap_checks<'a>(errors: Vec<Error<'a>>) -> CheckResult<'a, ()> {
 	}
 }
 
-pub fn check_usage<'a>(binder: &'a Term, term_type: Term, body: &'a Term, target_index: usize, context: Context) -> CheckResult<'a, ()> {
+pub fn check_usage<'a>(body: &'a Term, term_type: Term, target_index: usize, context: Context) -> CheckResult<'a, ()> {
 	use InnerError::*;
 
-	match term_type.usage(context.clone()) {
+	match term_type.usage() {
 		Shared => Ok(()),
 		Unique =>
 			if count_uses(body, 0) == (1, 1) {
 				Ok(())
 			} else {
-				Err(vec![Error::new(binder, context, MismatchedUsage { var_index: target_index, exp_usage: (1, 1), giv_usage: count_uses(body, 0) })])
+				Err(vec![Error::new(body, context, MismatchedUsage { var_index: target_index, exp_usage: (1, 1), giv_usage: count_uses(body, 0) })])
 			}
 	}
 }
@@ -355,25 +365,6 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 	}
 
 	match *term.data {
-		// Ann(ref annd_term, ref type_ann) => {
-		// 	let mut errors = Vec::new();
-			
-		// 	let type_ann_type = type_ann.r#type(context.clone())?;
-		// 	let normal_type_ann = normalize(type_ann.clone(), Context::new());
-
-		// 	push_check(&mut errors, check(type_ann, type_ann_type, context.clone()));
-		// 	push_check(&mut errors, check_type(type_ann, context.clone()));
-		// 	push_check(&mut errors, check(annd_term, normal_type_ann.clone(), context.clone()));
-		// 	push_check(
-		// 		&mut errors,
-		// 		if is_terms_eq(&normal_type_ann, &type_ann) {
-		// 			Ok(())
-		// 		} else {
-		// 			Err(vec![Error::new(term, context, MismatchedTypes { exp_type: type_ann.clone(), giv_type: normal_type_ann.clone() })])
-		// 		});
-
-		// 	wrap_checks(errors)
-		// },
 		TypeTypeIntro(level, usage) =>
 			match *(type_ann.clone()).data {
 				TypeTypeIntro(type_ann_level, type_ann_usage) =>
@@ -397,13 +388,12 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		Rec(ref inner_term) => {
 			let mut errors = Vec::new();
 
-			let new_context = context.clone().inc_and_shift(1);
-			let inner_term_type = synth_type(inner_term, new_context.clone())?; // for now, all recursive functions must be type annotated
+			let new_context = context.clone().inc_and_shift(1).insert_dec(0, type_ann.clone());
 
 			push_check(
 				&mut errors,
-				check(inner_term, inner_term_type.clone(), new_context.insert_dec(0, inner_term_type.clone())));
-			push_check(&mut errors, check_usage(&term, inner_term_type, inner_term, 0, context.clone()));
+				check(inner_term, type_ann.clone(), new_context.insert_dec(0, type_ann.clone())));
+			push_check(&mut errors, check_usage(inner_term, type_ann, 0, new_context.clone()));
 
 			wrap_checks(errors)
 
@@ -426,7 +416,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				&mut errors,
 				check(out_type, out_type_type.clone(), out_type_context));
 
-			push_check(&mut errors, check_usage(&term, in_type.clone(), &out_type, 0, context.clone().inc_and_shift(1).clone()));
+			push_check(&mut errors, check_usage(out_type, in_type.clone(), 0, context.clone().inc_and_shift(1).clone()));
 
 			match (*(caps_list_type.clone()).data, *(in_type_type.clone()).data, *(out_type_type.clone()).data) {
 				(CapturesListTypeIntro(caps_list_level), TypeTypeIntro(in_level, in_usage), TypeTypeIntro(out_level, out_usage)) => {
@@ -477,7 +467,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				FunctionTypeIntro(caps_list, in_type, out_type) => {
 					let body_context = context.clone().inc_and_shift(1).insert_dec(0, shift(in_type.clone(), HashSet::new(), 1));
 					push_check(&mut errors, check(body, out_type, body_context));
-					push_check(&mut errors, check_usage(term, in_type, body, 0, context.clone().inc_and_shift(1)));
+					push_check(&mut errors, check_usage(body, in_type, 0, context.clone().inc_and_shift(1)));
 
 					fn flatten_caps_list(caps_list: &Term) -> Vec<Term> {
 						fn inner(caps_list: &Term, acc: &mut Vec<Term>) {
@@ -531,9 +521,22 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			let abs_type = synth_type(abs, context.clone())?;
 			push_check(&mut errors, check(abs, abs_type.clone(), context.clone()));
 
-
 			match *abs_type.data {
-				FunctionTypeIntro(caps_list, in_type, out_type) => push_check(&mut errors, check(arg, in_type, context.clone())),
+				FunctionTypeIntro(caps_list, in_type, out_type) => {
+					push_check(&mut errors, check(arg, in_type, context.clone()));
+					// normalize out_type with normalized `arg` as var 0
+					let normal_out_type =
+						normalize(
+							out_type,
+							context.clone().inc_and_shift(1).insert_dec(0, in_type).insert_def(0, normalize(arg, context.clone())));
+					push_check(
+						&mut errors,
+						if is_terms_eq(&type_ann, &normal_out_type) {
+							Ok(())
+						} else {
+							Err(vec![Error::new(&inner_term, context, MismatchedTypes { exp_type: type_ann, giv_type: normal_out_type })])
+						});
+				},
 				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: abs_type }))
 			}
 
@@ -552,8 +555,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				&mut errors,
 				check(snd_type, snd_type_type.clone(), context.clone().inc_and_shift(2).insert_dec(0, fst_type.clone())));
 
-			push_check(&mut errors, check_usage(&term, fst_type.clone(), snd_type, 0, context.clone()));
-			push_check(&mut errors, check_usage(&term, snd_type.clone(), fst_type, 1, context.clone()));
+			push_check(&mut errors, check_usage(snd_type, fst_type.clone(), 0, context.clone()));
+			push_check(&mut errors, check_usage(fst_type, snd_type.clone(), 1, context.clone()));
 
 			match (*(fst_type_type.clone()).data, *(snd_type_type.clone()).data) {
 				(TypeTypeIntro(fst_level, fst_usage), TypeTypeIntro(snd_level, snd_usage)) =>
@@ -584,11 +587,9 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			match *type_ann.data {
 				PairTypeIntro(fst_type, snd_type) => {
 					let mut errors = Vec::new();
-					let fst_check = check(fst, fst_type.clone(), context.clone().inc_and_shift(2).insert_dec(1, snd_type.clone()));
-					let snd_check = check(snd, snd_type, context.inc_and_shift(2).insert_dec(0, fst_type));
 
-					push_check(&mut errors, fst_check);
-					push_check(&mut errors, snd_check);
+					push_check(&mut errors, check(fst, fst_type.clone(), context.clone().inc_and_shift(2).insert_dec(1, snd_type.clone())));
+					push_check(&mut errors, check(snd, snd_type, context.inc_and_shift(2).insert_dec(0, fst_type)));
 
 					wrap_checks(errors)
 				},
@@ -605,10 +606,10 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				PairTypeIntro(fst_type, snd_type) => {
 					let body_context = context.clone().inc_and_shift(2).insert_dec(0, fst_type.clone()).insert_dec(1, snd_type.clone());
 					let body_type = synth_type(body, body_context.clone())?;
-					push_check(&mut errors, check(body, body_type, body_context));
+					push_check(&mut errors, check(body, shift(type_ann, 2, HashSet::new()), body_context));
 					
-					push_check(&mut errors, check_usage(&term, fst_type.clone(), body, 0, context.clone()));
-					push_check(&mut errors, check_usage(&term, snd_type.clone(), body, 1, context.clone()));
+					push_check(&mut errors, check_usage(body, fst_type.clone(), 0, context.clone()));
+					push_check(&mut errors, check_usage(body, snd_type.clone(), 1, context.clone()));
 				}
 				_ => errors.push(Error::new(discrim, context, ExpectedOfPairType { giv_type: discrim_type }))
 			}
@@ -677,20 +678,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				FoldTypeIntro(inner_type) => check(inner_term, inner_type, context),
 				_ => Err(vec![Error::new(term, context, ExpectedOfFoldType { giv_type: type_ann.clone() })])
 			},
-		FoldElim(ref folded_term) => {
-			let mut errors = Vec::new();
-			let folded_term_type = synth_type(folded_term, context.clone())?;
-
-			push_check(
-				&mut errors,
-				if is_terms_eq(&folded_term_type, &type_ann) {
-					Ok(())
-				} else {
-					Err(vec![Error::new(term, context, MismatchedTypes { exp_type: type_ann.clone(), giv_type: folded_term_type.clone() })])
-				});
-
-			wrap_checks(errors)
-		},
+		FoldElim(ref folded_term) => check(folded_term, type_ann, context),
 		CapturesListTypeIntro(level) =>
 			match *type_ann.clone().data {
 				TypeTypeIntro(u_level, _) =>
