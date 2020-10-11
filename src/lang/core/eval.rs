@@ -12,7 +12,11 @@ use super::{
 use std::collections::HashSet;
 
 pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
-    let shifted_type_ann = shift(term.r#type(), bounds.clone(), amount);
+    let shifted_type_ann =
+        match term.type_ann {
+            Some(r#type) => Some(Box::new(shift(*r#type, bounds.clone(), amount))),
+            None => None
+        };
     let term_inner: InnerTerm =
         match *term.data {
             Var(index) =>
@@ -83,11 +87,15 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
                         Nil => Nil
                     })
         };
-    Term::new(Box::new(term_inner), Some(Box::new(shifted_type_ann)))
+    Term::new(Box::new(term_inner), shifted_type_ann)
 }
 
 pub fn substitute(term: Term, context: Context) -> Term {
-    let subst_type_ann = substitute(term.r#type(), context.clone());
+    let substd_type_ann =
+        match term.type_ann {
+            Some(r#type) => Some(Box::new(substitute(*r#type, context.clone()))),
+            None => None
+        };
 
     let term_inner: InnerTerm =
         match *term.data {
@@ -138,16 +146,20 @@ pub fn substitute(term: Term, context: Context) -> Term {
                         Nil => Nil
                     })
         };
-    Term::new(Box::new(term_inner), Some(Box::new(subst_type_ann)))
+    Term::new(Box::new(term_inner), substd_type_ann)
 }
 
 pub fn normalize(term: Term, context: Context) -> Term {
-    let normal_type_ann = Some(Box::new(normalize(term.r#type(), context.clone())));
+    let normal_type_ann =
+        match term.type_ann.clone() {
+            Some(r#type) => Some(Box::new(normalize(*r#type, context.clone()))),
+            None => None
+        };
 
     match *term.data {
         Var(index) => context.get_def(index).unwrap_or(term),
         Rec(inner_term) => {
-            let new_context = context.clone().inc_and_shift(1).insert_def(0, Term::new(Box::new(Rec(inner_term.clone())), term.type_ann.clone())).shift(1);
+            let new_context = context.clone().inc_and_shift(1).with_def(0, Term::new(Box::new(Rec(inner_term.clone())), term.type_ann.clone())).shift(1);
             shift(normalize(inner_term, new_context), HashSet::new(), -1)
         }
         TypeTypeIntro(level, usage) => term,
@@ -168,7 +180,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
             match *normal_abs.data {
                 FunctionIntro(body) => {
                     let shifted_normal_arg = shift(normal_arg, HashSet::new(), 1);
-                    shift(normalize(body, context.inc_and_shift(1).insert_def(0, shifted_normal_arg)), HashSet::new(), -1)
+                    shift(normalize(body, context.inc_and_shift(1).with_def(0, shifted_normal_arg)), HashSet::new(), -1)
                 },
                 _ =>
                     Term::new(
@@ -189,7 +201,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
                 PairIntro(fst, snd) => {
                     let normal_fst = normalize(fst, context.clone());
                     let normal_snd = normalize(snd, context.clone());
-                    let new_context = context.clone().inc_and_shift(2).insert_def(0, normal_fst).insert_def(1, normal_snd).shift(2);
+                    let new_context = context.clone().inc_and_shift(2).with_def(0, normal_fst).with_def(1, normal_snd).shift(2);
                     shift(normalize(body, new_context), HashSet::new(), -2)
                 },
                 _ =>

@@ -48,7 +48,10 @@ impl Context {
     }
 
     pub fn get(&self, index: usize) -> Option<ContextEntry> {
-        self.get(index)
+        match self.0.get(&index) {
+            Some(term) => Some(term.clone()),
+            None => None
+        }
     }
 
     pub fn get_dec(&self, index: usize) -> Option<Term> {
@@ -59,28 +62,39 @@ impl Context {
         self.get(index)?.def
     }
 
-    pub fn inc(self, amount: usize) -> Self {
-        Context(self.0.into_iter().map(|(k, v)| (k + 1, v)).collect())
+    pub fn inc(self, amount: isize) -> Self {
+        let new = Context(self.0.into_iter().map(|(k, v)| (k + 1, v)).collect());
+        new
     }
 
-    pub fn insert(self, index: usize, kind: ContextEntryKind, entry: Term) -> Self {
-        let mut context = self.0;
-        if let Some(ContextEntry { ref mut dec, ref mut def }) = context.get_mut(&index) {
+    pub fn with(mut self, index: usize, kind: ContextEntryKind, entry: Term) -> Self {
+        if let Some(ContextEntry { ref mut dec, ref mut def }) = self.0.get_mut(&index) {
             match (kind, &dec, &def) {
                 (Dec, None, _) => *dec = Some(entry),
                 (Def, _, None) => *def = Some(entry),
                 _ => panic!("BUG: duplicate var")
             }
+        } else {
+            let old = match kind {
+                Dec => self.0.insert(0, ContextEntry { dec: Some(entry), def: None }),
+                Def => self.0.insert(0, ContextEntry { dec: None, def: Some(entry) })
+            };
+            assert!(old == None);
         }
-        Context(context)
+        Context(self.0)
     }
 
-    pub fn insert_dec(self, index: usize, entry: Term) -> Self {
-        self.insert(index, Dec, entry)
+    pub fn with_dec(self, index: usize, entry: Term) -> Self {
+        self.with(index, Dec, entry);
     }
 
-    pub fn insert_def(self, index: usize, entry: Term) -> Self {
-        self.insert(index, Def, entry)
+    pub fn with_def(self, index: usize, entry: Term) -> Self {
+        self.with(index, Def, entry)
+    }
+
+    pub fn without(mut self, index: usize) -> Self {
+        self.0.remove(&index);
+        self
     }
 
     pub fn indices(&self) -> HashSet<usize> {
@@ -92,7 +106,7 @@ impl Context {
     }
 
     pub fn shift(self, amount: isize) -> Self {
-        Context(self.0.into_iter().map(|(k, v)|
+        Context(self.0.into_iter().map(|(k, v)| {
             (k,
             ContextEntry {
                 dec: match v.dec {
@@ -102,7 +116,7 @@ impl Context {
                 def: match v.def {
                     Some(def) => Some(shift(def, HashSet::new(), amount)),
                     None => None
-                }})).collect())
+                }})}).collect());
     }
 
     pub fn update(self, index: usize, val: Term) -> Self {
@@ -110,17 +124,17 @@ impl Context {
             (k,
             ContextEntry {
                 dec: match v.dec {
-                    Some(dec) => Some(normalize(dec, Context::new().insert_def(index + k, val.clone()))),
+                    Some(dec) => Some(normalize(dec, Context::new().with_def(index + k, val.clone()))),
                     None => None
                 },
                 def: match v.def {
-                    Some(def) => Some(normalize(def, Context::new().insert_def(index + k, val.clone()))),
+                    Some(def) => Some(normalize(def, Context::new().with_def(index + k, val.clone()))),
                     None => None
                 }})).collect())
     }
 
-    pub fn inc_and_shift(self, amount: usize) -> Self {
-        self.inc(amount).shift(amount as isize)
+    pub fn inc_and_shift(self, amount: isize) -> Self {
+        self.inc(amount).shift(amount as isize);
     }
 
     pub fn len(&self) -> usize {

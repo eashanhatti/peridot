@@ -87,9 +87,8 @@ impl Term {
     // returns the type of a term, unchecked. there is also no gaurantee the term is in normal form
     pub fn r#type(&self) -> Term {
         use InnerTerm::*;
-
         match &self.type_ann {
-            Some(r#type) => *r#type.clone(),
+            Some(type_ann) => *type_ann.clone(),
             None =>
                 match *self.data {
                     TypeTypeIntro(level, _) => Term::new(Box::new(TypeTypeIntro(level + 1, Usage::Unique)), None),
@@ -98,13 +97,17 @@ impl Term {
         }
     }
 
-    pub fn usage<'a>(&'a self) -> Usage { // called on types
-        use InnerTerm::*;
-        use Usage::*;
-
+    pub fn usage(&self) -> Usage { // called on types
         match *self.r#type().data {
-            TypeTypeIntro(_, usage) => usage,
-            _ => Unique // so uniqueness types work with polymorphic kinds
+            InnerTerm::TypeTypeIntro(_, usage) => usage,
+            _ => Usage::Unique // so uniqueness types work with polymorphic kinds
+        }
+    }
+
+    pub fn level(&self) -> usize {
+        match *self.r#type().data {
+            InnerTerm::TypeTypeIntro(level, _) => level,
+            _ => panic!("level can only be extracted from types")
         }
     }
 }

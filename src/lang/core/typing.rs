@@ -150,7 +150,10 @@ pub fn count_uses(term: &Term, target_index: usize) -> (usize, usize) {
 					Nil => singleton(0)
 				}
 		},
-		count_uses(&term.r#type(), target_index)])
+		match &term.type_ann {
+			Some(r#type) => count_uses(r#type, target_index),
+			None => singleton(0)
+		}])
 }
 
 pub fn level_of<'a>(r#type: &'a Term, context: Context) -> CheckResult<'a, usize> {
@@ -337,7 +340,7 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
             push_check(&mut errors, check(r#type, synth_type(r#type, context.clone())?, context.clone()));
             push_check(&mut errors, check_type(r#type, context.clone()));
 
-            if errors.len() > 0 {
+            if errors.len() == 0 {
                 Ok(normalize(r#type.clone(), context))
             } else {
                 Err(errors)
@@ -346,7 +349,7 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
         None =>
             match *term.data {
                 TypeTypeIntro(level, _) => Ok(Term::new(Box::new(TypeTypeIntro(level + 1, Usage::Unique)), None)),
-                _ => panic!("all terms should be explicitly typed")
+                _ => panic!("all terms must be explicitly typed, this term is not:\n{:#?}", term)
             }
     }
 }
@@ -388,11 +391,11 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		Rec(ref inner_term) => {
 			let mut errors = Vec::new();
 
-			let new_context = context.clone().inc_and_shift(1).insert_dec(0, type_ann.clone());
+			let new_context = context.clone().inc_and_shift(1).with_dec(0, type_ann.clone());
 
 			push_check(
 				&mut errors,
-				check(inner_term, type_ann.clone(), new_context.clone().insert_dec(0, type_ann.clone())));
+				check(inner_term, type_ann.clone(), new_context.clone().with_dec(0, type_ann.clone())));
 			push_check(&mut errors, check_usage(inner_term, type_ann, 0, new_context));
 
 			wrap_checks(errors)
@@ -401,7 +404,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) => {
 			let mut errors = Vec::new();
 
-			let out_type_context = context.clone().inc_and_shift(1).insert_dec(0, in_type.clone());
+			let out_type_context = context.clone().inc_and_shift(1).with_dec(0, in_type.clone());
 
 			let caps_list_type = synth_type(caps_list, context.clone())?;
 			let in_type_type = synth_type(in_type, context.clone())?;
@@ -465,7 +468,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 			match *type_ann.data {
 				FunctionTypeIntro(caps_list, in_type, out_type) => {
-					let body_context = context.clone().inc_and_shift(1).insert_dec(0, shift(in_type.clone(), HashSet::new(), 1));
+					let body_context = context.clone().inc_and_shift(1).with_dec(0, shift(in_type.clone(), HashSet::new(), 1));
 					push_check(&mut errors, check(body, out_type, body_context));
 					push_check(&mut errors, check_usage(body, in_type, 0, context.clone().inc_and_shift(1)));
 
@@ -528,7 +531,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					let normal_out_type =
 						normalize(
 							out_type,
-							context.clone().inc_and_shift(1).insert_dec(0, in_type).insert_def(0, normalize(arg.clone(), context.clone())));
+							context.clone().inc_and_shift(1).with_dec(0, in_type).with_def(0, normalize(arg.clone(), context.clone())));
 					push_check(
 						&mut errors,
 						if is_terms_eq(&type_ann, &normal_out_type) {
@@ -548,12 +551,12 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			let fst_type_type = synth_type(fst_type, context.clone())?;
 			push_check(
 				&mut errors,
-				check(fst_type, fst_type_type.clone(), context.clone().inc_and_shift(2).insert_dec(1, snd_type.clone())));
+				check(fst_type, fst_type_type.clone(), context.clone().inc_and_shift(2).with_dec(1, snd_type.clone())));
 
 			let snd_type_type = synth_type(snd_type, context.clone())?;
 			push_check(
 				&mut errors,
-				check(snd_type, snd_type_type.clone(), context.clone().inc_and_shift(2).insert_dec(0, fst_type.clone())));
+				check(snd_type, snd_type_type.clone(), context.clone().inc_and_shift(2).with_dec(0, fst_type.clone())));
 
 			push_check(&mut errors, check_usage(snd_type, fst_type.clone(), 0, context.clone()));
 			push_check(&mut errors, check_usage(fst_type, snd_type.clone(), 1, context.clone()));
@@ -588,8 +591,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				PairTypeIntro(fst_type, snd_type) => {
 					let mut errors = Vec::new();
 
-					push_check(&mut errors, check(fst, fst_type.clone(), context.clone().inc_and_shift(2).insert_dec(1, snd_type.clone())));
-					push_check(&mut errors, check(snd, snd_type, context.inc_and_shift(2).insert_dec(0, fst_type)));
+					push_check(&mut errors, check(fst, fst_type.clone(), context.clone().inc_and_shift(2).with_dec(1, snd_type.clone())));
+					push_check(&mut errors, check(snd, snd_type, context.inc_and_shift(2).with_dec(0, fst_type)));
 
 					wrap_checks(errors)
 				},
@@ -604,7 +607,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 			match *(discrim_type.clone()).data {
 				PairTypeIntro(fst_type, snd_type) => {
-					let body_context = context.clone().inc_and_shift(2).insert_dec(0, fst_type.clone()).insert_dec(1, snd_type.clone());
+					let body_context = context.clone().inc_and_shift(2).with_dec(0, fst_type.clone()).with_dec(1, snd_type.clone());
 					let body_type = synth_type(body, body_context.clone())?;
 					push_check(&mut errors, check(body, shift(type_ann, HashSet::new(), 0), body_context));
 					
@@ -651,7 +654,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				DoubTypeIntro => {
 					let branch_context = |d: Term|
 						match *normalize(discrim.clone(), context.clone()).data { // updates context with the now known value of discrim if it is a var
-							Var(index) => context.clone().update(index, d.clone()).insert_def(index, d),
+							Var(index) => context.clone().update(index, d.clone()).with_def(index, d),
 							_ => context.clone()
 						};
 
