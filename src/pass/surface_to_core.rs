@@ -118,8 +118,8 @@ macro_rules! with_terms {
 }
 
 fn context_to_caps_list(context: &Context) -> core::Term {
-    unimplemented!()
-    // core::Term::new(Box::new(core::InnerTerm::DoubTypeIntro), Some(Box::new(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(0, core::Usage::Unique)), None))))
+    // unimplemented!()
+    core::Term::new(Box::new(core::InnerTerm::DoubTypeIntro), Some(Box::new(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(0, core::Usage::Unique)), None))))
 }
 
 type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;

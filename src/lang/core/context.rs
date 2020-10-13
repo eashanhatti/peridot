@@ -85,7 +85,7 @@ impl Context {
     }
 
     pub fn with_dec(self, index: usize, entry: Term) -> Self {
-        self.with(index, Dec, entry);
+        self.with(index, Dec, entry)
     }
 
     pub fn with_def(self, index: usize, entry: Term) -> Self {
@@ -116,7 +116,7 @@ impl Context {
                 def: match v.def {
                     Some(def) => Some(shift(def, HashSet::new(), amount)),
                     None => None
-                }})}).collect());
+                }})}).collect())
     }
 
     pub fn update(self, index: usize, val: Term) -> Self {
@@ -134,7 +134,7 @@ impl Context {
     }
 
     pub fn inc_and_shift(self, amount: isize) -> Self {
-        self.inc(amount).shift(amount as isize);
+        self.inc(amount).shift(amount as isize)
     }
 
     pub fn len(&self) -> usize {

@@ -19,7 +19,12 @@ use pass::surface_to_core::*;
 fn run() {
     let univ0 =
         Some(Box::new(core::Term {
-            data: Box::new(core::TypeTypeIntro(0, core::Usage::Unique)),
+            data: Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
+            type_ann: None
+        }));
+    let univ1 =
+        Some(Box::new(core::Term {
+            data: Box::new(core::TypeTypeIntro(1, core::Usage::Shared)),
             type_ann: None
         }));
 
@@ -53,11 +58,14 @@ fn run() {
                 univ0),
             State::new()).unwrap();
     println!("{:#?}", core_fun_term);
+    println!("CORE FN TYPE");
     let core_fun_term_type = match core::typing::synth_type(&core_fun_term, core::context::Context::new()) {
         Ok(r#type) => r#type,
-        Err(errs) => { println!("{:#?}", errs); return; }
+        Err(errs) => { println!("{:#?}\n{}", errs, errs.len()); return; }
     };
-    println!("{:#?}", core::typing::check(&core_fun_term, core_fun_term_type, core::context::Context::new()));
+    println!("CORE CHECK FUN");
+    let core_check = core::typing::check(&core_fun_term, core_fun_term_type, core::context::Context::new());
+    println!("{:#?}\n{}", &core_check, if let Err(ref errs) = core_check { errs.len() } else { 0 });
 }
 
 fn main() {

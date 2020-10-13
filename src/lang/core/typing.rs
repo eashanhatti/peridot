@@ -35,8 +35,6 @@ pub enum InnerError {
     ExpectedOfCapturesListType { min_level: usize, giv_type: Term },
     ExpectedOfUnitType { giv_type: Term },
     MismatchedUsage { var_index: usize, exp_usage: (usize, usize), giv_usage: (usize, usize) },
-    UniqueTypeInSharedType,
-    ExpectedOfSharedTypeType,
     UnmentionedFreeVars { caps_list: Vec<Term>, unmentioned_vars: Vec<Term> }
 }
 
@@ -421,9 +419,22 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 			push_check(&mut errors, check_usage(out_type, in_type.clone(), 0, context.clone().inc_and_shift(1).clone()));
 
-			match (*(caps_list_type.clone()).data, *(in_type_type.clone()).data, *(out_type_type.clone()).data) {
-				(CapturesListTypeIntro(caps_list_level), TypeTypeIntro(in_level, in_usage), TypeTypeIntro(out_level, out_usage)) => {
-					let giv_max = max(caps_list_level, max(in_level, out_level));
+			let mut caps_list_level = None;
+			let mut in_type_level = None;
+			let mut out_type_level = None;
+			if let CapturesListTypeIntro(level) = &(*caps_list_type.data) {
+				caps_list_level = Some(*level);
+			}
+			if let TypeTypeIntro(level, _) = &(*in_type_type.data) {
+				in_type_level = Some(*level);
+			}
+			if let TypeTypeIntro(level, _) = &(*out_type_type.data) {
+				out_type_level = Some(*level);
+			}
+
+			match (caps_list_level, in_type_level, out_type_level) {
+				(Some(caps_list_level), Some(in_type_level), Some(out_type_level)) => {
+					let giv_max = max(caps_list_level, max(in_type_level, out_type_level));
 					if let TypeTypeIntro(max_level, fn_usage) = *type_ann.clone().data {
 						if giv_max != max_level {
 							errors.push(Error::new(
@@ -438,26 +449,64 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 						errors.push(Error::new(term, context, ExpectedOfTypeType { min_level: giv_max, giv_type: type_ann }))
 					}
 				},
-				(_, _, TypeTypeIntro(level, _)) => {
-					errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType { min_level: level, giv_type: in_type_type }));
-					errors.push(Error::new(caps_list, context, ExpectedOfCapturesListType { min_level: level, giv_type: caps_list_type }));
+				(None, Some(in_type_level), Some(out_type_level)) =>
+					errors.push(Error::new(caps_list, context, ExpectedOfCapturesListType {
+						min_level: max(in_type_level, out_type_level),
+						giv_type: caps_list_type
+					})),
+				(Some(caps_list_level), None, Some(out_type_level)) =>
+					errors.push(Error::new(in_type, context, ExpectedOfTypeType {
+						min_level: max(caps_list_level, out_type_level),
+						giv_type: in_type_type
+					})),
+				(None, None, Some(out_type_level)) => {
+					errors.push(Error::new(caps_list, context.clone(), ExpectedOfCapturesListType {
+						min_level: out_type_level,
+						giv_type: caps_list_type
+					}));
+					errors.push(Error::new(in_type, context, ExpectedOfTypeType {
+						min_level: out_type_level,
+						giv_type: in_type_type
+					}));
 				}
-				(_, TypeTypeIntro(level, _), _) => {
-					errors.push(Error::new(out_type, context.clone(), ExpectedOfTypeType { min_level: level, giv_type: out_type_type }));
-					errors.push(Error::new(caps_list, context, ExpectedOfCapturesListType { min_level: level, giv_type: caps_list_type }));
-				}
-				(_, _, _) =>  {
-					errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType { min_level: 0, giv_type: in_type_type }));
-					errors.push(Error::new(out_type, context.clone(), ExpectedOfTypeType { min_level: 0, giv_type: out_type_type }));
-					errors.push(Error::new(caps_list, context, ExpectedOfCapturesListType { min_level: 0, giv_type: caps_list_type }));
+				(Some(caps_list_level), Some(in_type_level), None) =>
+					errors.push(Error::new(out_type, context, ExpectedOfTypeType {
+						min_level: max(caps_list_level, in_type_level),
+						giv_type: out_type_type
+					})),
+				(None, Some(in_type_level), None) => {
+					errors.push(Error::new(caps_list, context.clone(), ExpectedOfCapturesListType {
+						min_level: in_type_level,
+						giv_type: caps_list_type
+					}));
+					errors.push(Error::new(out_type, context, ExpectedOfTypeType {
+						min_level: in_type_level,
+						giv_type: out_type_type
+					}));
 				},
-				(CapturesListTypeIntro(level1), _, TypeTypeIntro(level2, _)) =>
-					errors.push(Error::new(in_type, context, ExpectedOfTypeType { min_level: max(level1, level2), giv_type: in_type_type })),
-				(CapturesListTypeIntro(level1), TypeTypeIntro(level2, _), _) =>
-					errors.push(Error::new(out_type, context, ExpectedOfTypeType { min_level: max(level1, level2), giv_type: out_type_type })),
-				(CapturesListTypeIntro(level1), _, _) =>  {
-					errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType { min_level: level1, giv_type: in_type_type }));
-					errors.push(Error::new(out_type, context, ExpectedOfTypeType { min_level: level1, giv_type: out_type_type }));
+				(Some(caps_list_level), None, None) => {
+					errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType {
+						min_level: caps_list_level,
+						giv_type: in_type_type
+					}));
+					errors.push(Error::new(out_type, context, ExpectedOfTypeType {
+						min_level: caps_list_level,
+						giv_type: out_type_type
+					}));
+				}
+				(None, None, None) => {
+					errors.push(Error::new(caps_list, context.clone(), ExpectedOfCapturesListType {
+						min_level: 1,
+						giv_type: caps_list_type
+					}));
+					errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType {
+						min_level: 1,
+						giv_type: in_type_type
+					}));
+					errors.push(Error::new(out_type, context, ExpectedOfTypeType {
+						min_level: 1,
+						giv_type: out_type_type
+					}));
 				}
 			}
 
