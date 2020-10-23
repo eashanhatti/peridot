@@ -2,12 +2,15 @@
 
 mod lang;
 use lang::{
-	core,
+	core::{
+        self,
+        context::*
+    },
 	surface::{
 		Term,
 		InnerTerm::*,
 		Name
-	}
+	},
 };
 use std::{
 	collections::HashSet,
@@ -41,24 +44,26 @@ fn run() {
     				var_term.clone())),
     		range: (0, 1)
     	};
-    println!("{:#?}", elab(&var_term, core::Term::new(Box::new(core::InnerTerm::DoubTypeIntro), univ0.clone()), State::new()));
+    println!("{:#?}", elab(&var_term, core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()), State::new()));
+    let context = Context::new().with_dec(0, core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()));
     let core_fun_term =
         elab(
             &fun_term,
             core::Term::new(
                 Box::new(core::FunctionTypeIntro(
-                    core::Term::new(Box::new(core::InnerTerm::DoubTypeIntro), univ0.clone()),
-                    core::Term::new(Box::new(core::InnerTerm::DoubTypeIntro), univ0.clone()),
+                    context.clone().to_caps_list(0),
+                    core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()),
                     core::Term::new(
                         Box::new(core::FunctionTypeIntro(
-                            core::Term::new(Box::new(core::InnerTerm::DoubTypeIntro), univ0.clone()),
-                            core::Term::new(Box::new(core::InnerTerm::DoubTypeIntro), univ0.clone()),
-                            core::Term::new(Box::new(core::InnerTerm::DoubTypeIntro), univ0.clone()))),
+                            context.with_dec(1, core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone())).to_caps_list(1),
+                            core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()),
+                            core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()))),
                         univ0.clone()))),
                 univ0),
-            State::new()).unwrap();
+            State::new()).unwrap_or_else(|errs| { println!("{:#?}", errs); panic!() });
     println!("{:#?}", core_fun_term);
     println!("CORE FN TYPE");
+    println!("{:#?}", core_fun_term.clone().type_ann.unwrap());
     let core_fun_term_type = match core::typing::synth_type(&core_fun_term, core::context::Context::new()) {
         Ok(r#type) => r#type,
         Err(errs) => { println!("{:#?}\n{}", errs, errs.len()); return; }

@@ -74,8 +74,8 @@ impl State {
         Some((entry.0, entry.1.def?))
     }
 
-    pub fn context(&self) -> &Context {
-        &self.context
+    pub fn context(self) -> Context {
+        self.context
     }
 
     pub fn into_context(self) -> Context {
@@ -117,11 +117,6 @@ macro_rules! with_terms {
     }};
 }
 
-fn context_to_caps_list(context: &Context) -> core::Term {
-    // unimplemented!()
-    core::Term::new(Box::new(core::InnerTerm::DoubTypeIntro), Some(Box::new(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(0, core::Usage::Unique)), None))))
-}
-
 type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
 
 // checks a surface term, and either returns the elaborated term or errors
@@ -152,21 +147,23 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
             let core_out_type = elab(out_type, core_in_type.clone(), state.clone().with_dec(var_name.clone(), core_in_type.clone()))?;
             let core_in_type_type = core_in_type.r#type();
             let core_out_type_type = core_out_type.r#type();
-            let caps_list = context_to_caps_list(&state.context());
+            let mut caps_list = None;
 
             match (*(core_in_type_type.clone()).data, *(core_out_type_type.clone()).data) {
-                (core::TypeTypeIntro(in_level, in_usage), core::TypeTypeIntro(out_level, out_usage)) =>
+                (core::TypeTypeIntro(in_type_level, in_type_usage), core::TypeTypeIntro(out_type_level, out_usage)) =>
                     if let core::TypeTypeIntro(max_level, pair_usage) = &*exp_type.data {
-                        if max(in_level, out_level) != *max_level {
+                        if max(in_type_level, out_type_level) != *max_level {
                             errors.push(
                                 MismatchedTypes {
                                     term,
                                     state,
                                     exp_type: core::Term::new(Box::new(core::TypeTypeIntro(*max_level, *pair_usage)), None),
-                                    giv_type: core::Term::new(Box::new(core::TypeTypeIntro(max(in_level, out_level), *pair_usage)), None) });
+                                    giv_type: core::Term::new(Box::new(core::TypeTypeIntro(max(in_type_level, out_type_level), *pair_usage)), None) });
+                        } else {
+                            caps_list = Some(state.clone().context().to_caps_list(max(in_type_level, out_type_level)));
                         }
                     } else {
-                        errors.push(ExpectedOfTypeType { term, state, min_level: max(in_level, out_level), giv_type: exp_type.clone() })
+                        errors.push(ExpectedOfTypeType { term, state, min_level: max(in_type_level, out_type_level), giv_type: exp_type.clone() })
                     },
                 (_, core::TypeTypeIntro(level, _)) =>
                     errors.push(ExpectedOfTypeType { term: in_type, state, min_level: level, giv_type: core_in_type_type }),
@@ -183,7 +180,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
             } else {
                 Ok(core::Term::new(
                     Box::new(core::FunctionTypeIntro(
-                        caps_list,
+                        caps_list.unwrap(),
                         core_in_type,
                         core_out_type)),
                     Some(Box::new(exp_type))))
@@ -217,7 +214,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                 let fun_type =
                     core::Term::new(
                         Box::new(core::FunctionTypeIntro(
-                            context_to_caps_list(&curr_context),
+                            curr_context.clone().to_caps_list(std::cmp::max(out_type.level(), in_type.level())),
                             in_type,
                             out_type)),
                         Some(Box::new(fun_kind)));

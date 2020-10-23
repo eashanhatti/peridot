@@ -1,12 +1,21 @@
 #![allow(warnings)]
 
 use super::{
-    lang::*,
+    lang::{
+        *,
+        InnerTerm::*
+    },
     eval::*
 };
-use std::collections::{
-    HashSet,
-    HashMap
+use std::{
+    collections::{
+        HashSet,
+        hash_map::{
+            HashMap,
+            IntoIter
+        }
+    },
+    iter::*
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
@@ -79,7 +88,6 @@ impl Context {
                 Dec => self.0.insert(0, ContextEntry { dec: Some(entry), def: None }),
                 Def => self.0.insert(0, ContextEntry { dec: None, def: Some(entry) })
             };
-            assert!(old == None);
         }
         Context(self.0)
     }
@@ -141,32 +149,52 @@ impl Context {
         self.0.len()
     }
 
-//     pub fn into_iter(self) -> ContextIterator {
-//         ContextIterator::new(self)
-//     }
+    pub fn into_iter(self) -> ContextIterator {
+        ContextIterator::new(self)
+    }
+
+    pub fn to_caps_list(self, exp_level: usize) -> Term {
+        let core_nil =
+            Term::new(
+                Box::new(CapturesListIntro(List::Nil)),
+                Some(Box::new(Term::new(
+                    Box::new(CapturesListTypeIntro(exp_level)),
+                    Some(Box::new(Term::new(
+                        Box::new(TypeTypeIntro(exp_level + 1, Usage::Unique)),
+                        None)))))));
+        let list = self.into_iter().fold(core_nil, |curr_list, entry| {
+            let curr_list_level = curr_list.r#type().level();
+            Term::new(
+                Box::new(CapturesListIntro(List::Cons(entry.1.dec.unwrap(), curr_list))),
+                Some(Box::new(Term::new(
+                    Box::new(CapturesListTypeIntro(exp_level)),
+                    Some(Box::new(Term::new(
+                        Box::new(TypeTypeIntro(curr_list_level, Usage::Unique)),
+                        None)))))))});
+        list
+    }
 }
 
-// pub struct ContextIterator {
-//     curr: usize,
-//     context: Context
-// }
+pub struct ContextIterator {
+    inner_iter: IntoIter<usize, ContextEntry>,
+}
 
-// impl ContextIterator {
-//     fn new(context: Context) -> ContextIterator {
-//         ContextIterator { curr: 0, context }
-//     }
-// }
+impl ContextIterator {
+    fn new(context: Context) -> ContextIterator {
+        ContextIterator { inner_iter: context.0.into_iter() }
+    }
+}
 
-// impl Iterator for ContextIterator {
-//     type Item = (usize, ContextEntry);
+impl Iterator for ContextIterator {
+    type Item = (usize, ContextEntry);
 
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if self.curr >= self.context.len() {
-//             None
-//         } else {
-//             let it = Some(self.context.0[self.curr].clone()); // eh, `.clone`? yeah i should fix this later
-//             self.curr += 1;
-//             it
-//         }
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner_iter.next()
+    }
+}
+
+// impl DoubleEndedIterator for ContextIterator {
+//     fn next_back(&mut self) -> Option<Self::Item> {
+//         self.inner_iter.next_back()
 //     }
 // }

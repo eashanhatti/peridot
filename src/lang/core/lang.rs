@@ -15,16 +15,12 @@ use super::{
     }
 };
 
-pub enum CoreToSurfaceHint {
-    Name(String),
-    None
-}
-
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum List {
     Cons(Term, Term),
     Nil
 }
+use List::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
 pub enum Usage {
@@ -129,6 +125,9 @@ pub fn is_terms_eq(type1: &Term, type2: &Term) -> bool {
             is_terms_eq(body1, body2),
         (FunctionElim(ref abs1, ref arg1), FunctionElim(ref abs2, ref arg2)) =>
             is_terms_eq(abs1, abs2) && is_terms_eq(arg1, arg2),
+        (VoidTypeIntro, VoidTypeIntro) => true,
+        (UnitTypeIntro, UnitTypeIntro) => true,
+        (UnitIntro, UnitIntro) => true,
         (PairTypeIntro(ref fst_type1, ref snd_type1), PairTypeIntro(ref fst_type2, ref snd_type2)) =>
             is_terms_eq(fst_type1, snd_type1) && is_terms_eq(fst_type2, snd_type2),
         (PairIntro(ref fst1, ref snd1), PairIntro(ref fst2, ref snd2)) =>
@@ -146,6 +145,25 @@ pub fn is_terms_eq(type1: &Term, type2: &Term) -> bool {
             is_terms_eq(inner_term1, inner_term2),
         (FoldElim(ref inner_term1), FoldElim(ref inner_term2)) =>
             is_terms_eq(inner_term1, inner_term2),
+        (CapturesListTypeIntro(level1), CapturesListTypeIntro(level2)) =>
+            level1 == level2,
+        (CapturesListIntro(ref list1), CapturesListIntro(ref list2)) =>
+            match (list1, list2) {
+                (Cons(ref data1, ref next1), Cons(ref data2, ref next2)) =>
+                    is_terms_eq(data1, data2) && is_terms_eq(next1, next2),
+                (Nil, Nil) => true,
+                _ => false
+            }
         _ => false
     }
 }
+
+// impl std::fmt::Display for Term {
+//     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+//         let string_form =
+//             match self.data {
+
+//             }
+//         write!(formatter, "{}", string_form)
+//     }
+// } 
