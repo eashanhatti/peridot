@@ -16,6 +16,9 @@ use super::{
 };
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
+pub struct Note(pub String);
+
+#[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum List {
     Cons(Term, Term),
     Nil
@@ -61,7 +64,8 @@ pub enum InnerTerm {
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub struct Term {
     pub data: Box<InnerTerm>,
-    pub type_ann: Option<Box<Term>>
+    pub type_ann: Option<Box<Term>>,
+    pub note: Option<Note>
 }
 
 fn max(lop: usize, rop: usize) -> usize {
@@ -76,7 +80,16 @@ impl Term {
     pub fn new(data: Box<InnerTerm>, r#type_ann: Option<Box<Term>>) -> Term {
         Term {
             data,
-            type_ann
+            type_ann,
+            note: None
+        }
+    }
+
+    pub fn new_with_note(note: Note, data: Box<InnerTerm>, r#type_ann: Option<Box<Term>>) -> Term {
+        Term {
+            data,
+            type_ann,
+            note: Some(note)
         }
     }
 

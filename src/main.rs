@@ -21,15 +21,15 @@ use pass::surface_to_core::*;
 
 fn run() {
     let univ0 =
-        Some(Box::new(core::Term {
-            data: Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
-            type_ann: None
-        }));
+        Some(Box::new(core::Term::new(
+            Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
+            None
+        )));
     let univ1 =
-        Some(Box::new(core::Term {
-            data: Box::new(core::TypeTypeIntro(1, core::Usage::Shared)),
-            type_ann: None
-        }));
+        Some(Box::new(core::Term::new(
+            Box::new(core::TypeTypeIntro(1, core::Usage::Shared)),
+            None
+        )));
 
 	let var_term =
     	Term {
