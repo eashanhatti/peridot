@@ -157,19 +157,20 @@ impl Context {
         let core_nil =
             Term::new(
                 Box::new(CapturesListIntro(List::Nil)),
-                Some(Box::new(Term::new(
+                Some(Box::new(Term::new_with_note(
+                    Note("generated 1".to_string()),
                     Box::new(CapturesListTypeIntro(exp_level)),
                     Some(Box::new(Term::new(
-                        Box::new(TypeTypeIntro(exp_level + 1, Usage::Unique)),
+                        Box::new(TypeTypeIntro(exp_level, Usage::Unique)),
                         None)))))));
         let list = self.into_iter().fold(core_nil, |curr_list, entry| {
-            let curr_list_level = curr_list.r#type().level();
             Term::new(
                 Box::new(CapturesListIntro(List::Cons(entry.1.dec.unwrap(), curr_list))),
-                Some(Box::new(Term::new(
+                Some(Box::new(Term::new_with_note(
+                    Note("generated 2".to_string()),
                     Box::new(CapturesListTypeIntro(exp_level)),
                     Some(Box::new(Term::new(
-                        Box::new(TypeTypeIntro(curr_list_level, Usage::Unique)),
+                        Box::new(TypeTypeIntro(exp_level, Usage::Unique)),
                         None)))))))});
         list
     }

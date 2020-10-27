@@ -357,7 +357,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 	use InnerError::*;
 	
 	let type_ann = synth_type(term, context.clone())?;
-	if !is_terms_eq(&type_ann, &exp_type) {
+	if !is_terms_eq(&type_ann, &exp_type) { // TODO: allow for universe subtyping
 		return
 			Err(vec![Error::new(
 				term,
@@ -435,13 +435,13 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			match (caps_list_level, in_type_level, out_type_level) {
 				(Some(caps_list_level), Some(in_type_level), Some(out_type_level)) => {
 					let giv_max = max(caps_list_level, max(in_type_level, out_type_level));
-					if let TypeTypeIntro(max_level, fn_usage) = *type_ann.clone().data {
-						if giv_max != max_level {
+					if let TypeTypeIntro(exp_max, fn_usage) = *type_ann.clone().data {
+						if giv_max > exp_max {
 							errors.push(Error::new(
 								term,
 								context,
-								MismatchedTypes {
-									exp_type: Term::new(Box::new(TypeTypeIntro(max_level, fn_usage)), None),
+								ExpectedOfTypeType {
+									min_level: exp_max,
 									giv_type: Term::new(Box::new(TypeTypeIntro(giv_max, fn_usage)), None)
 								}));
 						}
@@ -496,15 +496,15 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				}
 				(None, None, None) => {
 					errors.push(Error::new(caps_list, context.clone(), ExpectedOfCapturesListType {
-						min_level: 1,
+						min_level: 0,
 						giv_type: caps_list_type
 					}));
 					errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType {
-						min_level: 1,
+						min_level: 0,
 						giv_type: in_type_type
 					}));
 					errors.push(Error::new(out_type, context, ExpectedOfTypeType {
-						min_level: 1,
+						min_level: 0,
 						giv_type: out_type_type
 					}));
 				}
@@ -734,14 +734,14 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		CapturesListTypeIntro(level) =>
 			match *type_ann.clone().data {
 				TypeTypeIntro(u_level, _) =>
-					if u_level > level {
+					if u_level >= level {
 						Ok(())
 					} else {
-						Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: level + 1, giv_type: type_ann })])
+						Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: level, giv_type: type_ann })])
 					}
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: 1, giv_type: type_ann })])
+				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: 0, giv_type: type_ann })])
 			}
-		CapturesListIntro(ref list) =>
+		CapturesListIntro(ref list) => {
 			match *type_ann.data {
 				CapturesListTypeIntro(level) =>
 					match list {
@@ -749,7 +749,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 							let mut errors = Vec::new();
 
 							let head_type = synth_type(head, context.clone())?;
-							let tail_type = synth_type(head, context.clone())?;
+							let tail_type = synth_type(tail, context.clone())?;
 
 							match (*head_type.clone().data, *tail_type.clone().data) {
 								(TypeTypeIntro(_, head_usage), CapturesListTypeIntro(_)) => {
@@ -777,5 +777,6 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					}
 				_ => Err(vec![Error::new(term, context, ExpectedOfCapturesListType { min_level: 0, giv_type: type_ann })])
 			}
+		}
 	}
 }

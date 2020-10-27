@@ -4,7 +4,8 @@ mod lang;
 use lang::{
 	core::{
         self,
-        context::*
+        context::*,
+        lang::Note
     },
 	surface::{
 		Term,
@@ -44,33 +45,27 @@ fn run() {
     				var_term.clone())),
     		range: (0, 1)
     	};
-    println!("{:#?}", elab(&var_term, core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()), State::new()));
-    let context = Context::new().with_dec(0, core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()));
+    // println!("{:#?}", elab(&var_term, core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()), State::new()));
+    let context = Context::new().with_dec(0, core::Term::new_with_note(Note("caps list first".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()));
+    let core_fun_type =
+        core::Term::new(
+            Box::new(core::FunctionTypeIntro(
+                context.clone().to_caps_list(0),
+                core::Term::new_with_note(Note("first parameter".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()),
+                core::Term::new(
+                    Box::new(core::FunctionTypeIntro(
+                        context.with_dec(1, core::Term::new_with_note(Note("caps list second".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone())).to_caps_list(0),
+                        core::Term::new_with_note(Note("second parameter".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()),
+                        core::Term::new_with_note(Note("out".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()))),
+                    univ0.clone()))),
+            univ0);
     let core_fun_term =
         elab(
             &fun_term,
-            core::Term::new(
-                Box::new(core::FunctionTypeIntro(
-                    context.clone().to_caps_list(0),
-                    core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()),
-                    core::Term::new(
-                        Box::new(core::FunctionTypeIntro(
-                            context.with_dec(1, core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone())).to_caps_list(1),
-                            core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()),
-                            core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()))),
-                        univ0.clone()))),
-                univ0),
+            core_fun_type.clone(),
             State::new()).unwrap_or_else(|errs| { println!("{:#?}", errs); panic!() });
-    println!("{:#?}", core_fun_term);
-    println!("CORE FN TYPE");
-    println!("{:#?}", core_fun_term.clone().type_ann.unwrap());
-    let core_fun_term_type = match core::typing::synth_type(&core_fun_term, core::context::Context::new()) {
-        Ok(r#type) => r#type,
-        Err(errs) => { println!("{:#?}\n{}", errs, errs.len()); return; }
-    };
-    println!("CORE CHECK FUN");
-    let core_check = core::typing::check(&core_fun_term, core_fun_term_type, core::context::Context::new());
-    println!("{:#?}\n{}", &core_check, if let Err(ref errs) = core_check { errs.len() } else { 0 });
+    let core_fun_type_check = core::typing::check(&core_fun_type, core::typing::synth_type(&core_fun_type, Context::new()).unwrap(), Context::new());
+    println!("CORE FUN TYPE CHECK\n{:#?}\n{}", &core_fun_type_check, if let Err(ref errs) = core_fun_type_check { errs.len() } else { 0 });
 }
 
 fn main() {
