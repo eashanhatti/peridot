@@ -11,7 +11,8 @@ use crate::lang::{
             *,
             ContextEntryKind::*
         },
-        is_terms_eq
+        is_terms_eq,
+        lang::TermComparison::*
     },
     surface::{
         *,
@@ -77,10 +78,6 @@ impl State {
     pub fn context(self) -> Context {
         self.context
     }
-
-    pub fn into_context(self) -> Context {
-        self.context
-    }
 }
 
 #[derive(Debug)]
@@ -124,7 +121,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
 	match &*term.data {
         Ann(ref annd_term, ref type_ann) => {
             let core_type_ann = elab(type_ann, synth_type(type_ann, state.clone())?, state.clone())?;
-            if !is_terms_eq(&core_type_ann, &exp_type) {
+            if let False(specific) = is_terms_eq(&core_type_ann, &exp_type) {
                 return Err(vec![MismatchedTypes { term, state, exp_type: exp_type, giv_type: core_type_ann }])
             }
             elab(annd_term, core_type_ann, state)
@@ -132,10 +129,10 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
         Var(ref name) => {
             match state.get_dec(name) {
                 Some((index, r#type)) =>
-                    if is_terms_eq(&r#type, &exp_type) {
-                        Ok(core::Term::new(Box::new(core::Var(index)), Some(Box::new(r#type))))
-                    } else {
+                    if let False(specific) = is_terms_eq(&r#type, &exp_type) {
                         Err(vec![MismatchedTypes { term, state, exp_type, giv_type: r#type }])
+                    } else {
+                        Ok(core::Term::new(Box::new(core::Var(index)), Some(Box::new(r#type))))
                     },
                 None => Err(vec![NonexistentVar { var: term, state, name: name.clone() }])
             }
@@ -202,10 +199,10 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                     return Err(vec![TooManyFunctionParams { func: term, state, exp_num: exp_num_params, giv_num: num_param_names }])
                 }
             }
-            
             let core_body = elab(body, curr_out_type, body_state.clone())?;
-            let mut curr_context = body_state.into_context();
-            Ok(in_types.into_iter().rev().fold(core_body, |curr_body, in_type| {
+            let mut curr_context = body_state.context().without(0).inc_and_shift(-1);
+            let mut curr_body = core_body;
+            for in_type in in_types {
                 let out_type = curr_body.r#type();
                 let fun_kind =
                     core::Term::new(
@@ -218,11 +215,12 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                             in_type,
                             out_type)),
                         Some(Box::new(fun_kind)));
-                curr_context = curr_context.clone().without(0).inc_and_shift(-1);
-                core::Term::new(
+                curr_context = curr_context.without(0).inc_and_shift(-1);
+                curr_body = core::Term::new(
                     Box::new(core::FunctionIntro(curr_body)),
-                    Some(Box::new(fun_type)))
-            }))
+                    Some(Box::new(fun_type)));
+            }
+            Ok(curr_body)
         },
         _ => unimplemented!()
     }

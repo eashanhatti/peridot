@@ -5,7 +5,8 @@ use super::{
 		*,
 		InnerTerm::*,
 		List::*,
-		Usage::*
+		Usage::*,
+		TermComparison::*
 	},
 	eval::*,
 	context::*
@@ -17,7 +18,11 @@ use std::{
 		HashMap,
 		HashSet
 	},
-	fmt::Debug,
+	fmt::{
+		self,
+		Debug,
+		Display
+	},
 	hash::Hash
 };
 
@@ -25,7 +30,7 @@ use std::{
 // can then be thought of as `MismatchedTypes { exp_type: U, giv_type: ... }
 #[derive(Debug)]
 pub enum InnerError {
-    MismatchedTypes { exp_type: Term, giv_type: Term },
+    MismatchedTypes { exp_type: Term, giv_type: Term, specific: Vec<(Term, Term)> },
     NonexistentVar { index: usize },
     ExpectedOfTypeType { min_level: usize, giv_type: Term },
     ExpectedOfFunctionType { giv_type: Term },
@@ -357,12 +362,12 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 	use InnerError::*;
 	
 	let type_ann = synth_type(term, context.clone())?;
-	if !is_terms_eq(&type_ann, &exp_type) { // TODO: allow for universe subtyping
+	if let False(specific) = is_terms_eq(&type_ann, &exp_type) { // TODO: allow for universe subtyping
 		return
 			Err(vec![Error::new(
 				term,
 				context,
-				MismatchedTypes { exp_type: exp_type.clone(), giv_type: type_ann.clone() })]);
+				MismatchedTypes { exp_type: exp_type.clone(), giv_type: type_ann.clone(), specific })]);
 	}
 
 	match *term.data {
@@ -379,10 +384,10 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		Var(index) =>
 			match context.get_dec(index) {
 				Some(var_type) =>
-					if is_terms_eq(&var_type, &type_ann) {
-						Ok(())
+					if let False(specific) = is_terms_eq(&var_type, &type_ann) {
+						Err(vec![Error::new(term, context, MismatchedTypes { exp_type: type_ann, giv_type: var_type, specific })])
 					} else {
-						Err(vec![Error::new(term, context, MismatchedTypes { exp_type: type_ann, giv_type: var_type })])
+						Ok(())
 					}
 				None => Err(vec![Error::new(term, context, NonexistentVar { index })])
 			},
@@ -583,10 +588,10 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 							context.clone().inc_and_shift(1).with_dec(0, in_type).with_def(0, normalize(arg.clone(), context.clone())));
 					push_check(
 						&mut errors,
-						if is_terms_eq(&type_ann, &normal_out_type) {
-							Ok(())
+						if let False(specific) = is_terms_eq(&type_ann, &normal_out_type) {
+							Err(vec![Error::new(&term, context, MismatchedTypes { exp_type: type_ann, giv_type: normal_out_type, specific })])
 						} else {
-							Err(vec![Error::new(&term, context, MismatchedTypes { exp_type: type_ann, giv_type: normal_out_type })])
+							Ok(())
 						});
 				},
 				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: abs_type }))
@@ -619,7 +624,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 								context,
 								MismatchedTypes {
 									exp_type: Term::new(Box::new(TypeTypeIntro(max_level, pair_usage)), None),
-									giv_type: Term::new(Box::new(TypeTypeIntro(max(fst_level, snd_level), pair_usage)), None)
+									giv_type: Term::new(Box::new(TypeTypeIntro(max(fst_level, snd_level), pair_usage)), None),
+									specific: Vec::new()
 								}));
 						}
 					} else {

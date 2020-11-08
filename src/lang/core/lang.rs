@@ -2,7 +2,7 @@
 
 use std::{
     collections::HashSet,
-    fmt::Debug,
+    fmt::{self, Debug, Display},
     default::*,
     hash::Hash
 };
@@ -15,8 +15,14 @@ use super::{
     }
 };
 
-#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub struct Note(pub String);
+
+impl Debug for Note {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "\"{}\"", self.0)
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub enum List {
@@ -25,19 +31,31 @@ pub enum List {
 }
 use List::*;
 
-#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
+#[derive(Copy, Clone, PartialEq, Hash, Eq)]
 pub enum Usage {
     Unique,
     Shared
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Hash, Eq)]
+impl Debug for Usage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self { Unique => "unique", Shared => "shared" })
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Hash, Eq)]
 pub enum Doub {
     This,
     That
 }
 
-#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+impl Display for Doub {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self { This => "this", That => "that" })
+    }
+}
+
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub enum InnerTerm {
     TypeTypeIntro(usize, Usage),
     Var(usize),
@@ -61,11 +79,79 @@ pub enum InnerTerm {
     CapturesListIntro(List)
 }
 
-#[derive(Clone, Debug, PartialEq, Hash, Eq)]
+fn indent_to_string(indent: usize) -> String {
+    let mut string = String::new();
+    for _ in 0..indent {
+        string.push_str("    ");
+    }
+    string
+}
+
+fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
+    use InnerTerm::*;
+
+    let string =
+        match term {
+            TypeTypeIntro(level, usage) => format!("Univ {} {:?}", level, usage),
+            Var(index) => format!("var {}", index),
+            Rec(ref inner) => format!("rec\n{}", display_term(inner, indent + 1)),
+            FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) =>
+                format!("Pi\n{}\n{}\n{}",
+                    display_term(caps_list, indent + 1),
+                    display_term(in_type, indent + 1),
+                    display_term(out_type, indent + 1)),
+            FunctionIntro(ref body) => format!("lam\n{}", display_term(body, indent + 1)),
+            FunctionElim(ref abs, ref arg) =>
+                format!("app\n{}\n{}", display_term(abs, indent + 1), display_term(arg, indent + 1)),
+            PairTypeIntro(ref fst_type, ref snd_type) =>
+                format!("Sigma\n{}\n{}", display_term(fst_type, indent + 1), display_term(snd_type, indent + 1)),
+            PairIntro(ref fst, ref snd) =>
+                format!("pair\n{}\n{}", display_term(fst, indent + 1), display_term(snd, indent + 1)),
+            PairElim(ref discrim, ref body) =>
+                format!("split\n{}\n{}", display_term(discrim, indent + 1), display_term(body, indent + 1)),
+            VoidTypeIntro => String::from("Void"),
+            UnitTypeIntro => String::from("Unit"),
+            UnitIntro => String::from("unit"),
+            DoubTypeIntro => String::from("Doub"),
+            DoubIntro(val) => format!("{}", val),
+            DoubElim(ref discrim, ref branch1, ref branch2) =>
+                format!("case\n{}\n{}\n{}",
+                    display_term(discrim, indent + 1),
+                    display_term(branch1, indent + 1),
+                    display_term(branch2, indent + 1)),
+            FoldTypeIntro(ref inner) => format!("Fold\n{}", display_term(inner, indent + 1)),
+            FoldIntro(ref inner) => format!("fold\n{}", display_term(inner, indent + 1)),
+            FoldElim(ref inner) => format!("unfold\n{}", display_term(inner, indent + 1)),
+            CapturesListTypeIntro(level) => format!("Captures {}", level),
+            CapturesListIntro(ref list) =>
+                match list {
+                    Cons(ref data, ref next) => format!("captures\n{}\n{}", display_term(data, indent + 1), display_term(next, indent + 1)),
+                    Nil => String::from("nil")
+                }
+        };
+    format!("{}{}\n", indent_to_string(indent), string)
+}
+
+#[derive(Clone, PartialEq, Hash, Eq)]
 pub struct Term {
     pub data: Box<InnerTerm>,
     pub type_ann: Option<Box<Term>>,
     pub note: Option<Note>
+}
+
+fn display_term(term: &Term, indent: usize) -> String {
+    let mut string = format!("{}Term \"{}\"\n", indent_to_string(indent), if let Some(Note(ref s)) = term.note { s.clone() } else { String::new() });
+    string = format!("{}{}", string, display_inner_term(&*term.data, indent + 1));
+    if let Some(type_ann) = &term.type_ann {
+        string = format!("{}{}", string, display_term(&*type_ann, indent + 1));
+    }
+    string
+}
+
+impl Debug for Term {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", display_term(self, 0))
+    }
 }
 
 fn max(lop: usize, rop: usize) -> usize {
@@ -121,37 +207,69 @@ impl Term {
     }
 }
 
+#[derive(Debug)]
+pub enum TermComparison {
+    True,
+    False(Vec<(Term, Term)>)
+}
+use TermComparison::*;
+
+pub fn comb<'a>(c1: TermComparison, c2: TermComparison) -> TermComparison {
+    match (c1, c2) {
+        (True, True) => True,
+        (False(terms), True) => False(terms),
+        (True, False(terms)) => False(terms),
+        (False(terms1), False(terms2)) => {
+            let mut all_terms = Vec::new();
+            for term in terms1.into_iter() {
+                all_terms.push(term);
+            }
+            for term in terms2.into_iter() {
+                all_terms.push(term);
+            }
+            False(all_terms)
+        }
+    }
+}
+
+fn bool_to_tc(it: bool) -> TermComparison {
+    match it {
+        true => True,
+        false => False(Vec::new())
+    }
+}
+
 // checks if two terms are equal, disregarding type ann
-pub fn is_terms_eq(type1: &Term, type2: &Term) -> bool {
+pub fn is_terms_eq(type1: &Term, type2: &Term) -> TermComparison {
     use InnerTerm::*;
     
     match &(&(*type1.data), &(*type2.data)) {
         (TypeTypeIntro(level1, usage1), TypeTypeIntro(level2, usage2)) =>
-            level1 == level2 && usage1 == usage2,
+            comb(bool_to_tc(level1 == level2), bool_to_tc(usage1 == usage2)),
         (Var(index1), Var(index2)) =>
-            index1 == index2,
+            bool_to_tc(index1 == index2),
         (Rec(ref inner_term1), Rec(ref inner_term2)) =>
             is_terms_eq(inner_term1, inner_term2),
         (FunctionTypeIntro(ref caps_list1, ref in_type1, ref out_type1), FunctionTypeIntro(ref caps_list2, ref in_type2, ref out_type2)) =>
-            is_terms_eq(caps_list1, caps_list2) && is_terms_eq(in_type1, in_type2) && is_terms_eq(out_type1, out_type2),
+            comb(is_terms_eq(caps_list1, caps_list2), comb(is_terms_eq(in_type1, in_type2), is_terms_eq(out_type1, out_type2))),
         (FunctionIntro(ref body1), FunctionIntro(ref body2)) =>
             is_terms_eq(body1, body2),
         (FunctionElim(ref abs1, ref arg1), FunctionElim(ref abs2, ref arg2)) =>
-            is_terms_eq(abs1, abs2) && is_terms_eq(arg1, arg2),
-        (VoidTypeIntro, VoidTypeIntro) => true,
-        (UnitTypeIntro, UnitTypeIntro) => true,
-        (UnitIntro, UnitIntro) => true,
+            comb(is_terms_eq(abs1, abs2), is_terms_eq(arg1, arg2)),
+        (VoidTypeIntro, VoidTypeIntro) => True,
+        (UnitTypeIntro, UnitTypeIntro) => True,
+        (UnitIntro, UnitIntro) => True,
         (PairTypeIntro(ref fst_type1, ref snd_type1), PairTypeIntro(ref fst_type2, ref snd_type2)) =>
-            is_terms_eq(fst_type1, snd_type1) && is_terms_eq(fst_type2, snd_type2),
+            comb(is_terms_eq(fst_type1, snd_type1), is_terms_eq(fst_type2, snd_type2)),
         (PairIntro(ref fst1, ref snd1), PairIntro(ref fst2, ref snd2)) =>
-            is_terms_eq(fst1, fst2) && is_terms_eq(snd1, snd2),
+            comb(is_terms_eq(fst1, fst2), is_terms_eq(snd1, snd2)),
         (PairElim(ref discrim1, ref body1), PairElim(ref discrim2, ref body2)) =>
-            is_terms_eq(discrim1, discrim2) && is_terms_eq(body1, body2),
-        (DoubTypeIntro, DoubTypeIntro) => true,
+            comb(is_terms_eq(discrim1, discrim2), is_terms_eq(body1, body2)),
+        (DoubTypeIntro, DoubTypeIntro) => True,
         (DoubIntro(ref label1), DoubIntro(ref label2)) =>
-            label1 == label2,
+            bool_to_tc(label1 == label2),
         (DoubElim(ref discrim1, ref branch11, ref branch21), DoubElim(ref discrim2, ref branch12, ref branch22)) =>
-            is_terms_eq(discrim1, discrim2) && is_terms_eq(branch11, branch12) && is_terms_eq(branch21, branch22),
+            comb(is_terms_eq(discrim1, discrim2), comb(is_terms_eq(branch11, branch12), is_terms_eq(branch21, branch22))),
         (FoldTypeIntro(ref inner_type1), FoldTypeIntro(ref inner_type2)) =>
             is_terms_eq(inner_type1, inner_type2),
         (FoldIntro(ref inner_term1), FoldIntro(ref inner_term2)) =>
@@ -159,15 +277,15 @@ pub fn is_terms_eq(type1: &Term, type2: &Term) -> bool {
         (FoldElim(ref inner_term1), FoldElim(ref inner_term2)) =>
             is_terms_eq(inner_term1, inner_term2),
         (CapturesListTypeIntro(level1), CapturesListTypeIntro(level2)) =>
-            level1 == level2,
+            bool_to_tc(level1 == level2),
         (CapturesListIntro(ref list1), CapturesListIntro(ref list2)) =>
             match (list1, list2) {
                 (Cons(ref data1, ref next1), Cons(ref data2, ref next2)) =>
-                    is_terms_eq(data1, data2) && is_terms_eq(next1, next2),
-                (Nil, Nil) => true,
-                _ => false
+                    comb(is_terms_eq(data1, data2), is_terms_eq(next1, next2)),
+                (Nil, Nil) => True,
+                _ => False(vec![(type1.clone(), type2.clone())])
             }
-        _ => false
+        _ => False(vec![(type1.clone(), type2.clone())])
     }
 }
 

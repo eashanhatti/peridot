@@ -46,7 +46,7 @@ fn run() {
     		range: (0, 1)
     	};
     // println!("{:#?}", elab(&var_term, core::Term::new(Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()), State::new()));
-    let context = Context::new().with_dec(0, core::Term::new_with_note(Note("caps list first".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()));
+    let context = Context::new();
     let core_fun_type =
         core::Term::new(
             Box::new(core::FunctionTypeIntro(
@@ -54,7 +54,7 @@ fn run() {
                 core::Term::new_with_note(Note("first parameter".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()),
                 core::Term::new(
                     Box::new(core::FunctionTypeIntro(
-                        context.with_dec(1, core::Term::new_with_note(Note("caps list second".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone())).to_caps_list(0),
+                        context.with_dec(0, core::Term::new_with_note(Note("caps list first".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone())).to_caps_list(0),
                         core::Term::new_with_note(Note("second parameter".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()),
                         core::Term::new_with_note(Note("out".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()))),
                     univ0.clone()))),
@@ -63,9 +63,17 @@ fn run() {
         elab(
             &fun_term,
             core_fun_type.clone(),
-            State::new()).unwrap_or_else(|errs| { println!("{:#?}", errs); panic!() });
+            State::new()).unwrap_or_else(|errs| { println!("{:#?}", errs); panic!() });/*
     let core_fun_type_check = core::typing::check(&core_fun_type, core::typing::synth_type(&core_fun_type, Context::new()).unwrap(), Context::new());
-    println!("CORE FUN TYPE CHECK\n{:#?}\n{}", &core_fun_type_check, if let Err(ref errs) = core_fun_type_check { errs.len() } else { 0 });
+    println!("CORE FUN TYPE CHECK\n{:#?}\nFN TYPE ERRS{}", &core_fun_type_check, if let Err(ref errs) = core_fun_type_check { errs.len() } else { 0 });
+    if let Err(_) = core_fun_type_check {
+        return;
+    }
+    let core_fun_term_check = core::typing::check(&core_fun_term, core_fun_type, Context::new());
+    println!("CORE FUN TERM CHECK\n{:#?}\nFN TERM ERRS{}", &core_fun_term_check, if let Err(ref errs) = core_fun_term_check { errs.len() } else { 0 });*/
+    println!("{:?}", core_fun_type);
+    println!("{:?}", core::typing::synth_type(&core_fun_term, Context::new()));
+    println!("{:?}", core::lang::is_terms_eq(&core_fun_type, &core::typing::synth_type(&core_fun_term, Context::new()).unwrap()));
 }
 
 fn main() {

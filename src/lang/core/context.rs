@@ -72,7 +72,7 @@ impl Context {
     }
 
     pub fn inc(self, amount: isize) -> Self {
-        let new = Context(self.0.into_iter().map(|(k, v)| (k + 1, v)).collect());
+        let new = Context(self.0.into_iter().map(|(k, v)| (((k as isize) + amount) as usize, v)).collect());
         new
     }
 
