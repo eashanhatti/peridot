@@ -18,7 +18,10 @@ use std::{
 	iter::FromIterator
 };
 mod pass;
-use pass::surface_to_core::*;
+use pass::{
+    surface_to_core::*,
+    text_to_surface::*
+};
 
 fn run() {
     let univ0 =
@@ -74,6 +77,7 @@ fn run() {
     println!("{:?}", core_fun_type);
     println!("{:?}", core::typing::synth_type(&core_fun_term, Context::new()));
     println!("{:?}", core::lang::is_terms_eq(&core_fun_type, &core::typing::synth_type(&core_fun_term, Context::new()).unwrap()));
+    println!("{:?}", parse_text("{ x : int } -> int".to_string()));
 }
 
 fn main() {
