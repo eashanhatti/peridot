@@ -30,7 +30,8 @@ pub struct State {
 
 impl State {
 	pub fn new() -> State {
-		State { context: Context::new(), names_to_indices: HashMap::new() }
+        let map: HashMap<Name, usize> = HashMap::new();
+		State { context: Context::new(), names_to_indices: map }
 	}
 
     pub fn with_dec(self, name: Name, r#type: core::Term) -> State {
@@ -85,12 +86,24 @@ pub enum Error<'a> {
     MismatchedTypes { term: &'a Term, state: State, exp_type: core::Term, giv_type: core::Term },
     NonexistentVar { var: &'a Term, state: State, name: Name },
     ExpectedOfTypeType { term: &'a Term, state: State, min_level: usize, giv_type: core::Term },
-    TooManyFunctionParams { func: &'a Term, state: State, exp_num: usize, giv_num: usize }
+    TooManyFunctionParams { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
+    CannotInferType { term: &'a Term, state: State }
 }
 use Error::*;
 
-pub fn synth_type<'a>(term: &'a Term, state: State) -> Result<core::Term, Vec<Error<'a>>> {
-    unimplemented!()
+// term may be unchecked
+pub fn infer_type<'a>(term: &'a Term, state: State) -> Result<core::Term, Vec<Error<'a>>> {
+    match &*term.data {
+        Ann(_, ref type_ann) => Ok(elab(type_ann, infer_type(type_ann, state.clone())?, state)?),
+        TypeTypeIntro(level) => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(level + 1, core::lang::Usage::Shared)), None)),
+        Var(ref name) =>
+            if let Some((_, r#type)) = state.get_dec(name) {
+                Ok(r#type)
+            } else {
+                Err(vec![Error::NonexistentVar { var: term, state, name: name.clone() }])
+            }
+        _ => Err(vec![Error::CannotInferType { term, state }])
+    }
 }
 
 macro_rules! with_terms {
@@ -120,7 +133,7 @@ type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
 pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResult<'a> {
 	match &*term.data {
         Ann(ref annd_term, ref type_ann) => {
-            let core_type_ann = elab(type_ann, synth_type(type_ann, state.clone())?, state.clone())?;
+            let core_type_ann = elab(type_ann, infer_type(type_ann, state.clone())?, state.clone())?;
             if let False(specific) = is_terms_eq(&core_type_ann, &exp_type) {
                 return Err(vec![MismatchedTypes { term, state, exp_type: exp_type, giv_type: core_type_ann }])
             }
@@ -140,7 +153,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
         FunctionTypeIntro(var_name, ref in_type, ref out_type) => {
             // TODO: remove the `?` and add proper error handling
             let mut errors = Vec::new();
-            let core_in_type = elab(in_type, synth_type(in_type, state.clone())?, state.clone())?;
+            let core_in_type = elab(in_type, infer_type(in_type, state.clone())?, state.clone())?;
             let core_out_type = elab(out_type, core_in_type.clone(), state.clone().with_dec(var_name.clone(), core_in_type.clone()))?;
             let core_in_type_type = core_in_type.r#type();
             let core_out_type_type = core_out_type.r#type();
@@ -222,6 +235,8 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
             }
             Ok(curr_body)
         },
+        FunctionElim(abs, args) => unimplemented!(),
+        
         _ => unimplemented!()
     }
 }

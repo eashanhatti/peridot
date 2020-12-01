@@ -15,7 +15,8 @@ use lang::{
 };
 use std::{
 	collections::HashSet,
-	iter::FromIterator
+	iter::FromIterator,
+    io::Write
 };
 mod pass;
 use pass::{
@@ -74,10 +75,45 @@ fn run() {
     }
     let core_fun_term_check = core::typing::check(&core_fun_term, core_fun_type, Context::new());
     println!("CORE FUN TERM CHECK\n{:#?}\nFN TERM ERRS{}", &core_fun_term_check, if let Err(ref errs) = core_fun_term_check { errs.len() } else { 0 });*/
-    println!("{:?}", core_fun_type);
-    println!("{:?}", core::typing::synth_type(&core_fun_term, Context::new()));
-    println!("{:?}", core::lang::is_terms_eq(&core_fun_type, &core::typing::synth_type(&core_fun_term, Context::new()).unwrap()));
-    println!("{:?}", parse_text("{ x : int } -> int".to_string()));
+    // println!("{:?}", core_fun_type);
+    // println!("{:?}", core::typing::synth_type(&core_fun_term, Context::new()));
+    // println!("{:?}", core::lang::is_terms_eq(&core_fun_type, &core::typing::synth_type(&core_fun_term, Context::new()).unwrap()));
+    let mut s = String::new();
+    loop {
+        print!("> ");
+        std::io::stdout().flush();
+        std::io::stdin().read_line(&mut s).unwrap();
+        
+        if let Some('\n') = s.chars().next_back() { s.pop(); }
+        if let Some('\r') = s.chars().next_back() { s.pop(); }
+
+        if s.as_str() == "/exit" {
+            break;
+        }
+        let ast = parse_text(s.clone());
+        s.clear();
+        if let Ok(ast_ok) = ast {
+            println!("{:#?}", &ast_ok);
+            let surface_term = lower_to_surface(ast_ok);
+            let surface_term_type = match infer_type(&surface_term, State::new()) {
+                Ok(r#type) => r#type,
+                Err(errs) => {
+                    println!("{:#?}", errs);
+                    continue;
+                }
+            };
+            let core_term = match elab(&surface_term, surface_term_type, State::new()) {
+                Ok(term) => term,
+                Err(errs) => {
+                    println!("{:#?}", errs);
+                    continue;
+                }
+            };
+            println!("{:#?}", core_term);
+        } else {
+            println!("{:#?}", ast);
+        }
+    }
 }
 
 fn main() {

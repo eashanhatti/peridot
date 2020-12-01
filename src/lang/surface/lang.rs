@@ -2,10 +2,6 @@
 
 use std::collections::{HashSet, HashMap};
 extern crate non_empty_collections;
-use non_empty_collections::{
-	index_map::*,
-	index_set::*
-};
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub struct Name(pub String);
