@@ -35,7 +35,7 @@ pub enum InnerError {
     ExpectedOfTypeType { min_level: usize, giv_type: Term },
     ExpectedOfFunctionType { giv_type: Term },
     ExpectedOfPairType { giv_type: Term },
-    ExpectedOfEnumType { giv_type: Term },
+    ExpectedOfDoubType { giv_type: Term },
     ExpectedOfFoldType { giv_type: Term },
     ExpectedOfCapturesListType { min_level: usize, giv_type: Term },
     ExpectedOfUnitType { giv_type: Term },
@@ -697,7 +697,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		DoubIntro(_) =>
 			match *(type_ann.clone()).data {
 				EnumTypeIntro => Ok(()),
-				_ => Err(vec![Error::new(term, context, ExpectedOfEnumType { giv_type: type_ann.clone() })])
+				_ => Err(vec![Error::new(term, context, ExpectedOfDoubType { giv_type: type_ann.clone() })])
 			},
 		DoubElim(ref discrim, ref branch1, ref branch2) => {
 			let mut errors = Vec::new();
@@ -716,7 +716,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					push_check(&mut errors, check(branch1, type_ann.clone(), branch_context(discrim.clone())));
 					push_check(&mut errors, check(branch2, type_ann, branch_context(discrim.clone())));
 				},
-				_ => errors.push(Error::new(discrim, context, ExpectedOfEnumType { giv_type: discrim_type }))
+				_ => errors.push(Error::new(discrim, context, ExpectedOfDoubType { giv_type: discrim_type }))
 			}
 
 			wrap_checks(errors)

@@ -24,31 +24,41 @@ use contracts::*;
 
 #[derive(Clone, Debug)]
 pub struct State {
-	context: Context,
-    names_to_indices: HashMap<Name, usize>
+	locals: Context,
+    local_names_to_indices: HashMap<Name, usize>,
+    globals: HashMap<ModulePath, core::Term>
 }
 
 impl State {
 	pub fn new() -> State {
-        let map: HashMap<Name, usize> = HashMap::new();
-		State { context: Context::new(), names_to_indices: map }
+        let map1: HashMap<Name, usize> = HashMap::new();
+        let map2: HashMap<ModulePath, core::Term> = HashMap::new();
+		State {
+            locals: Context::new(),
+            local_names_to_indices: map1,
+            globals: map2
+        }
 	}
 
     pub fn with_dec(self, name: Name, r#type: core::Term) -> State {
-        let context = self.context.inc_and_shift(1).with_dec(0, r#type);
-        let mut names_to_indices = self.names_to_indices;
-        for i in &mut names_to_indices.values_mut() {
+        let locals = self.locals.inc_and_shift(1).with_dec(0, r#type);
+        let mut local_names_to_indices = self.local_names_to_indices;
+        for i in &mut local_names_to_indices.values_mut() {
             *i += 1;
         }
-        names_to_indices.insert(name, 0);
-        State { context, names_to_indices }
+        local_names_to_indices.insert(name, 0);
+        State { locals, local_names_to_indices, globals: self.globals }
     }
 
     // declare before use, `with_dec(name, _)` must have been called before this is
     pub fn with_def(self, name: Name, value: core::Term) -> State {
-        if let Some(index) = self.names_to_indices.get(&name) {
-            if self.context.exists_dec(*index) {
-                State { context: self.context.with_def(*index, value), names_to_indices: self.names_to_indices }
+        if let Some(index) = self.local_names_to_indices.get(&name) {
+            if self.locals.exists_dec(*index) {
+                State {
+                    locals: self.locals.with_def(*index, value),
+                    local_names_to_indices: self.local_names_to_indices,
+                    globals: self.globals
+                }
             } else {
                 panic!("var must be declared before being given a definition")
             }
@@ -58,8 +68,8 @@ impl State {
     }
 
     pub fn get(&self, name: &Name) -> Option<(usize, ContextEntry)> {
-        if let Some(index) = self.names_to_indices.get(name) {
-            if let Some(entry) = self.context.get(*index) {
+        if let Some(index) = self.local_names_to_indices.get(name) {
+            if let Some(entry) = self.locals.get(*index) {
                 return Some((*index, entry));
             }
         }
@@ -76,8 +86,8 @@ impl State {
         Some((entry.0, entry.1.def?))
     }
 
-    pub fn context(self) -> Context {
-        self.context
+    pub fn locals(self) -> Context {
+        self.locals
     }
 }
 
@@ -86,7 +96,9 @@ pub enum Error<'a> {
     MismatchedTypes { term: &'a Term, state: State, exp_type: core::Term, giv_type: core::Term },
     NonexistentVar { var: &'a Term, state: State, name: Name },
     ExpectedOfTypeType { term: &'a Term, state: State, min_level: usize, giv_type: core::Term },
+    ExpectedOfFunctionType { term: &'a Term, state: State, giv_type: core::Term },
     TooManyFunctionParams { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
+    MismatchedFunctionArgsNum { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
     CannotInferType { term: &'a Term, state: State }
 }
 use Error::*;
@@ -170,7 +182,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                                     exp_type: core::Term::new(Box::new(core::TypeTypeIntro(*max_level, *pair_usage)), None),
                                     giv_type: core::Term::new(Box::new(core::TypeTypeIntro(max(in_type_level, out_type_level), *pair_usage)), None) });
                         } else {
-                            caps_list = Some(state.clone().context().to_caps_list(max(in_type_level, out_type_level)));
+                            caps_list = Some(state.clone().locals().to_caps_list(max(in_type_level, out_type_level)));
                         }
                     } else {
                         errors.push(ExpectedOfTypeType { term, state, min_level: max(in_type_level, out_type_level), giv_type: exp_type.clone() })
@@ -213,30 +225,59 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                 }
             }
             let core_body = elab(body, curr_out_type, body_state.clone())?;
-            let mut curr_context = body_state.context().without(0).inc_and_shift(-1);
+            let mut curr_locals = body_state.locals().without(0).inc_and_shift(-1);
             let mut curr_body = core_body;
             for in_type in in_types {
                 let out_type = curr_body.r#type();
                 let fun_kind =
                     core::Term::new(
-                        Box::new(core::TypeTypeIntro(std::cmp::max(out_type.level(), in_type.level()), core::Usage::Unique)), // TODO: allow shared functions
+                        Box::new(core::TypeTypeIntro(std::cmp::max(out_type.level(), in_type.level()), core::Usage::Shared)), // TODO: allow shared functions
                         None);
                 let fun_type =
                     core::Term::new(
                         Box::new(core::FunctionTypeIntro(
-                            curr_context.clone().to_caps_list(std::cmp::max(out_type.level(), in_type.level())),
+                            curr_locals.clone().to_caps_list(std::cmp::max(out_type.level(), in_type.level())),
                             in_type,
                             out_type)),
                         Some(Box::new(fun_kind)));
-                curr_context = curr_context.without(0).inc_and_shift(-1);
+                curr_locals = curr_locals.without(0).inc_and_shift(-1);
                 curr_body = core::Term::new(
                     Box::new(core::FunctionIntro(curr_body)),
                     Some(Box::new(fun_type)));
             }
             Ok(curr_body)
         },
-        FunctionElim(abs, args) => unimplemented!(),
-        
+        FunctionElim(ref abs, ref args) => {
+            let abs_type = infer_type(abs, state.clone())?;
+            let core_abs = elab(abs, abs_type.clone(), state.clone())?; // change to not use `?` later
+            if let core::InnerTerm::FunctionTypeIntro(_, _, _) = &*abs_type.data {
+                ()
+            } else {
+                return Err(vec![ExpectedOfFunctionType { term: abs, state, giv_type: abs_type }])
+            }
+
+            let mut in_types = Vec::new();
+            let mut out_types = vec![abs_type];
+            while let core::InnerTerm::FunctionTypeIntro(_, in_type, out_type) = &*out_types[out_types.len() - 1].data {
+                in_types.push(in_type.clone());
+                out_types.push(out_type.clone());
+            }
+            out_types.remove(0);
+            if args.len() != in_types.len() {
+                return Err(vec![MismatchedFunctionArgsNum { func: term, state, exp_num: in_types.len(), giv_num: args.len() }])
+            }
+            let mut core_args: Vec<core::Term> = Vec::new();
+            for (i, in_type) in in_types.into_iter().enumerate() {
+                // change this to not use `?` later
+                core_args.push(elab(&args[i], in_type, state.clone())?);
+            }
+
+            Ok(core_args.into_iter().fold(core_abs, |curr_abs, core_arg| {
+                core::Term::new(
+                    Box::new(core::InnerTerm::FunctionElim(curr_abs, core_arg)),
+                    Some(Box::new(out_types.remove(0))))
+            }))
+        },
         _ => unimplemented!()
     }
 }
