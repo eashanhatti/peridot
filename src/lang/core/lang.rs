@@ -260,7 +260,7 @@ pub fn is_terms_eq(type1: &Term, type2: &Term) -> TermComparison {
         (UnitTypeIntro, UnitTypeIntro) => True,
         (UnitIntro, UnitIntro) => True,
         (PairTypeIntro(ref fst_type1, ref snd_type1), PairTypeIntro(ref fst_type2, ref snd_type2)) =>
-            comb(is_terms_eq(fst_type1, snd_type1), is_terms_eq(fst_type2, snd_type2)),
+            comb(is_terms_eq(fst_type1, fst_type2), is_terms_eq(snd_type1, snd_type2)),
         (PairIntro(ref fst1, ref snd1), PairIntro(ref fst2, ref snd2)) =>
             comb(is_terms_eq(fst1, fst2), is_terms_eq(snd1, snd2)),
         (PairElim(ref discrim1, ref body1), PairElim(ref discrim2, ref body2)) =>
@@ -268,8 +268,8 @@ pub fn is_terms_eq(type1: &Term, type2: &Term) -> TermComparison {
         (DoubTypeIntro, DoubTypeIntro) => True,
         (DoubIntro(ref label1), DoubIntro(ref label2)) =>
             bool_to_tc(label1 == label2),
-        (DoubElim(ref discrim1, ref branch11, ref branch21), DoubElim(ref discrim2, ref branch12, ref branch22)) =>
-            comb(is_terms_eq(discrim1, discrim2), comb(is_terms_eq(branch11, branch12), is_terms_eq(branch21, branch22))),
+        (DoubElim(ref discrim1, ref left_branch1, ref right_branch1), DoubElim(ref discrim2, ref left_branch2, ref right_branch2)) =>
+            comb(is_terms_eq(discrim1, discrim2), comb(is_terms_eq(left_branch1, left_branch2), is_terms_eq(right_branch1, right_branch2))),
         (FoldTypeIntro(ref inner_type1), FoldTypeIntro(ref inner_type2)) =>
             is_terms_eq(inner_type1, inner_type2),
         (FoldIntro(ref inner_term1), FoldIntro(ref inner_term2)) =>

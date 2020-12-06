@@ -93,11 +93,11 @@ impl State {
 
 #[derive(Debug)]
 pub enum Error<'a> {
-    MismatchedTypes { term: &'a Term, state: State, exp_type: core::Term, giv_type: core::Term },
+    MismatchedTypes { term: &'a Term, state: State, exp_type: core::Term, giv_type: core::Term, specific: Vec<(core::Term, core::Term)> },
     NonexistentVar { var: &'a Term, state: State, name: Name },
     ExpectedOfTypeType { term: &'a Term, state: State, min_level: usize, giv_type: core::Term },
     ExpectedOfFunctionType { term: &'a Term, state: State, giv_type: core::Term },
-    TooManyFunctionParams { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
+    // TooManyFunctionParams { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
     MismatchedFunctionArgsNum { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
     CannotInferType { term: &'a Term, state: State }
 }
@@ -114,6 +114,16 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> Result<core::Term, Vec<Er
             } else {
                 Err(vec![Error::NonexistentVar { var: term, state, name: name.clone() }])
             }
+        FunctionTypeIntro(_, _, _) =>
+            Ok(core::Term::new(
+                Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
+                None
+            )),
+        EnumTypeIntro(_) =>
+            Ok(core::Term::new(
+                Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
+                None
+            )),
         _ => Err(vec![Error::CannotInferType { term, state }])
     }
 }
@@ -147,7 +157,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
         Ann(ref annd_term, ref type_ann) => {
             let core_type_ann = elab(type_ann, infer_type(type_ann, state.clone())?, state.clone())?;
             if let False(specific) = is_terms_eq(&core_type_ann, &exp_type) {
-                return Err(vec![MismatchedTypes { term, state, exp_type: exp_type, giv_type: core_type_ann }])
+                return Err(vec![MismatchedTypes { term, state, exp_type: exp_type, giv_type: core_type_ann, specific }])
             }
             elab(annd_term, core_type_ann, state)
         },
@@ -155,7 +165,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
             match state.get_dec(name) {
                 Some((index, r#type)) =>
                     if let False(specific) = is_terms_eq(&r#type, &exp_type) {
-                        Err(vec![MismatchedTypes { term, state, exp_type, giv_type: r#type }])
+                        Err(vec![MismatchedTypes { term, state, exp_type, giv_type: r#type, specific }])
                     } else {
                         Ok(core::Term::new(Box::new(core::Var(index)), Some(Box::new(r#type))))
                     },
@@ -166,8 +176,8 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
             // TODO: remove the `?` and add proper error handling
             let mut errors = Vec::new();
             let core_in_type = elab(in_type, infer_type(in_type, state.clone())?, state.clone())?;
-            let core_out_type = elab(out_type, core_in_type.clone(), state.clone().with_dec(var_name.clone(), core_in_type.clone()))?;
             let core_in_type_type = core_in_type.r#type();
+            let core_out_type = elab(out_type, infer_type(out_type, state.clone())?, state.clone().with_dec(var_name.clone(), core_in_type_type.clone()))?;
             let core_out_type_type = core_out_type.r#type();
             let mut caps_list = None;
 
@@ -180,7 +190,8 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                                     term,
                                     state,
                                     exp_type: core::Term::new(Box::new(core::TypeTypeIntro(*max_level, *pair_usage)), None),
-                                    giv_type: core::Term::new(Box::new(core::TypeTypeIntro(max(in_type_level, out_type_level), *pair_usage)), None) });
+                                    giv_type: core::Term::new(Box::new(core::TypeTypeIntro(max(in_type_level, out_type_level), *pair_usage)), None),
+                                    specific: Vec::new() });
                         } else {
                             caps_list = Some(state.clone().locals().to_caps_list(max(in_type_level, out_type_level)));
                         }
@@ -221,7 +232,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                     body_state = body_state.with_dec(name.clone(), in_type.clone());
                     curr_out_type = out_type;
                 } else {
-                    return Err(vec![TooManyFunctionParams { func: term, state, exp_num: exp_num_params, giv_num: num_param_names }])
+                    return Err(vec![ExpectedOfFunctionType { term, state, giv_type: curr_out_type }])
                 }
             }
             let core_body = elab(body, curr_out_type, body_state.clone())?;
@@ -278,6 +289,45 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                     Some(Box::new(out_types.remove(0))))
             }))
         },
+        EnumTypeIntro(ref labels) =>
+            match &*exp_type.data {
+                core::InnerTerm::TypeTypeIntro(level, _) => {
+                    use crate::lang::core::{Term, InnerTerm::*};
+
+                    if labels.len() == 0 {
+                        Ok(Term::new(
+                            Box::new(VoidTypeIntro),
+                            Some(Box::new(exp_type))))
+                    } else {
+                        let mut curr_type =
+                            core::Term::new(
+                                Box::new(core::InnerTerm::UnitTypeIntro),
+                                Some(Box::new(exp_type.clone())));
+                        for _ in 0..labels.len() {
+                            curr_type =
+                                Term::new(
+                                    Box::new(PairTypeIntro(
+                                        Term::new(
+                                            Box::new(DoubTypeIntro),
+                                            Some(Box::new(exp_type.clone()))),
+                                        Term::new(
+                                            Box::new(DoubElim(
+                                                Term::new(
+                                                    Box::new(Var(0)),
+                                                    Some(Box::new(exp_type.clone()))),
+                                                Term::new(
+                                                    Box::new(UnitTypeIntro),
+                                                    Some(Box::new(exp_type.clone()))),
+                                                curr_type)),
+                                            Some(Box::new(exp_type.clone()))))),
+                                    Some(Box::new(exp_type.clone())));
+                        }
+
+                        Ok(curr_type)
+                    }
+                },
+                _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type, min_level: 0 }])
+            }
         _ => unimplemented!()
     }
 }

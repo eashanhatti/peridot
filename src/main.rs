@@ -98,18 +98,18 @@ fn run() {
             let surface_term_type = match infer_type(&surface_term, State::new()) {
                 Ok(r#type) => r#type,
                 Err(errs) => {
-                    println!("{:#?}", errs);
+                    println!("INFER\n{:#?}", errs);
                     continue;
                 }
             };
             let core_term = match elab(&surface_term, surface_term_type, State::new()) {
                 Ok(term) => term,
                 Err(errs) => {
-                    println!("{:#?}", errs);
+                    println!("SURFACE\n{:#?}", errs);
                     continue;
                 }
             };
-            println!("{:#?}", core_term);
+            println!("CORE TERM\n{:#?}", core_term);
         } else {
             println!("{:#?}", ast);
         }
