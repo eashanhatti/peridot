@@ -87,31 +87,45 @@ fn run() {
         if let Some('\n') = s.chars().next_back() { s.pop(); }
         if let Some('\r') = s.chars().next_back() { s.pop(); }
 
-        if s.as_str() == "/exit" {
-            break;
-        }
-        let ast = parse_text(s.clone());
-        s.clear();
-        if let Ok(ast_ok) = ast {
-            println!("{:#?}", &ast_ok);
-            let surface_term = lower_to_surface(ast_ok);
-            let surface_term_type = match infer_type(&surface_term, State::new()) {
-                Ok(r#type) => r#type,
-                Err(errs) => {
-                    println!("INFER\n{:#?}", errs);
-                    continue;
+        match &s[0..4] {
+            "exit" => break,
+            "elab" => {
+                let ast = parse_text((&s[5..s.len()]).to_string());
+                s.clear();
+                if let Ok(ast_ok) = ast {
+                    println!("{:#?}", &ast_ok);
+                    let surface_term = lower_to_surface(ast_ok);
+                    let surface_term_type = match infer_type(&surface_term, State::new()) {
+                        Ok(r#type) => r#type,
+                        Err(errs) => {
+                            println!("INFER ERROR\n{:#?}", errs);
+                            continue;
+                        }
+                    };
+                    let core_term = match elab(&surface_term, surface_term_type, State::new()) {
+                        Ok(term) => term,
+                        Err(errs) => {
+                            println!("SURFACE ERROR\n{:#?}", errs);
+                            continue;
+                        }
+                    };
+                    match core::typing::check(&core_term, core::typing::synth_type(&core_term, Context::new()).unwrap(), Context::new()) {
+                        Ok(()) => println!("CORE TERM\n{:#?}", core_term),
+                        Err(errs) => println!("CORE ERROR\n{:#?}", errs)
+                    }
+                } else {
+                    println!("{:#?}", ast);
                 }
-            };
-            let core_term = match elab(&surface_term, surface_term_type, State::new()) {
-                Ok(term) => term,
-                Err(errs) => {
-                    println!("SURFACE\n{:#?}", errs);
-                    continue;
-                }
-            };
-            println!("CORE TERM\n{:#?}", core_term);
-        } else {
-            println!("{:#?}", ast);
+            }
+            "eq?" => {
+                let mut in1 = String::new();
+                std::io::stdin().read_line(&mut in1).unwrap();
+                let mut in2 = String::new();
+                std::io::stdin().read_line(&mut in2).unwrap();
+                let ast1 = parse_text(in1.clone());
+                let ast2 = parse_text(in1.clone());
+            }
+            _ => println!("'{:?}'", &s[0..4])
         }
     }
 }

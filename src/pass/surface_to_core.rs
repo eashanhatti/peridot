@@ -311,7 +311,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                             core::Term::new(
                                 Box::new(core::InnerTerm::UnitTypeIntro),
                                 Some(Box::new(exp_type.clone())));
-                        for _ in 0..*num_inhabitants {
+                        for _ in 0..*num_inhabitants - 1  {
                             curr_type =
                                 Term::new(
                                     Box::new(PairTypeIntro(
@@ -322,7 +322,9 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                                             Box::new(DoubElim(
                                                 Term::new(
                                                     Box::new(Var(0)),
-                                                    Some(Box::new(exp_type.clone()))),
+                                                    Some(Box::new(Term::new(
+                                                        Box::new(DoubTypeIntro),
+                                                        Some(Box::new(exp_type.clone())))))),
                                                 Term::new(
                                                     Box::new(UnitTypeIntro),
                                                     Some(Box::new(exp_type.clone()))),
