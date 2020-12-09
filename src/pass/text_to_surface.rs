@@ -12,12 +12,6 @@ use crate::lang::surface::{
 use std::collections::hash_set::HashSet;
 
 #[derive(Debug, Clone)]
-pub enum LabelList {
-	Cons(Box<Ast>, Box<Ast>),
-	Nil
-}
-
-#[derive(Debug, Clone)]
 pub enum Ast {
 	Function(Box<Ast>, Box<Ast>),
 	PiType(Box<Ast>, Box<Ast>, Box<Ast>),
@@ -27,7 +21,7 @@ pub enum Ast {
 	ParamsList(Box<Ast>, Option<Box<Ast>>),
 	ArgsList(Box<Ast>, Option<Box<Ast>>),
 	EnumType(Box<Ast>),
-	LabelList(LabelList),
+	Enum(Box<Ast>),
 	Universe(Box<Ast>),
 	Id(String),
 	Num(usize),
@@ -95,9 +89,9 @@ impl Ast {
 			_ => panic!()
 		}
 	}
-	fn to_labellist(self) -> LabelList {
+	fn to_enum(self) -> Box<Ast> {
 		match self {
-			Ast::LabelList(list) => list,
+			Ast::Enum(ast) => ast,
 			_ => panic!()
 		}
 	}
@@ -120,14 +114,15 @@ fn build_grammar() -> earlgrey::Grammar {
 		.nonterm("Call")
 		.nonterm("ArgsList")
 		.nonterm("EnumType")
-		.nonterm("LabelList")
+		.nonterm("Enum")
 		.nonterm("Universe")
 		.terminal("fn", |s| s == "fn")
 		.terminal("=>", |s| s == "=>")
 		.terminal("{", |s| s == "{")
 		.terminal("}", |s| s == "}")
 		.terminal("->", |s| s == "->")
-		.terminal("[a-zA-Z]+", |s| regex::Regex::new("^[[:alpha:]]+$").unwrap().is_match(s) && s != "enum" && s != "U")
+		.terminal("[a-zA-Z]+", |s|
+			regex::Regex::new("^[[:alpha:]]+$").unwrap().is_match(s) && s != "enum" && s != "U" && s != "'")
 		.terminal("[0-9]+", |s| regex::Regex::new("^[0-9]+$").unwrap().is_match(s))
 		.terminal(":", |s| s == ":")
 		.terminal(",", |s| s == ",")
@@ -136,6 +131,7 @@ fn build_grammar() -> earlgrey::Grammar {
 		.terminal("[", |s| s == "[")
 		.terminal("]", |s| s == "]")
 		.terminal("enum", |s| s == "enum")
+		.terminal("'", |s| s == "'")
 		.terminal("U", |s| s == "U")
 		.rule("Term", &["Function"])
 		.rule("Term", &["PiType"])
@@ -144,6 +140,7 @@ fn build_grammar() -> earlgrey::Grammar {
 		.rule("Term", &["Call"])
 		.rule("Term", &["EnumType"])
 		.rule("Term", &["Universe"])
+		.rule("Term", &["Enum"])
 		.rule("Term", &["(", "Term", ")"])
 		.rule("Function", &["fn", "ParamsList", "=>", "Term"])
 		.rule("PiType", &["{", "[a-zA-Z]+", ":", "Term", "}", "->", "Term"])
@@ -154,10 +151,8 @@ fn build_grammar() -> earlgrey::Grammar {
 		.rule("Call", &["Term", "(", "ArgsList", ")"])
 		.rule("ArgsList", &["Term", ",", "ArgsList"])
 		.rule("ArgsList", &["Term"])
-		.rule("EnumType", &["enum", "[", "LabelList", "]"])
-		.rule("LabelList", &["[a-zA-Z]+", ",", "LabelList"])
-		.rule("LabelList", &["[a-zA-Z]+"])
-		.rule::<&str, &str>("LabelList", &[])
+		.rule("EnumType", &["enum", "[0-9]+"])
+		.rule("Enum", &["'", "[0-9]+"])
 		.rule("Universe", &["U", "[0-9]+"])
 		.into_grammar("Term")
 		.unwrap()
@@ -184,14 +179,13 @@ fn build_semanter<'a>() -> earlgrey::EarleyForest<'a, Ast> {
     ev.action("Term -> ( Term )", |s| s[1].clone());
     ev.action("Term -> Call", |s| s[0].clone());
     ev.action("Term -> EnumType", |s| s[0].clone());
+    ev.action("Term -> Enum", |s| s[0].clone());
     ev.action("Term -> Universe", |s| s[0].clone());
     ev.action("Call -> Term ( ArgsList )", |s| Ast::Call(Box::new(s[0].clone()), Box::new(s[2].clone())));
     ev.action("ArgsList -> Term , ArgsList", |s| Ast::ArgsList(Box::new(s[0].clone()), Some(Box::new(s[2].clone()))));
     ev.action("ArgsList -> Term", |s| Ast::ArgsList(Box::new(s[0].clone()), None));
-    ev.action("EnumType -> enum [ LabelList ]", |s| Ast::EnumType(Box::new(s[2].clone())));
-    ev.action("LabelList -> [a-zA-Z]+ , LabelList", |s| Ast::LabelList(LabelList::Cons(Box::new(s[0].clone()), Box::new(s[2].clone()))));
-    ev.action("LabelList -> [a-zA-Z]+", |s| Ast::LabelList(LabelList::Cons(Box::new(s[0].clone()), Box::new(Ast::LabelList(LabelList::Nil)))));
-    ev.action("LabelList -> ", |s| Ast::LabelList(LabelList::Nil));
+    ev.action("EnumType -> enum [0-9]+", |s| Ast::EnumType(Box::new(s[1].clone())));
+    ev.action("Enum -> ' [0-9]+", |s| Ast::Enum(Box::new(s[1].clone())));
     ev.action("Universe -> U [0-9]+", |s| Ast::Universe(Box::new(s[1].clone())));
     ev
 }
@@ -233,15 +227,8 @@ pub fn lower_to_surface(ast: Ast) -> Term {
 			Ast::PiType(name, in_type, out_type) => InnerTerm::FunctionTypeIntro(Name(name.to_id()), lower_to_surface(*in_type), lower_to_surface(*out_type)),
 			Ast::Var(name) => InnerTerm::Var(Name(name.to_id())),
 			Ast::Ann(annd_term, type_ann) => InnerTerm::Ann(lower_to_surface(*annd_term), lower_to_surface(*type_ann)),
-			Ast::EnumType(label_list) => {
-				let mut labels = HashSet::new();
-				let mut list = label_list.to_labellist();
-				while let LabelList::Cons(label, next) = list {
-					labels.insert(Label(label.to_id()));
-					list = next.to_labellist();
-				}
-				InnerTerm::EnumTypeIntro(labels)
-			},
+			Ast::EnumType(num_inhabitants) => InnerTerm::EnumTypeIntro(num_inhabitants.to_num()),
+			Ast::Enum(inhabitant) => InnerTerm::EnumIntro(inhabitant.to_num()),
 			Ast::Universe(level) => InnerTerm::TypeTypeIntro(level.to_num()),
 			_ => panic!()
 		}),

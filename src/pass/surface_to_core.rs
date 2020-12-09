@@ -97,7 +97,8 @@ pub enum Error<'a> {
     NonexistentVar { var: &'a Term, state: State, name: Name },
     ExpectedOfTypeType { term: &'a Term, state: State, min_level: usize, giv_type: core::Term },
     ExpectedOfFunctionType { term: &'a Term, state: State, giv_type: core::Term },
-    // TooManyFunctionParams { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
+    ExpectedOfEnumType { term: &'a Term, state: State, giv_type: core::Term },
+    EnumInhabitantTooLarge { term: &'a Term, state: State, inhabitant: usize, num_inhabitants: usize },
     MismatchedFunctionArgsNum { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
     CannotInferType { term: &'a Term, state: State }
 }
@@ -119,6 +120,13 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> Result<core::Term, Vec<Er
                 Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
                 None
             )),
+        FunctionElim(ref abs, _) => {
+            let abs_type = infer_type(abs, state.clone())?;
+            match &*abs_type.data {
+                core::InnerTerm::FunctionTypeIntro(_, _, ref out_type) => Ok(out_type.clone()),
+                _ => Err(vec![ExpectedOfFunctionType { term: abs, state, giv_type: abs_type }])
+            }
+        },
         EnumTypeIntro(_) =>
             Ok(core::Term::new(
                 Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
@@ -289,12 +297,12 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                     Some(Box::new(out_types.remove(0))))
             }))
         },
-        EnumTypeIntro(ref labels) =>
+        EnumTypeIntro(num_inhabitants) =>
             match &*exp_type.data {
                 core::InnerTerm::TypeTypeIntro(level, _) => {
                     use crate::lang::core::{Term, InnerTerm::*};
 
-                    if labels.len() == 0 {
+                    if *num_inhabitants == 0usize {
                         Ok(Term::new(
                             Box::new(VoidTypeIntro),
                             Some(Box::new(exp_type))))
@@ -303,7 +311,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                             core::Term::new(
                                 Box::new(core::InnerTerm::UnitTypeIntro),
                                 Some(Box::new(exp_type.clone())));
-                        for _ in 0..labels.len() {
+                        for _ in 0..*num_inhabitants {
                             curr_type =
                                 Term::new(
                                     Box::new(PairTypeIntro(
@@ -327,6 +335,81 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                     }
                 },
                 _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type, min_level: 0 }])
+            },
+        EnumIntro(inhabitant) => {
+            fn elab_enum(term: &Term, state: State, inhabitant: usize, exp_type: core::Term) -> ElabResult {
+                use self::core::InnerTerm::*;
+                if let VoidTypeIntro = &*exp_type.data {
+                    return Err(vec![EnumInhabitantTooLarge { term, state, inhabitant, num_inhabitants: 0 }])
+                }
+                let of_et_err = Err(vec![ExpectedOfEnumType { term, state: state.clone(), giv_type: exp_type.clone()}]);
+                
+                let mut num_inhabitants = 0;
+                let mut r#type = exp_type.clone();
+                loop {
+                    if let PairTypeIntro(fst_type, snd_type) = *r#type.data {
+                        if let DoubTypeIntro = *fst_type.data { () } else { return of_et_err; }
+                        if let DoubElim(discrim, left_branch, right_branch) = *snd_type.data {
+                            if let Var(0) = *discrim.data { () } else { return of_et_err; }
+                            if let UnitTypeIntro = *left_branch.data { () } else { return of_et_err; }
+                            num_inhabitants += 1;
+                            r#type = right_branch;
+                        } else {
+                            return of_et_err;
+                        }
+                    } else if let UnitTypeIntro = *r#type.data {
+                        num_inhabitants += 1;
+                        break;
+                    } else {
+                        return of_et_err;
+                    }
+                }
+                if !(inhabitant < num_inhabitants) {
+                    return Err(vec![EnumInhabitantTooLarge { term, state, inhabitant, num_inhabitants }]);
+                }
+
+                let mut enum_val =
+                    core::Term::new(
+                        Box::new(UnitIntro),
+                        Some(Box::new(core::Term::new(
+                            Box::new(UnitTypeIntro),
+                            Some(Box::new(core::Term::new(
+                                Box::new(TypeTypeIntro(exp_type.level(), exp_type.usage())),
+                                None)))))));
+                let mut r#type = exp_type;
+                for _ in 0..inhabitant {
+                    if let PairTypeIntro(fst_type, snd_type) = *r#type.clone().data {
+                        enum_val =
+                            core::Term::new(
+                                Box::new(PairIntro(
+                                    core::Term::new(
+                                        Box::new(DoubIntro(core::Doub::That)),
+                                        Some(Box::new(fst_type))),
+                                    enum_val)),
+                                Some(Box::new(r#type)));
+                        r#type = snd_type;
+                    } else {
+                        panic!();
+                    }
+                }
+
+                Ok(enum_val)
+            }
+            elab_enum(term, state, *inhabitant, exp_type)
+        },
+        TypeTypeIntro(level) =>
+            match *exp_type.data {
+                core::TypeTypeIntro(type_level, usage) =>
+                    if *level < type_level {
+                        Ok(core::Term::new(
+                            Box::new(core::InnerTerm::TypeTypeIntro(*level, core::Usage::Shared)),
+                            Some(Box::new(core::Term::new(
+                                Box::new(core::InnerTerm::TypeTypeIntro(type_level, usage)),
+                                None)))))
+                    } else {
+                        Err(vec![ExpectedOfTypeType { term, state, min_level: level + 1, giv_type: exp_type }])
+                    }
+                _ => Err(vec![ExpectedOfTypeType { term, state, min_level: 0, giv_type: exp_type }])
             }
         _ => unimplemented!()
     }

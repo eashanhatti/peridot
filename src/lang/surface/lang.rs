@@ -6,9 +6,6 @@ extern crate non_empty_collections;
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub struct Name(pub String);
 
-#[derive(Hash, PartialEq, Eq, Clone, Debug)]
-pub struct Label(pub String); // for enums
-
 pub type ModulePath = Vec<Name>;
 
 pub enum Item {
@@ -37,8 +34,8 @@ pub enum InnerTerm {
 	TypeTypeIntro(usize),
 	RecordTypeIntro(ModulePath, Name), // identify nominal types by module path and name
 	RecordIntro(HashMap<Name, Term>),
-	EnumTypeIntro(HashSet<Label>),
-	EnumIntro(Label),
+	EnumTypeIntro(usize),
+	EnumIntro(usize),
 	Match(HashMap<Pattern, Term>), // elim form of records and enums
 	Let(HashMap<Name, Term>, Term)
 }
@@ -52,6 +49,6 @@ pub struct Term {
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub enum Pattern {
 	Record(Vec<Pattern>),
-	Enum(Label),
+	Enum(usize),
 	Binding(Name) // binding
 }
