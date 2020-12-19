@@ -39,6 +39,7 @@ pub enum InnerError {
     ExpectedOfFoldType { giv_type: Term },
     ExpectedOfCapturesListType { min_level: usize, giv_type: Term },
     ExpectedOfUnitType { giv_type: Term },
+    ExpectedOfIndexedType { giv_type: Term },
     MismatchedUsage { var_index: usize, exp_usage: (usize, usize), giv_usage: (usize, usize) },
     UnmentionedFreeVars { caps_list: Vec<Term>, unmentioned_vars: Vec<Term> }
 }
@@ -152,6 +153,9 @@ pub fn count_uses(term: &Term, target_index: usize) -> (usize, usize) {
 						]),
 					Nil => singleton(0)
 				}
+			IndexedTypeIntro(_, ref inner_type) => count_uses(inner_type, target_index),
+			IndexedIntro(ref inner_term) => count_uses(inner_term, target_index),
+			IndexedElim(ref folded_term) => count_uses(folded_term, target_index),
 		},
 		match &term.type_ann {
 			Some(r#type) => count_uses(r#type, target_index),
@@ -245,7 +249,10 @@ fn get_free_vars(term: &Term) -> HashSet<(usize, Term)> {
 								inner(tail, bounds)
 							]),
 						Nil => HashSet::new()
-					}
+					},
+				IndexedTypeIntro(_, ref inner_type) => inner(inner_type, bounds.clone()),
+				IndexedIntro(ref inner_term) => inner(inner_term, bounds.clone()),
+				IndexedElim(ref folded_term) => inner(folded_term, bounds),
 			},
 			type_ann_free_vars])
 	}
@@ -736,7 +743,13 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				FoldTypeIntro(inner_type) => check(inner_term, inner_type, context),
 				_ => Err(vec![Error::new(term, context, ExpectedOfFoldType { giv_type: type_ann.clone() })])
 			},
-		FoldElim(ref folded_term) => check(folded_term, type_ann, context),
+		FoldElim(ref folded_term) => {
+			let folded_term_type = synth_type(folded_term, context.clone())?;
+			match &*folded_term_type.data {
+				FoldTypeIntro(_) => check(folded_term, type_ann, context),
+				_ => Err(vec![Error::new(term, context, ExpectedOfFoldType { giv_type: folded_term_type })])
+			}
+		}
 		CapturesListTypeIntro(level) =>
 			match *type_ann.clone().data {
 				TypeTypeIntro(u_level, _) =>
@@ -782,6 +795,28 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 						Nil => Ok(())
 					}
 				_ => Err(vec![Error::new(term, context, ExpectedOfCapturesListType { min_level: 0, giv_type: type_ann })])
+			}
+		},
+		IndexedTypeIntro(_, ref inner_type) =>
+			match *(type_ann.clone()).data {
+				TypeTypeIntro(_, _) => {
+					let mut errors = Vec::new();
+					push_check(&mut errors, check(inner_type, synth_type(inner_type, context.clone())?, context.clone()));
+					push_check(&mut errors, check_type(inner_type, context.clone()));
+					wrap_checks(errors)
+				},
+				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: 0, giv_type: type_ann.clone() })])
+			},
+		IndexedIntro(ref inner_term) =>
+			match *(type_ann.clone()).data {
+				IndexedTypeIntro(_, inner_type) => check(inner_term, inner_type, context),
+				_ => Err(vec![Error::new(term, context, ExpectedOfIndexedType { giv_type: type_ann.clone() })])
+			},
+		IndexedElim(ref indexed_term) => {
+			let indexed_term_type = synth_type(indexed_term, context.clone())?;
+			match &*indexed_term_type.data {
+				IndexedTypeIntro(_, _) => check(indexed_term, type_ann, context),
+				_ => Err(vec![Error::new(term, context, ExpectedOfIndexedType { giv_type: indexed_term_type })])
 			}
 		}
 	}

@@ -304,7 +304,11 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
 
                     if *num_inhabitants == 0usize {
                         Ok(Term::new(
-                            Box::new(VoidTypeIntro),
+                            Box::new(IndexedTypeIntro(
+                                0,
+                                Term::new(
+                                    Box::new(VoidTypeIntro),
+                                    Some(Box::new(exp_type.clone()))))),
                             Some(Box::new(exp_type))))
                     } else {
                         let mut curr_type =
@@ -333,7 +337,9 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                                     Some(Box::new(exp_type.clone())));
                         }
 
-                        Ok(curr_type)
+                        Ok(Term::new(
+                            Box::new(IndexedTypeIntro(0, curr_type)),
+                            Some(Box::new(exp_type))))
                     }
                 },
                 _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type, min_level: 0 }])
@@ -341,10 +347,16 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
         EnumIntro(inhabitant) => {
             fn elab_enum(term: &Term, state: State, inhabitant: usize, exp_type: core::Term) -> ElabResult {
                 use self::core::InnerTerm::*;
+                let of_et_err = Err(vec![ExpectedOfEnumType { term, state: state.clone(), giv_type: exp_type.clone()}]);
+                let exp_type =
+                    if let IndexedTypeIntro(_, inner_type) = *exp_type.data {
+                        inner_type
+                    } else {
+                        return of_et_err;
+                    };
                 if let VoidTypeIntro = &*exp_type.data {
                     return Err(vec![EnumInhabitantTooLarge { term, state, inhabitant, num_inhabitants: 0 }])
                 }
-                let of_et_err = Err(vec![ExpectedOfEnumType { term, state: state.clone(), giv_type: exp_type.clone()}]);
                 
                 let mut num_inhabitants = 0;
                 let mut r#type = exp_type.clone();

@@ -76,7 +76,10 @@ pub enum InnerTerm {
     FoldIntro(Term),
     FoldElim(Term),
     CapturesListTypeIntro(usize),
-    CapturesListIntro(List)
+    CapturesListIntro(List),
+    IndexedTypeIntro(usize, Term),
+    IndexedIntro(Term),
+    IndexedElim(Term)
 }
 
 fn indent_to_string(indent: usize) -> String {
@@ -128,6 +131,9 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
                     Cons(ref data, ref next) => format!("captures\n{}\n{}", display_term(data, indent + 1), display_term(next, indent + 1)),
                     Nil => String::from("nil")
                 }
+            IndexedTypeIntro(_, ref inner) => format!("Indexed\n{}", display_term(inner, indent + 1)),
+            IndexedIntro(ref inner) => format!("indexed\n{}", display_term(inner, indent + 1)),
+            IndexedElim(ref inner) => format!("indexedelim\n{}", display_term(inner, indent + 1)),
         };
     format!("{}{}\n", indent_to_string(indent), string)
 }
@@ -285,6 +291,12 @@ pub fn is_terms_eq(type1: &Term, type2: &Term) -> TermComparison {
                 (Nil, Nil) => True,
                 _ => False(vec![(type1.clone(), type2.clone())])
             }
+        (IndexedTypeIntro(index1, ref inner_type1), IndexedTypeIntro(index2, ref inner_type2)) =>
+            comb(is_terms_eq(inner_type1, inner_type2), bool_to_tc(index1 == index2)),
+        (IndexedIntro(ref inner_term1), IndexedIntro(ref inner_term2)) =>
+            is_terms_eq(inner_term1, inner_term2),
+        (IndexedElim(ref inner_term1), IndexedElim(ref inner_term2)) =>
+            is_terms_eq(inner_term1, inner_term2),
         _ => False(vec![(type1.clone(), type2.clone())])
     }
 }

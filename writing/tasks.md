@@ -1,22 +1,17 @@
 - [ ] core
-	- [ ] uniqueness types
-		- [x] usage checking
-		- [ ] uniqueness propagation checking
-		- [x] capture lists
-	- [ ] sized types
-		- [ ] pointers
-	- [ ] const eval tracking
-		- [ ] runtime eval typing
-	- [ ] totality tracking
-		- [ ] totality checker
-		- [ ] nontermination typing
-	- [ ] explicitly typed
+	- [x] functions, pi types
+	- [x] capture lists
+	- [x] pairs, sigma types
+	- [x] doub, doub type, unit, unit type, void type
+	- [x] recursion, fold, fold type
+	- [x] universes
+	- [x] unique types
+	- [ ] indexed types
 - [ ] surface
-	- [ ] syntax
-	- [ ] surface_to_core
-		- [ ] checking
-		- [ ] elaboration
-	- [ ] core_to_surface
-- [ ] backend
-	- [ ] IR
-	- [ ] codegen
+	- [ ] records, nominal record types
+	- [ ] modules
+	- [x] enums, enum types (finite sets)
+	- [ ] let bindings
+	- [ ] pattern matching
+	- [x] functions, pi types
+	- [ ] recursion

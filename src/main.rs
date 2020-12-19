@@ -125,8 +125,9 @@ fn run() {
                 let ast1 = parse_text(in1.clone());
                 let ast2 = parse_text(in1.clone());
             }
-            _ => println!("'{:?}'", &s[0..4])
+            _ => println!("'{:?}' not a command", &s[0..4])
         }
+        s.clear();
     }
 }
 

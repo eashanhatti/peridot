@@ -85,7 +85,10 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
                     match list {
                         Cons(head, tail) => Cons(shift(head, bounds.clone(), amount), shift(tail, bounds, amount)),
                         Nil => Nil
-                    })
+                    }),
+            IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, shift(inner_type, bounds, amount)),
+            IndexedIntro(inner_term) => IndexedIntro(shift(inner_term, bounds, amount)),
+            IndexedElim(inner_term) => IndexedElim(shift(inner_term, bounds, amount)),
         };
     Term::new(Box::new(term_inner), shifted_type_ann)
 }
@@ -144,7 +147,10 @@ pub fn substitute(term: Term, context: Context) -> Term {
                     match list {
                         Cons(head, tail) => Cons(substitute(head, context.clone()), substitute(tail, context)),
                         Nil => Nil
-                    })
+                    }),
+            IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, substitute(inner_type, context)),
+            IndexedIntro(inner_term) => IndexedIntro(substitute(inner_term, context)),
+            IndexedElim(inner_term) => IndexedElim(substitute(inner_term, context)),
         };
     Term::new(Box::new(term_inner), substd_type_ann)
 }
@@ -246,6 +252,15 @@ pub fn normalize(term: Term, context: Context) -> Term {
                         Cons(head, tail) => Cons(normalize(head, context.clone()), normalize(tail, context)),
                         Nil => Nil
                     })),
-                normal_type_ann)
+                normal_type_ann),
+        IndexedTypeIntro(index, inner_type) => Term::new(Box::new(IndexedTypeIntro(index, substitute(inner_type, context))), normal_type_ann),
+        IndexedIntro(inner_term) => normalize(inner_term, context),
+        IndexedElim(indexed_term) => {
+            let normal_indexed_term = normalize(indexed_term, context);
+            match *normal_indexed_term.data {
+                IndexedIntro(inner_term) => inner_term,
+                _ => Term::new(Box::new(IndexedElim(normal_indexed_term)), normal_type_ann)
+            }
+        }
     }
 }
