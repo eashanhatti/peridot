@@ -21,6 +21,7 @@ dependencies = [
  "earlgrey 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "non-empty-collections 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "snowflake 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -109,6 +110,11 @@ version = "1.0.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "snowflake"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "syn"
 version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -146,6 +152,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum regex 1.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "38cf2c13ed4745de91a5eb834e11c00bcc3709e773173b2ce4c56c9fbde04b9c"
 "checksum regex-syntax 0.6.21 (registry+https://github.com/rust-lang/crates.io-index)" = "3b181ba2dcf07aaccad5448e8ead58db5b742cf85dfe035e2227f137a539a189"
 "checksum serde 1.0.116 (registry+https://github.com/rust-lang/crates.io-index)" = "96fe57af81d28386a513cbc6858332abc6117cfdb5999647c6444b8f43a370a5"
+"checksum snowflake 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "27207bb65232eda1f588cf46db2fee75c0808d557f6b3cf19a75f5d6d7c94df1"
 "checksum syn 1.0.41 (registry+https://github.com/rust-lang/crates.io-index)" = "6690e3e9f692504b941dc6c3b188fd28df054f7fb8469ab40680df52fdcc842b"
 "checksum thread_local 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d40c6d1b69745a6ec6fb1ca717914848da4b44ae29d9b3080cbee91d72a69b14"
 "checksum unicode-xid 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"

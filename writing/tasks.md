@@ -6,7 +6,7 @@
 	- [x] recursion, fold, fold type
 	- [x] universes
 	- [x] unique types
-	- [ ] indexed types
+	- [x] indexed types
 - [ ] surface
 	- [ ] records, nominal record types
 	- [ ] modules

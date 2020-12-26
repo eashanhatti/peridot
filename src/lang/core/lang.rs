@@ -145,6 +145,11 @@ pub struct Term {
     pub note: Option<Note>
 }
 
+pub const univ_zero_shared: Term =
+    Term::new(
+        Box::new(InnerTerm::TypeTypeIntro(0, Usage::Shared)),
+        None);
+
 fn display_term(term: &Term, indent: usize) -> String {
     let mut string = format!("{}Term \"{}\"\n", indent_to_string(indent), if let Some(Note(ref s)) = term.note { s.clone() } else { String::new() });
     string = format!("{}{}", string, display_inner_term(&*term.data, indent + 1));

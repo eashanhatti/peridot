@@ -1,16 +1,27 @@
 #![allow(warnings)]
 
-use std::collections::{HashSet, HashMap};
-extern crate non_empty_collections;
+use std::collections::{HashSet, HashMap, BTreeMap}; 
 
-#[derive(Hash, PartialEq, Eq, Clone, Debug)]
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct Name(pub String);
 
 pub type ModulePath = Vec<Name>;
 
+#[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
+pub struct QualifiedName(pub ModulePath, pub Name);
+
+impl QualifiedName {
+	pub fn with_name(self, name: Name) -> Self {
+		let mut path = self.0;
+		path.push(self.1);
+		QualifiedName(path, name)
+	}
+}
+
 pub enum Item {
+	Declaration(Term), // `x : t`, `TermDef` and `RecordTypeDef` are for `x = v`
 	TermDef(Term),
-	RecordTypeDef(HashMap<Name, Term>), // nominal
+	RecordTypeDef(HashMap<Name, Term>),
 	ModuleDef(Module)
 }
 
@@ -20,19 +31,19 @@ pub enum Visibility {
 }
 
 pub struct Module {
-	defs: HashMap<Name, (Visibility, Item)>
+	pub items: BTreeMap<Name, Item>
 }
 
 #[derive(Debug, Clone)]
 pub enum InnerTerm {
 	Ann(Term, Term),
 	Var(Name),
-	ImportTerm(ModulePath, Name), // module path, term name
+	ImportTerm(QualifiedName),
 	FunctionTypeIntro(Name, Term, Term),
 	FunctionIntro(HashSet<Name>, Term),
 	FunctionElim(Term, Vec<Term>),
 	TypeTypeIntro(usize),
-	RecordTypeIntro(ModulePath, Name), // identify nominal types by module path and name
+	RecordTypeIntro(QualifiedName, HashMap<Name, Term>),
 	RecordIntro(HashMap<Name, Term>),
 	EnumTypeIntro(usize),
 	EnumIntro(usize),

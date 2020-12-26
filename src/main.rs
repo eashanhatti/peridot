@@ -64,7 +64,7 @@ fn run() {
                     univ0.clone()))),
             univ0);
     let core_fun_term =
-        elab(
+        elab_term(
             &fun_term,
             core_fun_type.clone(),
             State::new()).unwrap_or_else(|errs| { println!("{:#?}", errs); panic!() });/*
@@ -102,7 +102,7 @@ fn run() {
                             continue;
                         }
                     };
-                    let core_term = match elab(&surface_term, surface_term_type, State::new()) {
+                    let core_term = match elab_term(&surface_term, surface_term_type, State::new()) {
                         Ok(term) => term,
                         Err(errs) => {
                             println!("SURFACE ERROR\n{:#?}", errs);

@@ -1,12 +1,19 @@
 #![allow(warnings)]
 
 use std::{
-    collections::HashMap,
+    collections::{
+        hash_map::{
+            HashMap,
+            Iter
+        },
+        BTreeMap
+    },
     cmp::max
 };
 use crate::lang::{
 	core::{
         self,
+        univ_zero_shared,
         context::{
             *,
             ContextEntryKind::*
@@ -22,32 +29,38 @@ use crate::lang::{
 extern crate contracts;
 use contracts::*;
 
+// the globals map takes index 0
+// globals maps names to type id pairs
+// id is used to calculate the arg needed to pass to the globals map at index zero in order to get that global term
+// curr_global_id is used as a source of fresh ids
 #[derive(Clone, Debug)]
 pub struct State {
 	locals: Context,
     local_names_to_indices: HashMap<Name, usize>,
-    globals: HashMap<ModulePath, core::Term>
+    globals: HashMap<QualifiedName, (core::Term, usize)>,
+    curr_global_id: usize
 }
 
 impl State {
 	pub fn new() -> State {
         let map1: HashMap<Name, usize> = HashMap::new();
-        let map2: HashMap<ModulePath, core::Term> = HashMap::new();
+        let map2: HashMap<QualifiedName, (core::Term, usize)> = HashMap::new();
 		State {
             locals: Context::new(),
             local_names_to_indices: map1,
-            globals: map2
+            globals: map2,
+            curr_global_id: 0
         }
 	}
 
     pub fn with_dec(self, name: Name, r#type: core::Term) -> State {
-        let locals = self.locals.inc_and_shift(1).with_dec(0, r#type);
+        let locals = self.locals.inc_and_shift(1).with_dec(1, r#type);
         let mut local_names_to_indices = self.local_names_to_indices;
         for i in &mut local_names_to_indices.values_mut() {
             *i += 1;
         }
-        local_names_to_indices.insert(name, 0);
-        State { locals, local_names_to_indices, globals: self.globals }
+        local_names_to_indices.insert(name, 1);
+        State { locals, local_names_to_indices, globals: self.globals, curr_global_id: self.curr_global_id }
     }
 
     // declare before use, `with_dec(name, _)` must have been called before this is
@@ -57,13 +70,92 @@ impl State {
                 State {
                     locals: self.locals.with_def(*index, value),
                     local_names_to_indices: self.local_names_to_indices,
-                    globals: self.globals
+                    globals: self.globals,
+                    curr_global_id: self.curr_global_id
                 }
             } else {
                 panic!("var must be declared before being given a definition")
             }
         } else {
             panic!("var must be declared before being given a definition")
+        }
+    }
+
+    pub fn with_global_dec(self, name: QualifiedName, r#type: core::Term) -> State {
+        if let Some(_) = self.globals.get(&name) {
+            panic!("duplicate global");
+        } else {
+            let mut globals = self.globals;
+            // let index = {
+            //     use self::core::InnerTerm::*;
+            //     use self::core::Term;
+
+            //     let mut curr_type =
+            //         Term::new(
+            //             Box::new(UnitTypeIntro),
+            //             Some(Box::new(univ_zero_shared)));
+            //     for _ in 0..self.curr_global_id + 1  {
+            //         curr_type =
+            //             Term::new(
+            //                 Box::new(PairTypeIntro(
+            //                     Term::new(
+            //                         Box::new(DoubTypeIntro),
+            //                         Some(Box::new(univ_zero_shared))),
+            //                     Term::new(
+            //                         Box::new(DoubElim(
+            //                             Term::new(
+            //                                 Box::new(Var(0)),
+            //                                 Some(Box::new(Term::new(
+            //                                     Box::new(DoubTypeIntro),
+            //                                     Some(Box::new(univ_zero_shared)))))),
+            //                             Term::new(
+            //                                 Box::new(UnitTypeIntro),
+            //                                 Some(Box::new(univ_zero_shared))),
+            //                             curr_type)),
+            //                         Some(Box::new(univ_zero_shared))))),
+            //                 Some(Box::new(univ_zero_shared)));
+            //     }
+
+            //     let mut enum_val =
+            //         core::Term::new(
+            //             Box::new(UnitIntro),
+            //             Some(Box::new(core::Term::new(
+            //                 Box::new(UnitTypeIntro),
+            //                 Some(Box::new(core::Term::new(
+            //                     Box::new(TypeTypeIntro(curr_type.level(), curr_type.usage())),
+            //                     None)))))));
+            //     let mut r#type = curr_type;
+            //     for _ in 0..self.curr_global_id + 1 {
+            //         if let PairTypeIntro(fst_type, snd_type) = *r#type.clone().data {
+            //             enum_val =
+            //                 core::Term::new(
+            //                     Box::new(PairIntro(
+            //                         core::Term::new(
+            //                             Box::new(DoubIntro(core::Doub::That)),
+            //                             Some(Box::new(fst_type))),
+            //                         enum_val)),
+            //                     Some(Box::new(r#type)));
+            //             r#type = snd_type;
+            //         } else {
+            //             panic!();
+            //         }
+            //     }
+            // };
+            globals.insert(name, (r#type, self.curr_global_id));
+            State {
+                locals: self.locals,
+                local_names_to_indices: self.local_names_to_indices,
+                globals,
+                curr_global_id: self.curr_global_id + 1
+            }
+        }
+    }
+
+    pub fn get_global_dec(&self, name: &QualifiedName) -> Option<(core::Term, usize)> {
+        if let Some(entry) = self.globals.get(name) {
+            Some(entry.clone())
+        } else {
+            None
         }
     }
 
@@ -107,7 +199,7 @@ use Error::*;
 // term may be unchecked
 pub fn infer_type<'a>(term: &'a Term, state: State) -> Result<core::Term, Vec<Error<'a>>> {
     match &*term.data {
-        Ann(_, ref type_ann) => Ok(elab(type_ann, infer_type(type_ann, state.clone())?, state)?),
+        Ann(_, ref type_ann) => Ok(elab_term(type_ann, infer_type(type_ann, state.clone())?, state)?),
         TypeTypeIntro(level) => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(level + 1, core::lang::Usage::Shared)), None)),
         Var(ref name) =>
             if let Some((_, r#type)) = state.get_dec(name) {
@@ -160,14 +252,14 @@ macro_rules! with_terms {
 type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
 
 // checks a surface term, and either returns the elaborated term or errors
-pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResult<'a> {
+pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResult<'a> {
 	match &*term.data {
         Ann(ref annd_term, ref type_ann) => {
-            let core_type_ann = elab(type_ann, infer_type(type_ann, state.clone())?, state.clone())?;
+            let core_type_ann = elab_term(type_ann, infer_type(type_ann, state.clone())?, state.clone())?;
             if let False(specific) = is_terms_eq(&core_type_ann, &exp_type) {
                 return Err(vec![MismatchedTypes { term, state, exp_type: exp_type, giv_type: core_type_ann, specific }])
             }
-            elab(annd_term, core_type_ann, state)
+            elab_term(annd_term, core_type_ann, state)
         },
         Var(ref name) => {
             match state.get_dec(name) {
@@ -183,9 +275,9 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
         FunctionTypeIntro(var_name, ref in_type, ref out_type) => {
             // TODO: remove the `?` and add proper error handling
             let mut errors = Vec::new();
-            let core_in_type = elab(in_type, infer_type(in_type, state.clone())?, state.clone())?;
+            let core_in_type = elab_term(in_type, infer_type(in_type, state.clone())?, state.clone())?;
             let core_in_type_type = core_in_type.r#type();
-            let core_out_type = elab(out_type, infer_type(out_type, state.clone())?, state.clone().with_dec(var_name.clone(), core_in_type_type.clone()))?;
+            let core_out_type = elab_term(out_type, infer_type(out_type, state.clone())?, state.clone().with_dec(var_name.clone(), core_in_type_type.clone()))?;
             let core_out_type_type = core_out_type.r#type();
             let mut caps_list = None;
 
@@ -243,7 +335,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
                     return Err(vec![ExpectedOfFunctionType { term, state, giv_type: curr_out_type }])
                 }
             }
-            let core_body = elab(body, curr_out_type, body_state.clone())?;
+            let core_body = elab_term(body, curr_out_type, body_state.clone())?;
             let mut curr_locals = body_state.locals().without(0).inc_and_shift(-1);
             let mut curr_body = core_body;
             for in_type in in_types {
@@ -268,7 +360,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
         },
         FunctionElim(ref abs, ref args) => {
             let abs_type = infer_type(abs, state.clone())?;
-            let core_abs = elab(abs, abs_type.clone(), state.clone())?; // change to not use `?` later
+            let core_abs = elab_term(abs, abs_type.clone(), state.clone())?; // change to not use `?` later
             if let core::InnerTerm::FunctionTypeIntro(_, _, _) = &*abs_type.data {
                 ()
             } else {
@@ -288,7 +380,7 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
             let mut core_args: Vec<core::Term> = Vec::new();
             for (i, in_type) in in_types.into_iter().enumerate() {
                 // change this to not use `?` later
-                core_args.push(elab(&args[i], in_type, state.clone())?);
+                core_args.push(elab_term(&args[i], in_type, state.clone())?);
             }
 
             Ok(core_args.into_iter().fold(core_abs, |curr_abs, core_arg| {
@@ -427,4 +519,88 @@ pub fn elab<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResul
             }
         _ => unimplemented!()
     }
+}
+
+pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State) -> ElabResult<'a> {
+    enum FlattenedModuleItem<'a> { // local item type for module flattening
+        Declaration(&'a Term),
+        TermDef(&'a Term),
+        RecordTypeDef(&'a HashMap<Name, Term>),
+    }
+
+    #[derive(PartialEq, Eq, PartialOrd, Ord)]
+    enum ItemKind { Dec, Def }
+
+    // flatten the module structure, turning it into a more haskell-like structure
+    fn flatten_module<'a>(module: &'a Module, module_name: QualifiedName) -> BTreeMap<(QualifiedName, ItemKind), FlattenedModuleItem> {
+        let mut items = BTreeMap::new();
+        for (ref item_name, ref item) in module.items {
+
+            match item {
+                Item::Declaration(r#type) => { items.insert((module_name.with_name(item_name.clone()), ItemKind::Dec), FlattenedModuleItem::Declaration(&r#type)); },
+                Item::TermDef(term) => { items.insert((module_name.with_name(item_name.clone()), ItemKind::Def), FlattenedModuleItem::TermDef(&term)); },
+                Item::RecordTypeDef(fields) => { items.insert((module_name.with_name(item_name.clone()), ItemKind::Def), FlattenedModuleItem::RecordTypeDef(&fields)); },
+                Item::ModuleDef(submodule) => {
+                    for (key, val) in flatten_module(submodule, module_name.with_name(item_name.clone())) {
+                        items.insert(key, val);
+                    }
+                }
+            }
+        }
+
+        items
+    }
+
+    let items = flatten_module(module, module_name);
+    // elaborated module items and new state with all the new global declarations in it
+    // global declarations are needed for their ids, so `ImportTerm` can calculate the needed arg to the globals map to get the item for that id
+    let (core_items, state) = {
+        let mut state = state;
+        for ((ref name, _), ref item) in items {
+            match item {
+                FlattenedModuleItem::Declaration(r#type) => state = state.with_global_dec(name.clone(), elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?),
+                _ => ()
+            }
+        }
+
+        let mut core_items: Vec<core::Term> = Vec::new();
+        for ((ref name, _), ref item) in items {
+            let (core_item_type, item_id) = state.get_global_dec(name).unwrap(); // TODO: error reporting
+            match item {
+                FlattenedModuleItem::TermDef(term) => core_items.push(elab_term(term, core_item_type, state.clone())?),
+                FlattenedModuleItem::RecordTypeDef(fields) => {
+                    fn make_type(mut fields: Iter<Name, Term>, core_item_type: core::Term, state: State) -> ElabResult {
+                        use self::core::{
+                            Term,
+                            InnerTerm::*
+                        };
+
+                        if let Some((name, r#type)) = fields.next() {
+                            let core_field_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
+                            let next_state = state.clone().with_dec(name.clone(), core_field_type.clone());
+                            let core_rest_type = make_type(fields, core_item_type, next_state.clone())?;
+                            Ok(Term::new(
+                                Box::new(PairTypeIntro(
+                                    core_field_type,
+                                    core_rest_type)),
+                                Some(Box::new(core_item_type))))
+                        } else {
+                            Ok(Term::new(
+                                Box::new(UnitTypeIntro),
+                                Some(Box::new(univ_zero_shared))))
+                        }
+                    }
+
+                    core_items.push(core::Term::new(
+                        Box::new(core::InnerTerm::IndexedTypeIntro(
+                            item_id + 1usize,
+                            make_type(fields.iter(), core_item_type.clone(), state)?)),
+                        Some(Box::new(core_item_type))));
+                },
+                _ => ()
+            }
+        }
+
+        (core_items, state)
+    };
 }
