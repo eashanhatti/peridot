@@ -16,7 +16,10 @@ use lang::{
 use std::{
 	collections::HashSet,
 	iter::FromIterator,
-    io::Write
+    io::{Read, Write},
+    fs::File,
+    path::Path,
+    thread
 };
 mod pass;
 use pass::{
@@ -78,6 +81,7 @@ fn run() {
     // println!("{:?}", core_fun_type);
     // println!("{:?}", core::typing::synth_type(&core_fun_term, Context::new()));
     // println!("{:?}", core::lang::is_terms_eq(&core_fun_type, &core::typing::synth_type(&core_fun_term, Context::new()).unwrap()));
+
     let mut s = String::new();
     loop {
         print!("> ");
@@ -90,7 +94,11 @@ fn run() {
         match &s[0..4] {
             "exit" => break,
             "elab" => {
-                let ast = parse_text((&s[5..s.len()]).to_string());
+                let mut file = File::open(&Path::new(&s[5..])).unwrap();
+                let mut source = String::new();
+                file.read_to_string(&mut source);
+                println!("{:?}", source);
+                let ast = parse_text(source.clone());
                 s.clear();
                 if let Ok(ast_ok) = ast {
                     println!("{:#?}", &ast_ok);

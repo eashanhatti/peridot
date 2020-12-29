@@ -13,13 +13,19 @@ use std::{
 use crate::lang::{
 	core::{
         self,
-        univ_zero_shared,
         context::{
             *,
             ContextEntryKind::*
         },
         is_terms_eq,
-        lang::TermComparison::*
+        lang::{
+            TermComparison::*,
+            Usage,
+            List::{
+                self,
+                *
+            }
+        },
     },
     surface::{
         *,
@@ -54,12 +60,12 @@ impl State {
 	}
 
     pub fn with_dec(self, name: Name, r#type: core::Term) -> State {
-        let locals = self.locals.inc_and_shift(1).with_dec(1, r#type);
+        let locals = self.locals.inc_and_shift(1).with_dec(0, r#type);
         let mut local_names_to_indices = self.local_names_to_indices;
         for i in &mut local_names_to_indices.values_mut() {
             *i += 1;
         }
-        local_names_to_indices.insert(name, 1);
+        local_names_to_indices.insert(name, 0);
         State { locals, local_names_to_indices, globals: self.globals, curr_global_id: self.curr_global_id }
     }
 
@@ -253,22 +259,25 @@ type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
 
 // checks a surface term, and either returns the elaborated term or errors
 pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResult<'a> {
-	match &*term.data {
+    match &*term.data {
         Ann(ref annd_term, ref type_ann) => {
             let core_type_ann = elab_term(type_ann, infer_type(type_ann, state.clone())?, state.clone())?;
-            if let False(specific) = is_terms_eq(&core_type_ann, &exp_type) {
+            let cmp = is_terms_eq(&core_type_ann, &exp_type);
+            if let False(specific) = cmp {
                 return Err(vec![MismatchedTypes { term, state, exp_type: exp_type, giv_type: core_type_ann, specific }])
             }
             elab_term(annd_term, core_type_ann, state)
         },
         Var(ref name) => {
             match state.get_dec(name) {
-                Some((index, r#type)) =>
-                    if let False(specific) = is_terms_eq(&r#type, &exp_type) {
+                Some((index, r#type)) => {
+                    let cmp = is_terms_eq(&r#type, &exp_type);
+                    if let False(specific) = cmp {
                         Err(vec![MismatchedTypes { term, state, exp_type, giv_type: r#type, specific }])
                     } else {
                         Ok(core::Term::new(Box::new(core::Var(index)), Some(Box::new(r#type))))
-                    },
+                    }
+                },
                 None => Err(vec![NonexistentVar { var: term, state, name: name.clone() }])
             }
         },
@@ -277,7 +286,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             let mut errors = Vec::new();
             let core_in_type = elab_term(in_type, infer_type(in_type, state.clone())?, state.clone())?;
             let core_in_type_type = core_in_type.r#type();
-            let core_out_type = elab_term(out_type, infer_type(out_type, state.clone())?, state.clone().with_dec(var_name.clone(), core_in_type_type.clone()))?;
+            let core_out_type = elab_term(out_type, infer_type(out_type, state.clone())?, state.clone().with_dec(var_name.clone(), core_in_type.clone()))?;
             let core_out_type_type = core_out_type.r#type();
             let mut caps_list = None;
 
@@ -389,7 +398,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     Some(Box::new(out_types.remove(0))))
             }))
         },
-        EnumTypeIntro(num_inhabitants) =>
+        EnumTypeIntro(num_inhabitants) => {
             match &*exp_type.data {
                 core::InnerTerm::TypeTypeIntro(level, _) => {
                     use crate::lang::core::{Term, InnerTerm::*};
@@ -407,7 +416,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                             core::Term::new(
                                 Box::new(core::InnerTerm::UnitTypeIntro),
                                 Some(Box::new(exp_type.clone())));
-                        for _ in 0..*num_inhabitants - 1  {
+                        for _ in 0..*num_inhabitants - 1 {
                             curr_type =
                                 Term::new(
                                     Box::new(PairTypeIntro(
@@ -435,7 +444,8 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     }
                 },
                 _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type, min_level: 0 }])
-            },
+            }
+        },
         EnumIntro(inhabitant) => {
             fn elab_enum(term: &Term, state: State, inhabitant: usize, exp_type: core::Term) -> ElabResult {
                 use self::core::InnerTerm::*;
@@ -521,11 +531,120 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
     }
 }
 
+macro_rules! Univ {
+    ($level:expr, shared) => {
+        Term::new(
+            Box::new(TypeTypeIntro($level, Usage::Shared)),
+            None)
+    };
+    ($level:expr, unique) => {
+        Term::new(
+            Box::new(TypeTypeIntro($level, Usage::Unique)),
+            None)
+    };
+    ($level:expr, shared,: $ann:expr) => {
+        Term::new(
+            Box::new(TypeTypeIntro($level, Usage::Shared)),
+            Some(Box::new($ann)))
+    };
+    ($level:expr, unique,: $ann:expr) => {
+        Term::new(
+            Box::new(TypeTypeIntro($level, Usage::Unique)),
+            Some(Box::new($ann)))
+    }
+}
+
+macro_rules! var {
+    ($index:expr,: $ann:expr) => {
+        Term::new(
+            Box::new(Var($index)),
+            Some(Box::new($ann)))
+    };
+}
+
+macro_rules! pair {
+    ($fst:expr, $snd:expr,: $ann:expr) => {
+        Term::new(
+            Box::new(PairIntro(
+                $fst,
+                $snd)),
+            Some(Box::new($ann)))
+    };
+}
+
+macro_rules! Pair {
+    ($fst_type:expr, $snd_type:expr,: $ann:expr) => {
+        Term::new(
+            Box::new(PairTypeIntro(
+                $fst_type,
+                $snd_type)),
+            Some(Box::new($ann)))
+    };
+}
+
+macro_rules! split {
+    ($discrim:expr, in $body:expr,: $ann:expr) => {
+        Term::new(
+            Box::new(PairElim(
+                $discrim,
+                $body)),
+            Some(Box::new($ann)))
+    };
+}
+
+macro_rules! Doub {
+    (,: $ann:expr) => {
+        Term::new(
+            Box::new(DoubTypeIntro),
+            Some(Box::new($ann)))
+    };
+}
+
+macro_rules! doub {
+    (left,: $ann:expr) => {
+        Term::new(
+            Box::new(DoubIntro(Doub::Left)),
+            Some(Box::new($ann)))
+    };
+    (right,: $ann:expr) => {
+        Term::new(
+            Box::new(DoubIntro(Doub::Right)),
+            Some(Box::new($ann)))
+    };
+}
+
+macro_rules! case {
+    ($discrim:expr, l => $lbranch:expr; r => $rbranch:expr;,: $ann:expr) => {
+        Term::new(
+            Box::new(DoubElim(
+                $discrim,
+                $lbranch,
+                $rbranch)),
+            Some(Box::new($ann)))
+    };
+}
+
+macro_rules! unit {
+    (,: $ann:expr) => {
+        Term::new(
+            Box::new(UnitIntro),
+            Some(Box::new($ann)))
+    };
+}
+
+macro_rules! Unit {
+    (,: $ann:expr) => {
+        Term::new(
+            Box::new(UnitTypeIntro),
+            Some(Box::new($ann)))
+    };
+}
+
 pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State) -> ElabResult<'a> {
     enum FlattenedModuleItem<'a> { // local item type for module flattening
-        Declaration(&'a Term),
-        TermDef(&'a Term),
-        RecordTypeDef(&'a HashMap<Name, Term>),
+        Declaration(&'a crate::lang::surface::Term),
+        TermDef(&'a crate::lang::surface::Term),
+        RecordTypeDef(&'a HashMap<Name, crate::lang::surface::Term>),
     }
 
     #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -534,14 +653,14 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
     // flatten the module structure, turning it into a more haskell-like structure
     fn flatten_module<'a>(module: &'a Module, module_name: QualifiedName) -> BTreeMap<(QualifiedName, ItemKind), FlattenedModuleItem> {
         let mut items = BTreeMap::new();
-        for (ref item_name, ref item) in module.items {
+        for (item_name, item) in module.items.iter() {
 
             match item {
-                Item::Declaration(r#type) => { items.insert((module_name.with_name(item_name.clone()), ItemKind::Dec), FlattenedModuleItem::Declaration(&r#type)); },
-                Item::TermDef(term) => { items.insert((module_name.with_name(item_name.clone()), ItemKind::Def), FlattenedModuleItem::TermDef(&term)); },
-                Item::RecordTypeDef(fields) => { items.insert((module_name.with_name(item_name.clone()), ItemKind::Def), FlattenedModuleItem::RecordTypeDef(&fields)); },
+                Item::Declaration(r#type) => { items.insert((module_name.clone().with_name(item_name.clone()), ItemKind::Dec), FlattenedModuleItem::Declaration(r#type)); },
+                Item::TermDef(term) => { items.insert((module_name.clone().with_name(item_name.clone()), ItemKind::Def), FlattenedModuleItem::TermDef(term)); },
+                Item::RecordTypeDef(fields) => { items.insert((module_name.clone().with_name(item_name.clone()), ItemKind::Def), FlattenedModuleItem::RecordTypeDef(fields)); },
                 Item::ModuleDef(submodule) => {
-                    for (key, val) in flatten_module(submodule, module_name.with_name(item_name.clone())) {
+                    for (key, val) in flatten_module(submodule, module_name.clone().with_name(item_name.clone())) {
                         items.insert(key, val);
                     }
                 }
@@ -553,12 +672,12 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
 
     let items = flatten_module(module, module_name);
     // elaborated module items and new state with all the new global declarations in it
-    // global declarations are needed for their ids, so `ImportTerm` can calculate the needed arg to the globals map to get the item for that id
-    let (core_items, state) = {
+    // global declarations are needed for their ids, so `ImportTerm` can calculate the needed arg to the globals map to get the definition
+    let mut core_items = {
         let mut state = state;
-        for ((ref name, _), ref item) in items {
+        for ((ref name, _), ref item) in items.iter() {
             match item {
-                FlattenedModuleItem::Declaration(r#type) => state = state.with_global_dec(name.clone(), elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?),
+                FlattenedModuleItem::Declaration(r#type) => state = state.clone().with_global_dec(name.clone(), elab_term(r#type, infer_type(r#type, state.clone())?, state)?),
                 _ => ()
             }
         }
@@ -569,38 +688,114 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
             match item {
                 FlattenedModuleItem::TermDef(term) => core_items.push(elab_term(term, core_item_type, state.clone())?),
                 FlattenedModuleItem::RecordTypeDef(fields) => {
-                    fn make_type(mut fields: Iter<Name, Term>, core_item_type: core::Term, state: State) -> ElabResult {
+                    fn make_type(mut fields: Iter<Name, crate::lang::surface::Term>, core_item_type: core::Term, state: State) -> ElabResult {
                         use self::core::{
                             Term,
                             InnerTerm::*
                         };
 
                         if let Some((name, r#type)) = fields.next() {
-                            let core_field_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
-                            let next_state = state.clone().with_dec(name.clone(), core_field_type.clone());
-                            let core_rest_type = make_type(fields, core_item_type, next_state.clone())?;
+                            let core_item_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
+                            let next_state = state.clone().with_dec(name.clone(), core_item_type.clone());
+                            let core_rest_type = make_type(fields, core_item_type.clone(), next_state.clone())?;
                             Ok(Term::new(
                                 Box::new(PairTypeIntro(
-                                    core_field_type,
+                                    core_item_type.clone(),
                                     core_rest_type)),
                                 Some(Box::new(core_item_type))))
                         } else {
                             Ok(Term::new(
                                 Box::new(UnitTypeIntro),
-                                Some(Box::new(univ_zero_shared))))
+                                Some(Box::new(Univ!(0, shared)))))
                         }
                     }
 
                     core_items.push(core::Term::new(
                         Box::new(core::InnerTerm::IndexedTypeIntro(
                             item_id + 1usize,
-                            make_type(fields.iter(), core_item_type.clone(), state)?)),
+                            make_type(fields.iter(), core_item_type.clone(), state.clone())?)),
                         Some(Box::new(core_item_type))));
                 },
                 _ => ()
             }
         }
 
-        (core_items, state)
+        core_items
     };
+    let (core_map, discrim_type) = {
+        use self::core::{
+            Term,
+            InnerTerm::*
+        };
+
+        let mut core_map = core_items.remove(core_items.len() - 1);
+        let mut discrim_type = Unit!( ,: Univ!(0, shared));
+
+        for core_item in core_items {
+            discrim_type =
+                Pair!(
+                    case!(
+                        var!(
+                            1
+                        ,: Doub!( ,: Univ!(0, shared))),
+                        l => Unit!( ,: Univ!(0, shared));
+                        r => discrim_type.clone();
+                    ,: Univ!(0, shared)),
+                    Doub!( ,: Univ!(0, shared))
+                ,: Univ!(0, shared));
+
+            let core_map_type =
+                case!(
+                    var!(
+                        1
+                    ,: Doub!( ,: Univ!(0, shared))),
+                    l => core_item.r#type();
+                    r => core_map.r#type();
+                ,: Univ!(std::cmp::max(core_item.r#type().level(), core_map.r#type().level()), shared));
+            core_map =
+                case!(
+                    var!(
+                        1
+                    ,: Doub!( ,: Univ!(0, shared))),
+                    l => core_item;
+                    r => core_map;
+                ,: core_map_type.clone());
+            let core_map_type =
+                split!(
+                    var!(
+                        0
+                    ,: discrim_type.clone()),
+                    in core_map_type.clone()
+                ,: Univ!(0, shared));
+            core_map =
+                split!(
+                    var!(
+                        0
+                    ,: discrim_type.clone()),
+                    in core_map
+                ,: core_map_type);
+        }
+
+        (core_map, discrim_type)
+    };
+    let core_map_type = core_map.r#type();
+
+    use self::core::{
+        Term,
+        InnerTerm::*
+    };
+
+    Ok(Term::new(
+        Box::new(FunctionIntro(core_map)),
+        Some(Box::new(
+            Term::new(
+                Box::new(FunctionTypeIntro(
+                    Term::new(
+                        Box::new(CapturesListIntro(Nil)),
+                        Some(Box::new(Term::new(
+                            Box::new(CapturesListTypeIntro(0)),
+                            Some(Box::new(Univ!(0, shared))))))),
+                    discrim_type,
+                    core_map_type)),
+                Some(Box::new(Univ!(0, shared))))))))
 }

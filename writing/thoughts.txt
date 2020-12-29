@@ -494,3 +494,48 @@ goals as a *functional systems language*:
 - abstractions should be zero cost, and when they aren't, the cost should be clear and knowable by the programmer
 - the type system should not just express properties useful for verification, but also properties useful for performance
 ------------------------------------------------
+
+fn =>
+    split v0 =>
+        case v1
+            l => a : A
+            r =>
+                split v0 =>
+                    case v1
+                        l => b : B
+                        r => c : C
+                    :
+                        case v1
+                            l => B : Type
+                            r => C : Type
+                :
+                    split v0 =>
+                        case v1
+                            l => B : Type
+                            r => C : Type
+        :
+            case v1
+                l => A
+                r =>
+                    split v0 =>
+                        case v1
+                            l => B : Type
+                            r => C : Type
+    :
+        split v0 =>
+            case v1
+                l => A
+                r =>
+                    split v0 =>
+                        case v1
+                            l => B : Type
+                            r => C : Type
+: Discrim ->
+    split v0 =>
+            case v1
+                l => A
+                r =>
+                    split v0 =>
+                        case v1
+                            l => B : Type
+                            r => C : Type

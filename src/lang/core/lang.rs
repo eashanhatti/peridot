@@ -145,11 +145,6 @@ pub struct Term {
     pub note: Option<Note>
 }
 
-pub const univ_zero_shared: Term =
-    Term::new(
-        Box::new(InnerTerm::TypeTypeIntro(0, Usage::Shared)),
-        None);
-
 fn display_term(term: &Term, indent: usize) -> String {
     let mut string = format!("{}Term \"{}\"\n", indent_to_string(indent), if let Some(Note(ref s)) = term.note { s.clone() } else { String::new() });
     string = format!("{}{}", string, display_inner_term(&*term.data, indent + 1));
@@ -250,10 +245,12 @@ fn bool_to_tc(it: bool) -> TermComparison {
     }
 }
 
+static mut count: usize = 0;
+
 // checks if two terms are equal, disregarding type ann
 pub fn is_terms_eq(type1: &Term, type2: &Term) -> TermComparison {
     use InnerTerm::*;
-    
+
     match &(&(*type1.data), &(*type2.data)) {
         (TypeTypeIntro(level1, usage1), TypeTypeIntro(level2, usage2)) =>
             comb(bool_to_tc(level1 == level2), bool_to_tc(usage1 == usage2)),
@@ -289,29 +286,19 @@ pub fn is_terms_eq(type1: &Term, type2: &Term) -> TermComparison {
             is_terms_eq(inner_term1, inner_term2),
         (CapturesListTypeIntro(level1), CapturesListTypeIntro(level2)) =>
             bool_to_tc(level1 == level2),
-        (CapturesListIntro(ref list1), CapturesListIntro(ref list2)) =>
+        (CapturesListIntro(ref list1), CapturesListIntro(ref list2)) => 
             match (list1, list2) {
                 (Cons(ref data1, ref next1), Cons(ref data2, ref next2)) =>
                     comb(is_terms_eq(data1, data2), is_terms_eq(next1, next2)),
                 (Nil, Nil) => True,
                 _ => False(vec![(type1.clone(), type2.clone())])
-            }
-        (IndexedTypeIntro(index1, ref inner_type1), IndexedTypeIntro(index2, ref inner_type2)) =>
+            },
+        (IndexedTypeIntro(index1, ref inner_type1), IndexedTypeIntro(index2, ref inner_type2)) => 
             comb(is_terms_eq(inner_type1, inner_type2), bool_to_tc(index1 == index2)),
-        (IndexedIntro(ref inner_term1), IndexedIntro(ref inner_term2)) =>
+        (IndexedIntro(ref inner_term1), IndexedIntro(ref inner_term2)) => 
             is_terms_eq(inner_term1, inner_term2),
         (IndexedElim(ref inner_term1), IndexedElim(ref inner_term2)) =>
             is_terms_eq(inner_term1, inner_term2),
         _ => False(vec![(type1.clone(), type2.clone())])
     }
 }
-
-// impl std::fmt::Display for Term {
-//     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         let string_form =
-//             match self.data {
-
-//             }
-//         write!(formatter, "{}", string_form)
-//     }
-// } 

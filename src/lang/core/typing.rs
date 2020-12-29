@@ -193,11 +193,24 @@ fn get_free_vars(term: &Term) -> HashSet<(usize, Term)> {
 			tmp
 		}
 
-		let type_ann_free_vars = inner(&term.r#type(), bounds.clone());
+		let type_ann_free_vars =
+			if let Some(type_ann) = &term.type_ann {
+				inner(&*type_ann, bounds.clone())
+			} else {
+				Set::new()
+			};
+
 		collapse(vec![
 			match *term.data {
 				TypeTypeIntro(_, _) => HashSet::new(),
-				Var(index) => panic!(),
+				Var(index) =>
+					if bounds.contains(&index) {
+						let mut set = HashSet::new();
+						set.insert((index, term.r#type()));
+						set
+					} else {
+						HashSet::new()
+					},
 				Rec(ref inner_term) => inner(inner_term, inc(bounds.clone())),
 				FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) =>
 					collapse(vec![
@@ -205,7 +218,11 @@ fn get_free_vars(term: &Term) -> HashSet<(usize, Term)> {
 						inner(in_type, bounds.clone()),
 						inner(out_type, inc(bounds))
 					]),
-				FunctionIntro(ref body) => inner(body, inc(bounds)),
+				FunctionIntro(ref body) => {
+					let mut body_bounds = inc(bounds);
+					body_bounds.insert(0);
+					inner(body, body_bounds)
+				},
 				FunctionElim(ref abs, ref arg) =>
 					collapse(vec![
 						inner(abs, bounds.clone()),
@@ -367,9 +384,9 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
 // exp_type should always be checked and in normal form
 pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResult<'a, ()> {
 	use InnerError::*;
-	
+
 	let type_ann = synth_type(term, context.clone())?;
-	if let False(specific) = is_terms_eq(&type_ann, &exp_type) { // TODO: allow for universe subtyping
+	if let False(specific) = is_terms_eq(&type_ann, &exp_type) {
 		return
 			Err(vec![Error::new(
 				term,
@@ -390,12 +407,13 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			},
 		Var(index) =>
 			match context.get_dec(index) {
-				Some(var_type) =>
+				Some(var_type) => {
 					if let False(specific) = is_terms_eq(&var_type, &type_ann) {
 						Err(vec![Error::new(term, context, MismatchedTypes { exp_type: type_ann, giv_type: var_type, specific })])
 					} else {
 						Ok(())
 					}
+				}
 				None => Err(vec![Error::new(term, context, NonexistentVar { index })])
 			},
 		Rec(ref inner_term) => {
@@ -703,7 +721,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			},
 		DoubIntro(_) =>
 			match *(type_ann.clone()).data {
-				EnumTypeIntro => Ok(()),
+				DoubTypeIntro => Ok(()),
 				_ => Err(vec![Error::new(term, context, ExpectedOfDoubType { giv_type: type_ann.clone() })])
 			},
 		DoubElim(ref discrim, ref branch1, ref branch2) => {
