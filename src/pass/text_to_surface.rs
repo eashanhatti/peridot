@@ -12,13 +12,16 @@ use crate::lang::surface::{
 	*,
 	InnerTerm::*
 };
-use std::collections::HashSet;
+use std::collections::{
+	HashSet,
+	BTreeMap
+};
 
 #[derive(pest_derive::Parser)]
 #[grammar = "C:\\Users\\Eashan\\dev\\clamn\\src\\pass\\grammar.pest"]
 struct LangParser;
 
-pub fn parse_text(input: &str) -> Result<Term, Error<Rule>> { // TODO: error reporting
+pub fn parse_text(input: &str) -> Result<Module, Error<Rule>> { // TODO: error reporting
 	let ast = LangParser::parse(Rule::main, input)?.next().unwrap();
 	// println!("{:?}", ast);
 
@@ -48,14 +51,33 @@ pub fn parse_text(input: &str) -> Result<Term, Error<Rule>> { // TODO: error rep
 					Rule::var => Var(Name(pair_iter.next().unwrap().as_str().to_string())),
 					Rule::fin => EnumIntro(pair_iter.next().unwrap().as_str().parse::<usize>().unwrap()),
 					Rule::fin_type => EnumTypeIntro(pair_iter.next().unwrap().as_str().parse::<usize>().unwrap()),
-					_ => {
-						println!("{:?}, {:?}, {:?}", pair_str, pair_rule, pair_span);
-						panic!();
-					}
+					_ => unreachable!()
 				}),
 			range: (pair_span.start(), pair_span.end())
 		}
 	}
 
-	Ok(parse_term(ast))
+	fn parse_module(mut pair: Pair<Rule>) -> Module {
+		if pair.as_rule() == Rule::module {
+			let items_iter = pair.into_inner();
+			let mut items = BTreeMap::new();
+			for item in items_iter {
+				let rule = item.as_rule();
+				let mut item_iter = item.into_inner();
+				let name = Name(item_iter.next().unwrap().as_str().to_string());
+				let body = parse_term(item_iter.next().unwrap());
+				match rule {
+					Rule::dec => { items.insert((name, ItemKind::Dec), Item::Declaration(body)); },
+					Rule::term_def => { items.insert((name, ItemKind::Def), Item::TermDef(body)); },
+					_ => unreachable!()
+				}
+			}
+
+			Module { items }
+		} else {
+			unreachable!()
+		}
+	}
+
+	Ok(parse_module(ast))
 }

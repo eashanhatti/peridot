@@ -41,7 +41,7 @@ pub enum InnerError {
     ExpectedOfUnitType { giv_type: Term },
     ExpectedOfIndexedType { giv_type: Term },
     MismatchedUsage { var_index: usize, exp_usage: (usize, usize), giv_usage: (usize, usize) },
-    UnmentionedFreeVars { caps_list: Vec<Term>, unmentioned_vars: Vec<Term> }
+    UnmentionedFreeVars { caps_list: Vec<Term>, unmentioned_vars: HashMap<usize, Term> }
 }
 
 #[derive(Debug)]
@@ -175,16 +175,18 @@ pub fn level_of<'a>(r#type: &'a Term, context: Context) -> CheckResult<'a, usize
 
 // `term` should be checked before this is called
 // should make this more robust in the future
-fn get_free_vars(term: &Term) -> HashSet<(usize, Term)> {
-	type Set = HashSet<(usize, Term)>;
+fn get_free_vars(term: &Term) -> HashMap<usize, Term> {
+	type Map = HashMap<usize, Term>;
 
-	fn inner(term: &Term, bounds: HashSet<usize>) -> Set {
-		fn collapse(sets: Vec<Set>) -> Set {
-			let mut new_set: Set = HashSet::new();
-			for set in sets {
-				new_set = new_set.r#union(&set).cloned().collect::<Set>();
+	fn inner(term: &Term, bounds: HashSet<usize>) -> Map {
+		fn collapse(maps: Vec<Map>) -> Map {
+			let mut new_map: Map = HashMap::new();
+			for map in maps {
+				for (k, v) in map {
+					new_map.insert(k, v);
+				}
 			}
-			new_set
+			new_map
 		}
 
 		fn inc(set: HashSet<usize>) -> HashSet<usize> {
@@ -197,19 +199,19 @@ fn get_free_vars(term: &Term) -> HashSet<(usize, Term)> {
 			if let Some(type_ann) = &term.type_ann {
 				inner(&*type_ann, bounds.clone())
 			} else {
-				Set::new()
+				Map::new()
 			};
 
 		collapse(vec![
 			match *term.data {
-				TypeTypeIntro(_, _) => HashSet::new(),
+				TypeTypeIntro(_, _) => HashMap::new(),
 				Var(index) =>
 					if bounds.contains(&index) {
-						let mut set = HashSet::new();
-						set.insert((index, term.r#type()));
-						set
+						HashMap::new()
 					} else {
-						HashSet::new()
+						let mut map = HashMap::new();
+						map.insert(index, term.r#type());
+						map
 					},
 				Rec(ref inner_term) => inner(inner_term, inc(bounds.clone())),
 				FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) =>
@@ -218,11 +220,7 @@ fn get_free_vars(term: &Term) -> HashSet<(usize, Term)> {
 						inner(in_type, bounds.clone()),
 						inner(out_type, inc(bounds))
 					]),
-				FunctionIntro(ref body) => {
-					let mut body_bounds = inc(bounds);
-					body_bounds.insert(0);
-					inner(body, body_bounds)
-				},
+				FunctionIntro(ref body) => inner(body, inc(bounds)),
 				FunctionElim(ref abs, ref arg) =>
 					collapse(vec![
 						inner(abs, bounds.clone()),
@@ -243,11 +241,11 @@ fn get_free_vars(term: &Term) -> HashSet<(usize, Term)> {
 						inner(discrim, bounds.clone()),
 						inner(body, inc(bounds))
 					]),
-				VoidTypeIntro => HashSet::new(),
-				UnitTypeIntro => HashSet::new(),
-				UnitIntro => HashSet::new(),
-				DoubTypeIntro => HashSet::new(),
-				DoubIntro(_) => HashSet::new(),
+				VoidTypeIntro => HashMap::new(),
+				UnitTypeIntro => HashMap::new(),
+				UnitIntro => HashMap::new(),
+				DoubTypeIntro => HashMap::new(),
+				DoubIntro(_) => HashMap::new(),
 				DoubElim(ref discrim, ref branch1, ref branch2) =>
 					collapse(vec![
 						inner(branch1, bounds.clone()),
@@ -257,7 +255,7 @@ fn get_free_vars(term: &Term) -> HashSet<(usize, Term)> {
 				FoldTypeIntro(ref inner_type) => inner(inner_type, bounds.clone()),
 				FoldIntro(ref inner_term) => inner(inner_term, bounds.clone()),
 				FoldElim(ref folded_term) => inner(folded_term, bounds),
-				CapturesListTypeIntro(_) => HashSet::new(),
+				CapturesListTypeIntro(_) => HashMap::new(),
 				CapturesListIntro(ref list) =>
 					match list {
 						Cons(ref head, ref tail) =>
@@ -265,7 +263,7 @@ fn get_free_vars(term: &Term) -> HashSet<(usize, Term)> {
 								inner(head, bounds.clone()),
 								inner(tail, bounds)
 							]),
-						Nil => HashSet::new()
+						Nil => HashMap::new()
 					},
 				IndexedTypeIntro(_, ref inner_type) => inner(inner_type, bounds.clone()),
 				IndexedIntro(ref inner_term) => inner(inner_term, bounds.clone()),
@@ -571,25 +569,20 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 						vec
 					}
 					let capd_var_types = flatten_caps_list(&caps_list);
-					let free_var_types = get_free_vars(body).into_iter().map(|(_, t)| t).collect::<HashSet<Term>>();
+					let mut free_vars = get_free_vars(body);
+					free_vars.remove(&0);
 
-					// get the captured vars that are not mentioned in the captures list, if any
-					let mut leftover_vars = Vec::new();
-					let mut used = HashSet::new();
-					'top: for free_var_type in free_var_types {
-						for (i, capd_var_type) in capd_var_types.iter().enumerate() {
-							if !used.contains(&i) {
-								if *capd_var_type == free_var_type {
-									used.insert(i);
-									continue 'top;
-								}
+					'top: for capd_var_type in &capd_var_types {
+						for index in free_vars.iter().map(|(k, _)| *k).collect::<Vec<usize>>() {
+							if free_vars.get(&index).unwrap() == capd_var_type {
+								free_vars.remove(&index);
+								continue 'top;
 							}
 						}
-						leftover_vars.push(free_var_type);
 					}
 
-					if leftover_vars.len() > 0 {
-						errors.push(Error::new(term, context, UnmentionedFreeVars { caps_list: capd_var_types, unmentioned_vars: leftover_vars }))
+					if free_vars.len() > 0 {
+						errors.push(Error::new(term, context, UnmentionedFreeVars { caps_list: capd_var_types, unmentioned_vars: free_vars }));
 					}
 				},
 				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: type_ann }))

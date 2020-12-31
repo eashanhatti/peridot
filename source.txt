@@ -1,1 +1,4 @@
-Type 0 : (Type 42 : Type 46)
+module {
+    k : [x : Fin 1] -> [y : Fin 1] -> Fin 1;
+    k = fn x, y => x;
+}

@@ -1,14 +1,15 @@
 s = _{ " " }
-nl = _{ "\n" }
+nl = _{ NEWLINE | " " | "\t" }
 ws = _{ s | nl }
 keyword = { "Fin" | "fin" | "fn" | "unit" | "Unit" | "Type" | "module" | "recordtype" }
 name = { !keyword ~ ASCII_ALPHANUMERIC+ }
 num = { ASCII_DIGIT+ }
 
 module = { "module" ~ s* ~ "{" ~ ws* ~ item_list ~ ws* ~ "}" }
-item_list = { item ~ ws* ~ ";" ~ ( ws* ~ item ~ ws* ~ ";" )* }
-item = { term_def }
+item_list = _{ item ~ ws* ~ ";" ~ ( ws* ~ item ~ ws* ~ ";" )* }
+item = _{ term_def | dec }
     term_def = { name ~ ws* ~ "=" ~ ws* ~ term }
+    dec = { name ~ ws* ~ ":" ~ ws* ~ term }
 
 term = _{ prec2 }
 prec2 = _{ fun_elim | prec1 }
@@ -25,4 +26,4 @@ prec0 = _{ fun | fun_type | type_type | var | fin | fin_type
     fin = { "fin" ~ s+ ~ num }
     fin_type = { "Fin" ~ s+ ~ num }
 
-main = _{ SOI ~ term ~ EOI }
+main = _{ SOI ~ module ~ EOI }

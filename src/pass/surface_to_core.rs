@@ -645,13 +645,10 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
         RecordTypeDef(&'a HashMap<Name, crate::lang::surface::Term>),
     }
 
-    #[derive(PartialEq, Eq, PartialOrd, Ord)]
-    enum ItemKind { Dec, Def }
-
     // flatten the module structure, turning it into a more haskell-like structure
     fn flatten_module<'a>(module: &'a Module, module_name: QualifiedName) -> BTreeMap<(QualifiedName, ItemKind), FlattenedModuleItem> {
         let mut items = BTreeMap::new();
-        for (item_name, item) in module.items.iter() {
+        for ((item_name, _), item) in module.items.iter() {
 
             match item {
                 Item::Declaration(r#type) => { items.insert((module_name.clone().with_name(item_name.clone()), ItemKind::Dec), FlattenedModuleItem::Declaration(r#type)); },

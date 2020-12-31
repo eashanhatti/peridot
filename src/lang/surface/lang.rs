@@ -18,6 +18,7 @@ impl QualifiedName {
 	}
 }
 
+#[derive(Debug)]
 pub enum Item {
 	Declaration(Term), // `x : t`, `TermDef` and `RecordTypeDef` are for `x = v`
 	TermDef(Term),
@@ -30,8 +31,12 @@ pub enum Visibility {
 	Public
 }
 
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ItemKind { Dec, Def }
+
+#[derive(Debug)]
 pub struct Module {
-	pub items: BTreeMap<Name, Item>
+	pub items: BTreeMap<(Name, ItemKind), Item>
 }
 
 #[derive(Debug, Clone)]
