@@ -32,8 +32,6 @@ use crate::lang::{
         InnerTerm::*
     }
 };
-extern crate contracts;
-use contracts::*;
 
 // the globals map takes index 0
 // globals maps names to type id pairs

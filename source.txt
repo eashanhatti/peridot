@@ -1,1 +1,1 @@
-( fn x => x ) : ( { x : enum 1 } -> enum 1 )
+Type 0 : (Type 42 : Type 46)

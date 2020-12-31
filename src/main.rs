@@ -27,6 +27,10 @@ use pass::{
     text_to_surface::*
 };
 
+extern crate pest;
+#[macro_use]
+extern crate pest_derive;
+
 fn run() {
     let univ0 =
         Some(Box::new(core::Term::new(
@@ -98,11 +102,9 @@ fn run() {
                 let mut source = String::new();
                 file.read_to_string(&mut source);
                 println!("{:?}", source);
-                let ast = parse_text(source.clone());
+                let ast = parse_text(&source);
                 s.clear();
-                if let Ok(ast_ok) = ast {
-                    println!("{:#?}", &ast_ok);
-                    let surface_term = lower_to_surface(ast_ok);
+                if let Ok(surface_term) = ast {
                     let surface_term_type = match infer_type(&surface_term, State::new()) {
                         Ok(r#type) => r#type,
                         Err(errs) => {
@@ -119,20 +121,12 @@ fn run() {
                     };
                     match core::typing::check(&core_term, core::typing::synth_type(&core_term, Context::new()).unwrap(), Context::new()) {
                         Ok(()) => println!("CORE TERM\n{:#?}", core_term),
-                        Err(errs) => println!("CORE ERROR\n{:#?}", errs)
+                        Err(errs) => println!("CORE ERROR\n{:#?}\n{:#?}", core_term, errs)
                     }
                 } else {
                     println!("{:#?}", ast);
                 }
-            }
-            "eq?" => {
-                let mut in1 = String::new();
-                std::io::stdin().read_line(&mut in1).unwrap();
-                let mut in2 = String::new();
-                std::io::stdin().read_line(&mut in2).unwrap();
-                let ast1 = parse_text(in1.clone());
-                let ast2 = parse_text(in1.clone());
-            }
+            },
             _ => println!("'{:?}' not a command", &s[0..4])
         }
         s.clear();

@@ -1,0 +1,28 @@
+s = _{ " " }
+nl = _{ "\n" }
+ws = _{ s | nl }
+keyword = { "Fin" | "fin" | "fn" | "unit" | "Unit" | "Type" | "module" | "recordtype" }
+name = { !keyword ~ ASCII_ALPHANUMERIC+ }
+num = { ASCII_DIGIT+ }
+
+module = { "module" ~ s* ~ "{" ~ ws* ~ item_list ~ ws* ~ "}" }
+item_list = { item ~ ws* ~ ";" ~ ( ws* ~ item ~ ws* ~ ";" )* }
+item = { term_def }
+    term_def = { name ~ ws* ~ "=" ~ ws* ~ term }
+
+term = _{ prec2 }
+prec2 = _{ fun_elim | prec1 }
+    fun_elim = { prec1 ~ ws* ~ "(" ~ ws* ~ prec2 ~ ws* ~ ("," ~ ws* ~ prec2)* ~ ws* ~ ")" }
+prec1 = _{ ann | prec0 }
+    ann = { prec0 ~ s* ~ ":" ~ s* ~ prec1 }
+prec0 = _{ fun | fun_type | type_type | var | fin | fin_type
+         | "(" ~ s* ~ prec0 ~ s* ~ ")" }
+    fun = { "fn" ~ s+ ~ param_list ~ s*  ~ "=>" ~ s* ~ prec1 }
+        param_list = { name ~ ( s* ~ "," ~ s ~ name )* }
+    fun_type = { "[" ~ s* ~ name ~ s* ~ ":" ~ s* ~ prec1 ~ s* ~ "]" ~ ws* ~ "->" ~ ws* ~ prec1 }
+    type_type = { "Type" ~ s+ ~ num }
+    var = { name }
+    fin = { "fin" ~ s+ ~ num }
+    fin_type = { "Fin" ~ s+ ~ num }
+
+main = _{ SOI ~ term ~ EOI }
