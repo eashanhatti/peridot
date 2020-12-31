@@ -24,7 +24,8 @@ use crate::lang::{
             List::{
                 self,
                 *
-            }
+            },
+            Note
         },
     },
     surface::{
@@ -558,6 +559,12 @@ macro_rules! var {
             Box::new(Var($index)),
             Some(Box::new($ann)))
     };
+    ($index:expr, $note:expr,: $ann:expr) => {
+        Term::new_with_note(
+            Note(String::from($note)),
+            Box::new(Var($index)),
+            Some(Box::new($ann)))
+    };
 }
 
 macro_rules! pair {
@@ -731,7 +738,8 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
                 Pair!(
                     case!(
                         var!(
-                            1
+                            1,
+                            "discrim_type"
                         ,: Doub!( ,: Univ!(0, shared))),
                         l => Unit!( ,: Univ!(0, shared));
                         r => discrim_type.clone();
@@ -742,7 +750,8 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
             let core_map_type =
                 case!(
                     var!(
-                        1
+                        1,
+                        "core_map_type"
                     ,: Doub!( ,: Univ!(0, shared))),
                     l => core_item.r#type();
                     r => core_map.r#type();
@@ -750,7 +759,8 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
             core_map =
                 case!(
                     var!(
-                        1
+                        1,
+                        "core_map"
                     ,: Doub!( ,: Univ!(0, shared))),
                     l => core_item;
                     r => core_map;
@@ -758,14 +768,16 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
             let core_map_type =
                 split!(
                     var!(
-                        0
+                        0,
+                        "core_map_type"
                     ,: discrim_type.clone()),
                     in core_map_type.clone()
                 ,: Univ!(0, shared));
             core_map =
                 split!(
                     var!(
-                        0
+                        0,
+                        "core_map"
                     ,: discrim_type.clone()),
                     in core_map
                 ,: core_map_type);

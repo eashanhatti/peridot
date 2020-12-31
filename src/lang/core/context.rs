@@ -85,8 +85,8 @@ impl Context {
             }
         } else {
             let old = match kind {
-                Dec => self.0.insert(0, ContextEntry { dec: Some(entry), def: None }),
-                Def => self.0.insert(0, ContextEntry { dec: None, def: Some(entry) })
+                Dec => self.0.insert(index, ContextEntry { dec: Some(entry), def: None }),
+                Def => self.0.insert(index, ContextEntry { dec: None, def: Some(entry) })
             };
         }
         Context(self.0)

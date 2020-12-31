@@ -1,4 +1,6 @@
 module {
-    k : [x : Fin 1] -> [y : Fin 1] -> Fin 1;
-    k = fn x, y => x;
+    i : Fin 1;
+    i = fin 0;
+    j : Fin 1;
+    j = fin 0;
 }

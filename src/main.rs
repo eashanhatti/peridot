@@ -121,9 +121,15 @@ fn run() {
                             continue;
                         }
                     };
-                    match core::typing::check(&core_module, core::typing::synth_type(&core_module, Context::new()).unwrap(), Context::new()) {
-                        Ok(()) => println!("CORE TERM\n{:#?}", core_module),
-                        Err(errs) => println!("CORE ERROR\n{:#?}\n{:#?}", core_module, errs)
+                    println!("{:?}", core_module);
+                    let core_module_type =
+                        match core::typing::synth_type(&core_module, Context::new()) {
+                            Ok(r#type) => r#type,
+                            Err(errs) => { println!("CORE TYPE ERROR\n{:#?}", errs); return; }
+                        };
+                    match core::typing::check(&core_module, core_module_type, Context::new()) {
+                        Ok(()) => println!("NO ERRORS"),
+                        Err(errs) => println!("CORE ERROR\n{:#?}", errs)
                     }
                 } else {
                     println!("{:#?}", surface_module);

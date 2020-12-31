@@ -23,7 +23,8 @@ use std::{
 		Debug,
 		Display
 	},
-	hash::Hash
+	hash::Hash,
+	iter::FromIterator
 };
 
 // for the `Expected...` errors, imagine a TypeType `U` for each error, the error
@@ -175,7 +176,7 @@ pub fn level_of<'a>(r#type: &'a Term, context: Context) -> CheckResult<'a, usize
 
 // `term` should be checked before this is called
 // should make this more robust in the future
-fn get_free_vars(term: &Term) -> HashMap<usize, Term> {
+fn get_free_vars(term: &Term, bounds: HashSet<usize>) -> HashMap<usize, Term> {
 	type Map = HashMap<usize, Term>;
 
 	fn inner(term: &Term, bounds: HashSet<usize>) -> Map {
@@ -272,7 +273,7 @@ fn get_free_vars(term: &Term) -> HashMap<usize, Term> {
 			type_ann_free_vars])
 	}
 
-	inner(term, HashSet::new())
+	inner(term, bounds)
 }
 
 pub fn wrap_checks<'a>(errors: Vec<Error<'a>>) -> CheckResult<'a, ()> {
@@ -289,10 +290,10 @@ pub fn check_usage<'a>(body: &'a Term, term_type: Term, target_index: usize, con
 	match term_type.usage() {
 		Shared => Ok(()),
 		Unique =>
-			if count_uses(body, 0) == (1, 1) {
+			if count_uses(body, target_index) == (1, 1) {
 				Ok(())
 			} else {
-				Err(vec![Error::new(body, context, MismatchedUsage { var_index: target_index, exp_usage: (1, 1), giv_usage: count_uses(body, 0) })])
+				Err(vec![Error::new(body, context, MismatchedUsage { var_index: target_index, exp_usage: (1, 1), giv_usage: count_uses(body, target_index) })])
 			}
 	}
 }
@@ -569,9 +570,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 						vec
 					}
 					let capd_var_types = flatten_caps_list(&caps_list);
-					let mut free_vars = get_free_vars(body);
-					free_vars.remove(&0);
-
+					let mut free_vars = get_free_vars(body, HashSet::from_iter(vec![0]));
 					'top: for capd_var_type in &capd_var_types {
 						for index in free_vars.iter().map(|(k, _)| *k).collect::<Vec<usize>>() {
 							if free_vars.get(&index).unwrap() == capd_var_type {
@@ -620,18 +619,22 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		PairTypeIntro(ref fst_type, ref snd_type) => {
 			let mut errors = Vec::new();
 
+			let fst_type_context = context.clone().inc_and_shift(2).with_dec(1, snd_type.clone());
+			let snd_type_context = context.clone().inc_and_shift(2).with_dec(0, fst_type.clone());
+			println!("FST CONTEXT\n{:#?}", fst_type_context);
+			println!("SND CONTEXT\n{:#?}", snd_type_context);
 			let fst_type_type = synth_type(fst_type, context.clone())?;
 			push_check(
 				&mut errors,
-				check(fst_type, fst_type_type.clone(), context.clone().inc_and_shift(2).with_dec(1, snd_type.clone())));
+				check(fst_type, fst_type_type.clone(), fst_type_context.clone()));
 
 			let snd_type_type = synth_type(snd_type, context.clone())?;
 			push_check(
 				&mut errors,
-				check(snd_type, snd_type_type.clone(), context.clone().inc_and_shift(2).with_dec(0, fst_type.clone())));
+				check(snd_type, snd_type_type.clone(), snd_type_context.clone()));
 
-			push_check(&mut errors, check_usage(snd_type, fst_type.clone(), 0, context.clone()));
-			push_check(&mut errors, check_usage(fst_type, snd_type.clone(), 1, context.clone()));
+			push_check(&mut errors, check_usage(fst_type, snd_type.clone(), 1, fst_type_context));
+			push_check(&mut errors, check_usage(snd_type, fst_type.clone(), 0, snd_type_context));
 
 			match (*(fst_type_type.clone()).data, *(snd_type_type.clone()).data) {
 				(TypeTypeIntro(fst_level, fst_usage), TypeTypeIntro(snd_level, snd_usage)) =>
@@ -687,10 +690,10 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				PairTypeIntro(fst_type, snd_type) => {
 					let body_context = context.clone().inc_and_shift(2).with_dec(0, fst_type.clone()).with_dec(1, snd_type.clone());
 					let body_type = synth_type(body, body_context.clone())?;
-					push_check(&mut errors, check(body, shift(type_ann, HashSet::new(), 0), body_context));
+					push_check(&mut errors, check(body, shift(type_ann, HashSet::new(), 0), body_context.clone()));
 					
-					push_check(&mut errors, check_usage(body, fst_type.clone(), 0, context.clone()));
-					push_check(&mut errors, check_usage(body, snd_type.clone(), 1, context.clone()));
+					push_check(&mut errors, check_usage(body, fst_type.clone(), 0, body_context.clone()));
+					push_check(&mut errors, check_usage(body, snd_type.clone(), 1, body_context));
 				}
 				_ => errors.push(Error::new(discrim, context, ExpectedOfPairType { giv_type: discrim_type }))
 			}
