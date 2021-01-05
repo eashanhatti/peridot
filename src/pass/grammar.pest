@@ -2,7 +2,7 @@ s = _{ " " }
 nl = _{ NEWLINE | " " | "\t" }
 ws = _{ s | nl }
 keyword = { "Fin" | "fin" | "fn" | "unit" | "Unit" | "Type" | "module" | "recordtype" }
-name = { !keyword ~ ASCII_ALPHANUMERIC+ }
+name = { !keyword ~ ( ASCII_ALPHANUMERIC | "_" )+ }
 num = { ASCII_DIGIT+ }
 
 module = { "module" ~ s* ~ "{" ~ ws* ~ item_list ~ ws* ~ "}" }

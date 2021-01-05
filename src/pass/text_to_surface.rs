@@ -21,10 +21,6 @@ use std::collections::{
 #[grammar = "C:\\Users\\Eashan\\dev\\clamn\\src\\pass\\grammar.pest"]
 struct LangParser;
 
-pub fn parse_text(input: &str) -> Result<Module, Error<Rule>> { // TODO: error reporting
-	let ast = LangParser::parse(Rule::main, input)?.next().unwrap();
-	// println!("{:?}", ast);
-
 	fn parse_term(mut pair: Pair<Rule>) -> Term {
 		let pair_rule = pair.as_rule();
 		let pair_span = pair.as_span();
@@ -79,5 +75,12 @@ pub fn parse_text(input: &str) -> Result<Module, Error<Rule>> { // TODO: error r
 		}
 	}
 
+pub fn text_to_module(input: &str) -> Result<Module, Error<Rule>> { // TODO: error reporting
+	let ast = LangParser::parse(Rule::module, input)?.next().unwrap();
 	Ok(parse_module(ast))
+}
+
+pub fn text_to_term(input: &str) -> Result<Term, Error<Rule>> { // TODO: error reporting
+	let ast = LangParser::parse(Rule::term, input)?.next().unwrap();
+	Ok(parse_term(ast))
 }

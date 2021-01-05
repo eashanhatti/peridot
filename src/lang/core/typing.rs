@@ -3,6 +3,7 @@
 use super::{
 	lang::{
 		*,
+		VarInner::*,
 		InnerTerm::*,
 		List::*,
 		Usage::*,
@@ -26,13 +27,14 @@ use std::{
 	hash::Hash,
 	iter::FromIterator
 };
+extern crate rand;
 
 // for the `Expected...` errors, imagine a TypeType `U` for each error, the error
 // can then be thought of as `MismatchedTypes { exp_type: U, giv_type: ... }
 #[derive(Debug)]
 pub enum InnerError {
     MismatchedTypes { exp_type: Term, giv_type: Term, specific: Vec<(Term, Term)> },
-    NonexistentVar { index: usize },
+    NonexistentVar { index: VarInner },
     ExpectedOfTypeType { min_level: usize, giv_type: Term },
     ExpectedOfFunctionType { giv_type: Term },
     ExpectedOfPairType { giv_type: Term },
@@ -41,15 +43,15 @@ pub enum InnerError {
     ExpectedOfCapturesListType { min_level: usize, giv_type: Term },
     ExpectedOfUnitType { giv_type: Term },
     ExpectedOfIndexedType { giv_type: Term },
-    MismatchedUsage { var_index: usize, exp_usage: (usize, usize), giv_usage: (usize, usize) },
-    UnmentionedFreeVars { caps_list: Vec<Term>, unmentioned_vars: HashMap<usize, Term> }
+    MismatchedUsage { var_index: VarInner, exp_usage: (usize, usize), giv_usage: (usize, usize) },
+    UnmentionedFreeVars { caps_list: Vec<Term>, unmentioned_vars: HashMap<VarInner, Term> }
 }
 
 #[derive(Debug)]
 pub struct Error<'a> {
     term: &'a Term,
-    context: Context,
-    error: InnerError
+    error: InnerError,
+    context: Context
 }
 
 impl<'a> Error<'a> {
@@ -75,7 +77,7 @@ pub fn push_check<'a, U>(errors: &mut Vec<Error<'a>>, this_check: CheckResult<'a
 	}
 }
 
-pub fn count_uses(term: &Term, target_index: usize) -> (usize, usize) {
+pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 	fn collapse(intervals: Vec<(usize, usize)>) -> (usize, usize) {
 		let mut min = std::usize::MAX;
 		let mut max = 0;
@@ -106,30 +108,46 @@ pub fn count_uses(term: &Term, target_index: usize) -> (usize, usize) {
 		(min, max)
 	}
 
+	fn inc(index: VarInner) -> VarInner {
+		if let Bound(bound_index) = index {
+			Bound(bound_index + 1)
+		} else {
+			index
+		}
+	}
+
+	fn inc_by(index: VarInner, by: usize) -> VarInner {
+		if let Bound(bound_index) = index {
+			Bound(bound_index + by)
+		} else {
+			index
+		}
+	}
+
 	fn singleton(bound: usize) -> (usize, usize) { (bound, bound) }
 
 	sum(vec![
 		match *term.data {
 			TypeTypeIntro(level, usage) => singleton(0),
 			Var(index) => if index == target_index { singleton(1) } else { singleton(0) },
-			Rec(ref inner_term) => count_uses(inner_term, target_index + 1),
+			Rec(ref inner_term) => count_uses(inner_term, inc(target_index)),
 			FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) =>
 				sum(vec![
 					count_uses(caps_list, target_index),
 					mul(vec![
 						count_uses(in_type, target_index),
-						count_uses(out_type, 0)
+						count_uses(out_type, inc(target_index))
 					]),
-					count_uses(out_type, target_index + 1)
+					count_uses(out_type, inc(target_index))
 				]),
-			FunctionIntro(ref body) => count_uses(body, target_index + 1),
+			FunctionIntro(ref body) => count_uses(body, inc(target_index)),
 			FunctionElim(ref abs, ref arg) => unimplemented!(),
 			PairTypeIntro(ref fst_type, ref snd_type) =>
-				sum(vec![count_uses(fst_type, target_index + 1), count_uses(snd_type, target_index + 1)]),
+				sum(vec![count_uses(fst_type, inc_by(target_index, 2)), count_uses(snd_type, inc_by(target_index, 2))]),
 			PairIntro(ref fst, ref snd) =>
 				sum(vec![count_uses(fst, target_index), count_uses(snd, target_index)]),
 			PairElim(ref discrim, ref body) =>
-				sum(vec![count_uses(discrim, target_index), count_uses(body, target_index + 2)]),
+				sum(vec![count_uses(discrim, target_index), count_uses(body, inc_by(target_index, 2))]),
 			VoidTypeIntro => singleton(0),
 			UnitTypeIntro => singleton(0),
 			UnitIntro => singleton(0),
@@ -156,7 +174,7 @@ pub fn count_uses(term: &Term, target_index: usize) -> (usize, usize) {
 				}
 			IndexedTypeIntro(_, ref inner_type) => count_uses(inner_type, target_index),
 			IndexedIntro(ref inner_term) => count_uses(inner_term, target_index),
-			IndexedElim(ref folded_term) => count_uses(folded_term, target_index),
+			IndexedElim(ref folded_term) => count_uses(folded_term, target_index)
 		},
 		match &term.type_ann {
 			Some(r#type) => count_uses(r#type, target_index),
@@ -176,10 +194,10 @@ pub fn level_of<'a>(r#type: &'a Term, context: Context) -> CheckResult<'a, usize
 
 // `term` should be checked before this is called
 // should make this more robust in the future
-fn get_free_vars(term: &Term, bounds: HashSet<usize>) -> HashMap<usize, Term> {
-	type Map = HashMap<usize, Term>;
+fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Term> {
+	type Map = HashMap<VarInner, Term>;
 
-	fn inner(term: &Term, bounds: HashSet<usize>) -> Map {
+	fn inner(term: &Term, bounds: HashSet<VarInner>) -> Map {
 		fn collapse(maps: Vec<Map>) -> Map {
 			let mut new_map: Map = HashMap::new();
 			for map in maps {
@@ -190,9 +208,15 @@ fn get_free_vars(term: &Term, bounds: HashSet<usize>) -> HashMap<usize, Term> {
 			new_map
 		}
 
-		fn inc(set: HashSet<usize>) -> HashSet<usize> {
-			let mut tmp = set.into_iter().map(|i| i + 1).collect::<HashSet<usize>>();
-			tmp.insert(0);
+		fn inc(set: HashSet<VarInner>) -> HashSet<VarInner> {
+			let mut tmp = set.into_iter().map(|i| if let Bound(i_bound) = i { Bound(i_bound + 1) } else { i }).collect::<HashSet<VarInner>>();
+			tmp.insert(Bound(0));
+			tmp
+		}
+
+		fn inc_by(set: HashSet<VarInner>, by: usize) -> HashSet<VarInner> {
+			let mut tmp = set.into_iter().map(|i| if let Bound(i_bound) = i { Bound(i_bound + by) } else { i }).collect::<HashSet<VarInner>>();
+			tmp.insert(Bound(0));
 			tmp
 		}
 
@@ -229,8 +253,8 @@ fn get_free_vars(term: &Term, bounds: HashSet<usize>) -> HashMap<usize, Term> {
 					]),
 				PairTypeIntro(ref fst_type, ref snd_type) =>
 					collapse(vec![
-						inner(fst_type, inc(bounds.clone())),
-						inner(snd_type, inc(bounds))
+						inner(fst_type, inc_by(bounds.clone(), 2)),
+						inner(snd_type, inc_by(bounds, 2))
 					]),
 				PairIntro(ref fst, ref snd) =>
 					collapse(vec![
@@ -240,7 +264,7 @@ fn get_free_vars(term: &Term, bounds: HashSet<usize>) -> HashMap<usize, Term> {
 				PairElim(ref discrim, ref body) =>
 					collapse(vec![
 						inner(discrim, bounds.clone()),
-						inner(body, inc(bounds))
+						inner(body, bounds)
 					]),
 				VoidTypeIntro => HashMap::new(),
 				UnitTypeIntro => HashMap::new(),
@@ -268,7 +292,7 @@ fn get_free_vars(term: &Term, bounds: HashSet<usize>) -> HashMap<usize, Term> {
 					},
 				IndexedTypeIntro(_, ref inner_type) => inner(inner_type, bounds.clone()),
 				IndexedIntro(ref inner_term) => inner(inner_term, bounds.clone()),
-				IndexedElim(ref folded_term) => inner(folded_term, bounds),
+				IndexedElim(ref folded_term) => inner(folded_term, bounds)
 			},
 			type_ann_free_vars])
 	}
@@ -284,7 +308,7 @@ pub fn wrap_checks<'a>(errors: Vec<Error<'a>>) -> CheckResult<'a, ()> {
 	}
 }
 
-pub fn check_usage<'a>(body: &'a Term, term_type: Term, target_index: usize, context: Context) -> CheckResult<'a, ()> {
+pub fn check_usage<'a>(body: &'a Term, term_type: Term, target_index: VarInner, context: Context) -> CheckResult<'a, ()> {
 	use InnerError::*;
 
 	match term_type.usage() {
@@ -380,12 +404,13 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
     }
 }
 
-// exp_type should always be checked and in normal form
 pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResult<'a, ()> {
 	use InnerError::*;
 
+	let context = context.normalize();
+
 	let type_ann = synth_type(term, context.clone())?;
-	if let False(specific) = is_terms_eq(&type_ann, &exp_type) {
+	if let False(specific) = is_terms_eq(&type_ann, &normalize(exp_type.clone(), context.clone()), context.clone().equivs()) {
 		return
 			Err(vec![Error::new(
 				term,
@@ -407,7 +432,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		Var(index) =>
 			match context.get_dec(index) {
 				Some(var_type) => {
-					if let False(specific) = is_terms_eq(&var_type, &type_ann) {
+					if let False(specific) = is_terms_eq(&var_type, &type_ann, context.clone().equivs()) {
 						Err(vec![Error::new(term, context, MismatchedTypes { exp_type: type_ann, giv_type: var_type, specific })])
 					} else {
 						Ok(())
@@ -418,12 +443,12 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		Rec(ref inner_term) => {
 			let mut errors = Vec::new();
 
-			let new_context = context.clone().inc_and_shift(1).with_dec(0, type_ann.clone());
+			let new_context = context.clone().inc_and_shift(1).with_dec(Bound(0), type_ann.clone());
 
 			push_check(
 				&mut errors,
-				check(inner_term, type_ann.clone(), new_context.clone().with_dec(0, type_ann.clone())));
-			push_check(&mut errors, check_usage(inner_term, type_ann, 0, new_context));
+				check(inner_term, type_ann.clone(), new_context.clone().with_dec(Bound(0), type_ann.clone())));
+			push_check(&mut errors, check_usage(inner_term, type_ann, Bound(0), new_context));
 
 			wrap_checks(errors)
 
@@ -431,7 +456,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) => {
 			let mut errors = Vec::new();
 
-			let out_type_context = context.clone().inc_and_shift(1).with_dec(0, in_type.clone());
+			let out_type_context = context.clone().inc_and_shift(1).with_dec(Bound(0), in_type.clone());
 
 			let caps_list_type = synth_type(caps_list, context.clone())?;
 			let in_type_type = synth_type(in_type, context.clone())?;
@@ -446,7 +471,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				&mut errors,
 				check(out_type, out_type_type.clone(), out_type_context));
 
-			push_check(&mut errors, check_usage(out_type, in_type.clone(), 0, context.clone().inc_and_shift(1).clone()));
+			push_check(&mut errors, check_usage(out_type, in_type.clone(), Bound(0), context.clone().inc_and_shift(1).clone()));
 
 			let mut caps_list_level = None;
 			let mut in_type_level = None;
@@ -546,9 +571,9 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 			match *type_ann.data {
 				FunctionTypeIntro(caps_list, in_type, out_type) => {
-					let body_context = context.clone().inc_and_shift(1).with_dec(0, shift(in_type.clone(), HashSet::new(), 1));
+					let body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), shift(in_type.clone(), HashSet::new(), 1));
 					push_check(&mut errors, check(body, out_type, body_context));
-					push_check(&mut errors, check_usage(body, in_type, 0, context.clone().inc_and_shift(1)));
+					push_check(&mut errors, check_usage(body, in_type, Bound(0), context.clone().inc_and_shift(1)));
 
 					fn flatten_caps_list(caps_list: &Term) -> Vec<Term> {
 						fn inner(caps_list: &Term, acc: &mut Vec<Term>) {
@@ -570,9 +595,9 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 						vec
 					}
 					let capd_var_types = flatten_caps_list(&caps_list);
-					let mut free_vars = get_free_vars(body, HashSet::from_iter(vec![0]));
+					let mut free_vars = get_free_vars(body, HashSet::from_iter(vec![Bound(0)]));
 					'top: for capd_var_type in &capd_var_types {
-						for index in free_vars.iter().map(|(k, _)| *k).collect::<Vec<usize>>() {
+						for index in free_vars.iter().map(|(k, _)| *k).collect::<Vec<VarInner>>() {
 							if free_vars.get(&index).unwrap() == capd_var_type {
 								free_vars.remove(&index);
 								continue 'top;
@@ -602,10 +627,10 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					let normal_out_type =
 						normalize(
 							out_type,
-							context.clone().inc_and_shift(1).with_dec(0, in_type).with_def(0, normalize(arg.clone(), context.clone())));
+							context.clone().inc_and_shift(1).with_dec(Bound(0), in_type).with_def(Bound(0), normalize(arg.clone(), context.clone())));
 					push_check(
 						&mut errors,
-						if let False(specific) = is_terms_eq(&type_ann, &normal_out_type) {
+						if let False(specific) = is_terms_eq(&type_ann, &normal_out_type, context.clone().equivs()) {
 							Err(vec![Error::new(&term, context, MismatchedTypes { exp_type: type_ann, giv_type: normal_out_type, specific })])
 						} else {
 							Ok(())
@@ -619,10 +644,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		PairTypeIntro(ref fst_type, ref snd_type) => {
 			let mut errors = Vec::new();
 
-			let fst_type_context = context.clone().inc_and_shift(2).with_dec(1, snd_type.clone());
-			let snd_type_context = context.clone().inc_and_shift(2).with_dec(0, fst_type.clone());
-			println!("FST CONTEXT\n{:#?}", fst_type_context);
-			println!("SND CONTEXT\n{:#?}", snd_type_context);
+			let fst_type_context = context.clone().inc_and_shift(2).with_dec(Bound(1), snd_type.clone());
+			let snd_type_context = context.clone().inc_and_shift(2).with_dec(Bound(0), fst_type.clone());
 			let fst_type_type = synth_type(fst_type, context.clone())?;
 			push_check(
 				&mut errors,
@@ -633,8 +656,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				&mut errors,
 				check(snd_type, snd_type_type.clone(), snd_type_context.clone()));
 
-			push_check(&mut errors, check_usage(fst_type, snd_type.clone(), 1, fst_type_context));
-			push_check(&mut errors, check_usage(snd_type, fst_type.clone(), 0, snd_type_context));
+			push_check(&mut errors, check_usage(fst_type, snd_type.clone(), Bound(1), fst_type_context));
+			push_check(&mut errors, check_usage(snd_type, fst_type.clone(), Bound(0), snd_type_context));
 
 			match (*(fst_type_type.clone()).data, *(snd_type_type.clone()).data) {
 				(TypeTypeIntro(fst_level, fst_usage), TypeTypeIntro(snd_level, snd_usage)) =>
@@ -667,8 +690,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				PairTypeIntro(fst_type, snd_type) => {
 					let mut errors = Vec::new();
 
-					let fst_context = context.clone().inc_and_shift(2).with_dec(1, snd_type.clone()).with_def(0, normalize(snd.clone(), context.clone()));
-					let snd_context = context.clone().inc_and_shift(2).with_dec(0, fst_type.clone()).with_def(0, normalize(fst.clone(), context.clone()));
+					let fst_context = context.clone().inc_and_shift(2).with_dec(Bound(1), snd_type.clone()).with_def(Bound(0), normalize(snd.clone(), context.clone()));
+					let snd_context = context.clone().inc_and_shift(2).with_dec(Bound(0), fst_type.clone()).with_def(Bound(0), normalize(fst.clone(), context.clone()));
 					let normal_fst_type = normalize(fst_type, fst_context.clone());
 					let normal_snd_type = normalize(snd_type, snd_context.clone());
 
@@ -684,22 +707,49 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			let mut errors = Vec::new();
 
 			let discrim_type = synth_type(discrim, context.clone())?;
+			// println!("CONTEXT {:?}\nDISCRIM_TYPE {:?}", context.clone(), discrim_type.clone());
 			push_check(&mut errors, check(discrim, discrim_type.clone(), context.clone()));
 
 			match *(discrim_type.clone()).data {
 				PairTypeIntro(fst_type, snd_type) => {
-					let body_context = context.clone().inc_and_shift(2).with_dec(0, fst_type.clone()).with_dec(1, snd_type.clone());
-					let body_type = synth_type(body, body_context.clone())?;
-					push_check(&mut errors, check(body, shift(type_ann, HashSet::new(), 0), body_context.clone()));
-					
-					push_check(&mut errors, check_usage(body, fst_type.clone(), 0, body_context.clone()));
-					push_check(&mut errors, check_usage(body, snd_type.clone(), 1, body_context));
+					let sym_fst_id = Symbol(rand::random::<usize>());
+					let sym_fst =
+						Term::new(
+							Box::new(Var(Free(sym_fst_id))),
+							Some(Box::new(fst_type.clone())));
+					let sym_snd_id = Symbol(rand::random::<usize>());
+					let sym_snd =
+						Term::new(
+							Box::new(Var(Free(sym_snd_id))),
+							Some(Box::new(snd_type.clone())));
+					let body_context =
+						context.clone().inc_and_shift(2)
+							.with_dec(Bound(0), fst_type)
+							.with_dec(Bound(1), snd_type);
+					let type_ann_context =
+						match *discrim.data {
+							Var(index) => {
+								let refined_discrim =
+									Term::new(
+										Box::new(PairIntro(
+											sym_fst.clone(),
+											sym_snd.clone())),
+										Some(Box::new(discrim_type.clone())));
+								context.update(index, refined_discrim.clone()).with_def(index, refined_discrim)
+							},
+							_ => context.clone()
+						};
+					let normal_type_ann =
+						/*substitute(*/
+							normalize(type_ann, type_ann_context)/*,
+							Context::new().with_def(Bound(0), sym_fst).with_def(Bound(1), sym_snd))*/;
+					push_check(&mut errors, check(body, normal_type_ann, body_context.with_equiv(Bound(0), Free(sym_fst_id)).with_equiv(Bound(1), Free(sym_snd_id))));
 				}
 				_ => errors.push(Error::new(discrim, context, ExpectedOfPairType { giv_type: discrim_type }))
 			}
 
 			wrap_checks(errors)
-		},
+		}
 		VoidTypeIntro =>
 			match *(type_ann.clone()).data {
 				TypeTypeIntro(_, _) => Ok(()),
@@ -733,14 +783,31 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 			match *(discrim_type.clone()).data {
 				DoubTypeIntro => {
+					// println!("DISCRIM {:?}", discrim);
+					// println!("NORMAL_DISCRIM {:?}", normalize(discrim.clone(), context.clone()));
 					let branch_context = |d: Term|
 						match *normalize(discrim.clone(), context.clone()).data { // updates context with the now known value of discrim if it is a var
 							Var(index) => context.clone().update(index, d.clone()).with_def(index, d),
 							_ => context.clone()
 						};
 
-					push_check(&mut errors, check(branch1, type_ann.clone(), branch_context(discrim.clone())));
-					push_check(&mut errors, check(branch2, type_ann, branch_context(discrim.clone())));
+					let branch1_context =
+						branch_context(
+							Term::new(
+								Box::new(DoubIntro(Doub::This)),
+								Some(Box::new(discrim_type.clone()))));
+					let branch2_context =
+						branch_context(
+							Term::new(
+								Box::new(DoubIntro(Doub::That)),
+								Some(Box::new(discrim_type))));
+					// println!("DISCRIM\n{:?}", discrim);
+					// println!("NORMAL DISCRIM\n{:?}", normalize(discrim.clone(), context.clone()));
+					// println!("TYPE ANN\n{:?}", type_ann);
+					// println!("CONTEXT\n{:?}", branch1_context.clone());
+					push_check(&mut errors, check(branch1, normalize(type_ann.clone(), branch1_context.clone()), branch1_context.clone()));
+					// println!("BRANCH 2 CONTEXT {:?}", branch2_context);
+					push_check(&mut errors, check(branch2, normalize(type_ann, branch2_context.clone()), branch2_context));
 				},
 				_ => errors.push(Error::new(discrim, context, ExpectedOfDoubType { giv_type: discrim_type }))
 			}

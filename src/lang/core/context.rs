@@ -3,6 +3,7 @@
 use super::{
     lang::{
         *,
+        VarInner::*,
         InnerTerm::*
     },
     eval::*
@@ -23,6 +24,7 @@ pub enum ContextEntryKind {
     Dec,
     Def
 }
+use ContextEntryKind::*;
 
 #[derive(Clone, Debug, PartialEq, Hash, Eq)]
 pub struct ContextEntry {
@@ -31,16 +33,14 @@ pub struct ContextEntry {
 }
 
 #[derive(Clone, Debug)]
-pub struct Context(HashMap<usize, ContextEntry>);
-
-use ContextEntryKind::*;
+pub struct Context(HashMap<VarInner, ContextEntry>, HashSet<(VarInner, VarInner)>);
 
 impl Context {
     pub fn new() -> Self {
-        Context(HashMap::new())
+        Context(HashMap::new(), HashSet::new())
     }
 
-    pub fn exists_dec(&self, index: usize) -> bool {
+    pub fn exists_dec(&self, index: VarInner) -> bool {
         if let Some(ContextEntry { dec: Some(_), def: _ }) = self.0.get(&index) {
             true
         } else {
@@ -48,7 +48,7 @@ impl Context {
         }
     }
 
-    pub fn exists_def(&self, index: usize) -> bool {
+    pub fn exists_def(&self, index: VarInner) -> bool {
         if let Some(ContextEntry { dec: _, def: Some(_) }) = self.0.get(&index) {
             true
         } else {
@@ -56,51 +56,56 @@ impl Context {
         }
     }
 
-    pub fn get(&self, index: usize) -> Option<ContextEntry> {
+    pub fn get(&self, index: VarInner) -> Option<ContextEntry> {
         match self.0.get(&index) {
             Some(term) => Some(term.clone()),
             None => None
         }
     }
 
-    pub fn get_dec(&self, index: usize) -> Option<Term> {
+    pub fn get_dec(&self, index: VarInner) -> Option<Term> {
         self.get(index)?.dec
     }
 
-    pub fn get_def(&self, index: usize) -> Option<Term> {
+    pub fn get_def(&self, index: VarInner) -> Option<Term> {
         self.get(index)?.def
     }
 
     pub fn inc(self, amount: isize) -> Self {
-        let new = Context(self.0.into_iter().map(|(k, v)| (((k as isize) + amount) as usize, v)).collect());
+        let new_var = |var|
+            if let Bound(index) = var {
+                Bound(((index as isize) + amount) as usize)
+            } else {
+                var
+            };
+        let new = Context(self.0.into_iter().map(|(k, v)| (new_var(k), v)).collect(), self.1);
         new
     }
 
-    pub fn with(mut self, index: usize, kind: ContextEntryKind, entry: Term) -> Self {
+    pub fn with(mut self, index: VarInner, kind: ContextEntryKind, entry: Term) -> Self {
         if let Some(ContextEntry { ref mut dec, ref mut def }) = self.0.get_mut(&index) {
-            match (kind, &dec, &def) {
-                (Dec, None, _) => *dec = Some(entry),
-                (Def, _, None) => *def = Some(entry),
-                _ => panic!("BUG: duplicate var")
+            match kind {
+                Dec => *dec = Some(entry),
+                Def => *def = Some(entry),
             }
         } else {
-            let old = match kind {
-                Dec => self.0.insert(index, ContextEntry { dec: Some(entry), def: None }),
-                Def => self.0.insert(index, ContextEntry { dec: None, def: Some(entry) })
-            };
+            match kind {
+                Dec => { self.0.insert(index, ContextEntry { dec: Some(entry), def: None }); },
+                Def => { self.0.insert(index, ContextEntry { dec: None, def: Some(entry) }); }
+            }
         }
-        Context(self.0)
+        Context(self.0, self.1)
     }
 
-    pub fn with_dec(self, index: usize, entry: Term) -> Self {
+    pub fn with_dec(self, index: VarInner, entry: Term) -> Self {
         self.with(index, Dec, entry)
     }
 
-    pub fn with_def(self, index: usize, entry: Term) -> Self {
+    pub fn with_def(self, index: VarInner, entry: Term) -> Self {
         self.with(index, Def, entry)
     }
 
-    pub fn without(mut self, index: usize) -> Self {
+    pub fn without(mut self, index: VarInner) -> Self {
         self.0.remove(&index);
         self
     }
@@ -108,41 +113,87 @@ impl Context {
     pub fn indices(&self) -> HashSet<usize> {
         let mut set = HashSet::new();
         for key in self.0.keys() {
-            set.insert(*key);
+            if let Bound(index) = key {
+                set.insert(*index);
+            }
         }
         set
     }
 
     pub fn shift(self, amount: isize) -> Self {
-        Context(self.0.into_iter().map(|(k, v)| {
-            (k,
-            ContextEntry {
-                dec: match v.dec {
-                    Some(dec) => Some(shift(dec, HashSet::new(), amount)),
-                    None => None
-                },
-                def: match v.def {
-                    Some(def) => Some(shift(def, HashSet::new(), amount)),
-                    None => None
-                }})}).collect())
+        Context(
+            self.0.into_iter().map(|(k, v)| {
+                (k,
+                ContextEntry {
+                    dec: match v.dec {
+                        Some(dec) => Some(shift(dec, HashSet::new(), amount)),
+                        None => None
+                    },
+                    def: match v.def {
+                        Some(def) => Some(shift(def, HashSet::new(), amount)),
+                        None => None
+                    }})}).collect(),
+            self.1)
     }
 
-    pub fn update(self, index: usize, val: Term) -> Self {
-        Context(self.0.into_iter().map(|(k, v)|
+    pub fn update(self, index: VarInner, val: Term) -> Self {
+        Context(
+            self.0.into_iter().map(|(k, v)|
+                (k,
+                ContextEntry {
+                    dec: match v.dec {
+                        Some(dec) =>
+                            Some(normalize(
+                                dec,
+                                Context::new()
+                                    .with_def(
+                                        if let (Bound(k_bound), Bound(index_bound)) = (index, k) {
+                                            Bound(k_bound + index_bound)
+                                        } else {
+                                            index
+                                        },
+                                        val.clone()))),
+                        None => None
+                    },
+                    def: match v.def {
+                        Some(def) =>
+                            Some(normalize(
+                                def,
+                                Context::new()
+                                    .with_def(
+                                        if let (Bound(k_bound), Bound(index_bound)) = (index, k) {
+                                            Bound(k_bound + index_bound)
+                                        } else {
+                                            index
+                                        },
+                                        val.clone()))),
+                        None => None
+                    }})).collect(),
+            self.1)
+    }
+
+    // TODO: renaming and possibly merging this with `update`
+    pub fn normalize(self) -> Context {
+        Context(self.clone().0.into_iter().map(|(k, v)|
             (k,
-            ContextEntry {
-                dec: match v.dec {
-                    Some(dec) => Some(normalize(dec, Context::new().with_def(index + k, val.clone()))),
-                    None => None
-                },
-                def: match v.def {
-                    Some(def) => Some(normalize(def, Context::new().with_def(index + k, val.clone()))),
-                    None => None
-                }})).collect())
+                ContextEntry {
+                    dec: match v.dec { Some(dec) => Some(normalize(dec, self.clone())), None => None },
+                    def: match v.def { Some(def) => Some(normalize(def, self.clone())), None => None }
+                })).collect(), self.1)
     }
 
     pub fn inc_and_shift(self, amount: isize) -> Self {
         self.inc(amount).shift(amount as isize)
+    }
+
+    pub fn with_equiv(self, v1: VarInner, v2: VarInner) -> Context {
+        let mut equivs = self.1;
+        equivs.insert((v1, v2));
+        Context(self.0, equivs)
+    }
+
+    pub fn equivs(self) -> HashSet<(VarInner, VarInner)> {
+        self.1
     }
 
     pub fn len(&self) -> usize {
@@ -177,7 +228,7 @@ impl Context {
 }
 
 pub struct ContextIterator {
-    inner_iter: IntoIter<usize, ContextEntry>,
+    inner_iter: IntoIter<VarInner, ContextEntry>,
 }
 
 impl ContextIterator {
@@ -187,7 +238,7 @@ impl ContextIterator {
 }
 
 impl Iterator for ContextIterator {
-    type Item = (usize, ContextEntry);
+    type Item = (VarInner, ContextEntry);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner_iter.next()

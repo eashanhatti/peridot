@@ -539,3 +539,16 @@ fn =>
                         case v1
                             l => B : Type
                             r => C : Type
+
+ctx extended w/ p |- e : t[p/x]
+----------------------------------------
+ctx |- (match x with p => e | ..) : t
+
+split v0
+    case v0
+        l => unit
+        r => unit
+: split v0
+    case v0
+        l => Unit
+        r => Unit

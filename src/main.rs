@@ -5,7 +5,8 @@ use lang::{
 	core::{
         self,
         context::*,
-        lang::Note
+        lang::Note,
+        VarInner::*
     },
 	surface::{
 		Term,
@@ -66,7 +67,7 @@ fn run() {
                 core::Term::new_with_note(Note("first parameter".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()),
                 core::Term::new(
                     Box::new(core::FunctionTypeIntro(
-                        context.with_dec(0, core::Term::new_with_note(Note("caps list first".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone())).to_caps_list(0),
+                        context.with_dec(Bound(0), core::Term::new_with_note(Note("caps list first".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone())).to_caps_list(0),
                         core::Term::new_with_note(Note("second parameter".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()),
                         core::Term::new_with_note(Note("out".to_string()), Box::new(core::InnerTerm::UnitTypeIntro), univ0.clone()))),
                     univ0.clone()))),
@@ -103,7 +104,7 @@ fn run() {
                 let mut source = String::new();
                 file.read_to_string(&mut source);
                 println!("{:?}", source);
-                let surface_module = parse_text(&source);
+                let surface_module = text_to_module(&source);
                 s.clear();
                 if let Ok(surface_module_ok) = surface_module {
                     println!("{:?}", surface_module_ok);
@@ -133,6 +134,43 @@ fn run() {
                     }
                 } else {
                     println!("{:#?}", surface_module);
+                }
+            },
+            "elte" => {
+                let mut file = File::open(&Path::new(&s[5..])).unwrap();
+                let mut source = String::new();
+                file.read_to_string(&mut source);
+                println!("{:?}", source);
+                let surface_term = text_to_term(&source);
+                s.clear();
+                if let Ok(surface_term_ok) = surface_term {
+                    println!("{:?}", surface_term_ok);
+                    let surface_term_type = match infer_type(&surface_term_ok, State::new()) {
+                        Ok(r#type) => r#type,
+                        Err(errs) => {
+                            println!("INFER ERROR\n{:#?}", errs);
+                            continue;
+                        }
+                    };
+                    let core_term = match elab_term(&surface_term_ok, surface_term_type, State::new()) {
+                        Ok(term) => term,
+                        Err(errs) => {
+                            println!("SURFACE ERROR\n{:#?}", errs);
+                            continue;
+                        }
+                    };
+                    println!("{:?}", core_term);
+                    let core_term_type =
+                        match core::typing::synth_type(&core_term, Context::new()) {
+                            Ok(r#type) => r#type,
+                            Err(errs) => { println!("CORE TYPE ERROR\n{:#?}", errs); return; }
+                        };
+                    match core::typing::check(&core_term, core_term_type, Context::new()) {
+                        Ok(()) => println!("NO ERRORS"),
+                        Err(errs) => println!("CORE ERROR\n{:#?}", errs)
+                    }
+                } else {
+                    println!("{:#?}", surface_term);
                 }
             },
             _ => println!("'{:?}' not a command", &s[0..4])

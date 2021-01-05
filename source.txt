@@ -1,6 +1,8 @@
 module {
-    i : Fin 1;
-    i = fin 0;
-    j : Fin 1;
-    j = fin 0;
+    f : [ x : Fin 1 ] -> Fin 1;
+    f = fn x => x;
+    g : [ x : Fin 1 ] -> [ y : Fin 1 ] -> Fin 1;
+    g = fn x, y => x;
+    a : Fin 3;
+    a = fin 2;
 }
