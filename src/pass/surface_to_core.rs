@@ -324,6 +324,20 @@ macro_rules! Unit {
     };
 }
 
+macro_rules! Void {
+    (,: $ann:expr) => {
+        Term::new(
+            Box::new(VoidTypeIntro),
+            Some(Box::new($ann)))
+    };
+    ($note:expr,: $ann:expr) => {
+        Term::new_with_note(
+            Note(String::from($note)),
+            Box::new(VoidTypeIntro),
+            Some(Box::new($ann)))
+    };
+}
+
 type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
 
 // checks a surface term, and either returns the elaborated term or errors
@@ -485,7 +499,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                             core::Term::new(
                                 Box::new(core::InnerTerm::UnitTypeIntro),
                                 Some(Box::new(exp_type.clone())));
-                        for _ in 0..*num_inhabitants - 1 {
+                        for _ in 0..*num_inhabitants {
                             curr_type =
                                 Term::new(
                                     Box::new(PairTypeIntro(
@@ -515,9 +529,96 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type, min_level: 0 }])
             }
         },
-        EnumIntro(inhabitant) => {
-            panic!("{:?}", );
-        },
+        EnumIntro(inhabitant) =>
+            if let self::core::lang::InnerTerm::IndexedTypeIntro(0, inner_type) = *exp_type.clone().data {
+                use self::core::lang::{
+                    Term,
+                    InnerTerm::*,
+                    Doub
+                };
+
+                let mut num_inhabitants = 0;
+                let mut curr_type = inner_type;
+                if let &VoidTypeIntro = &*curr_type.data {
+                    ()
+                } else if let &UnitTypeIntro = &*curr_type.data {
+                    num_inhabitants = 1;
+                } else {
+                    while let PairTypeIntro(fst_type, snd_type) = *curr_type.data {
+                        if let (DoubTypeIntro, DoubElim(discrim, branch1, branch2)) = (*fst_type.data.clone(), *snd_type.data.clone()) {
+                            if let (Var(Bound(0)), DoubTypeIntro, UnitTypeIntro) = (*discrim.data.clone(), *discrim.r#type().data, *branch1.data.clone()) {
+                                curr_type = branch2;
+                                num_inhabitants += 1;
+                            } else {
+                                println!("num_inhabitants {:?}", num_inhabitants);
+                                println!("discrim {:?}", discrim);
+                                println!("branch1 {:?}", branch1);
+                                panic!();
+                                // return Err(vec![ExpectedOfEnumType { term, state, giv_type: curr_type }]);
+                            }
+                        } else {
+                            println!("num_inhabitants {:?}", num_inhabitants);
+                            println!("fst_type {:?}", fst_type);
+                            println!("snd_type {:?}", snd_type);
+                            panic!();
+                            // return Err(vec![ExpectedOfEnumType { term, state, giv_type: curr_type }]);
+                        }
+                    }
+                }
+
+                if !(*inhabitant < num_inhabitants) {
+                    return Err(vec![EnumInhabitantTooLarge { term, state, inhabitant: *inhabitant, num_inhabitants }]);
+                }
+
+                // `inhabitant` must be lesser than `num_inhabitants`
+                fn make_enum(inhabitant: usize, num_inhabitants: usize) -> core::Term {
+                    let r#type = make_enum_type(num_inhabitants);
+                    if inhabitant == 0 {
+                        if num_inhabitants > 1 {
+                            pair!(
+                                doub!(left ,: Doub!( ,: Univ!(0, shared))),
+                                unit!( ,: Unit!( ,: Univ!(0, shared)))
+                            ,: make_enum_type(num_inhabitants))
+                        } else {
+                            unit!( ,: Unit!( ,: Univ!(0, shared)))
+                        }
+                    } else {
+                        pair!(
+                            doub!(right ,: Doub!( ,: Univ!(0, shared))),
+                            make_enum(inhabitant - 1, num_inhabitants - 1)
+                        ,: r#type)
+                    }
+                }
+
+                fn make_enum_type(num_inhabitants: usize) -> core::Term {
+                    if num_inhabitants == 0 {
+                        Void!( ,: Univ!(0, shared))
+                    } else if num_inhabitants == 1 {
+                        Unit!( ,: Univ!(0, shared))
+                    } else {
+                        Pair!(
+                            Doub!( ,: Univ!(0, shared)),
+                            case!(
+                                var!(Bound(0) ,: Doub!( ,: Univ!(0, shared))),
+                                l => Unit!( ,: Univ!(0, shared));
+                                r => make_enum_type(num_inhabitants - 1);
+                            ,: Univ!(0, shared))
+                        ,: Univ!(0, shared))
+                    }
+                }
+
+                let enum_val = make_enum(*inhabitant, num_inhabitants);
+                let enum_type = enum_val.r#type();
+                Ok(Term::new(
+                    Box::new(IndexedIntro(enum_val)),
+                    Some(Box::new(Term::new(
+                        Box::new(IndexedTypeIntro(
+                            0,
+                            enum_type)),
+                        Some(Box::new(Univ!(0, shared))))))))
+            } else {
+                Err(vec![ExpectedOfEnumType { term, state, giv_type: exp_type }])
+            },
         TypeTypeIntro(level) =>
             match *exp_type.data {
                 core::TypeTypeIntro(type_level, usage) =>
