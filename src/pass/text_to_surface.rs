@@ -14,7 +14,8 @@ use crate::lang::surface::{
 };
 use std::collections::{
 	HashSet,
-	BTreeMap
+	BTreeMap,
+	BTreeSet
 };
 
 #[derive(pest_derive::Parser)]
@@ -31,7 +32,7 @@ struct LangParser;
 				Box::new(match pair_rule {
 					Rule::ann => Ann(parse_term(pair_iter.next().unwrap()), parse_term(pair_iter.next().unwrap())),
 					Rule::fun => {
-						let mut names = HashSet::new();
+						let mut names = BTreeSet::new();
 						for name_pair in pair_iter.next().unwrap().into_inner() {
 							names.insert(Name(name_pair.as_str().to_string()));
 						}

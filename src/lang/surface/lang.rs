@@ -1,6 +1,6 @@
 #![allow(warnings)]
 
-use std::collections::{HashSet, HashMap, BTreeMap}; 
+use std::collections::{HashSet, HashMap, BTreeSet, BTreeMap}; 
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct Name(pub String);
@@ -45,7 +45,7 @@ pub enum InnerTerm {
 	Var(Name),
 	ImportTerm(QualifiedName),
 	FunctionTypeIntro(Name, Term, Term),
-	FunctionIntro(HashSet<Name>, Term),
+	FunctionIntro(BTreeSet<Name>, Term),
 	FunctionElim(Term, Vec<Term>),
 	TypeTypeIntro(usize),
 	RecordTypeIntro(QualifiedName, HashMap<Name, Term>),
