@@ -596,12 +596,16 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					}
 					let capd_var_types = flatten_caps_list(&caps_list);
 					let mut free_vars = get_free_vars(body, HashSet::from_iter(vec![Bound(0)]));
+					// println!("VAR_TYPES\n{:?}", capd_var_types);
+					// println!("FREE_VARS\n{:?}", free_vars);
 					'top: for capd_var_type in &capd_var_types {
 						for index in free_vars.iter().map(|(k, _)| *k).collect::<Vec<VarInner>>() {
-							if free_vars.get(&index).unwrap() == capd_var_type {
+							if let True = is_terms_eq(free_vars.get(&index).unwrap(), capd_var_type, context.clone().equivs()) {
+								// println!("INDEX {:?}", index);
 								free_vars.remove(&index);
 								continue 'top;
 							}
+							// println!("NOT {:?}", index);
 						}
 					}
 

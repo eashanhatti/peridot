@@ -552,3 +552,9 @@ split v0
     case v0
         l => Unit
         r => Unit
+
+effects in types
+suppose e : io t
+type ann expects t, not io t
+how do we deal with effects in types?
+allocation is explicit and an effect

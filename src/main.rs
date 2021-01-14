@@ -44,7 +44,7 @@ fn run() {
         if let Some('\r') = s.chars().next_back() { s.pop(); }
 
         match &s[0..4] {
-            "exit" => break,
+            "quit" => break,
             "elab" => {
                 let mut file = File::open(&Path::new(&s[5..])).unwrap();
                 let mut source = String::new();

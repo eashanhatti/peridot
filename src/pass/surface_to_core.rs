@@ -73,7 +73,7 @@ impl State {
         local_names_to_indices.insert(name, Bound(0));
 
         State {
-            locals: self.locals.inc_and_shift(1).with_dec(Bound(0), r#type),
+            locals: self.locals.inc_and_shift(1).with_dec(Bound(0), shift(r#type, HashSet::new(), 1)),
             local_names_to_indices,
             globals: self.globals,
             curr_global_id: self.curr_global_id }
@@ -384,7 +384,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     if let False(specific) = cmp {
                         Err(vec![MismatchedTypes { term, state, exp_type, giv_type: r#type, specific }])
                     } else {
-                        Ok(core::Term::new(Box::new(core::Var(index)), Some(Box::new(r#type))))
+                        Ok(core::Term::new_with_note(Note(format!("{:?}", name)), Box::new(core::Var(index)), Some(Box::new(r#type))))
                     }
                 },
                 None => Err(vec![NonexistentVar { var: term, state, name: name.clone() }])
@@ -394,8 +394,12 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             // TODO: remove the `?` and add proper error handling
             let mut errors = Vec::new();
             let core_in_type = elab_term(in_type, infer_type(in_type, state.clone())?, state.clone())?;
+            // println!("IN_TYPE\n{:?}", in_type);
+            // println!("CORE_IN_TYPE\n{:?}", core_in_type);
             let core_in_type_type = core_in_type.r#type();
             let core_out_type = elab_term(out_type, infer_type(out_type, state.clone())?, state.clone().with_dec(var_name.clone(), core_in_type.clone()))?;
+            // println!("OUT_TYPE\n{:?}", out_type);
+            // println!("CORE_OUT_TYPE\n{:?}", core_out_type);
             let core_out_type_type = core_out_type.r#type();
             let mut caps_list = None;
 
@@ -456,9 +460,8 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                             type_acc = 
                                 pi!(
                                     {
-                                        let caps_list = curr_locals.clone().to_caps_list(curr_univ_level);
                                         curr_locals = curr_locals.without(Bound(0)).inc_and_shift(-1);
-                                        caps_list
+                                        curr_locals.clone().to_caps_list(curr_univ_level)
                                     },
                                     in_type,
                                     type_acc
@@ -471,8 +474,9 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             }
 
             let mut curr_locals = curr_state.clone().locals();
+            // println!("CURR_STATE\n{:?}", curr_state);
             let mut body_acc = elab_term(body, curr_type, curr_state)?;
-            for in_type in in_types {
+            for in_type in in_types.into_iter().rev() {
                 let body_acc_type = body_acc.r#type();
                 body_acc =
                     fun!(
@@ -480,9 +484,8 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     ,:
                         pi!(
                             {
-                                let caps_list = curr_locals.clone().to_caps_list(curr_univ_level);
                                 curr_locals = curr_locals.without(Bound(0)).inc_and_shift(-1);
-                                caps_list
+                                curr_locals.clone().to_caps_list(curr_univ_level)
                             },
                             in_type,
                             body_acc_type
