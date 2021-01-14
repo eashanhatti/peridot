@@ -162,6 +162,18 @@ pub struct Term {
 
 static mut line: usize = 0;
 
+// impl Clone for Term {
+//     fn clone(&self) -> Term {
+//         unsafe { line += 1; }
+//         Term {
+//             data: self.data.clone(),
+//             type_ann: self.type_ann.clone(),
+//             note: self.note.clone(),
+//             loc: Location { line: unsafe { line } }
+//         }
+//     }
+// }
+
 fn display_term(term: &Term, indent: usize) -> String {
     let mut string = format!("{}: {}Term \"{}\"\n", format!("{:5}", term.loc.line), indent_to_string(indent), if let Some(Note(ref s)) = term.note { s.clone() } else { String::new() });
     string = format!("{}       {}", string, display_inner_term(&*term.data, indent + 1));
@@ -274,7 +286,7 @@ pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(VarInner, VarInn
 
     match &(&(*type1.data), &(*type2.data)) {
         (TypeTypeIntro(level1, usage1), TypeTypeIntro(level2, usage2)) =>
-            comb(bool_to_tc(level1 == level2), bool_to_tc(usage1 == usage2)),
+            comb(bool_to_tc(level1 <= level2), bool_to_tc(usage1 == usage2)),
         (Var(index1), Var(index2)) => bool_to_tc(index1 == index2 || equivs.contains(&(*index1, *index2))),
         (Rec(ref inner_term1), Rec(ref inner_term2)) =>
             is_terms_eq(inner_term1, inner_term2, equivs),

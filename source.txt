@@ -1,1 +1,8 @@
-( fn A, x => x ) : ([A : Type 0] -> [ x : A] -> A) : Type 1
+module {
+	a : Fin 1;
+	a = fin 0;
+	b : Fin 1 : Type 3;
+	b = fin 0;
+	f : ([A : Type 0] -> [x : A] -> A) : Type 1;
+	f = fn A, x => x;
+}

@@ -209,15 +209,17 @@ fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Te
 		}
 
 		fn inc(set: HashSet<VarInner>) -> HashSet<VarInner> {
-			let mut tmp = set.into_iter().map(|i| if let Bound(i_bound) = i { Bound(i_bound + 1) } else { i }).collect::<HashSet<VarInner>>();
-			tmp.insert(Bound(0));
-			tmp
+			inc_by(set, 1)
 		}
 
 		fn inc_by(set: HashSet<VarInner>, by: usize) -> HashSet<VarInner> {
 			let mut tmp = set.into_iter().map(|i| if let Bound(i_bound) = i { Bound(i_bound + by) } else { i }).collect::<HashSet<VarInner>>();
-			tmp.insert(Bound(0));
 			tmp
+		}
+
+		fn with(mut set: HashSet<VarInner>, index: usize) -> HashSet<VarInner> {
+			set.insert(Bound(index));
+			set
 		}
 
 		let type_ann_free_vars =
@@ -238,14 +240,14 @@ fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Te
 						map.insert(index, term.r#type());
 						map
 					},
-				Rec(ref inner_term) => inner(inner_term, inc(bounds.clone())),
+				Rec(ref inner_term) => inner(inner_term, with(inc(bounds.clone()), 0)),
 				FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) =>
 					collapse(vec![
 						inner(caps_list, bounds.clone()),
 						inner(in_type, bounds.clone()),
-						inner(out_type, inc(bounds))
+						inner(out_type, with(inc(bounds.clone()), 0))
 					]),
-				FunctionIntro(ref body) => inner(body, inc(bounds)),
+				FunctionIntro(ref body) => inner(body, with(inc(bounds.clone()), 0)),
 				FunctionElim(ref abs, ref arg) =>
 					collapse(vec![
 						inner(abs, bounds.clone()),
@@ -253,8 +255,8 @@ fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Te
 					]),
 				PairTypeIntro(ref fst_type, ref snd_type) =>
 					collapse(vec![
-						inner(fst_type, inc_by(bounds.clone(), 2)),
-						inner(snd_type, inc_by(bounds, 2))
+						inner(fst_type, with(inc_by(bounds.clone(), 2), 1)),
+						inner(snd_type, with(inc_by(bounds.clone(), 2), 0))
 					]),
 				PairIntro(ref fst, ref snd) =>
 					collapse(vec![
@@ -264,7 +266,7 @@ fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Te
 				PairElim(ref discrim, ref body) =>
 					collapse(vec![
 						inner(discrim, bounds.clone()),
-						inner(body, bounds)
+						inner(body, with(with(inc_by(bounds.clone(), 2), 0), 1))
 					]),
 				VoidTypeIntro => HashMap::new(),
 				UnitTypeIntro => HashMap::new(),
@@ -410,7 +412,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 	let context = context.normalize();
 
 	let type_ann = synth_type(term, context.clone())?;
-	if let False(specific) = is_terms_eq(&type_ann, &normalize(exp_type.clone(), context.clone()), context.clone().equivs()) {
+	if let False(specific) = is_terms_eq(&type_ann, &exp_type, context.clone().equivs()) {
+		// println!("NOT EQ\n{:?}\n{:?}", type_ann, exp_type);
 		return
 			Err(vec![Error::new(
 				term,
@@ -429,7 +432,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					}
 				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: level + 1, giv_type: type_ann })])
 			},
-		Var(index) =>
+		Var(index) => 
 			match context.get_dec(index) {
 				Some(var_type) => {
 					if let False(specific) = is_terms_eq(&var_type, &type_ann, context.clone().equivs()) {
@@ -634,7 +637,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 							context.clone().inc_and_shift(1).with_dec(Bound(0), in_type).with_def(Bound(0), normalize(arg.clone(), context.clone())));
 					push_check(
 						&mut errors,
-						if let False(specific) = is_terms_eq(&type_ann, &normal_out_type, context.clone().equivs()) {
+						if let False(specific) = is_terms_eq(&normal_out_type, &type_ann, context.clone().equivs()) {
 							Err(vec![Error::new(&term, context, MismatchedTypes { exp_type: type_ann, giv_type: normal_out_type, specific })])
 						} else {
 							Ok(())
@@ -666,7 +669,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			match (*(fst_type_type.clone()).data, *(snd_type_type.clone()).data) {
 				(TypeTypeIntro(fst_level, fst_usage), TypeTypeIntro(snd_level, snd_usage)) =>
 					if let TypeTypeIntro(max_level, pair_usage) = *type_ann.clone().data {
-						if max(fst_level, snd_level) != max_level {
+						if max(fst_level, snd_level) > max_level {
 							errors.push(Error::new(
 								term,
 								context,
@@ -809,8 +812,9 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					// println!("NORMAL DISCRIM\n{:?}", normalize(discrim.clone(), context.clone()));
 					// println!("TYPE ANN\n{:?}", type_ann);
 					// println!("CONTEXT\n{:?}", branch1_context.clone());
+					// println!("BRANCH 1 CONTEXT {:?}", branch1_context.len());
 					push_check(&mut errors, check(branch1, normalize(type_ann.clone(), branch1_context.clone()), branch1_context.clone()));
-					// println!("BRANCH 2 CONTEXT {:?}", branch2_context);
+					// println!("BRANCH 2 CONTEXT {:?}", branch2_context.len());
 					push_check(&mut errors, check(branch2, normalize(type_ann, branch2_context.clone()), branch2_context));
 				},
 				_ => errors.push(Error::new(discrim, context, ExpectedOfDoubType { giv_type: discrim_type }))

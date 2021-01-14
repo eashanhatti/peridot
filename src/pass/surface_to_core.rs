@@ -37,6 +37,7 @@ use crate::lang::{
         InnerTerm::*
     }
 };
+extern crate rand;
 
 // the globals map takes index 0
 // globals maps names to type id pairs
@@ -283,6 +284,12 @@ macro_rules! Doub {
             Box::new(crate::lang::core::lang::InnerTerm::DoubTypeIntro),
             Some(Box::new($ann)))
     };
+    ($note:expr ,: $ann:expr) => {
+        crate::lang::core::lang::Term::new_with_note(
+            Note(String::from($note)),
+            Box::new(crate::lang::core::lang::InnerTerm::DoubTypeIntro),
+            Some(Box::new($ann)))
+    };
 }
 
 macro_rules! doub {
@@ -379,12 +386,12 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
         },
         Var(ref name) => {
             match state.get_dec(name) {
-                Some((index, r#type)) => {
-                    let cmp = is_terms_eq(&r#type, &exp_type, state.clone().locals().equivs());
+                Some((index, var_type)) => {
+                    let cmp = is_terms_eq(&var_type, &exp_type, state.clone().locals().equivs());
                     if let False(specific) = cmp {
-                        Err(vec![MismatchedTypes { term, state, exp_type, giv_type: r#type, specific }])
+                        Err(vec![MismatchedTypes { term, state, exp_type, giv_type: var_type, specific }])
                     } else {
-                        Ok(core::Term::new_with_note(Note(format!("{:?}", name)), Box::new(core::Var(index)), Some(Box::new(r#type))))
+                        Ok(core::Term::new_with_note(Note(format!("{:?}", name)), Box::new(core::Var(index)), Some(Box::new(var_type))))
                     }
                 },
                 None => Err(vec![NonexistentVar { var: term, state, name: name.clone() }])
@@ -406,7 +413,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             match (*(core_in_type_type.clone()).data, *(core_out_type_type.clone()).data) {
                 (core::TypeTypeIntro(in_type_level, in_type_usage), core::TypeTypeIntro(out_type_level, out_usage)) =>
                     if let core::TypeTypeIntro(max_level, pair_usage) = &*exp_type.data {
-                        if max(in_type_level, out_type_level) != *max_level {
+                        if max(in_type_level, out_type_level) > *max_level {
                             errors.push(
                                 MismatchedTypes {
                                     term,
@@ -710,14 +717,15 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
     let items = flatten_module(module, module_name);
     // elaborated module items and new state with all the new global declarations in it
     // global declarations are needed for their ids, so `ImportTerm` can calculate the needed arg to the globals map to get the definition
-    let mut core_items = {
+    let (mut core_items, level) = {
         let mut state = state;
+        let mut level = 0;
         for ((ref name, _), ref item) in items.iter() {
             match item {
                 FlattenedModuleItem::Declaration(r#type) => {
                     let mut core_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
                     core_type.note = Some(Note(format!("item_type {:?}", name.clone())));
-                    // println!("CORE_TYPE {:?}", core_type);
+                    level = std::cmp::max(level, core_type.level());
                     state = state.clone().with_global_dec(name.clone(), core_type);
                 },
                 _ => ()
@@ -768,7 +776,7 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
             }
         }
 
-        core_items
+        (core_items, level)
     };
     let (core_map, discrim_type) = {
         use self::core::{
@@ -788,30 +796,30 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
                         var!(
                             Bound(1),
                             format!("discrim_type {}", c).as_str()
-                        ,: Doub!( ,: Univ!(0, shared))),
+                        ,: Doub!(format!("discrim_type {}", c).as_str() ,: Univ!(0, shared))),
                         l => Unit!("discrim unit l" ,: Univ!(0, shared));
                         r => discrim_type.clone();
                     ,: Univ!(0, shared)),
-                    Doub!( ,: Univ!(0, shared))
+                    Doub!(format!("discrim_type_case {}", c) ,: Univ!(0, shared))
                 ,: Univ!(0, shared));
 
             let core_map_case_type =
                 case!(
                     var!(
                         Bound(1),
-                        format!("core_map_type {}", c).as_str()
-                    ,: Doub!( ,: Univ!(0, shared))),
+                        format!("core_map_type_case {}", c).as_str()
+                    ,: Doub!(format!("core_map_type_case {}", c).as_str() ,: Univ!(0, shared))),
                     l => core_item.r#type();
                     r => core_map.r#type();
-                ,: Univ!(std::cmp::max(core_item.r#type().level(), core_map.r#type().level()), shared));
+                ,: Univ!(level, shared));
             let core_map_split_type =
                 split!(
                     var!(
                         Bound(0),
-                        format!("core_map_type {}", c).as_str()
+                        format!("core_map_type_split {}", c).as_str()
                     ,: discrim_type.clone()),
                     in core_map_case_type.clone()
-                ,: Univ!(std::cmp::max(core_item.r#type().level(), core_map.r#type().level()), shared));
+                ,: Univ!(level, shared));
             core_map =
                 split!(
                     var!(
@@ -823,7 +831,7 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
                             var!(
                                 Bound(1),
                                 format!("core_map {}", c).as_str()
-                            ,: Doub!( ,: Univ!(0, shared))),
+                            ,: Doub!(format!("core_map {}", c).as_str() ,: Univ!(0, shared))),
                             l => core_item;
                             r => core_map;
                         ,: core_map_case_type.clone())
@@ -845,17 +853,11 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
             Term::new(
                 Box::new(FunctionTypeIntro(
                     Term::new(
-                        Box::new(CapturesListIntro(Nil/*Cons(
-                            Doub!( ,: Univ!(0, shared)),
-                            Term::new(
-                                Box::new(CapturesListIntro(Nil)),
-                                Some(Box::new(Term::new(
-                                    Box::new(CapturesListTypeIntro(0)),
-                                    Some(Box::new(Univ!(0, shared))))))))*/)),
+                        Box::new(CapturesListIntro(Nil)),
                         Some(Box::new(Term::new(
                             Box::new(CapturesListTypeIntro(0)),
                             Some(Box::new(Univ!(0, shared))))))),
                     discrim_type,
                     core_map_type)),
-                Some(Box::new(Univ!(0, shared))))))))
+                Some(Box::new(Univ!(level, shared))))))))
 }
