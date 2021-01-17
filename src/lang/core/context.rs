@@ -203,28 +203,6 @@ impl Context {
     pub fn into_iter(self) -> ContextIterator {
         ContextIterator::new(self)
     }
-
-    pub fn to_caps_list(self, exp_level: usize) -> Term {
-        let core_nil =
-            Term::new(
-                Box::new(CapturesListIntro(List::Nil)),
-                Some(Box::new(Term::new_with_note(
-                    Note("generated 1".to_string()),
-                    Box::new(CapturesListTypeIntro(exp_level)),
-                    Some(Box::new(Term::new(
-                        Box::new(TypeTypeIntro(exp_level, Usage::Unique)),
-                        None)))))));
-        let list = self.into_iter().fold(core_nil, |curr_list, entry| {
-            Term::new(
-                Box::new(CapturesListIntro(List::Cons(entry.1.dec.unwrap(), curr_list))),
-                Some(Box::new(Term::new_with_note(
-                    Note("generated 2".to_string()),
-                    Box::new(CapturesListTypeIntro(exp_level)),
-                    Some(Box::new(Term::new(
-                        Box::new(TypeTypeIntro(exp_level, Usage::Unique)),
-                        None)))))))});
-        list
-    }
 }
 
 pub struct ContextIterator {

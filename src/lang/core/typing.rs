@@ -5,7 +5,6 @@ use super::{
 		*,
 		VarInner::*,
 		InnerTerm::*,
-		List::*,
 		Usage::*,
 		TermComparison::*
 	},
@@ -40,11 +39,9 @@ pub enum InnerError {
     ExpectedOfPairType { giv_type: Term },
     ExpectedOfDoubType { giv_type: Term },
     ExpectedOfFoldType { giv_type: Term },
-    ExpectedOfCapturesListType { min_level: usize, giv_type: Term },
     ExpectedOfUnitType { giv_type: Term },
     ExpectedOfIndexedType { giv_type: Term },
-    MismatchedUsage { var_index: VarInner, exp_usage: (usize, usize), giv_usage: (usize, usize) },
-    UnmentionedFreeVars { caps_list: Vec<Term>, unmentioned_vars: HashMap<VarInner, Term> }
+    MismatchedUsage { var_index: VarInner, exp_usage: (usize, usize), giv_usage: (usize, usize) }
 }
 
 #[derive(Debug)]
@@ -131,9 +128,8 @@ pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 			TypeTypeIntro(level, usage) => singleton(0),
 			Var(index) => if index == target_index { singleton(1) } else { singleton(0) },
 			Rec(ref inner_term) => count_uses(inner_term, inc(target_index)),
-			FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) =>
+			FunctionTypeIntro(ref in_type, ref out_type) =>
 				sum(vec![
-					count_uses(caps_list, target_index),
 					mul(vec![
 						count_uses(in_type, target_index),
 						count_uses(out_type, inc(target_index))
@@ -162,16 +158,6 @@ pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 			FoldTypeIntro(ref inner_type) => count_uses(inner_type, target_index),
 			FoldIntro(ref inner_term) => count_uses(inner_term, target_index),
 			FoldElim(ref folded_term) => count_uses(folded_term, target_index),
-			CapturesListTypeIntro(_) => singleton(0),
-			CapturesListIntro(ref list) =>
-				match list {
-					Cons(ref head, ref tail) =>
-						sum(vec![
-							count_uses(head, target_index),
-							count_uses(tail, target_index)
-						]),
-					Nil => singleton(0)
-				}
 			IndexedTypeIntro(_, ref inner_type) => count_uses(inner_type, target_index),
 			IndexedIntro(ref inner_term) => count_uses(inner_term, target_index),
 			IndexedElim(ref folded_term) => count_uses(folded_term, target_index)
@@ -241,9 +227,8 @@ fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Te
 						map
 					},
 				Rec(ref inner_term) => inner(inner_term, with(inc(bounds.clone()), 0)),
-				FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) =>
+				FunctionTypeIntro(ref in_type, ref out_type) =>
 					collapse(vec![
-						inner(caps_list, bounds.clone()),
 						inner(in_type, bounds.clone()),
 						inner(out_type, with(inc(bounds.clone()), 0))
 					]),
@@ -282,16 +267,6 @@ fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Te
 				FoldTypeIntro(ref inner_type) => inner(inner_type, bounds.clone()),
 				FoldIntro(ref inner_term) => inner(inner_term, bounds.clone()),
 				FoldElim(ref folded_term) => inner(folded_term, bounds),
-				CapturesListTypeIntro(_) => HashMap::new(),
-				CapturesListIntro(ref list) =>
-					match list {
-						Cons(ref head, ref tail) =>
-							collapse(vec![
-								inner(head, bounds.clone()),
-								inner(tail, bounds)
-							]),
-						Nil => HashMap::new()
-					},
 				IndexedTypeIntro(_, ref inner_type) => inner(inner_type, bounds.clone()),
 				IndexedIntro(ref inner_term) => inner(inner_term, bounds.clone()),
 				IndexedElim(ref folded_term) => inner(folded_term, bounds)
@@ -456,17 +431,13 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			wrap_checks(errors)
 
 		},
-		FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) => {
+		FunctionTypeIntro(ref in_type, ref out_type) => {
 			let mut errors = Vec::new();
 
 			let out_type_context = context.clone().inc_and_shift(1).with_dec(Bound(0), in_type.clone());
 
-			let caps_list_type = synth_type(caps_list, context.clone())?;
 			let in_type_type = synth_type(in_type, context.clone())?;
 			let out_type_type = synth_type(out_type, out_type_context.clone())?;
-			push_check(
-				&mut errors,
-				check(caps_list, caps_list_type.clone(), context.clone()));
 			push_check(
 				&mut errors,
 				check(in_type, in_type_type.clone(), context.clone()));
@@ -476,12 +447,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 			push_check(&mut errors, check_usage(out_type, in_type.clone(), Bound(0), context.clone().inc_and_shift(1).clone()));
 
-			let mut caps_list_level = None;
 			let mut in_type_level = None;
 			let mut out_type_level = None;
-			if let CapturesListTypeIntro(level) = &(*caps_list_type.data) {
-				caps_list_level = Some(*level);
-			}
 			if let TypeTypeIntro(level, _) = &(*in_type_type.data) {
 				in_type_level = Some(*level);
 			}
@@ -489,9 +456,9 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				out_type_level = Some(*level);
 			}
 
-			match (caps_list_level, in_type_level, out_type_level) {
-				(Some(caps_list_level), Some(in_type_level), Some(out_type_level)) => {
-					let giv_max = max(caps_list_level, max(in_type_level, out_type_level));
+			match (in_type_level, out_type_level) {
+				(Some(in_type_level), Some(out_type_level)) => {
+					let giv_max = max(in_type_level, out_type_level);
 					if let TypeTypeIntro(exp_max, fn_usage) = *type_ann.clone().data {
 						if giv_max > exp_max {
 							errors.push(Error::new(
@@ -506,64 +473,13 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 						errors.push(Error::new(term, context, ExpectedOfTypeType { min_level: giv_max, giv_type: type_ann }))
 					}
 				},
-				(None, Some(in_type_level), Some(out_type_level)) =>
-					errors.push(Error::new(caps_list, context, ExpectedOfCapturesListType {
-						min_level: max(in_type_level, out_type_level),
-						giv_type: caps_list_type
-					})),
-				(Some(caps_list_level), None, Some(out_type_level)) =>
-					errors.push(Error::new(in_type, context, ExpectedOfTypeType {
-						min_level: max(caps_list_level, out_type_level),
-						giv_type: in_type_type
-					})),
-				(None, None, Some(out_type_level)) => {
-					errors.push(Error::new(caps_list, context.clone(), ExpectedOfCapturesListType {
-						min_level: out_type_level,
-						giv_type: caps_list_type
-					}));
-					errors.push(Error::new(in_type, context, ExpectedOfTypeType {
-						min_level: out_type_level,
-						giv_type: in_type_type
-					}));
-				}
-				(Some(caps_list_level), Some(in_type_level), None) =>
-					errors.push(Error::new(out_type, context, ExpectedOfTypeType {
-						min_level: max(caps_list_level, in_type_level),
-						giv_type: out_type_type
-					})),
-				(None, Some(in_type_level), None) => {
-					errors.push(Error::new(caps_list, context.clone(), ExpectedOfCapturesListType {
-						min_level: in_type_level,
-						giv_type: caps_list_type
-					}));
-					errors.push(Error::new(out_type, context, ExpectedOfTypeType {
-						min_level: in_type_level,
-						giv_type: out_type_type
-					}));
-				},
-				(Some(caps_list_level), None, None) => {
-					errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType {
-						min_level: caps_list_level,
-						giv_type: in_type_type
-					}));
-					errors.push(Error::new(out_type, context, ExpectedOfTypeType {
-						min_level: caps_list_level,
-						giv_type: out_type_type
-					}));
-				}
-				(None, None, None) => {
-					errors.push(Error::new(caps_list, context.clone(), ExpectedOfCapturesListType {
-						min_level: 0,
-						giv_type: caps_list_type
-					}));
-					errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType {
-						min_level: 0,
-						giv_type: in_type_type
-					}));
-					errors.push(Error::new(out_type, context, ExpectedOfTypeType {
-						min_level: 0,
-						giv_type: out_type_type
-					}));
+				(None, Some(out_type_level)) =>
+					errors.push(Error::new(in_type, context, ExpectedOfTypeType { min_level: out_type_level, giv_type: in_type_type })),
+				(Some(in_type_level), None) =>
+					errors.push(Error::new(out_type, context, ExpectedOfTypeType { min_level: in_type_level, giv_type: out_type_type })),
+				(None, None) => {
+					errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType { min_level: 0, giv_type: in_type_type }));
+					errors.push(Error::new(out_type, context, ExpectedOfTypeType { min_level: 0, giv_type: out_type_type }));
 				}
 			}
 
@@ -573,48 +489,10 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			let mut errors = Vec::new();
 
 			match *type_ann.data {
-				FunctionTypeIntro(caps_list, in_type, out_type) => {
+				FunctionTypeIntro(in_type, out_type) => {
 					let body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), shift(in_type.clone(), HashSet::new(), 1));
 					push_check(&mut errors, check(body, out_type, body_context));
 					push_check(&mut errors, check_usage(body, in_type, Bound(0), context.clone().inc_and_shift(1)));
-
-					fn flatten_caps_list(caps_list: &Term) -> Vec<Term> {
-						fn inner(caps_list: &Term, acc: &mut Vec<Term>) {
-							match *caps_list.data {
-								CapturesListIntro(ref list) => 
-									match list {
-										Cons(ref head, ref tail) => {
-											acc.push(head.clone());
-											inner(tail, acc);
-										},
-										Nil => ()
-									},
-								_ => ()
-							}
-						}
-
-						let mut vec = Vec::new();
-						inner(caps_list, &mut vec);
-						vec
-					}
-					let capd_var_types = flatten_caps_list(&caps_list);
-					let mut free_vars = get_free_vars(body, HashSet::from_iter(vec![Bound(0)]));
-					// println!("VAR_TYPES\n{:?}", capd_var_types);
-					// println!("FREE_VARS\n{:?}", free_vars);
-					'top: for capd_var_type in &capd_var_types {
-						for index in free_vars.iter().map(|(k, _)| *k).collect::<Vec<VarInner>>() {
-							if let True = is_terms_eq(free_vars.get(&index).unwrap(), capd_var_type, context.clone().equivs()) {
-								// println!("INDEX {:?}", index);
-								free_vars.remove(&index);
-								continue 'top;
-							}
-							// println!("NOT {:?}", index);
-						}
-					}
-
-					if free_vars.len() > 0 {
-						errors.push(Error::new(term, context, UnmentionedFreeVars { caps_list: capd_var_types, unmentioned_vars: free_vars }));
-					}
 				},
 				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: type_ann }))
 			}
@@ -628,7 +506,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			push_check(&mut errors, check(abs, abs_type.clone(), context.clone()));
 
 			match *abs_type.data {
-				FunctionTypeIntro(caps_list, in_type, out_type) => {
+				FunctionTypeIntro(in_type, out_type) => {
 					push_check(&mut errors, check(arg, in_type.clone(), context.clone()));
 					// normalize out_type with normalized `arg` as var 0
 					let normal_out_type =
@@ -844,53 +722,6 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				_ => Err(vec![Error::new(term, context, ExpectedOfFoldType { giv_type: folded_term_type })])
 			}
 		}
-		CapturesListTypeIntro(level) =>
-			match *type_ann.clone().data {
-				TypeTypeIntro(u_level, _) =>
-					if u_level >= level {
-						Ok(())
-					} else {
-						Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: level, giv_type: type_ann })])
-					}
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: 0, giv_type: type_ann })])
-			}
-		CapturesListIntro(ref list) => {
-			match *type_ann.data {
-				CapturesListTypeIntro(level) =>
-					match list {
-						Cons(ref head, ref tail) => {
-							let mut errors = Vec::new();
-
-							let head_type = synth_type(head, context.clone())?;
-							let tail_type = synth_type(tail, context.clone())?;
-
-							match (*head_type.clone().data, *tail_type.clone().data) {
-								(TypeTypeIntro(_, head_usage), CapturesListTypeIntro(_)) => {
-									push_check(&mut errors, check(head, Term::new(Box::new(TypeTypeIntro(level, head_usage)), None), context.clone()));
-									push_check(&mut errors, check_type(head, context.clone()));
-									let caps_list_type =
-										Term::new(Box::new(
-											CapturesListTypeIntro(level)),
-											Some(Box::new(Term::new(Box::new(
-												TypeTypeIntro(level, Usage::Unique)), // TODO: figure out whether this is correct
-												None))));
-									push_check(&mut errors, check(tail, caps_list_type, context));
-								}
-								(TypeTypeIntro(level, _), _) => errors.push(Error::new(head, context, ExpectedOfCapturesListType { min_level: level, giv_type: head_type })),
-								(_, CapturesListTypeIntro(level)) => errors.push(Error::new(tail, context, ExpectedOfTypeType { min_level: level, giv_type: tail_type })),
-								(_, _) => {
-									errors.push(Error::new(head, context.clone(), ExpectedOfTypeType { min_level: 0, giv_type: head_type }));
-									errors.push(Error::new(tail, context, ExpectedOfCapturesListType { min_level: 0, giv_type: tail_type }));
-								}
-							}
-
-							wrap_checks(errors)
-						},
-						Nil => Ok(())
-					}
-				_ => Err(vec![Error::new(term, context, ExpectedOfCapturesListType { min_level: 0, giv_type: type_ann })])
-			}
-		},
 		IndexedTypeIntro(_, ref inner_type) =>
 			match *(type_ann.clone()).data {
 				TypeTypeIntro(_, _) => {

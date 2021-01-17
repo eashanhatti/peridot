@@ -6,7 +6,6 @@ use super::{
         *,
         VarInner::*,
         InnerTerm::*,
-        List::*,
         Doub::*
     }
 };
@@ -35,14 +34,13 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
                 },
             Rec(inner_term) => Rec(shift(inner_term, bounds.into_iter().map(|i| i + 1).collect(), amount)),
             TypeTypeIntro(level, usage) => TypeTypeIntro(level, usage),
-            FunctionTypeIntro(caps_list, in_type, out_type) => {
+            FunctionTypeIntro(in_type, out_type) => {
                 let out_type_bounds = {
                     let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 1).collect();
                     tmp.insert(0);
                     tmp
                 };
                 FunctionTypeIntro(
-                    shift(caps_list, bounds.clone(), amount),
                     shift(in_type, bounds, amount),
                     shift(out_type, out_type_bounds, amount))
             },
@@ -93,13 +91,6 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
             FoldTypeIntro(inner_type) => FoldTypeIntro(shift(inner_type, bounds, amount)),
             FoldIntro(inner_term) => FoldIntro(shift(inner_term, bounds, amount)),
             FoldElim(inner_term) => FoldElim(shift(inner_term, bounds, amount)),
-            CapturesListTypeIntro(level) => CapturesListTypeIntro(level),
-            CapturesListIntro(list) =>
-                CapturesListIntro(
-                    match list {
-                        Cons(head, tail) => Cons(shift(head, bounds.clone(), amount), shift(tail, bounds, amount)),
-                        Nil => Nil
-                    }),
             IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, shift(inner_type, bounds, amount)),
             IndexedIntro(inner_term) => IndexedIntro(shift(inner_term, bounds, amount)),
             IndexedElim(inner_term) => IndexedElim(shift(inner_term, bounds, amount))
@@ -126,10 +117,9 @@ pub fn substitute(term: Term, context: Context) -> Term {
                 }
             Rec(inner_term) => Rec(substitute(inner_term, context.inc_and_shift(1))),
             TypeTypeIntro(level, usage) => TypeTypeIntro(level, usage),
-            FunctionTypeIntro(caps_list, in_type, out_type) => {
+            FunctionTypeIntro(in_type, out_type) => {
                 let out_type_context = context.clone().inc_and_shift(1);
                 FunctionTypeIntro(
-                    substitute(caps_list, context.clone()),
                     substitute(in_type, context),
                     substitute(out_type, out_type_context))
             },
@@ -158,13 +148,6 @@ pub fn substitute(term: Term, context: Context) -> Term {
             FoldTypeIntro(inner_type) => FoldTypeIntro(substitute(inner_type, context)),
             FoldIntro(inner_term) => FoldIntro(substitute(inner_term, context)),
             FoldElim(inner_term) => FoldElim(substitute(inner_term, context)),
-            CapturesListTypeIntro(level) => CapturesListTypeIntro(level),
-            CapturesListIntro(list) =>
-                CapturesListIntro(
-                    match list {
-                        Cons(head, tail) => Cons(substitute(head, context.clone()), substitute(tail, context)),
-                        Nil => Nil
-                    }),
             IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, substitute(inner_type, context)),
             IndexedIntro(inner_term) => IndexedIntro(substitute(inner_term, context)),
             IndexedElim(inner_term) => IndexedElim(substitute(inner_term, context))
@@ -189,11 +172,10 @@ pub fn normalize(term: Term, context: Context) -> Term {
             shift(normalize(inner_term, new_context), HashSet::new(), -1)
         }
         TypeTypeIntro(level, usage) => term,
-        FunctionTypeIntro(caps_list, in_type, out_type) => {
+        FunctionTypeIntro(in_type, out_type) => {
             let out_type_context = context.clone().inc_and_shift(1);
             Term::new(
                 Box::new(FunctionTypeIntro(
-                    normalize(caps_list, context.clone()),
                     normalize(in_type, context),
                     normalize(out_type, out_type_context))),
                 normal_type_ann)
@@ -266,15 +248,6 @@ pub fn normalize(term: Term, context: Context) -> Term {
                 _ => Term::new(Box::new(FoldElim(normal_folded_term)), normal_type_ann)
             }
         },
-        CapturesListTypeIntro(level) => term,
-        CapturesListIntro(list) =>
-            Term::new(
-                Box::new(CapturesListIntro(
-                    match list {
-                        Cons(head, tail) => Cons(normalize(head, context.clone()), normalize(tail, context)),
-                        Nil => Nil
-                    })),
-                normal_type_ann),
         IndexedTypeIntro(index, inner_type) => Term::new(Box::new(IndexedTypeIntro(index, normalize(inner_type, context))), normal_type_ann),
         IndexedIntro(inner_term) => normalize(inner_term, context),
         IndexedElim(indexed_term) => {

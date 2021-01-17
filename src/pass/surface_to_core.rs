@@ -23,10 +23,6 @@ use crate::lang::{
         lang::{
             TermComparison::*,
             Usage,
-            List::{
-                self,
-                *
-            },
             Note,
             VarInner::*,
             VarInner
@@ -154,12 +150,14 @@ pub enum Error<'a> {
     ExpectedOfEnumType { term: &'a Term, state: State, giv_type: core::Term },
     EnumInhabitantTooLarge { term: &'a Term, state: State, inhabitant: usize, num_inhabitants: usize },
     MismatchedFunctionArgsNum { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
-    CannotInferType { term: &'a Term, state: State }
+    CannotInferType { term: &'a Term, state: State },
 }
 use Error::*;
 
+type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
+
 // term may be unchecked
-pub fn infer_type<'a>(term: &'a Term, state: State) -> Result<core::Term, Vec<Error<'a>>> {
+pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
     match &*term.data {
         Ann(_, ref type_ann) => Ok(elab_term(type_ann, infer_type(type_ann, state.clone())?, state)?),
         TypeTypeIntro(level) => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(level + 1, core::lang::Usage::Shared)), None)),
@@ -177,7 +175,7 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> Result<core::Term, Vec<Er
         FunctionElim(ref abs, _) => {
             let abs_type = infer_type(abs, state.clone())?;
             match &*abs_type.data {
-                core::InnerTerm::FunctionTypeIntro(_, _, ref out_type) => Ok(out_type.clone()),
+                core::InnerTerm::FunctionTypeIntro(_, ref out_type) => Ok(out_type.clone()),
                 _ => Err(vec![ExpectedOfFunctionType { term: abs, state, giv_type: abs_type }])
             }
         },
@@ -190,188 +188,167 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> Result<core::Term, Vec<Er
     }
 }
 
-macro_rules! with_terms {
-    ($(let $name:ident = $check:expr);*; $body:expr) => {{
-        let mut _errors = Vec::new();
-        $(
-            let mut $name: core::Term;
-            match $check {
-                Ok(core_term) => $name = core_term,
-                Err(errs) =>
-                    for err in errs {
-                        _errors.push(err);
-                    }
-            }
-        )*
-        if _errors.len() > 0 {
-            return Err(_errors);
-        } else {
-            $body
+#[macro_use]
+mod syntax {
+    macro_rules! Univ {
+        ($level:expr, shared) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Shared)),
+                None)
+        };
+        ($level:expr, unique) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Unique)),
+                None)
+        };
+        ($level:expr, shared,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Shared)),
+                Some(Box::new($ann)))
+        };
+        ($level:expr, unique,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Unique)),
+                Some(Box::new($ann)))
         }
-    }};
-}
+    }
 
-macro_rules! Univ {
-    ($level:expr, shared) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Shared)),
-            None)
-    };
-    ($level:expr, unique) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Unique)),
-            None)
-    };
-    ($level:expr, shared,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Shared)),
-            Some(Box::new($ann)))
-    };
-    ($level:expr, unique,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Unique)),
-            Some(Box::new($ann)))
+    macro_rules! var {
+        ($index:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::Var($index)),
+                Some(Box::new($ann)))
+        };
+        ($index:expr, $note:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new_with_note(
+                Note(String::from($note)),
+                Box::new(crate::lang::core::lang::InnerTerm::Var($index)),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! pair {
+        ($fst:expr, $snd:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::PairIntro(
+                    $fst,
+                    $snd)),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! Pair {
+        ($fst_type:expr, $snd_type:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::PairTypeIntro(
+                    $fst_type,
+                    $snd_type)),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! split {
+        ($discrim:expr, in $body:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::PairElim(
+                    $discrim,
+                    $body)),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! Doub {
+        (,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::DoubTypeIntro),
+                Some(Box::new($ann)))
+        };
+        ($note:expr ,: $ann:expr) => {
+            crate::lang::core::lang::Term::new_with_note(
+                Note(String::from($note)),
+                Box::new(crate::lang::core::lang::InnerTerm::DoubTypeIntro),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! doub {
+        (left,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::DoubIntro(Doub::This)),
+                Some(Box::new($ann)))
+        };
+        (right,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::DoubIntro(Doub::That)),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! case {
+        ($discrim:expr, l => $lbranch:expr; r => $rbranch:expr;,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::DoubElim(
+                    $discrim,
+                    $lbranch,
+                    $rbranch)),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! unit {
+        (,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::UnitIntro),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! Unit {
+        (,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::UnitTypeIntro),
+                Some(Box::new($ann)))
+        };
+        ($note:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new_with_note(
+                Note(String::from($note)),
+                Box::new(crate::lang::core::lang::InnerTerm::UnitTypeIntro),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! Void {
+        (,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(VoidTypeIntro),
+                Some(Box::new($ann)))
+        };
+        ($note:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new_with_note(
+                Note(String::from($note)),
+                Box::new(crate::lang::core::lang::InnerTerm::VoidTypeIntro),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! pi {
+        ($in_type:expr, $out_type:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::FunctionTypeIntro(
+                    $in_type,
+                    $out_type)),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! fun {
+        ($body:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::FunctionIntro($body)),
+                Some(Box::new($ann)))
+        };
     }
 }
-
-macro_rules! var {
-    ($index:expr,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::Var($index)),
-            Some(Box::new($ann)))
-    };
-    ($index:expr, $note:expr,: $ann:expr) => {
-        crate::lang::core::lang::Term::new_with_note(
-            Note(String::from($note)),
-            Box::new(crate::lang::core::lang::InnerTerm::Var($index)),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! pair {
-    ($fst:expr, $snd:expr,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::PairIntro(
-                $fst,
-                $snd)),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! Pair {
-    ($fst_type:expr, $snd_type:expr,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::PairTypeIntro(
-                $fst_type,
-                $snd_type)),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! split {
-    ($discrim:expr, in $body:expr,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::PairElim(
-                $discrim,
-                $body)),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! Doub {
-    (,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::DoubTypeIntro),
-            Some(Box::new($ann)))
-    };
-    ($note:expr ,: $ann:expr) => {
-        crate::lang::core::lang::Term::new_with_note(
-            Note(String::from($note)),
-            Box::new(crate::lang::core::lang::InnerTerm::DoubTypeIntro),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! doub {
-    (left,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::DoubIntro(Doub::This)),
-            Some(Box::new($ann)))
-    };
-    (right,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::DoubIntro(Doub::That)),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! case {
-    ($discrim:expr, l => $lbranch:expr; r => $rbranch:expr;,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::DoubElim(
-                $discrim,
-                $lbranch,
-                $rbranch)),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! unit {
-    (,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::UnitIntro),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! Unit {
-    (,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::UnitTypeIntro),
-            Some(Box::new($ann)))
-    };
-    ($note:expr,: $ann:expr) => {
-        crate::lang::core::lang::Term::new_with_note(
-            Note(String::from($note)),
-            Box::new(crate::lang::core::lang::InnerTerm::UnitTypeIntro),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! Void {
-    (,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(VoidTypeIntro),
-            Some(Box::new($ann)))
-    };
-    ($note:expr,: $ann:expr) => {
-        crate::lang::core::lang::Term::new_with_note(
-            Note(String::from($note)),
-            Box::new(crate::lang::core::lang::InnerTerm::VoidTypeIntro),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! pi {
-    ($caps_list:expr, $in_type:expr, $out_type:expr,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::FunctionTypeIntro(
-                $caps_list,
-                $in_type,
-                $out_type)),
-            Some(Box::new($ann)))
-    };
-}
-
-macro_rules! fun {
-    ($body:expr,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::FunctionIntro($body)),
-            Some(Box::new($ann)))
-    };
-}
-
-type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
 
 // checks a surface term, and either returns the elaborated term or errors
 pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResult<'a> {
@@ -408,7 +385,6 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             // println!("OUT_TYPE\n{:?}", out_type);
             // println!("CORE_OUT_TYPE\n{:?}", core_out_type);
             let core_out_type_type = core_out_type.r#type();
-            let mut caps_list = None;
 
             match (*(core_in_type_type.clone()).data, *(core_out_type_type.clone()).data) {
                 (core::TypeTypeIntro(in_type_level, in_type_usage), core::TypeTypeIntro(out_type_level, out_usage)) =>
@@ -421,8 +397,6 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                                     exp_type: core::Term::new(Box::new(core::TypeTypeIntro(*max_level, *pair_usage)), None),
                                     giv_type: core::Term::new(Box::new(core::TypeTypeIntro(max(in_type_level, out_type_level), *pair_usage)), None),
                                     specific: Vec::new() });
-                        } else {
-                            caps_list = Some(state.clone().locals().to_caps_list(max(in_type_level, out_type_level)));
                         }
                     } else {
                         errors.push(ExpectedOfTypeType { term, state, min_level: max(in_type_level, out_type_level), giv_type: exp_type.clone() })
@@ -442,7 +416,6 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             } else {
                 Ok(core::Term::new(
                     Box::new(core::FunctionTypeIntro(
-                        caps_list.unwrap(),
                         core_in_type,
                         core_out_type)),
                     Some(Box::new(exp_type))))
@@ -454,22 +427,17 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             let mut curr_univ_level = 0;
             let mut curr_state = state.clone();
             for param_name in param_names {
-                if let self::core::lang::InnerTerm::FunctionTypeIntro(_, in_type, out_type) = *curr_type.data {
+                if let self::core::lang::InnerTerm::FunctionTypeIntro(in_type, out_type) = *curr_type.data {
                     in_types.push(in_type.clone());
                     curr_type = out_type;
                     curr_univ_level = max(curr_univ_level, in_type.level());
                     curr_state = curr_state.with_dec(param_name.clone(), in_type);
                 } else {
-                    let mut curr_locals = curr_state.locals();
                     let giv_type = {
                         let mut type_acc = curr_type;
                         for in_type in in_types {
                             type_acc = 
                                 pi!(
-                                    {
-                                        curr_locals = curr_locals.without(Bound(0)).inc_and_shift(-1);
-                                        curr_locals.clone().to_caps_list(curr_univ_level)
-                                    },
                                     in_type,
                                     type_acc
                                 ,: Univ!(curr_univ_level, shared));
@@ -480,7 +448,6 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 }
             }
 
-            let mut curr_locals = curr_state.clone().locals();
             // println!("CURR_STATE\n{:?}", curr_state);
             let mut body_acc = elab_term(body, curr_type, curr_state)?;
             for in_type in in_types.into_iter().rev() {
@@ -490,10 +457,6 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         body_acc
                     ,:
                         pi!(
-                            {
-                                curr_locals = curr_locals.without(Bound(0)).inc_and_shift(-1);
-                                curr_locals.clone().to_caps_list(curr_univ_level)
-                            },
                             in_type,
                             body_acc_type
                         ,: Univ!(curr_univ_level, shared)));
@@ -503,7 +466,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
         FunctionElim(ref abs, ref args) => {
             let abs_type = infer_type(abs, state.clone())?;
             let core_abs = elab_term(abs, abs_type.clone(), state.clone())?; // change to not use `?` later
-            if let core::InnerTerm::FunctionTypeIntro(_, _, _) = &*abs_type.data {
+            if let core::InnerTerm::FunctionTypeIntro(_, _) = &*abs_type.data {
                 ()
             } else {
                 return Err(vec![ExpectedOfFunctionType { term: abs, state, giv_type: abs_type }])
@@ -511,7 +474,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
 
             let mut in_types = Vec::new();
             let mut out_types = vec![abs_type];
-            while let core::InnerTerm::FunctionTypeIntro(_, in_type, out_type) = &*out_types[out_types.len() - 1].data {
+            while let core::InnerTerm::FunctionTypeIntro(in_type, out_type) = &*out_types[out_types.len() - 1].data {
                 in_types.push(in_type.clone());
                 out_types.push(out_type.clone());
             }
@@ -852,11 +815,6 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
         Some(Box::new(
             Term::new(
                 Box::new(FunctionTypeIntro(
-                    Term::new(
-                        Box::new(CapturesListIntro(Nil)),
-                        Some(Box::new(Term::new(
-                            Box::new(CapturesListTypeIntro(0)),
-                            Some(Box::new(Univ!(0, shared))))))),
                     discrim_type,
                     core_map_type)),
                 Some(Box::new(Univ!(level, shared))))))))

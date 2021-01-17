@@ -24,13 +24,6 @@ impl Debug for Note {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Hash, Eq)]
-pub enum List {
-    Cons(Term, Term),
-    Nil
-}
-use List::*;
-
 #[derive(Copy, Clone, PartialEq, Hash, Eq)]
 pub enum Usage {
     Unique,
@@ -69,7 +62,7 @@ pub enum InnerTerm {
     TypeTypeIntro(usize, Usage),
     Var(VarInner),
     Rec(Term),
-    FunctionTypeIntro(Term, Term, Term),
+    FunctionTypeIntro(Term, Term),
     FunctionIntro(Term),
     FunctionElim(Term, Term),
     PairTypeIntro(Term, Term),
@@ -84,8 +77,6 @@ pub enum InnerTerm {
     FoldTypeIntro(Term),
     FoldIntro(Term),
     FoldElim(Term),
-    CapturesListTypeIntro(usize),
-    CapturesListIntro(List),
     IndexedTypeIntro(usize, Term),
     IndexedIntro(Term),
     IndexedElim(Term),
@@ -107,9 +98,8 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
             TypeTypeIntro(level, usage) => format!("Univ {} {:?}", level, usage),
             Var(index) => format!("var {:?}", index),
             Rec(ref inner) => format!("rec\n{}", display_term(inner, indent + 1)),
-            FunctionTypeIntro(ref caps_list, ref in_type, ref out_type) =>
-                format!("Pi\n{}\n{}\n{}",
-                    display_term(caps_list, indent + 1),
+            FunctionTypeIntro(ref in_type, ref out_type) =>
+                format!("Pi\n{}\n{}",
                     display_term(in_type, indent + 1),
                     display_term(out_type, indent + 1)),
             FunctionIntro(ref body) => format!("lam\n{}", display_term(body, indent + 1)),
@@ -134,12 +124,6 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
             FoldTypeIntro(ref inner) => format!("Fold\n{}", display_term(inner, indent + 1)),
             FoldIntro(ref inner) => format!("fold\n{}", display_term(inner, indent + 1)),
             FoldElim(ref inner) => format!("unfold\n{}", display_term(inner, indent + 1)),
-            CapturesListTypeIntro(level) => format!("Captures {}", level),
-            CapturesListIntro(ref list) =>
-                match list {
-                    Cons(ref data, ref next) => format!("captures\n{}\n{}", display_term(data, indent + 1), display_term(next, indent + 1)),
-                    Nil => String::from("nil")
-                }
             IndexedTypeIntro(_, ref inner) => format!("Indexed\n{}", display_term(inner, indent + 1)),
             IndexedIntro(ref inner) => format!("indexed\n{}", display_term(inner, indent + 1)),
             IndexedElim(ref inner) => format!("indexedelim\n{}", display_term(inner, indent + 1))
@@ -290,8 +274,8 @@ pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(VarInner, VarInn
         (Var(index1), Var(index2)) => bool_to_tc(index1 == index2 || equivs.contains(&(*index1, *index2))),
         (Rec(ref inner_term1), Rec(ref inner_term2)) =>
             is_terms_eq(inner_term1, inner_term2, equivs),
-        (FunctionTypeIntro(ref caps_list1, ref in_type1, ref out_type1), FunctionTypeIntro(ref caps_list2, ref in_type2, ref out_type2)) =>
-            comb(is_terms_eq(caps_list1, caps_list2, equivs.clone()), comb(is_terms_eq(in_type1, in_type2, equivs.clone()), is_terms_eq(out_type1, out_type2, equivs))),
+        (FunctionTypeIntro(ref in_type1, ref out_type1), FunctionTypeIntro(ref in_type2, ref out_type2)) =>
+            comb(is_terms_eq(in_type1, in_type2, equivs.clone()), is_terms_eq(out_type1, out_type2, equivs)),
         (FunctionIntro(ref body1), FunctionIntro(ref body2)) =>
             is_terms_eq(body1, body2, equivs),
         (FunctionElim(ref abs1, ref arg1), FunctionElim(ref abs2, ref arg2)) =>
@@ -316,15 +300,6 @@ pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(VarInner, VarInn
             is_terms_eq(inner_term1, inner_term2, equivs),
         (FoldElim(ref inner_term1), FoldElim(ref inner_term2)) =>
             is_terms_eq(inner_term1, inner_term2, equivs),
-        (CapturesListTypeIntro(level1), CapturesListTypeIntro(level2)) =>
-            bool_to_tc(level1 == level2),
-        (CapturesListIntro(ref list1), CapturesListIntro(ref list2)) => 
-            match (list1, list2) {
-                (Cons(ref data1, ref next1), Cons(ref data2, ref next2)) =>
-                    comb(is_terms_eq(data1, data2, equivs.clone()), is_terms_eq(next1, next2, equivs)),
-                (Nil, Nil) => True,
-                _ => False(vec![(type1.clone(), type2.clone())])
-            },
         (IndexedTypeIntro(index1, ref inner_type1), IndexedTypeIntro(index2, ref inner_type2)) => 
             comb(is_terms_eq(inner_type1, inner_type2, equivs), bool_to_tc(index1 == index2)),
         (IndexedIntro(ref inner_term1), IndexedIntro(ref inner_term2)) => 
