@@ -35,16 +35,16 @@ use crate::lang::{
 };
 extern crate rand;
 
-// the globals map takes index 0
 // globals maps names to type id pairs
 // id is used to calculate the arg needed to pass to the globals map at index zero in order to get that global term
-// curr_global_id is used as a source of fresh ids
+// global_id is used as a source of fresh ids
 #[derive(Clone, Debug)]
 pub struct State {
 	locals: Context,
     local_names_to_indices: HashMap<Name, VarInner>,
     globals: HashMap<QualifiedName, (core::Term, usize)>,
-    curr_global_id: usize
+    global_id: usize,
+    globals_map_index: usize,
 }
 
 impl State {
@@ -55,7 +55,8 @@ impl State {
             locals: Context::new(),
             local_names_to_indices: map1,
             globals: map2,
-            curr_global_id: 0
+            global_id: 0,
+            globals_map_index: 0,
         }
 	}
 
@@ -73,7 +74,9 @@ impl State {
             locals: self.locals.inc_and_shift(1).with_dec(Bound(0), shift(r#type, HashSet::new(), 1)),
             local_names_to_indices,
             globals: self.globals,
-            curr_global_id: self.curr_global_id }
+            global_id: self.global_id,
+            globals_map_index: self.globals_map_index + 1
+        }
     }
 
     // declare before use, `with_dec(name, _)` must have been called before this is
@@ -84,7 +87,8 @@ impl State {
                     locals: self.locals.with_def(*index, value),
                     local_names_to_indices: self.local_names_to_indices,
                     globals: self.globals,
-                    curr_global_id: self.curr_global_id
+                    global_id: self.global_id,
+                    globals_map_index: self.globals_map_index
                 }
             } else {
                 panic!("var must be declared before being given a definition")
@@ -99,12 +103,13 @@ impl State {
             panic!("duplicate global");
         } else {
             let mut globals = self.globals;
-            globals.insert(name, (r#type, self.curr_global_id));
+            globals.insert(name, (r#type, self.global_id));
             State {
                 locals: self.locals,
                 local_names_to_indices: self.local_names_to_indices,
                 globals,
-                curr_global_id: self.curr_global_id + 1
+                global_id: self.global_id + 1,
+                globals_map_index: self.globals_map_index
             }
         }
     }
@@ -151,6 +156,7 @@ pub enum Error<'a> {
     EnumInhabitantTooLarge { term: &'a Term, state: State, inhabitant: usize, num_inhabitants: usize },
     MismatchedFunctionArgsNum { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
     CannotInferType { term: &'a Term, state: State },
+    NonexistentGlobal { import: &'a Term, state: State, name: QualifiedName }
 }
 use Error::*;
 
@@ -345,6 +351,24 @@ mod syntax {
         ($body:expr,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
                 Box::new(crate::lang::core::lang::InnerTerm::FunctionIntro($body)),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! rec {
+        ($body:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::Rec($body)),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! apply {
+        ($abs:expr, $arg:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::FunctionElim(
+                    $abs,
+                    $arg)),
                 Some(Box::new($ann)))
         };
     }
@@ -645,7 +669,42 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         Err(vec![ExpectedOfTypeType { term, state, min_level: level + 1, giv_type: exp_type }])
                     }
                 _ => Err(vec![ExpectedOfTypeType { term, state, min_level: 0, giv_type: exp_type }])
-            }
+            },
+        // ImportTerm(path) => {
+        //     let (global_type, id) =
+        //         if let Some(entry) = state.globals.get(&path) {
+        //             entry
+        //         } else {
+        //             return Err(vec![NonexistentGlobal { import: term, state, name: path }])
+        //         };
+
+        //     let mut discrim = unit!( ,: Unit!("discrim_unit" ,: Univ!(0, shared)));
+        //     for _ in 0..id {
+        //         let discrim_type =
+        //             Pair!(
+        //                 case!(
+        //                     var!(
+        //                         Bound(1)
+        //                     ,: Doub!( ,: Univ!(0, shared))),
+        //                     l => Unit!( ,: Univ!(0, shared));
+        //                     r => discrim.r#type();
+        //                 ,: Univ!(0, shared)),
+        //                 Doub!(,: Univ!(0, shared))
+        //             ,: Univ!(0, shared));
+        //         discrim =
+        //             pair!(
+        //                 discrim,
+        //                 doub!(that ,: Doub!( ,: Univ!(0, shared)))
+        //             ,: discrim_type);
+        //     }
+
+        //     apply!(
+        //         var!(
+        //             state.globals_map_index
+        //         ,: _),
+        //         discrim
+        //     ,: global_type)
+        // }
         _ => unimplemented!()
     }
 }
@@ -810,12 +869,15 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
         InnerTerm::*
     };
 
-    Ok(Term::new(
-        Box::new(FunctionIntro(core_map)),
-        Some(Box::new(
-            Term::new(
-                Box::new(FunctionTypeIntro(
-                    discrim_type,
-                    core_map_type)),
-                Some(Box::new(Univ!(level, shared))))))))
+    let module_type =
+        pi!(
+            discrim_type,
+            core_map_type
+        ,: Univ!(level, shared));
+
+    Ok(rec!(
+        fun!(
+            core_map
+        ,: module_type.clone())
+    ,: module_type))
 }

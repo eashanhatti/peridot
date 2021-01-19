@@ -41,6 +41,7 @@ pub enum InnerError {
     ExpectedOfFoldType { giv_type: Term },
     ExpectedOfUnitType { giv_type: Term },
     ExpectedOfIndexedType { giv_type: Term },
+    ExpectedOfUniqueKind { giv_kind: Term },
     MismatchedUsage { var_index: VarInner, exp_usage: (usize, usize), giv_usage: (usize, usize) }
 }
 
@@ -488,11 +489,21 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		FunctionIntro(ref body) => {
 			let mut errors = Vec::new();
 
-			match *type_ann.data {
+			match *type_ann.clone().data {
 				FunctionTypeIntro(in_type, out_type) => {
 					let body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), shift(in_type.clone(), HashSet::new(), 1));
 					push_check(&mut errors, check(body, out_type, body_context));
 					push_check(&mut errors, check_usage(body, in_type, Bound(0), context.clone().inc_and_shift(1)));
+
+					let free_vars = get_free_vars(body, HashSet::from_iter(vec![Bound(0)]));
+					if let TypeTypeIntro(level, Shared) = *type_ann.data {
+						for (_, var_type) in free_vars {
+							if let TypeTypeIntro(_, Unique) = *var_type.r#type().data {
+								errors.push(Error::new(term, context, ExpectedOfUniqueKind { giv_kind: type_ann }));
+								break;
+							}
+						}
+					}
 				},
 				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: type_ann }))
 			}
