@@ -553,8 +553,23 @@ split v0
         l => Unit
         r => Unit
 
+
 effects in types
 suppose e : io t
 type ann expects t, not io t
 how do we deal with effects in types?
 allocation is explicit and an effect
+
+
+containers polymorphic over pointer types
+
+data List : (A : Type) -> (Ptr : Type -> Type) -> Type where
+    nil : List A Ptr
+    cons : Ptr A -> List A Ptr -> List A Ptr
+
+
+put evaluation time on the kind
+Type static
+Type dynamic
+inferred default could be static?
+termination checking checks statics and dynamics separately

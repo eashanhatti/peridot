@@ -45,10 +45,11 @@ pub struct State {
     globals: HashMap<QualifiedName, (core::Term, usize)>,
     global_id: usize,
     globals_map_index: usize,
+    num_global_decs: usize
 }
 
 impl State {
-	pub fn new() -> State {
+	pub fn new(num_global_decs: usize) -> State {
         let map1: HashMap<Name, VarInner> = HashMap::new();
         let map2: HashMap<QualifiedName, (core::Term, usize)> = HashMap::new();
 		State {
@@ -57,6 +58,7 @@ impl State {
             globals: map2,
             global_id: 0,
             globals_map_index: 0,
+            num_global_decs
         }
 	}
 
@@ -75,7 +77,8 @@ impl State {
             local_names_to_indices,
             globals: self.globals,
             global_id: self.global_id,
-            globals_map_index: self.globals_map_index + 1
+            globals_map_index: self.globals_map_index + 1,
+            num_global_decs: self.num_global_decs
         }
     }
 
@@ -88,7 +91,8 @@ impl State {
                     local_names_to_indices: self.local_names_to_indices,
                     globals: self.globals,
                     global_id: self.global_id,
-                    globals_map_index: self.globals_map_index
+                    globals_map_index: self.globals_map_index,
+                    num_global_decs: self.num_global_decs
                 }
             } else {
                 panic!("var must be declared before being given a definition")
@@ -109,7 +113,8 @@ impl State {
                 local_names_to_indices: self.local_names_to_indices,
                 globals,
                 global_id: self.global_id + 1,
-                globals_map_index: self.globals_map_index
+                globals_map_index: self.globals_map_index,
+                num_global_decs: self.num_global_decs
             }
         }
     }
@@ -278,12 +283,12 @@ mod syntax {
     }
 
     macro_rules! doub {
-        (left,: $ann:expr) => {
+        (this,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
                 Box::new(crate::lang::core::lang::InnerTerm::DoubIntro(Doub::This)),
                 Some(Box::new($ann)))
         };
-        (right,: $ann:expr) => {
+        (that,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
                 Box::new(crate::lang::core::lang::InnerTerm::DoubIntro(Doub::That)),
                 Some(Box::new($ann)))
@@ -613,7 +618,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     if inhabitant == 0 {
                         if num_inhabitants > 1 {
                             pair!(
-                                doub!(left ,: Doub!( ,: Univ!(0, shared))),
+                                doub!(this ,: Doub!( ,: Univ!(0, shared))),
                                 unit!( ,: Unit!( ,: Univ!(0, shared)))
                             ,: make_enum_type(num_inhabitants))
                         } else {
@@ -621,7 +626,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         }
                     } else {
                         pair!(
-                            doub!(right ,: Doub!( ,: Univ!(0, shared))),
+                            doub!(that ,: Doub!( ,: Univ!(0, shared))),
                             make_enum(inhabitant - 1, num_inhabitants - 1)
                         ,: r#type)
                     }
@@ -670,46 +675,30 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     }
                 _ => Err(vec![ExpectedOfTypeType { term, state, min_level: 0, giv_type: exp_type }])
             },
-        // ImportTerm(path) => {
-        //     let (global_type, id) =
-        //         if let Some(entry) = state.globals.get(&path) {
-        //             entry
-        //         } else {
-        //             return Err(vec![NonexistentGlobal { import: term, state, name: path }])
-        //         };
-
-        //     let mut discrim = unit!( ,: Unit!("discrim_unit" ,: Univ!(0, shared)));
-        //     for _ in 0..id {
-        //         let discrim_type =
-        //             Pair!(
-        //                 case!(
-        //                     var!(
-        //                         Bound(1)
-        //                     ,: Doub!( ,: Univ!(0, shared))),
-        //                     l => Unit!( ,: Univ!(0, shared));
-        //                     r => discrim.r#type();
-        //                 ,: Univ!(0, shared)),
-        //                 Doub!(,: Univ!(0, shared))
-        //             ,: Univ!(0, shared));
-        //         discrim =
-        //             pair!(
-        //                 discrim,
-        //                 doub!(that ,: Doub!( ,: Univ!(0, shared)))
-        //             ,: discrim_type);
-        //     }
-
-        //     apply!(
-        //         var!(
-        //             state.globals_map_index
-        //         ,: _),
-        //         discrim
-        //     ,: global_type)
-        // }
+        ImportTerm(path) => {
+            unimplemented!()
+        }
         _ => unimplemented!()
     }
 }
 
-pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State) -> ElabResult<'a> {
+pub fn elab_toplevel<'a>(module: &'a Module, module_name: QualifiedName) -> ElabResult<'a> {
+    fn calc_num_decs(module: &Module) -> usize {
+        let mut n = 0;
+        for (_, item) in module.items.iter() {
+            match item {
+                Item::Declaration(r#type) => n += 1,
+                Item::ModuleDef(submodule) => n += calc_num_decs(submodule),
+                _ => ()
+            }
+        }
+        n
+    }
+
+    elab_module(module, module_name, State::new(calc_num_decs(module)))
+}
+
+fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State) -> ElabResult<'a> {
     enum FlattenedModuleItem<'a> { // local item type for module flattening
         Declaration(&'a crate::lang::surface::Term),
         TermDef(&'a crate::lang::surface::Term),
@@ -717,7 +706,7 @@ pub fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: St
     }
 
     // flatten the module structure, turning it into a more haskell-like structure
-    fn flatten_module<'a>(module: &'a Module, module_name: QualifiedName) -> BTreeMap<(QualifiedName, ItemKind), FlattenedModuleItem> {
+    fn flatten_module(module: &Module, module_name: QualifiedName) -> BTreeMap<(QualifiedName, ItemKind), FlattenedModuleItem> {
         let mut items = BTreeMap::new();
         for ((item_name, _), item) in module.items.iter() {
 

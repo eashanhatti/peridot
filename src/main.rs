@@ -61,7 +61,7 @@ fn run() {
                     //         continue;
                     //     }
                     // };
-                    let core_module = match elab_module(&surface_module_ok, QualifiedName(Vec::new(), Name(String::from("main"))), State::new()) {
+                    let core_module = match elab_toplevel(&surface_module_ok, QualifiedName(Vec::new(), Name(String::from("Main")))) {
                         Ok(module) => module,
                         Err(errs) => {
                             println!("SURFACE ERROR\n{:#?}", errs);
@@ -91,14 +91,14 @@ fn run() {
                 s.clear();
                 if let Ok(surface_term_ok) = surface_term {
                     println!("{:?}", surface_term_ok);
-                    let surface_term_type = match infer_type(&surface_term_ok, State::new()) {
+                    let surface_term_type = match infer_type(&surface_term_ok, State::new(0)) {
                         Ok(r#type) => r#type,
                         Err(errs) => {
                             println!("INFER ERROR\n{:#?}", errs);
                             continue;
                         }
                     };
-                    let core_term = match elab_term(&surface_term_ok, surface_term_type, State::new()) {
+                    let core_term = match elab_term(&surface_term_ok, surface_term_type, State::new(0)) {
                         Ok(term) => term,
                         Err(errs) => {
                             println!("SURFACE ERROR\n{:#?}", errs);
