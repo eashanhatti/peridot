@@ -75,10 +75,8 @@ impl State {
         State {
             locals: self.locals.inc_and_shift(1).with_dec(Bound(0), shift(r#type, HashSet::new(), 1)),
             local_names_to_indices,
-            globals: self.globals,
-            global_id: self.global_id,
             globals_map_index: self.globals_map_index + 1,
-            num_global_decs: self.num_global_decs
+            ..self
         }
     }
 
@@ -88,11 +86,7 @@ impl State {
             if self.locals.exists_dec(*index) {
                 State {
                     locals: self.locals.with_def(*index, value),
-                    local_names_to_indices: self.local_names_to_indices,
-                    globals: self.globals,
-                    global_id: self.global_id,
-                    globals_map_index: self.globals_map_index,
-                    num_global_decs: self.num_global_decs
+                    ..self
                 }
             } else {
                 panic!("var must be declared before being given a definition")
@@ -109,13 +103,17 @@ impl State {
             let mut globals = self.globals;
             globals.insert(name, (r#type, self.global_id));
             State {
-                locals: self.locals,
-                local_names_to_indices: self.local_names_to_indices,
                 globals,
                 global_id: self.global_id + 1,
-                globals_map_index: self.globals_map_index,
-                num_global_decs: self.num_global_decs
+                ..self
             }
+        }
+    }
+
+    pub fn with_globals_map_index(self, index: usize) -> State {
+        State {
+            globals_map_index: index,
+            ..self
         }
     }
 
@@ -148,6 +146,10 @@ impl State {
 
     pub fn locals(self) -> Context {
         self.locals
+    }
+
+    pub fn globals(self) -> HashMap<QualifiedName, (core::Term, usize)> {
+        self.globals
     }
 }
 
@@ -195,6 +197,11 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
                 Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
                 None
             )),
+        ImportTerm(path) =>
+            match state.get_global_dec(path) {
+                Some((r#type, _)) => Ok(r#type),
+                None => panic!()
+            },
         _ => Err(vec![Error::CannotInferType { term, state }])
     }
 }
@@ -285,12 +292,12 @@ mod syntax {
     macro_rules! doub {
         (this,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
-                Box::new(crate::lang::core::lang::InnerTerm::DoubIntro(Doub::This)),
+                Box::new(crate::lang::core::lang::InnerTerm::DoubIntro(crate::lang::core::lang::Doub::This)),
                 Some(Box::new($ann)))
         };
         (that,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
-                Box::new(crate::lang::core::lang::InnerTerm::DoubIntro(Doub::That)),
+                Box::new(crate::lang::core::lang::InnerTerm::DoubIntro(crate::lang::core::lang::Doub::That)),
                 Some(Box::new($ann)))
         };
     }
@@ -331,7 +338,7 @@ mod syntax {
     macro_rules! Void {
         (,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
-                Box::new(VoidTypeIntro),
+                Box::new(crate::lang::core::lang::InnerTerm::VoidTypeIntro),
                 Some(Box::new($ann)))
         };
         ($note:expr,: $ann:expr) => {
@@ -376,6 +383,58 @@ mod syntax {
                     $arg)),
                 Some(Box::new($ann)))
         };
+    }
+
+    macro_rules! Anything {
+        (,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::Anything),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! Indexed {
+        ($index:expr, $inner:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::IndexedTypeIntro($index, $inner)),
+                Some(Box::new($ann)))  
+        };
+    }
+}
+
+fn make_enum(inhabitant: usize, num_inhabitants: usize) -> core::Term {
+    let r#type = make_enum_type(num_inhabitants);
+    if inhabitant == 0 {
+        if num_inhabitants > 1 {
+            pair!(
+                doub!(this ,: Doub!( ,: Univ!(0, shared))),
+                unit!( ,: Unit!( ,: Univ!(0, shared)))
+            ,: make_enum_type(num_inhabitants))
+        } else {
+            unit!( ,: Unit!( ,: Univ!(0, shared)))
+        }
+    } else {
+        pair!(
+            doub!(that ,: Doub!( ,: Univ!(0, shared))),
+            make_enum(inhabitant - 1, num_inhabitants - 1)
+        ,: r#type)
+    }
+}
+
+fn make_enum_type(num_inhabitants: usize) -> core::Term {
+    if num_inhabitants == 0 {
+        Void!( ,: Univ!(0, shared))
+    } else if num_inhabitants == 1 {
+        Unit!( ,: Univ!(0, shared))
+    } else {
+        Pair!(
+            Doub!( ,: Univ!(0, shared)),
+            case!(
+                var!(Bound(0) ,: Doub!( ,: Univ!(0, shared))),
+                l => Unit!( ,: Univ!(0, shared));
+                r => make_enum_type(num_inhabitants - 1);
+            ,: Univ!(0, shared))
+        ,: Univ!(0, shared))
     }
 }
 
@@ -525,49 +584,11 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
         },
         EnumTypeIntro(num_inhabitants) => {
             match &*exp_type.data {
-                core::InnerTerm::TypeTypeIntro(level, _) => {
-                    use crate::lang::core::{Term, InnerTerm::*};
-
-                    if *num_inhabitants == 0usize {
-                        Ok(Term::new(
-                            Box::new(IndexedTypeIntro(
-                                0,
-                                Term::new(
-                                    Box::new(VoidTypeIntro),
-                                    Some(Box::new(exp_type.clone()))))),
-                            Some(Box::new(exp_type))))
-                    } else {
-                        let mut curr_type =
-                            core::Term::new(
-                                Box::new(core::InnerTerm::UnitTypeIntro),
-                                Some(Box::new(exp_type.clone())));
-                        for _ in 0..*num_inhabitants {
-                            curr_type =
-                                Term::new(
-                                    Box::new(PairTypeIntro(
-                                        Term::new(
-                                            Box::new(DoubTypeIntro),
-                                            Some(Box::new(exp_type.clone()))),
-                                        Term::new(
-                                            Box::new(DoubElim(
-                                                Term::new(
-                                                    Box::new(Var(Bound(0))),
-                                                    Some(Box::new(Term::new(
-                                                        Box::new(DoubTypeIntro),
-                                                        Some(Box::new(exp_type.clone())))))),
-                                                Term::new(
-                                                    Box::new(UnitTypeIntro),
-                                                    Some(Box::new(exp_type.clone()))),
-                                                curr_type)),
-                                            Some(Box::new(exp_type.clone()))))),
-                                    Some(Box::new(exp_type.clone())));
-                        }
-
-                        Ok(Term::new(
-                            Box::new(IndexedTypeIntro(0, curr_type)),
-                            Some(Box::new(exp_type))))
-                    }
-                },
+                core::InnerTerm::TypeTypeIntro(level, _) =>
+                    Ok(Indexed!(
+                        0,
+                        make_enum_type(*num_inhabitants)
+                    ,: Univ!(*level, shared))),
                 _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type, min_level: 0 }])
             }
         },
@@ -612,45 +633,10 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     return Err(vec![EnumInhabitantTooLarge { term, state, inhabitant: *inhabitant, num_inhabitants }]);
                 }
 
-                // `inhabitant` must be lesser than `num_inhabitants`
-                fn make_enum(inhabitant: usize, num_inhabitants: usize) -> core::Term {
-                    let r#type = make_enum_type(num_inhabitants);
-                    if inhabitant == 0 {
-                        if num_inhabitants > 1 {
-                            pair!(
-                                doub!(this ,: Doub!( ,: Univ!(0, shared))),
-                                unit!( ,: Unit!( ,: Univ!(0, shared)))
-                            ,: make_enum_type(num_inhabitants))
-                        } else {
-                            unit!( ,: Unit!( ,: Univ!(0, shared)))
-                        }
-                    } else {
-                        pair!(
-                            doub!(that ,: Doub!( ,: Univ!(0, shared))),
-                            make_enum(inhabitant - 1, num_inhabitants - 1)
-                        ,: r#type)
-                    }
-                }
-
-                fn make_enum_type(num_inhabitants: usize) -> core::Term {
-                    if num_inhabitants == 0 {
-                        Void!( ,: Univ!(0, shared))
-                    } else if num_inhabitants == 1 {
-                        Unit!( ,: Univ!(0, shared))
-                    } else {
-                        Pair!(
-                            Doub!( ,: Univ!(0, shared)),
-                            case!(
-                                var!(Bound(0) ,: Doub!( ,: Univ!(0, shared))),
-                                l => Unit!( ,: Univ!(0, shared));
-                                r => make_enum_type(num_inhabitants - 1);
-                            ,: Univ!(0, shared))
-                        ,: Univ!(0, shared))
-                    }
-                }
-
                 let enum_val = make_enum(*inhabitant, num_inhabitants);
                 let enum_type = enum_val.r#type();
+                // println!("INHAB {:?} NUM_INHAB {:?}", *inhabitant, num_inhabitants);
+                // println!("VAL {:?}\nTYPE {:?}", enum_val, enum_type);
                 Ok(Term::new(
                     Box::new(IndexedIntro(enum_val)),
                     Some(Box::new(Term::new(
@@ -676,7 +662,113 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 _ => Err(vec![ExpectedOfTypeType { term, state, min_level: 0, giv_type: exp_type }])
             },
         ImportTerm(path) => {
-            unimplemented!()
+            // println!("GLOBALS {:#?}", state.clone().globals());
+            // println!("INDEX {:?}", state.globals_map_index);
+            // println!("TO {:?}", state.clone());
+            let (item_type, id) =
+                if let Some(entry) = state.get_global_dec(path) {
+                    entry
+                } else {
+                    return Err(vec![NonexistentGlobal { import: term, state, name: path.clone() }]);
+                };
+            let mut global_types = {
+                let mut map = HashMap::new();
+                for (_, (global_type, global_id)) in state.globals {
+                    // println!("GT {:?}", global_type);
+                    map.insert(global_id, global_type);
+                }
+                for i in 0..state.num_global_decs {
+                    if let Some(_) = map.get(&i) {
+                        ()
+                    } else {
+                        map.insert(i, Anything!( ,: Univ!(0, shared)));
+                    }
+                }
+                let mut map = map.into_iter().collect::<Vec<(usize, core::Term)>>();
+                map.sort_by(|(id1, _), (id2, _)| id1.cmp(id2));
+                map.into_iter()
+                    .map(|(_, r#type)| r#type)
+                    .collect::<Vec<core::Term>>()
+            };
+            fn make_discrim(id: usize, num_globals: usize) -> core::Term {
+                    let r#type = make_discrim_type(num_globals);
+                    if id == 0 {
+                        if num_globals > 1 {
+                            pair!(
+                                unit!( ,: Unit!( ,: Univ!(0, shared))),
+                                doub!(this ,: Doub!( ,: Univ!(0, shared)))
+                            ,: r#type)
+                        } else {
+                            unit!( ,: Unit!( ,: Univ!(0, shared)))
+                        }
+                    } else {
+                        pair!(
+                            make_discrim(id - 1, num_globals - 1),
+                            doub!(that ,: Doub!( ,: Univ!(0, shared)))
+                        ,: r#type)
+                    }
+            }
+
+            fn make_discrim_type(num_globals: usize) -> core::Term {
+                if num_globals == 0 {
+                    unreachable!()
+                } else if num_globals == 1 {
+                    Unit!( ,: Univ!(0, shared))
+                } else {
+                    Pair!(
+                        case!(
+                            var!(Bound(1), "import discrim_type" ,: Doub!( ,: Univ!(0, shared))),
+                            l => Unit!( ,: Univ!(0, shared));
+                            r => make_discrim_type(num_globals - 1);
+                        ,: Univ!(0, shared)),
+                        Doub!( ,: Univ!(0, shared))
+                    ,: Univ!(0, shared))
+                }
+            }
+
+            // println!("NUM GD{:?}", state.num_global_decs);
+            let discrim = make_discrim(id, state.num_global_decs);
+            // println!("DISCRIM {:?}", discrim);
+            // println!("DISCRIM_TYPE {:?}", discrim.r#type());
+            let global_map_type = {
+                let mut global_map_type = global_types.pop().unwrap();
+                let len = global_types.len();
+                let mut c = 0;
+                for (i, global_type) in global_types.into_iter().rev().enumerate() {
+                    // println!("I {:?} LEN - 1 {:?} GMI {:?}", i, len - 1, state.globals_map_index);
+                    c += 1;
+                    let core_map_case_type =
+                        case!(
+                            var!(
+                                Bound(1),
+                                format!("case {:?}", c).as_str()
+                            ,: Doub!( ,: Univ!(0, shared))),
+                            l => global_type;
+                            r => global_map_type;
+                        ,: Univ!(42, shared));
+                    let core_map_split_type =
+                        split!(
+                            var!(
+                                // if i == len - 1 { Bound(state.globals_map_index) } else { Bound(0) }
+                                Bound(0),
+                                format!("split {:?}", c).as_str()
+                            ,: make_discrim_type(i + 2)),
+                            in core_map_case_type.clone()
+                        ,: Univ!(42, shared));
+                    global_map_type = core_map_split_type;
+                }
+                pi!(
+                    discrim.r#type(),
+                    global_map_type
+                ,: Univ!(42, shared))
+            };
+            println!("GMI {:?}", state.globals_map_index);
+            Ok(apply!(
+                var!(
+                    Bound(state.globals_map_index)
+                ,: global_map_type),
+                discrim
+            ,: item_type))
         }
         _ => unimplemented!()
     }
@@ -695,7 +787,8 @@ pub fn elab_toplevel<'a>(module: &'a Module, module_name: QualifiedName) -> Elab
         n
     }
 
-    elab_module(module, module_name, State::new(calc_num_decs(module)))
+    let starting_info = calc_num_decs(module);
+    elab_module(module, module_name, State::new(starting_info))
 }
 
 fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State) -> ElabResult<'a> {
@@ -731,10 +824,35 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
     let (mut core_items, level) = {
         let mut state = state;
         let mut level = 0;
+        let indices = {
+            let num_decls = {
+                let mut n = 0;
+                for (_, item) in items.iter() {
+                    if let FlattenedModuleItem::Declaration(_) = item {
+                        n += 1;
+                    }
+                }
+                n
+            };
+
+            let mut indices: Vec<usize> = Vec::new();
+            let mut curr_index = 1;
+            for _ in 0..num_decls - 1 {
+                curr_index += 2;
+                indices.push(curr_index);
+            }
+            indices.push(curr_index);
+            indices
+        };
+        println!("INDICES {:?}", indices);
+        let mut indices_iter = indices.iter();
+        
         for ((ref name, _), ref item) in items.iter() {
             match item {
                 FlattenedModuleItem::Declaration(r#type) => {
-                    let mut core_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
+                    let mut core_type = elab_term(r#type, infer_type(r#type, state.clone().with_globals_map_index(*indices_iter.next().unwrap()))?, state.clone())?;
+                    // println!("SURFACE_TYPE {:?}", r#type);
+                    // println!("CORE_TYPE {:?}", core_type);
                     core_type.note = Some(Note(format!("item_type {:?}", name.clone())));
                     level = std::cmp::max(level, core_type.level());
                     state = state.clone().with_global_dec(name.clone(), core_type);
@@ -742,19 +860,20 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                 _ => ()
             }
         }
-
         let mut core_items: Vec<core::Term> = Vec::new();
-        for ((ref name, _), ref item) in items {
+        let mut indices_iter = indices.iter();
+        for ((ref name, _), ref item) in items.iter() {
             let (core_item_type, item_id) = state.get_global_dec(name).unwrap(); // TODO: error reporting
             // println!("CORE_TYPE END {:?}", core_item_type);
             match item {
                 FlattenedModuleItem::TermDef(term) => {
-                    let mut term = elab_term(term, core_item_type, state.clone())?;
+                    let mut term = elab_term(term, core_item_type.clone(), state.clone().with_globals_map_index(*indices_iter.next().unwrap()))?;
+                    term.type_ann = Some(Box::new(core_item_type));
                     term.note = Some(Note(format!("item {:?}", name)));
                     // println!("CORE_TERM {:?}", term);
                     core_items.push(term);
                 },
-                FlattenedModuleItem::RecordTypeDef(fields) => {
+                FlattenedModuleItem::RecordTypeDef(fields) => { // TODO: use index
                     fn make_type(mut fields: Iter<Name, crate::lang::surface::Term>, core_item_type: core::Term, state: State) -> ElabResult {
                         use self::core::{
                             Term,
@@ -794,12 +913,16 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
             Term,
             InnerTerm::*
         };
-
-        let mut core_map = core_items.remove(core_items.len() - 1);
+        // println!("CITEMS {:?} {:?}", core_items.len(), core_items);
+        let mut core_map = core_items.pop().unwrap();
+        // println!("CI {:?}", core_map);
+        // println!("CI LEN {:?}", core_items.len());
+        // println!("CM {:?}", core_map.r#type());
         let mut discrim_type = Unit!("discrim_unit" ,: Univ!(0, shared));
         let mut c = 0;
 
         for core_item in core_items.into_iter().rev() {
+            // println!("CI {:?}", core_item);
             c += 1;
             discrim_type =
                 Pair!(
@@ -852,6 +975,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
         (core_map, discrim_type)
     };
     let core_map_type = core_map.r#type();
+    // println!("CM {:?}", core_map_type);
 
     use self::core::{
         Term,

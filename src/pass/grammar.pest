@@ -1,8 +1,9 @@
 s = _{ " " }
 nl = _{ NEWLINE | " " | "\t" }
 ws = _{ s | nl }
-keyword = { "Fin" | "fin" | "fn" | "unit" | "Unit" | "Type" | "module" | "recordtype" }
+keyword = { "import" | "Fin" | "fin" | "fn" | "unit" | "Unit" | "Type" | "module" | "recordtype" }
 name = { !keyword ~ ( ASCII_ALPHANUMERIC | "_" )+ }
+full_name = { ( name ~ "." )+ ~ name }
 num = { ASCII_DIGIT+ }
 
 module = { "module" ~ s* ~ "{" ~ ws* ~ item_list ~ ws* ~ "}" }
@@ -16,7 +17,7 @@ prec2 = _{ fun_elim | prec1 }
     fun_elim = { prec1 ~ ws* ~ "(" ~ ws* ~ prec2 ~ ws* ~ ("," ~ ws* ~ prec2)* ~ ws* ~ ")" }
 prec1 = _{ ann | prec0 }
     ann = { prec0 ~ s* ~ ":" ~ s* ~ prec1 }
-prec0 = _{ fun | fun_type | type_type | var | fin | fin_type
+prec0 = _{ fun | fun_type | type_type | var | fin | fin_type | import
          | "(" ~ s* ~ prec0 ~ s* ~ ")" }
     fun = { "fn" ~ s+ ~ param_list ~ s*  ~ "=>" ~ s* ~ prec1 }
         param_list = { name ~ ( s* ~ "," ~ s ~ name )* }
@@ -25,5 +26,6 @@ prec0 = _{ fun | fun_type | type_type | var | fin | fin_type
     var = { name }
     fin = { "fin" ~ s+ ~ num }
     fin_type = { "Fin" ~ s+ ~ num }
+    import = { "import" ~ ws* ~ full_name }
 
 main = _{ SOI ~ module ~ EOI }

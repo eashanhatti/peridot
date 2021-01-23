@@ -48,6 +48,11 @@ struct LangParser;
 					Rule::var => Var(Name(pair_iter.next().unwrap().as_str().to_string())),
 					Rule::fin => EnumIntro(pair_iter.next().unwrap().as_str().parse::<usize>().unwrap()),
 					Rule::fin_type => EnumTypeIntro(pair_iter.next().unwrap().as_str().parse::<usize>().unwrap()),
+					Rule::import => {
+						let mut names = pair_iter.next().unwrap().into_inner().into_iter().map(|name_pair| Name(name_pair.as_str().to_string())).collect::<Vec<Name>>();
+						let item_name = names.pop().unwrap();
+						ImportTerm(QualifiedName(names, item_name))
+					}
 					_ => unreachable!()
 				}),
 			range: (pair_span.start(), pair_span.end())

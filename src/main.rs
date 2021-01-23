@@ -53,7 +53,7 @@ fn run() {
                 let surface_module = text_to_module(&source);
                 s.clear();
                 if let Ok(surface_module_ok) = surface_module {
-                    println!("{:?}", surface_module_ok);
+                    // println!("{:?}", surface_module_ok);
                     // let surface_term_type = match infer_type(&surface_term, State::new()) {
                     //     Ok(r#type) => r#type,
                     //     Err(errs) => {

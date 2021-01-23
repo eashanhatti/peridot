@@ -1,8 +1,6 @@
 module {
-	g : ([A : Type 0] -> ([B : Type 0] -> [x : A] -> [y : B] -> A) : Type 1) : Type 1;
-	g = fn A, B, x, y => x;
-	f : ([A : Type 0] -> [x : A] -> A) : Type 1;
-	f = fn A, x => x;
-	a : Fin 3;
-	a = fin 1;
+	a : Type 0;
+	a = Fin 1;
+	f : [ A : import Main.a ] -> import Main.a;
+	f = fn A => A;
 }

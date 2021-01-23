@@ -161,7 +161,8 @@ pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 			FoldElim(ref folded_term) => count_uses(folded_term, target_index),
 			IndexedTypeIntro(_, ref inner_type) => count_uses(inner_type, target_index),
 			IndexedIntro(ref inner_term) => count_uses(inner_term, target_index),
-			IndexedElim(ref folded_term) => count_uses(folded_term, target_index)
+			IndexedElim(ref folded_term) => count_uses(folded_term, target_index),
+			Anything => singleton(0)
 		},
 		match &term.type_ann {
 			Some(r#type) => count_uses(r#type, target_index),
@@ -270,7 +271,8 @@ fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Te
 				FoldElim(ref folded_term) => inner(folded_term, bounds),
 				IndexedTypeIntro(_, ref inner_type) => inner(inner_type, bounds.clone()),
 				IndexedIntro(ref inner_term) => inner(inner_term, bounds.clone()),
-				IndexedElim(ref folded_term) => inner(folded_term, bounds)
+				IndexedElim(ref folded_term) => inner(folded_term, bounds),
+				Anything => Map::new()
 			},
 			type_ann_free_vars])
 	}
@@ -412,7 +414,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			match context.get_dec(index) {
 				Some(var_type) => {
 					if let False(specific) = is_terms_eq(&var_type, &type_ann, context.clone().equivs()) {
-						Err(vec![Error::new(term, context, MismatchedTypes { exp_type: type_ann, giv_type: var_type, specific })])
+						Err(vec![Error::new(term, context, MismatchedTypes { exp_type: var_type, giv_type: type_ann, specific })])
 					} else {
 						Ok(())
 					}
@@ -523,7 +525,10 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					let normal_out_type =
 						normalize(
 							out_type,
-							context.clone().inc_and_shift(1).with_dec(Bound(0), in_type).with_def(Bound(0), normalize(arg.clone(), context.clone())));
+							context.clone()
+								.inc_and_shift(1)
+								.with_dec(Bound(0), in_type)
+								.with_def(Bound(0), normalize(arg.clone(), context.clone())));
 					push_check(
 						&mut errors,
 						if let False(specific) = is_terms_eq(&normal_out_type, &type_ann, context.clone().equivs()) {
@@ -586,7 +591,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				PairTypeIntro(fst_type, snd_type) => {
 					let mut errors = Vec::new();
 
-					let fst_context = context.clone().inc_and_shift(2).with_dec(Bound(1), snd_type.clone()).with_def(Bound(0), normalize(snd.clone(), context.clone()));
+					let fst_context = context.clone().inc_and_shift(2).with_dec(Bound(1), snd_type.clone()).with_def(Bound(1), normalize(snd.clone(), context.clone()));
 					let snd_context = context.clone().inc_and_shift(2).with_dec(Bound(0), fst_type.clone()).with_def(Bound(0), normalize(fst.clone(), context.clone()));
 					let normal_fst_type = normalize(fst_type, fst_context.clone());
 					let normal_snd_type = normalize(snd_type, snd_context.clone());
@@ -755,5 +760,6 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				_ => Err(vec![Error::new(term, context, ExpectedOfIndexedType { giv_type: indexed_term_type })])
 			}
 		}
+		Anything => Ok(())
 	}
 }

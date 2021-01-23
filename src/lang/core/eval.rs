@@ -93,7 +93,8 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
             FoldElim(inner_term) => FoldElim(shift(inner_term, bounds, amount)),
             IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, shift(inner_type, bounds, amount)),
             IndexedIntro(inner_term) => IndexedIntro(shift(inner_term, bounds, amount)),
-            IndexedElim(inner_term) => IndexedElim(shift(inner_term, bounds, amount))
+            IndexedElim(inner_term) => IndexedElim(shift(inner_term, bounds, amount)),
+            Anything => Anything
         };
     let mut new_term = Term::new(Box::new(term_inner), shifted_type_ann);
     new_term.note = term.note;
@@ -150,7 +151,8 @@ pub fn substitute(term: Term, context: Context) -> Term {
             FoldElim(inner_term) => FoldElim(substitute(inner_term, context)),
             IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, substitute(inner_type, context)),
             IndexedIntro(inner_term) => IndexedIntro(substitute(inner_term, context)),
-            IndexedElim(inner_term) => IndexedElim(substitute(inner_term, context))
+            IndexedElim(inner_term) => IndexedElim(substitute(inner_term, context)),
+            Anything => Anything
         };
     let mut new_term = Term::new(Box::new(term_inner), substd_type_ann);
     new_term.note = term.note;
@@ -256,7 +258,8 @@ pub fn normalize(term: Term, context: Context) -> Term {
                 IndexedIntro(inner_term) => inner_term,
                 _ => Term::new(Box::new(IndexedElim(normal_indexed_term)), normal_type_ann)
             }
-        }
+        },
+        Anything => term
     };
     new_term.note = term_note;
     new_term

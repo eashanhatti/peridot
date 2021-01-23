@@ -80,6 +80,7 @@ pub enum InnerTerm {
     IndexedTypeIntro(usize, Term),
     IndexedIntro(Term),
     IndexedElim(Term),
+    Anything
 }
 
 fn indent_to_string(indent: usize) -> String {
@@ -126,7 +127,8 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
             FoldElim(ref inner) => format!("unfold\n{}", display_term(inner, indent + 1)),
             IndexedTypeIntro(_, ref inner) => format!("Indexed\n{}", display_term(inner, indent + 1)),
             IndexedIntro(ref inner) => format!("indexed\n{}", display_term(inner, indent + 1)),
-            IndexedElim(ref inner) => format!("indexedelim\n{}", display_term(inner, indent + 1))
+            IndexedElim(ref inner) => format!("indexedelim\n{}", display_term(inner, indent + 1)),
+            Anything => String::from("Anything")
         };
     format!("{}{}\n", indent_to_string(indent), string)
 }
@@ -306,6 +308,8 @@ pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(VarInner, VarInn
             is_terms_eq(inner_term1, inner_term2, equivs),
         (IndexedElim(ref inner_term1), IndexedElim(ref inner_term2)) =>
             is_terms_eq(inner_term1, inner_term2, equivs),
+        (Anything, _) => True,
+        (_, Anything) => True,
         _ => False(vec![(type1.clone(), type2.clone())])
     }
 }
