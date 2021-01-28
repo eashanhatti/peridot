@@ -1,6 +1,6 @@
 module {
 	a : Type 0;
 	a = Fin 1;
-	f : [ A : import Main.a ] -> import Main.a;
-	f = fn A => A;
+	f : import Main.a;
+	f = fin 0;
 }
