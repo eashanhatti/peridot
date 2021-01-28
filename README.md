@@ -9,15 +9,16 @@ Major Desired Features:
 * **Multiple Memory Management Options**. Most functional languages use tracing GC, but that method isn't always the best for performance. Multiple memory management options are always needed in a systems language.
 * **Effect Tracking**. Many of the fancier type system features that I want to leverage (such as dependent types) break in the presence of unconstrained effects. Effect tracking is needed because of that. Algebraic effects seem like the most likely route I will go.
 
-Tasks:
+Current Roadmap:
 - [ ] Core language
 	- [ ] Language
 		- [x] Dependent functions
 		- [x] Dependent pairs
 		- [x] Opt in laziness
 		- [x] Uniqueness types
-		- [ ] Evaluation time tracking
-		- [ ] External interaction
+		- [ ] Staging
+		- [ ] Representation tracking
+		- [ ] External interaction/effects
 			- [ ] `World`
 			- [ ] Basic FFI 
 	- [x] Typechecker
@@ -30,11 +31,12 @@ Tasks:
 		- [x] Definitions
 		- [ ] Imports
 	- [ ] Typing
+		- [ ] Dependent functions
 		- [ ] Dependent records
-		- [ ] Uniqueness types
-		- [ ] Evaluation time tracking
+		- [ ] Staging
+		- [ ] Size tracking
 	- [ ] Pattern matching
-	- [ ] External interaction
+	- [ ] External interaction/effects
 		- [ ] `World`
 		- [ ] Basic FFI
 - [ ] Backend
