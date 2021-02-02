@@ -42,7 +42,7 @@ extern crate rand;
 pub struct State {
 	locals: Context,
     local_names_to_indices: HashMap<Name, VarInner>,
-    globals: HashMap<QualifiedName, (core::Term, usize)>,
+    globals: HashMap<QualifiedName, (core::Term, Option<core::Term>, usize)>, // dec, def, id
     global_id: usize,
     globals_map_index: usize,
     num_global_decs: usize
@@ -51,7 +51,7 @@ pub struct State {
 impl State {
 	pub fn new(num_global_decs: usize) -> State {
         let map1: HashMap<Name, VarInner> = HashMap::new();
-        let map2: HashMap<QualifiedName, (core::Term, usize)> = HashMap::new();
+        let map2: HashMap<QualifiedName, (core::Term, Option<core::Term>, usize)> = HashMap::new();
 		State {
             locals: Context::new(),
             local_names_to_indices: map1,
@@ -96,35 +96,6 @@ impl State {
         }
     }
 
-    pub fn with_global_dec(self, name: QualifiedName, r#type: core::Term) -> State {
-        if let Some(_) = self.globals.get(&name) {
-            panic!("duplicate global");
-        } else {
-            let mut globals = self.globals;
-            globals.insert(name, (r#type, self.global_id));
-            State {
-                globals,
-                global_id: self.global_id + 1,
-                ..self
-            }
-        }
-    }
-
-    pub fn with_globals_map_index(self, index: usize) -> State {
-        State {
-            globals_map_index: index,
-            ..self
-        }
-    }
-
-    pub fn get_global_dec(&self, name: &QualifiedName) -> Option<(core::Term, usize)> {
-        if let Some(entry) = self.globals.get(name) {
-            Some(entry.clone())
-        } else {
-            None
-        }
-    }
-
     pub fn get(&self, name: &Name) -> Option<(VarInner, ContextEntry)> {
         if let Some(index) = self.local_names_to_indices.get(name) {
             if let Some(entry) = self.locals.get(*index) {
@@ -144,12 +115,109 @@ impl State {
         Some((entry.0, entry.1.def?))
     }
 
+    pub fn with_global_dec(self, name: QualifiedName, r#type: core::Term) -> State {
+        if let Some(_) = self.globals.get(&name) {
+            panic!("duplicate global");
+        } else {
+            let mut globals = self.globals;
+            globals.insert(name, (r#type, None, self.global_id));
+            State {
+                globals,
+                global_id: self.global_id + 1,
+                ..self
+            }
+        }
+    }
+
+    pub fn with_global_def(mut self, name: QualifiedName, value: core::Term) -> State {
+        if let Some((r#type, _, id)) = self.globals.get(&name) {
+            self.globals.insert(name, (r#type.clone(), Some(value.clone()), *id));
+            self
+        } else {
+            panic!("undeclared global {:?}", name);
+        }
+    }
+
+    pub fn get_global_dec(&self, name: &QualifiedName) -> Option<(core::Term, usize)> {
+        if let Some(entry) = self.globals.get(name) {
+            Some((entry.0.clone(), entry.2))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_global_def(&self, name: QualifiedName) -> Option<(core::Term, usize)> {
+        if let Some((_, Some(value), id)) = self.globals.get(&name) {
+            Some((value.clone(), *id))
+        } else {
+            None
+        }
+    }
+
+    pub fn iter_globals(&self) -> GlobalsIterator {
+        GlobalsIterator {
+            id: Some(0),
+            globals: &self.globals
+        }
+    }
+
+    pub fn iter_globals_rev(&self) -> GlobalsIterator {
+        GlobalsIterator {
+            id: Some(self.globals.len()),
+            globals: &self.globals
+        }
+    }
+
+    pub fn with_globals_map_index(self, index: usize) -> State {
+        State {
+            globals_map_index: index,
+            ..self
+        }
+    }
+
     pub fn locals(self) -> Context {
         self.locals
     }
 
-    pub fn globals(self) -> HashMap<QualifiedName, (core::Term, usize)> {
+    pub fn globals(self) -> HashMap<QualifiedName, (core::Term, Option<core::Term>, usize)> {
         self.globals
+    }
+}
+
+pub struct GlobalsIterator<'a> {
+    id: Option<usize>,
+    globals: &'a HashMap<QualifiedName, (core::Term, Option<core::Term>, usize)>
+}
+
+impl Iterator for GlobalsIterator<'_> {
+    type Item = (QualifiedName, core::Term, Option<core::Term>, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.id.is_none() { return None; }
+        for (name, (r#type, value, id)) in self.globals {
+            if *id == self.id.unwrap() {
+                self.id = Some(self.id.unwrap() + 1);
+                return Some((name.clone(), r#type.clone(), value.clone(), *id)); // TODO: fix clone overuse
+            }
+        }
+        None
+    }
+}
+
+impl DoubleEndedIterator for GlobalsIterator<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.id.is_none() { return None; }
+        for (name, (r#type, value, id)) in self.globals {
+            if *id == self.id.unwrap() {
+                if let Some(ref mut self_id) = self.id {
+                    *self_id -= 1;
+                } else {
+                    self.id = None;
+                }
+                return Some((name.clone(), r#type.clone(), value.clone(), *id)); // TODO: fix clone overuse
+            }
+        }
+        None
     }
 }
 
@@ -672,10 +740,10 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     return Err(vec![NonexistentGlobal { import: term, state, name: path.clone() }]);
                 };
             let mut global_types = {
-                let mut map = HashMap::new();
-                for (_, (global_type, global_id)) in state.globals {
+                let mut map: HashMap<usize, core::Term> = HashMap::new();
+                for (_, (global_type, _, global_id)) in state.globals.iter() {
                     // println!("GT {:?}", global_type);
-                    map.insert(global_id, global_type);
+                    map.insert(*global_id, global_type.clone());
                 }
                 for i in 0..state.num_global_decs {
                     if let Some(_) = map.get(&i) {
@@ -762,13 +830,24 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     global_map_type
                 ,: Univ!(42, shared))
             };
-            println!("GMI {:?}", state.globals_map_index);
-            Ok(apply!(
-                var!(
-                    Bound(state.globals_map_index)
-                ,: global_map_type),
-                discrim
-            ,: item_type))
+            // println!("GMI {:?}", state.globals_map_index);
+            let mut core_term =
+                apply!(
+                    var!(
+                        Bound(state.globals_map_index)
+                    ,: global_map_type),
+                    discrim
+                ,: item_type);
+            // if let None = state.get_global_def(path.clone()) {
+            //     let core_term_type = core_term.r#type();
+            //     core_term =
+            //         core::Term::new(
+            //             Box::new(core::InnerTerm::FoldIntro(core_term)),
+            //             Some(Box::new(core::Term::new(
+            //                 Box::new(core::InnerTerm::FoldTypeIntro(core_term_type)),
+            //                 Some(Box::new(Univ!(0, shared)))))));
+            // }
+            Ok(core_term)
         }
         _ => unimplemented!()
     }
@@ -844,9 +923,67 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
             indices.push(curr_index);
             indices
         };
-        println!("INDICES {:?}", indices);
-        let mut indices_iter = indices.iter();
-        
+        // println!("INDICES {:?}", indices);
+        let mut decs_indices_iter = indices.iter();
+        let mut defs_indices_iter = indices.iter();
+
+        let mut core_items = Vec::new();
+        for ((name, _), item) in items.iter() {
+            match item {
+                FlattenedModuleItem::Declaration(r#type) => {
+                    let core_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
+                    level = std::cmp::max(level, core_type.level());
+                    let mut globals_iter = state.iter_globals();
+                    let mut core_map = unit!( ,: Anything!( ,: Univ!(0, shared)));
+
+                    for (_, _, value, _) in state.iter_globals() {
+                        core_map =
+                            split!(
+                                var!(
+                                    Bound(0)
+                                ,: Anything!( ,: Univ!(0, shared))),
+                                in
+                                    case!(
+                                        var!(
+                                            Bound(1)
+                                        ,: Doub!( ,: Univ!(0, shared))),
+                                        l =>
+                                            if let Some(value_some) = value {
+                                                value_some
+                                            } else {
+                                                unit!( ,: Unit!( ,: Univ!(0, shared)))
+                                            };
+                                        r => core_map;
+                                    ,: Anything!( ,: Univ!(0, shared)))
+                            ,: Anything!( ,: Univ!(0, shared)));
+                    }
+                    core_map = fun!(core_map ,: Anything!( ,: Univ!(0, shared)));
+                    println!("CORE_MAP\n{:?}", core_map);
+                    let normal_core_type = core::eval::normalize(core_type, Context::new().with_def(Bound(/**decs_indices_iter.next().unwrap()*/0), core_map));
+                    println!("NCT\n{:?}", normal_core_type);
+
+                    state =
+                        state.with_global_dec(
+                            name.clone(),
+                            normal_core_type);
+                }
+                FlattenedModuleItem::TermDef(term) => {
+                    let core_item_type = state.get_global_dec(name).unwrap().0; // TODO: error reporting
+                    let mut core_term =
+                        elab_term(
+                            term,
+                            core_item_type.clone(),
+                            state.clone().with_globals_map_index((*defs_indices_iter.next().unwrap())))?;
+                    core_term.type_ann = Some(Box::new(core_item_type));
+                    core_term.note = Some(Note(format!("item {:?}", name)));
+                    state = state.with_global_def(name.clone(), core_term.clone());
+                    // println!("CORE_TERM {:?}", term);
+                    core_items.push(core_term);
+                }
+                _ => ()
+            }
+        }
+        /*
         for ((ref name, _), ref item) in items.iter() {
             match item {
                 FlattenedModuleItem::Declaration(r#type) => {
@@ -905,7 +1042,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                 _ => ()
             }
         }
-
+*/
         (core_items, level)
     };
     let (core_map, discrim_type) = {

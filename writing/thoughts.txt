@@ -591,3 +591,24 @@ check type_anns in is_terms_eq as well
 
 treat stage exclusivity as an effect
 Type stage is_exclusive
+
+
+issue is that some declarations need the definitions
+so I can't naively do it by just doing all the declarations first and then the definitions
+would form a graph I assume
+items cannot have mutually recursive declarations
+definitions can be mutually recursive if the declarations are not?
+
+state now stores global declarations as well as definitions
+
+f : import Main.a;
+f = fin 0;
+a : Type 0;
+a = Fin 1;
+
+why does this sucessfully typecheck? it shouldn't I don't believe
+I suspect it's my use of Anything and Unit
+will have to investigate this tomorrow
+in other thought: I'm seriously going to need a rewrite eventually
+aha, looking at it again, it seems to be Anything causing the problem. core_map is initialized to an Anything-typed unit, it needs to be the first global instead
+how am I going to do unknown values? need some way to indicate to the evaluator not to normalize a term?

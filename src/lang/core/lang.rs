@@ -225,9 +225,10 @@ impl Term {
     }
 
     pub fn level(&self) -> usize {
-        match *self.r#type().data {
+        let r#type = self.r#type();
+        match *normalize(r#type, Context::new()).data {
             InnerTerm::TypeTypeIntro(level, _) => level,
-            _ => panic!("level can only be extracted from types")
+            _ => panic!("level can only be extracted from types\n{:?}", self)
         }
     }
 }
