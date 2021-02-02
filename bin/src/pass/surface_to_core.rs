@@ -959,10 +959,11 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                         if state.globals.len() == 0 {
                             unit!( ,: var!(Free(Symbol(rand::random::<usize>())), "no globals" ,: Univ!(0, shared)))
                         } else {
-                            if let (_, _, Some(value), _) = globals_iter.next().unwrap() {
-                                value
+                            let (_, r#type, value, _) = globals_iter.next().unwrap();
+                            if let Some(some_value) = value {
+                                some_value
                             } else {
-                                unit!( ,: var!(Free(decs_symbols_iter.next().unwrap().clone()), "no globals 2" ,: Univ!(0, shared)))
+                                Anything!( ,: r#type)
                             }
                         };
 

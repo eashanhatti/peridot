@@ -29,9 +29,9 @@ Current Roadmap:
 - [ ] Surface language
 	- [x] Modules
 		- [x] Definitions
-		- [ ] Imports
+		- [x] Imports
 	- [ ] Typing
-		- [ ] Dependent functions
+		- [x] Dependent functions
 		- [ ] Dependent records
 		- [ ] Staging
 		- [ ] Size tracking
