@@ -612,3 +612,6 @@ will have to investigate this tomorrow
 in other thought: I'm seriously going to need a rewrite eventually
 aha, looking at it again, it seems to be Anything causing the problem. core_map is initialized to an Anything-typed unit, it needs to be the first global instead
 how am I going to do unknown values? need some way to indicate to the evaluator not to normalize a term?
+
+
+TODO: change all BTree collections to assoc lists, ordering causes problems

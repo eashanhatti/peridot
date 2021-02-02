@@ -6,34 +6,38 @@ use std::{
         hash_map::{
             HashMap,
             Iter
-        },
-        BTreeMap
+        }
     },
     cmp::max
 };
-use crate::lang::{
-	core::{
-        self,
-        context::{
+use crate::{
+    lang::{
+    	core::{
+            self,
+            context::{
+                *,
+                ContextEntryKind::*
+            },
+            is_terms_eq,
+            eval::shift,
+            lang::{
+                TermComparison::*,
+                Usage,
+                Note,
+                VarInner::*,
+                VarInner,
+                Symbol
+            },
+        },
+        surface::{
             *,
-            ContextEntryKind::*
-        },
-        is_terms_eq,
-        eval::shift,
-        lang::{
-            TermComparison::*,
-            Usage,
-            Note,
-            VarInner::*,
-            VarInner
-        },
-    },
-    surface::{
-        *,
-        InnerTerm::*
+            InnerTerm::*
+        }
     }
 };
 extern crate rand;
+extern crate assoc_collections;
+use assoc_collections::*;
 
 // globals maps names to type id pairs
 // id is used to calculate the arg needed to pass to the globals map at index zero in order to get that global term
@@ -268,7 +272,7 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
         ImportTerm(path) =>
             match state.get_global_dec(path) {
                 Some((r#type, _)) => Ok(r#type),
-                None => panic!()
+                None => Err(vec![NonexistentGlobal { import: term, state, name: path.clone() }])
             },
         _ => Err(vec![Error::CannotInferType { term, state }])
     }
@@ -871,6 +875,7 @@ pub fn elab_toplevel<'a>(module: &'a Module, module_name: QualifiedName) -> Elab
 }
 
 fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State) -> ElabResult<'a> {
+    #[derive(Debug)]
     enum FlattenedModuleItem<'a> { // local item type for module flattening
         Declaration(&'a crate::lang::surface::Term),
         TermDef(&'a crate::lang::surface::Term),
@@ -878,16 +883,19 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
     }
 
     // flatten the module structure, turning it into a more haskell-like structure
-    fn flatten_module(module: &Module, module_name: QualifiedName) -> BTreeMap<(QualifiedName, ItemKind), FlattenedModuleItem> {
-        let mut items = BTreeMap::new();
+    fn flatten_module(module: &Module, module_name: QualifiedName) -> AssocVec<(QualifiedName, ItemKind), FlattenedModuleItem> {
+        let mut items = AssocVec::new();
+        // println!("ITEMS\n{:#?}", module.items);
         for ((item_name, _), item) in module.items.iter() {
-
+            // println!("ITEM_NAME {:?}", item_name);
             match item {
                 Item::Declaration(r#type) => { items.insert((module_name.clone().with_name(item_name.clone()), ItemKind::Dec), FlattenedModuleItem::Declaration(r#type)); },
                 Item::TermDef(term) => { items.insert((module_name.clone().with_name(item_name.clone()), ItemKind::Def), FlattenedModuleItem::TermDef(term)); },
                 Item::RecordTypeDef(fields) => { items.insert((module_name.clone().with_name(item_name.clone()), ItemKind::Def), FlattenedModuleItem::RecordTypeDef(fields)); },
                 Item::ModuleDef(submodule) => {
-                    for (key, val) in flatten_module(submodule, module_name.clone().with_name(item_name.clone())) {
+                    let mut flat = flatten_module(submodule, module_name.clone().with_name(item_name.clone()));
+                    while flat.len() > 0 {
+                        let (key, val) = flat.remove_entry(0);
                         items.insert(key, val);
                     }
                 }
@@ -923,20 +931,42 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
             indices.push(curr_index);
             indices
         };
+        let decs_symbols = {
+            let mut symbols = Vec::new();
+            for (_, item) in items.iter() {
+                if let FlattenedModuleItem::Declaration(_) = item {
+                    symbols.push(Symbol(rand::random::<usize>()));
+                }
+            }
+            symbols
+        };
         // println!("INDICES {:?}", indices);
         let mut decs_indices_iter = indices.iter();
         let mut defs_indices_iter = indices.iter();
 
+        // println!("ITEMS\n{:#?}", items);
+
         let mut core_items = Vec::new();
-        for ((name, _), item) in items.iter() {
+        for ((name, kind), item) in items.iter() {
+            println!("NAME {:?} KIND {:?}", name, kind);
             match item {
                 FlattenedModuleItem::Declaration(r#type) => {
                     let core_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
                     level = std::cmp::max(level, core_type.level());
                     let mut globals_iter = state.iter_globals();
-                    let mut core_map = unit!( ,: Anything!( ,: Univ!(0, shared)));
+                    let mut decs_symbols_iter = decs_symbols.iter();
+                    let mut core_map = 
+                        if state.globals.len() == 0 {
+                            unit!( ,: var!(Free(Symbol(rand::random::<usize>())), "no globals" ,: Univ!(0, shared)))
+                        } else {
+                            if let (_, _, Some(value), _) = globals_iter.next().unwrap() {
+                                value
+                            } else {
+                                unit!( ,: var!(Free(decs_symbols_iter.next().unwrap().clone()), "no globals 2" ,: Univ!(0, shared)))
+                            }
+                        };
 
-                    for (_, _, value, _) in state.iter_globals() {
+                    for ((_, r#type, value, _), symbol) in globals_iter.zip(decs_symbols_iter) {
                         core_map =
                             split!(
                                 var!(
@@ -951,7 +981,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                                             if let Some(value_some) = value {
                                                 value_some
                                             } else {
-                                                unit!( ,: Unit!( ,: Univ!(0, shared)))
+                                                unit!( ,: var!(Free(symbol.clone()) ,: Univ!(0, shared)))
                                             };
                                         r => core_map;
                                     ,: Anything!( ,: Univ!(0, shared)))

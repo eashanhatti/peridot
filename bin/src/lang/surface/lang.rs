@@ -1,6 +1,8 @@
 #![allow(warnings)]
 
-use std::collections::{HashSet, HashMap, BTreeSet, BTreeMap}; 
+use std::collections::{HashSet, HashMap, BTreeSet, BTreeMap};
+extern crate assoc_collections;
+use assoc_collections::*;
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct Name(pub String);
@@ -36,7 +38,7 @@ pub enum ItemKind { Dec, Def }
 
 #[derive(Debug)]
 pub struct Module {
-	pub items: BTreeMap<(Name, ItemKind), Item>
+	pub items: AssocVec<(Name, ItemKind), Item>
 }
 
 #[derive(Debug, Clone)]

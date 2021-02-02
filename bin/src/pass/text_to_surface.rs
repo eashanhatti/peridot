@@ -17,9 +17,11 @@ use std::collections::{
 	BTreeMap,
 	BTreeSet
 };
+extern crate assoc_collections;
+use assoc_collections::*;
 
 #[derive(pest_derive::Parser)]
-#[grammar = "C:\\Users\\Eashan\\dev\\clamn\\src\\pass\\grammar.pest"]
+#[grammar = "C:\\Users\\Eashan\\dev\\clamn\\bin\\src\\pass\\grammar.pest"]
 struct LangParser;
 
 	fn parse_term(mut pair: Pair<Rule>) -> Term {
@@ -62,7 +64,7 @@ struct LangParser;
 	fn parse_module(mut pair: Pair<Rule>) -> Module {
 		if pair.as_rule() == Rule::module {
 			let items_iter = pair.into_inner();
-			let mut items = BTreeMap::new();
+			let mut items = AssocVec::new();
 			for item in items_iter {
 				let rule = item.as_rule();
 				let mut item_iter = item.into_inner();
