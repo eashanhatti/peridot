@@ -626,3 +626,5 @@ module {
 
 TODO: replace usages of Anything with Postulate
 TODO: make num_global_decs in surface_to_core redundant by populating the list of global types with postulates in elab_toplevel
+
+I should remove `Anything`

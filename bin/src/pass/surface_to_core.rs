@@ -218,14 +218,6 @@ mod syntax {
         };
     }
 
-    macro_rules! anything {
-        (,: $ann:expr) => {
-            crate::lang::core::lang::Term::new(
-                Box::new(crate::lang::core::lang::InnerTerm::Anything),
-                Some(Box::new($ann)))
-        };
-    }
-
     macro_rules! postulate {
         ($sym:expr ,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
@@ -977,7 +969,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             split!(
                                 var!(
                                     Bound(0)
-                                ,: anything!( ,: Univ!(0, shared))),
+                                ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared))),
                                 in
                                     case!(
                                         var!(
@@ -985,10 +977,10 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                                         ,: Doub!( ,: Univ!(0, shared))),
                                         l => value;
                                         r => core_map;
-                                    ,: anything!( ,: Univ!(0, shared)))
-                            ,: anything!( ,: Univ!(0, shared)));
+                                    ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared)))
+                            ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared)));
                     }
-                    core_map = fun!(core_map ,: anything!( ,: Univ!(0, shared)));
+                    core_map = fun!(core_map ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared)));
                     println!("CORE_MAP\n{:?}", core_map);
                     // why does Bound(0) work?
                     let normal_core_type = core::eval::normalize(core_type, Context::new().with_def(Bound(0), core_map));
