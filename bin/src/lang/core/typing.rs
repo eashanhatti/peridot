@@ -162,7 +162,8 @@ pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 			IndexedTypeIntro(_, ref inner_type) => count_uses(inner_type, target_index),
 			IndexedIntro(ref inner_term) => count_uses(inner_term, target_index),
 			IndexedElim(ref folded_term) => count_uses(folded_term, target_index),
-			Anything => singleton(0)
+			Anything => singleton(0),
+			Postulate(_) => singleton(0)
 		},
 		match &term.type_ann {
 			Some(r#type) => count_uses(r#type, target_index),
@@ -272,7 +273,8 @@ fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Te
 				IndexedTypeIntro(_, ref inner_type) => inner(inner_type, bounds.clone()),
 				IndexedIntro(ref inner_term) => inner(inner_term, bounds.clone()),
 				IndexedElim(ref folded_term) => inner(folded_term, bounds),
-				Anything => Map::new()
+				Anything => Map::new(),
+				Postulate(_) => Map::new()
 			},
 			type_ann_free_vars])
 	}
@@ -760,6 +762,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				_ => Err(vec![Error::new(term, context, ExpectedOfIndexedType { giv_type: indexed_term_type })])
 			}
 		}
-		Anything => Ok(())
+		Anything => Ok(()),
+		Postulate(_) => Ok(())
 	}
 }

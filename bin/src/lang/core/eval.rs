@@ -94,7 +94,8 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
             IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, shift(inner_type, bounds, amount)),
             IndexedIntro(inner_term) => IndexedIntro(shift(inner_term, bounds, amount)),
             IndexedElim(inner_term) => IndexedElim(shift(inner_term, bounds, amount)),
-            Anything => Anything
+            Anything => Anything,
+            Postulate(sym) => Postulate(sym)
         };
     let mut new_term = Term::new(Box::new(term_inner), shifted_type_ann);
     new_term.note = term.note;
@@ -152,7 +153,8 @@ pub fn substitute(term: Term, context: Context) -> Term {
             IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, substitute(inner_type, context)),
             IndexedIntro(inner_term) => IndexedIntro(substitute(inner_term, context)),
             IndexedElim(inner_term) => IndexedElim(substitute(inner_term, context)),
-            Anything => Anything
+            Anything => Anything,
+            Postulate(sym) => Postulate(sym)
         };
     let mut new_term = Term::new(Box::new(term_inner), substd_type_ann);
     new_term.note = term.note;
@@ -259,7 +261,8 @@ pub fn normalize(term: Term, context: Context) -> Term {
                 _ => Term::new(Box::new(IndexedElim(normal_indexed_term)), normal_type_ann)
             }
         },
-        Anything => term
+        Anything => term,
+        Postulate(_) => term
     };
     new_term.note = term_note;
     new_term

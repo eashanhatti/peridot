@@ -615,3 +615,14 @@ how am I going to do unknown values? need some way to indicate to the evaluator 
 
 
 TODO: change all BTree collections to assoc lists, ordering causes problems
+
+
+module {
+    a : Type 0;
+    b : Type 0;
+    f : [ x : import Main.a ] -> import Main.a;
+    f = fn x => x;
+}
+
+TODO: replace usages of Anything with Postulate
+TODO: make num_global_decs in surface_to_core redundant by populating the list of global types with postulates in elab_toplevel

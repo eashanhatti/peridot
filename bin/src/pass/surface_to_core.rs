@@ -39,245 +39,6 @@ extern crate rand;
 extern crate assoc_collections;
 use assoc_collections::*;
 
-// globals maps names to type id pairs
-// id is used to calculate the arg needed to pass to the globals map at index zero in order to get that global term
-// global_id is used as a source of fresh ids
-#[derive(Clone, Debug)]
-pub struct State {
-	locals: Context,
-    local_names_to_indices: HashMap<Name, VarInner>,
-    globals: HashMap<QualifiedName, (core::Term, Option<core::Term>, usize)>, // dec, def, id
-    global_id: usize,
-    globals_map_index: usize,
-    num_global_decs: usize
-}
-
-impl State {
-	pub fn new(num_global_decs: usize) -> State {
-        let map1: HashMap<Name, VarInner> = HashMap::new();
-        let map2: HashMap<QualifiedName, (core::Term, Option<core::Term>, usize)> = HashMap::new();
-		State {
-            locals: Context::new(),
-            local_names_to_indices: map1,
-            globals: map2,
-            global_id: 0,
-            globals_map_index: 0,
-            num_global_decs
-        }
-	}
-
-    pub fn with_dec(self, name: Name, r#type: core::Term) -> State {
-        let mut local_names_to_indices: HashMap<Name, VarInner> =
-            self.local_names_to_indices.into_iter().map(|(k, v)|
-                if let Bound(index) = v {
-                    (k, Bound(index + 1))
-                } else {
-                    (k, v)
-                }).collect();
-        local_names_to_indices.insert(name, Bound(0));
-
-        State {
-            locals: self.locals.inc_and_shift(1).with_dec(Bound(0), shift(r#type, HashSet::new(), 1)),
-            local_names_to_indices,
-            globals_map_index: self.globals_map_index + 1,
-            ..self
-        }
-    }
-
-    // declare before use, `with_dec(name, _)` must have been called before this is
-    pub fn with_def(self, name: Name, value: core::Term) -> State {
-        if let Some(index) = self.local_names_to_indices.get(&name) {
-            if self.locals.exists_dec(*index) {
-                State {
-                    locals: self.locals.with_def(*index, value),
-                    ..self
-                }
-            } else {
-                panic!("var must be declared before being given a definition")
-            }
-        } else {
-            panic!("var must be declared before being given a definition")
-        }
-    }
-
-    pub fn get(&self, name: &Name) -> Option<(VarInner, ContextEntry)> {
-        if let Some(index) = self.local_names_to_indices.get(name) {
-            if let Some(entry) = self.locals.get(*index) {
-                return Some((*index, entry));
-            }
-        }
-        None
-    }
-
-    pub fn get_dec(&self, name: &Name) -> Option<(VarInner, core::Term)> {
-        let entry = self.get(name)?;
-        Some((entry.0, entry.1.dec?))
-    }
-
-    pub fn get_def(&self, name: &Name) -> Option<(VarInner, core::Term)> {
-        let entry = self.get(name)?;
-        Some((entry.0, entry.1.def?))
-    }
-
-    pub fn with_global_dec(self, name: QualifiedName, r#type: core::Term) -> State {
-        if let Some(_) = self.globals.get(&name) {
-            panic!("duplicate global");
-        } else {
-            let mut globals = self.globals;
-            globals.insert(name, (r#type, None, self.global_id));
-            State {
-                globals,
-                global_id: self.global_id + 1,
-                ..self
-            }
-        }
-    }
-
-    pub fn with_global_def(mut self, name: QualifiedName, value: core::Term) -> State {
-        if let Some((r#type, _, id)) = self.globals.get(&name) {
-            self.globals.insert(name, (r#type.clone(), Some(value.clone()), *id));
-            self
-        } else {
-            panic!("undeclared global {:?}", name);
-        }
-    }
-
-    pub fn get_global_dec(&self, name: &QualifiedName) -> Option<(core::Term, usize)> {
-        if let Some(entry) = self.globals.get(name) {
-            Some((entry.0.clone(), entry.2))
-        } else {
-            None
-        }
-    }
-
-    pub fn get_global_def(&self, name: QualifiedName) -> Option<(core::Term, usize)> {
-        if let Some((_, Some(value), id)) = self.globals.get(&name) {
-            Some((value.clone(), *id))
-        } else {
-            None
-        }
-    }
-
-    pub fn iter_globals(&self) -> GlobalsIterator {
-        GlobalsIterator {
-            id: Some(0),
-            globals: &self.globals
-        }
-    }
-
-    pub fn iter_globals_rev(&self) -> GlobalsIterator {
-        GlobalsIterator {
-            id: Some(self.globals.len()),
-            globals: &self.globals
-        }
-    }
-
-    pub fn with_globals_map_index(self, index: usize) -> State {
-        State {
-            globals_map_index: index,
-            ..self
-        }
-    }
-
-    pub fn locals(self) -> Context {
-        self.locals
-    }
-
-    pub fn globals(self) -> HashMap<QualifiedName, (core::Term, Option<core::Term>, usize)> {
-        self.globals
-    }
-}
-
-pub struct GlobalsIterator<'a> {
-    id: Option<usize>,
-    globals: &'a HashMap<QualifiedName, (core::Term, Option<core::Term>, usize)>
-}
-
-impl Iterator for GlobalsIterator<'_> {
-    type Item = (QualifiedName, core::Term, Option<core::Term>, usize);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.id.is_none() { return None; }
-        for (name, (r#type, value, id)) in self.globals {
-            if *id == self.id.unwrap() {
-                self.id = Some(self.id.unwrap() + 1);
-                return Some((name.clone(), r#type.clone(), value.clone(), *id)); // TODO: fix clone overuse
-            }
-        }
-        None
-    }
-}
-
-impl DoubleEndedIterator for GlobalsIterator<'_> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        if self.id.is_none() { return None; }
-        for (name, (r#type, value, id)) in self.globals {
-            if *id == self.id.unwrap() {
-                if let Some(ref mut self_id) = self.id {
-                    *self_id -= 1;
-                } else {
-                    self.id = None;
-                }
-                return Some((name.clone(), r#type.clone(), value.clone(), *id)); // TODO: fix clone overuse
-            }
-        }
-        None
-    }
-}
-
-#[derive(Debug)]
-pub enum Error<'a> {
-    MismatchedTypes { term: &'a Term, state: State, exp_type: core::Term, giv_type: core::Term, specific: Vec<(core::Term, core::Term)> },
-    NonexistentVar { var: &'a Term, state: State, name: Name },
-    ExpectedOfTypeType { term: &'a Term, state: State, min_level: usize, giv_type: core::Term },
-    ExpectedOfFunctionType { term: &'a Term, state: State, giv_type: core::Term },
-    ExpectedOfEnumType { term: &'a Term, state: State, giv_type: core::Term },
-    EnumInhabitantTooLarge { term: &'a Term, state: State, inhabitant: usize, num_inhabitants: usize },
-    MismatchedFunctionArgsNum { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
-    CannotInferType { term: &'a Term, state: State },
-    NonexistentGlobal { import: &'a Term, state: State, name: QualifiedName }
-}
-use Error::*;
-
-type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
-
-// term may be unchecked
-pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
-    match &*term.data {
-        Ann(_, ref type_ann) => Ok(elab_term(type_ann, infer_type(type_ann, state.clone())?, state)?),
-        TypeTypeIntro(level) => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(level + 1, core::lang::Usage::Shared)), None)),
-        Var(ref name) =>
-            if let Some((_, r#type)) = state.get_dec(name) {
-                Ok(r#type)
-            } else {
-                Err(vec![Error::NonexistentVar { var: term, state, name: name.clone() }])
-            }
-        FunctionTypeIntro(_, _, _) =>
-            Ok(core::Term::new(
-                Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
-                None
-            )),
-        FunctionElim(ref abs, _) => {
-            let abs_type = infer_type(abs, state.clone())?;
-            match &*abs_type.data {
-                core::InnerTerm::FunctionTypeIntro(_, ref out_type) => Ok(out_type.clone()),
-                _ => Err(vec![ExpectedOfFunctionType { term: abs, state, giv_type: abs_type }])
-            }
-        },
-        EnumTypeIntro(_) =>
-            Ok(core::Term::new(
-                Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
-                None
-            )),
-        ImportTerm(path) =>
-            match state.get_global_dec(path) {
-                Some((r#type, _)) => Ok(r#type),
-                None => Err(vec![NonexistentGlobal { import: term, state, name: path.clone() }])
-            },
-        _ => Err(vec![Error::CannotInferType { term, state }])
-    }
-}
-
 #[macro_use]
 mod syntax {
     macro_rules! Univ {
@@ -457,10 +218,18 @@ mod syntax {
         };
     }
 
-    macro_rules! Anything {
+    macro_rules! anything {
         (,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
                 Box::new(crate::lang::core::lang::InnerTerm::Anything),
+                Some(Box::new($ann)))
+        };
+    }
+
+    macro_rules! postulate {
+        ($sym:expr ,: $ann:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::Postulate($sym)),
                 Some(Box::new($ann)))
         };
     }
@@ -471,6 +240,245 @@ mod syntax {
                 Box::new(crate::lang::core::lang::InnerTerm::IndexedTypeIntro($index, $inner)),
                 Some(Box::new($ann)))  
         };
+    }
+}
+
+// globals maps names to type id pairs
+// id is used to calculate the arg needed to pass to the globals map at index zero in order to get that global term
+// global_id is used as a source of fresh ids
+#[derive(Clone, Debug)]
+pub struct State {
+	locals: Context,
+    local_names_to_indices: HashMap<Name, VarInner>,
+    globals: HashMap<QualifiedName, (core::Term, core::Term, usize)>, // dec, def, id
+    global_id: usize,
+    globals_map_index: usize,
+    num_global_decs: usize
+}
+
+impl State {
+	pub fn new(num_global_decs: usize) -> State {
+        let map1: HashMap<Name, VarInner> = HashMap::new();
+        let map2: HashMap<QualifiedName, (core::Term, core::Term, usize)> = HashMap::new();
+		State {
+            locals: Context::new(),
+            local_names_to_indices: map1,
+            globals: map2,
+            global_id: 0,
+            globals_map_index: 0,
+            num_global_decs
+        }
+	}
+
+    pub fn with_dec(self, name: Name, r#type: core::Term) -> State {
+        let mut local_names_to_indices: HashMap<Name, VarInner> =
+            self.local_names_to_indices.into_iter().map(|(k, v)|
+                if let Bound(index) = v {
+                    (k, Bound(index + 1))
+                } else {
+                    (k, v)
+                }).collect();
+        local_names_to_indices.insert(name, Bound(0));
+
+        State {
+            locals: self.locals.inc_and_shift(1).with_dec(Bound(0), shift(r#type, HashSet::new(), 1)),
+            local_names_to_indices,
+            globals_map_index: self.globals_map_index + 1,
+            ..self
+        }
+    }
+
+    // declare before use, `with_dec(name, _)` must have been called before this is
+    pub fn with_def(self, name: Name, value: core::Term) -> State {
+        if let Some(index) = self.local_names_to_indices.get(&name) {
+            if self.locals.exists_dec(*index) {
+                State {
+                    locals: self.locals.with_def(*index, value),
+                    ..self
+                }
+            } else {
+                panic!("var must be declared before being given a definition")
+            }
+        } else {
+            panic!("var must be declared before being given a definition")
+        }
+    }
+
+    pub fn get(&self, name: &Name) -> Option<(VarInner, ContextEntry)> {
+        if let Some(index) = self.local_names_to_indices.get(name) {
+            if let Some(entry) = self.locals.get(*index) {
+                return Some((*index, entry));
+            }
+        }
+        None
+    }
+
+    pub fn get_dec(&self, name: &Name) -> Option<(VarInner, core::Term)> {
+        let entry = self.get(name)?;
+        Some((entry.0, entry.1.dec?))
+    }
+
+    pub fn get_def(&self, name: &Name) -> Option<(VarInner, core::Term)> {
+        let entry = self.get(name)?;
+        Some((entry.0, entry.1.def?))
+    }
+
+    pub fn with_global_dec(self, name: QualifiedName, r#type: core::Term) -> State {
+        if let Some(_) = self.globals.get(&name) {
+            panic!("duplicate global");
+        } else {
+            let mut globals = self.globals;
+            globals.insert(name, (r#type.clone(), postulate!(Symbol(rand::random::<usize>()) ,: r#type), self.global_id));
+            State {
+                globals,
+                global_id: self.global_id + 1,
+                ..self
+            }
+        }
+    }
+
+    pub fn with_global_def(mut self, name: QualifiedName, value: core::Term) -> State {
+        if let Some((r#type, _, id)) = self.globals.get(&name) {
+            self.globals.insert(name, (r#type.clone(), value.clone(), *id));
+            self
+        } else {
+            panic!("undeclared global {:?}", name);
+        }
+    }
+
+    pub fn get_global_dec(&self, name: &QualifiedName) -> Option<(core::Term, usize)> {
+        if let Some(entry) = self.globals.get(name) {
+            Some((entry.0.clone(), entry.2))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_global_def(&self, name: QualifiedName) -> Option<(core::Term, usize)> {
+        if let Some((_, value, id)) = self.globals.get(&name) {
+            Some((value.clone(), *id))
+        } else {
+            None
+        }
+    }
+
+    pub fn iter_globals(&self) -> GlobalsIterator {
+        GlobalsIterator {
+            id: Some(0),
+            globals: &self.globals
+        }
+    }
+
+    pub fn iter_globals_rev(&self) -> GlobalsIterator {
+        GlobalsIterator {
+            id: Some(self.globals.len()),
+            globals: &self.globals
+        }
+    }
+
+    pub fn with_globals_map_index(self, index: usize) -> State {
+        State {
+            globals_map_index: index,
+            ..self
+        }
+    }
+
+    pub fn locals(self) -> Context {
+        self.locals
+    }
+
+    pub fn globals(self) -> HashMap<QualifiedName, (core::Term, core::Term, usize)> {
+        self.globals
+    }
+}
+
+pub struct GlobalsIterator<'a> {
+    id: Option<usize>,
+    globals: &'a HashMap<QualifiedName, (core::Term, core::Term, usize)>
+}
+
+impl Iterator for GlobalsIterator<'_> {
+    type Item = (QualifiedName, core::Term, core::Term, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.id.is_none() { return None; }
+        for (name, (r#type, value, id)) in self.globals {
+            if *id == self.id.unwrap() {
+                self.id = Some(self.id.unwrap() + 1);
+                return Some((name.clone(), r#type.clone(), value.clone(), *id)); // TODO: fix clone overuse
+            }
+        }
+        None
+    }
+}
+
+impl DoubleEndedIterator for GlobalsIterator<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.id.is_none() { return None; }
+        for (name, (r#type, value, id)) in self.globals {
+            if *id == self.id.unwrap() {
+                if let Some(ref mut self_id) = self.id {
+                    *self_id -= 1;
+                } else {
+                    self.id = None;
+                }
+                return Some((name.clone(), r#type.clone(), value.clone(), *id)); // TODO: fix clone overuse
+            }
+        }
+        None
+    }
+}
+
+#[derive(Debug)]
+pub enum Error<'a> {
+    MismatchedTypes { term: &'a Term, state: State, exp_type: core::Term, giv_type: core::Term, specific: Vec<(core::Term, core::Term)> },
+    NonexistentVar { var: &'a Term, state: State, name: Name },
+    ExpectedOfTypeType { term: &'a Term, state: State, min_level: usize, giv_type: core::Term },
+    ExpectedOfFunctionType { term: &'a Term, state: State, giv_type: core::Term },
+    ExpectedOfEnumType { term: &'a Term, state: State, giv_type: core::Term },
+    EnumInhabitantTooLarge { term: &'a Term, state: State, inhabitant: usize, num_inhabitants: usize },
+    MismatchedFunctionArgsNum { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
+    CannotInferType { term: &'a Term, state: State },
+    NonexistentGlobal { import: &'a Term, state: State, name: QualifiedName }
+}
+use Error::*;
+
+type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
+
+// term may be unchecked
+pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
+    match &*term.data {
+        Ann(_, ref type_ann) => Ok(elab_term(type_ann, infer_type(type_ann, state.clone())?, state)?),
+        TypeTypeIntro(level) => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(level + 1, core::lang::Usage::Shared)), None)),
+        Var(ref name) =>
+            if let Some((_, r#type)) = state.get_dec(name) {
+                Ok(r#type)
+            } else {
+                Err(vec![Error::NonexistentVar { var: term, state, name: name.clone() }])
+            }
+        FunctionTypeIntro(_, _, _) =>
+            Ok(core::Term::new(
+                Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
+                None
+            )),
+        FunctionElim(ref abs, _) => {
+            let abs_type = infer_type(abs, state.clone())?;
+            match &*abs_type.data {
+                core::InnerTerm::FunctionTypeIntro(_, ref out_type) => Ok(out_type.clone()),
+                _ => Err(vec![ExpectedOfFunctionType { term: abs, state, giv_type: abs_type }])
+            }
+        },
+        EnumTypeIntro(_) =>
+            Ok(core::Term::new(
+                Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
+                None
+            )),
+        ImportTerm(path) =>
+            match state.get_global_dec(path) {
+                Some((r#type, _)) => Ok(r#type),
+                None => Err(vec![NonexistentGlobal { import: term, state, name: path.clone() }])
+            },
+        _ => Err(vec![Error::CannotInferType { term, state }])
     }
 }
 
@@ -753,7 +761,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     if let Some(_) = map.get(&i) {
                         ()
                     } else {
-                        map.insert(i, Anything!( ,: Univ!(0, shared)));
+                        map.insert(i, anything!( ,: Univ!(0, shared)));
                     }
                 }
                 let mut map = map.into_iter().collect::<Vec<(usize, core::Term)>>();
@@ -960,11 +968,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             unit!( ,: var!(Free(Symbol(rand::random::<usize>())), "no globals" ,: Univ!(0, shared)))
                         } else {
                             let (_, r#type, value, _) = globals_iter.next().unwrap();
-                            if let Some(some_value) = value {
-                                some_value
-                            } else {
-                                Anything!( ,: r#type)
-                            }
+                            value
                         };
 
                     for ((_, r#type, value, _), symbol) in globals_iter.zip(decs_symbols_iter) {
@@ -972,25 +976,21 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             split!(
                                 var!(
                                     Bound(0)
-                                ,: Anything!( ,: Univ!(0, shared))),
+                                ,: anything!( ,: Univ!(0, shared))),
                                 in
                                     case!(
                                         var!(
                                             Bound(1)
                                         ,: Doub!( ,: Univ!(0, shared))),
-                                        l =>
-                                            if let Some(value_some) = value {
-                                                value_some
-                                            } else {
-                                                unit!( ,: var!(Free(symbol.clone()) ,: Univ!(0, shared)))
-                                            };
+                                        l => value;
                                         r => core_map;
-                                    ,: Anything!( ,: Univ!(0, shared)))
-                            ,: Anything!( ,: Univ!(0, shared)));
+                                    ,: anything!( ,: Univ!(0, shared)))
+                            ,: anything!( ,: Univ!(0, shared)));
                     }
-                    core_map = fun!(core_map ,: Anything!( ,: Univ!(0, shared)));
+                    core_map = fun!(core_map ,: anything!( ,: Univ!(0, shared)));
                     println!("CORE_MAP\n{:?}", core_map);
-                    let normal_core_type = core::eval::normalize(core_type, Context::new().with_def(Bound(/**decs_indices_iter.next().unwrap()*/0), core_map));
+                    // why does Bound(0) work?
+                    let normal_core_type = core::eval::normalize(core_type, Context::new().with_def(Bound(0), core_map));
                     println!("NCT\n{:?}", normal_core_type);
 
                     state =
