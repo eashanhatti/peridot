@@ -761,7 +761,8 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     if let Some(_) = map.get(&i) {
                         ()
                     } else {
-                        map.insert(i, anything!( ,: Univ!(0, shared)));
+                        // an import should never normalize down to this. if it ever does it will be ill-typed
+                        map.insert(i, postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared)));
                     }
                 }
                 let mut map = map.into_iter().collect::<Vec<(usize, core::Term)>>();
