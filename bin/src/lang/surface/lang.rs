@@ -47,7 +47,7 @@ pub enum InnerTerm {
 	Var(Name),
 	ImportTerm(QualifiedName),
 	FunctionTypeIntro(Name, Term, Term),
-	FunctionIntro(BTreeSet<Name>, Term),
+	FunctionIntro(BTreeSet<Name>, Term), // TODO: change this to a set that preserves insertion order
 	FunctionElim(Term, Vec<Term>),
 	TypeTypeIntro(usize),
 	RecordTypeIntro(QualifiedName, HashMap<Name, Term>),
@@ -55,7 +55,7 @@ pub enum InnerTerm {
 	EnumTypeIntro(usize),
 	EnumIntro(usize),
 	Match(HashMap<Pattern, Term>), // elim form of records and enums
-	Let(HashMap<Name, Term>, Term)
+	Let(AssocVec<Name, Term>, Term)
 }
 
 #[derive(Debug, Clone)]

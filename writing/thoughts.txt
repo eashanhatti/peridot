@@ -628,3 +628,72 @@ TODO: replace usages of Anything with Postulate
 TODO: make num_global_decs in surface_to_core redundant by populating the list of global types with postulates in elab_toplevel
 
 I should remove `Anything`
+done
+
+Now that I've got all the current features implemented properly, I want to do some refactoring
+Let's see, I think unification could be reimplemented, my implementation works, but I'll see how it's done elsewhere
+Redoing my organizational structure would be nice too, I feel that surface_to_core could have some of the stuff in it moved to other modules
+Oh right, I'm going to have to implement unification in the surface language anyway
+
+What if I put representation annotations on the arrow instead of the kind?
+Alright, let's say erasure was added as well, and representations are required to be erased
+
+
+What if uniqueness was put on the arrow?
+`{unique x : A} -> B`
+Would this increase ergonomics? What's to gain?
+Composability perhaps. No need to have a datatype for each usage. Or would there still be?
+
+
+([x : _ : Type dynamic] -> _ : Type dynamic) : Type static
+Can we not have this with relative staging?
+([s : Stage] -> ([x : _ : Type s] -> _ : Type s) : Type succ(s)) : Type ?
+Hm, actually how would we do stage polymorphism in the first one?
+Seems the system will need to be ironed out
+
+
+Should should types have their kinds be indexed by the type's representation, or should the type *be* the representation?
+
+Aha, instead of requiring that all `Rep`s be inlined, have the *arrow* require that the rep of its in and out types be inlined
+This way we can have values where the representation is not known at run time as well as meeting the restriction that functions need to know the representation of their argument statically
+Hm, does that extend to the representation of a function's result? Record fields? I hadn't thought about that before. Interesting
+
+`Type stage must_inline rep`
+
+Pi types must have their argument and result have a statically known representation
+```
+ctx |- r_A : Rep : Type static true reprep
+ctx |- r_B : Rep : Type static true reprep
+ctx |- A : Type _ _ r_A
+ctx, x : A |- B : Type _ _ r_B
+------------------------------------------
+[ x : A ] -> B : Type _ _ fnrep
+```
+
+Reps do not have the must_inline and stage restrictions I initially thoguht they would need
+```
+---------------------
+Rep : Type _ _ reprep
+```
+
+
+Wow, the typechecker is *incredibly* slow right now
+```
+module {
+    a : Fin 1;
+    a = fin 0;
+    b : Fin 1;
+    b = fin 0;
+    c : Fin 1;
+    c = fin 0;
+    d : Fin 1;
+    d = fin 0;
+    e : Fin 1;
+    e = fin 0;
+    g : [ x : Fin 1 ] -> Fin 1;
+    g = fn x => x;
+}
+```
+This takes around 45 seconds to typecheck
+This will have to take priority over adding records, hm
+Well I suppose I've been wanting to look into this for a while
