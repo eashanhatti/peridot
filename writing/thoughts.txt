@@ -697,3 +697,14 @@ module {
 This takes around 45 seconds to typecheck
 This will have to take priority over adding records, hm
 Well I suppose I've been wanting to look into this for a while
+
+
+Performance problems are not due to:
+* Calls to `check_usage`
+* Call to `get_free_vars`
+
+Perhaps it's just due to a huge amount of recursive calls to `check`
+Yep, that's it. The problem seems to be with exponential term blowup
+
+Seems I need inference for core terms
+Nope, I actually need to increase sharing

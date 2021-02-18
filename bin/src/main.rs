@@ -74,10 +74,13 @@ fn run() {
                             Ok(r#type) => r#type,
                             Err(errs) => { println!("CORE TYPE ERROR\n{:#?}", errs); return; }
                         };
+                    println!("CORE TYPECHECK");
+                    let now = std::time::Instant::now();
                     match core::typing::check(&core_module, core_module_type, Context::new()) {
                         Ok(()) => println!("NO ERRORS"),
                         Err(errs) => println!("CORE ERROR\n{:#?}", errs)
                     }
+                    println!("END CORE TYPECHECK, TIME {:?}", now.elapsed());
                 } else {
                     println!("{:#?}", surface_module);
                 }
