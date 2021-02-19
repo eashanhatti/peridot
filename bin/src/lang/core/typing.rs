@@ -24,7 +24,8 @@ use std::{
 		Display
 	},
 	hash::Hash,
-	iter::FromIterator
+	iter::FromIterator,
+	convert::TryInto
 };
 extern crate rand;
 
@@ -44,6 +45,7 @@ pub enum InnerError {
     ExpectedOfUniqueKind { giv_kind: Term },
     MismatchedUsage { var_index: VarInner, exp_usage: (usize, usize), giv_usage: (usize, usize) }
 }
+use InnerError::*;
 
 #[derive(Debug)]
 pub struct Error<'a> {
@@ -129,11 +131,12 @@ pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 			TypeTypeIntro(level, usage) => singleton(0),
 			Var(index) => if index == target_index { singleton(1) } else { singleton(0) },
 			Rec(ref inner_term) => count_uses(inner_term, inc(target_index)),
+			Let(ref bindings, ref body) => unimplemented!(),
 			FunctionTypeIntro(ref in_type, ref out_type) =>
 				sum(vec![
 					mul(vec![
 						count_uses(in_type, target_index),
-						count_uses(out_type, inc(target_index))
+						count_uses(out_type, Bound(0))
 					]),
 					count_uses(out_type, inc(target_index))
 				]),
@@ -229,6 +232,7 @@ fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Te
 						map
 					},
 				Rec(ref inner_term) => inner(inner_term, with(inc(bounds.clone()), 0)),
+				Let(ref bindings, ref body) => unimplemented!(),
 				FunctionTypeIntro(ref in_type, ref out_type) =>
 					collapse(vec![
 						inner(in_type, bounds.clone()),
@@ -379,6 +383,11 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
         None =>
             match *term.data {
                 TypeTypeIntro(level, _) => Ok(Term::new(Box::new(TypeTypeIntro(level + 1, Usage::Unique)), None)),
+                Var(index) =>
+                	match context.get_dec(index) {
+						Some(var_type) => Ok(var_type),
+						None => Err(vec![Error::new(term, context, NonexistentVar { index })])
+					}
                 _ => panic!("all terms must be explicitly typed, this term is not:\n{:#?}", term)
             }
     }
@@ -429,11 +438,34 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			push_check(
 				&mut errors,
 				check(inner_term, type_ann.clone(), new_context.clone().with_dec(Bound(0), type_ann.clone())));
-			push_check(&mut errors, check_usage(inner_term, type_ann, Bound(0), new_context));
+			// push_check(&mut errors, check_usage(inner_term, type_ann, Bound(0), new_context));
 
 			wrap_checks(errors)
-
 		},
+		Let(ref bindings, ref body) => {
+			let mut errors = Vec::new();
+
+			let mut new_context = context.inc_and_shift(bindings.len().try_into().unwrap());
+			for (i, binding) in bindings.iter().enumerate() {
+				let binding_type = synth_type(binding, new_context.clone())?;
+				match check(binding, binding_type.clone(), new_context.clone()) {
+					Ok(()) => (),
+					Err(errs) => {
+						push_check::<()>(&mut errors, Err(errs));
+						continue;
+					}
+				}
+
+				let normal_binding = normalize(binding.clone(), new_context.clone());
+				new_context = new_context
+					.with_dec(Bound(i), binding_type)
+					.with_def(Bound(i), normal_binding);
+			}
+
+			push_check(&mut errors, check(body, synth_type(body, new_context.clone())?, new_context));
+
+			wrap_checks(errors)
+		}
 		FunctionTypeIntro(ref in_type, ref out_type) => {
 			let mut errors = Vec::new();
 
@@ -448,7 +480,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				&mut errors,
 				check(out_type, out_type_type.clone(), out_type_context));
 
-			push_check(&mut errors, check_usage(out_type, in_type.clone(), Bound(0), context.clone().inc_and_shift(1).clone()));
+			// push_check(&mut errors, check_usage(out_type, in_type.clone(), Bound(0), context.clone().inc_and_shift(1).clone()));
 
 			let mut in_type_level = None;
 			let mut out_type_level = None;
@@ -495,17 +527,17 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				FunctionTypeIntro(in_type, out_type) => {
 					let body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), shift(in_type.clone(), HashSet::new(), 1));
 					push_check(&mut errors, check(body, out_type, body_context));
-					push_check(&mut errors, check_usage(body, in_type, Bound(0), context.clone().inc_and_shift(1)));
+					// push_check(&mut errors, check_usage(body, in_type, Bound(0), context.clone().inc_and_shift(1)));
 
-					let free_vars = get_free_vars(body, HashSet::from_iter(vec![Bound(0)]));
-					if let TypeTypeIntro(level, Shared) = *type_ann.data {
-						for (_, var_type) in free_vars {
-							if let TypeTypeIntro(_, Unique) = *var_type.r#type().data {
-								errors.push(Error::new(term, context, ExpectedOfUniqueKind { giv_kind: type_ann }));
-								break;
-							}
-						}
-					}
+					// let free_vars = get_free_vars(body, HashSet::from_iter(vec![Bound(0)]));
+					// if let TypeTypeIntro(level, Shared) = *type_ann.data {
+					// 	for (_, var_type) in free_vars {
+					// 		if let TypeTypeIntro(_, Unique) = *var_type.r#type().data {
+					// 			errors.push(Error::new(term, context, ExpectedOfUniqueKind { giv_kind: type_ann }));
+					// 			break;
+					// 		}
+					// 	}
+					// }
 				},
 				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: type_ann }))
 			}
@@ -557,8 +589,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 				&mut errors,
 				check(snd_type, snd_type_type.clone(), snd_type_context.clone()));
 
-			push_check(&mut errors, check_usage(fst_type, snd_type.clone(), Bound(1), fst_type_context));
-			push_check(&mut errors, check_usage(snd_type, fst_type.clone(), Bound(0), snd_type_context));
+			// push_check(&mut errors, check_usage(fst_type, snd_type.clone(), Bound(1), fst_type_context));
+			// push_check(&mut errors, check_usage(snd_type, fst_type.clone(), Bound(0), snd_type_context));
 
 			match (*(fst_type_type.clone()).data, *(snd_type_type.clone()).data) {
 				(TypeTypeIntro(fst_level, fst_usage), TypeTypeIntro(snd_level, snd_usage)) =>

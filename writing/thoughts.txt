@@ -708,3 +708,10 @@ Yep, that's it. The problem seems to be with exponential term blowup
 
 Seems I need inference for core terms
 Nope, I actually need to increase sharing
+
+
+I should make a little write-up teaching the differences between linear and uniqueness types
+Teaching substructural type systems
+Ordered type systems look super interesting, seems like a generalized version of Rust's lifetimes, definetily going to use something like them
+
+I need to make some code samples for Clamn too, make it more understandable

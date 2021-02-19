@@ -33,6 +33,14 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
                     Var(index)
                 },
             Rec(inner_term) => Rec(shift(inner_term, bounds.into_iter().map(|i| i + 1).collect(), amount)),
+            Let(bindings, body) => { // TODO: determine if this is correct
+                let len = bindings.len();
+                let mut new_bounds: HashSet<usize> = bounds.into_iter().map(|i| i + len).collect();
+                for i in 0..len {
+                    new_bounds.insert(i);
+                }
+                Let(bindings.into_iter().map(|binding| shift(binding, new_bounds.clone(), amount)).collect(), shift(body, new_bounds, amount))
+            }
             TypeTypeIntro(level, usage) => TypeTypeIntro(level, usage),
             FunctionTypeIntro(in_type, out_type) => {
                 let out_type_bounds = {
@@ -117,6 +125,17 @@ pub fn substitute(term: Term, context: Context) -> Term {
                     None => Var(index)
                 }
             Rec(inner_term) => Rec(substitute(inner_term, context.inc_and_shift(1))),
+            Let(bindings, body) => {
+                let mut new_context = context.inc_and_shift(bindings.len().try_into().unwrap());
+                let mut subst_bindings = Vec::new();
+                for (i, binding) in bindings.into_iter().enumerate() {
+                    let subst_binding = substitute(binding, new_context.clone());
+                    subst_bindings.push(subst_binding.clone());
+                    new_context = new_context.with_def(Bound(i), subst_binding);
+                }
+
+                Let(subst_bindings, substitute(body, new_context))
+            }
             TypeTypeIntro(level, usage) => TypeTypeIntro(level, usage),
             FunctionTypeIntro(in_type, out_type) => {
                 let out_type_context = context.clone().inc_and_shift(1);
@@ -172,7 +191,19 @@ pub fn normalize(term: Term, context: Context) -> Term {
         Rec(inner_term) => {
             let new_context = context.clone().inc_and_shift(1).with_def(Bound(0), Term::new(Box::new(Rec(inner_term.clone())), term.type_ann.clone())).shift(1);
             shift(normalize(inner_term, new_context), HashSet::new(), -1)
-        }
+        },
+        Let(bindings, body) => {
+            let num_bindings = bindings.len().try_into().unwrap();
+            let mut new_context = context.inc_and_shift(num_bindings);
+            let mut normal_bindings = Vec::new();
+            for (i, binding) in bindings.into_iter().enumerate() {
+                let normal_binding = normalize(binding, new_context.clone());
+                normal_bindings.push(normal_binding.clone());
+                new_context = new_context.with_def(Bound(i), normal_binding);
+            }
+
+            shift(normalize(body, new_context), HashSet::new(), -(num_bindings as isize))
+        },
         TypeTypeIntro(level, usage) => term,
         FunctionTypeIntro(in_type, out_type) => {
             let out_type_context = context.clone().inc_and_shift(1);

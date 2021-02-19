@@ -62,6 +62,7 @@ pub enum InnerTerm {
     TypeTypeIntro(usize, Usage),
     Var(VarInner),
     Rec(Term),
+    Let(Vec<Term>, Term),
     FunctionTypeIntro(Term, Term),
     FunctionIntro(Term),
     FunctionElim(Term, Term),
@@ -99,6 +100,13 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
             TypeTypeIntro(level, usage) => format!("Univ {} {:?}", level, usage),
             Var(index) => format!("var {:?}", index),
             Rec(ref inner) => format!("rec\n{}", display_term(inner, indent + 1)),
+            Let(ref bindings, ref body) => {
+                let mut s = String::new();
+                for binding in bindings {
+                    s = format!("{}{:?}\n", s, binding);
+                }
+                format!("{}\n{:?}", s, body)
+            },
             FunctionTypeIntro(ref in_type, ref out_type) =>
                 format!("Pi\n{}\n{}",
                     display_term(in_type, indent + 1),
@@ -267,49 +275,66 @@ fn bool_to_tc(it: bool) -> TermComparison {
 
 static mut count: usize = 0;
 
-// checks if two terms are equal, disregarding type ann
+// checks if two terms are equal
 pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(VarInner, VarInner)>) -> TermComparison {
     use InnerTerm::*;
 
-    match &(&(*type1.data), &(*type2.data)) {
-        (TypeTypeIntro(level1, usage1), TypeTypeIntro(level2, usage2)) =>
-            comb(bool_to_tc(level1 <= level2), bool_to_tc(usage1 == usage2)),
-        (Var(index1), Var(index2)) => bool_to_tc(index1 == index2 || equivs.contains(&(*index1, *index2))),
-        (Rec(ref inner_term1), Rec(ref inner_term2)) =>
-            is_terms_eq(inner_term1, inner_term2, equivs),
-        (FunctionTypeIntro(ref in_type1, ref out_type1), FunctionTypeIntro(ref in_type2, ref out_type2)) =>
-            comb(is_terms_eq(in_type1, in_type2, equivs.clone()), is_terms_eq(out_type1, out_type2, equivs)),
-        (FunctionIntro(ref body1), FunctionIntro(ref body2)) =>
-            is_terms_eq(body1, body2, equivs),
-        (FunctionElim(ref abs1, ref arg1), FunctionElim(ref abs2, ref arg2)) =>
-            comb(is_terms_eq(abs1, abs2, equivs.clone()), is_terms_eq(arg1, arg2, equivs)),
-        (VoidTypeIntro, VoidTypeIntro) => True,
-        (UnitTypeIntro, UnitTypeIntro) => True,
-        (UnitIntro, UnitIntro) => True,
-        (PairTypeIntro(ref fst_type1, ref snd_type1), PairTypeIntro(ref fst_type2, ref snd_type2)) =>
-            comb(is_terms_eq(fst_type1, fst_type2, equivs.clone()), is_terms_eq(snd_type1, snd_type2, equivs)),
-        (PairIntro(ref fst1, ref snd1), PairIntro(ref fst2, ref snd2)) =>
-            comb(is_terms_eq(fst1, fst2, equivs.clone()), is_terms_eq(snd1, snd2, equivs)),
-        (PairElim(ref discrim1, ref body1), PairElim(ref discrim2, ref body2)) =>
-            comb(is_terms_eq(discrim1, discrim2, equivs.clone()), is_terms_eq(body1, body2, equivs)),
-        (DoubTypeIntro, DoubTypeIntro) => True,
-        (DoubIntro(ref label1), DoubIntro(ref label2)) =>
-            bool_to_tc(label1 == label2),
-        (DoubElim(ref discrim1, ref left_branch1, ref right_branch1), DoubElim(ref discrim2, ref left_branch2, ref right_branch2)) =>
-            comb(is_terms_eq(discrim1, discrim2, equivs.clone()), comb(is_terms_eq(left_branch1, left_branch2, equivs.clone()), is_terms_eq(right_branch1, right_branch2, equivs))),
-        (FoldTypeIntro(ref inner_type1), FoldTypeIntro(ref inner_type2)) =>
-            is_terms_eq(inner_type1, inner_type2, equivs),
-        (FoldIntro(ref inner_term1), FoldIntro(ref inner_term2)) =>
-            is_terms_eq(inner_term1, inner_term2, equivs),
-        (FoldElim(ref inner_term1), FoldElim(ref inner_term2)) =>
-            is_terms_eq(inner_term1, inner_term2, equivs),
-        (IndexedTypeIntro(index1, ref inner_type1), IndexedTypeIntro(index2, ref inner_type2)) => 
-            comb(is_terms_eq(inner_type1, inner_type2, equivs), bool_to_tc(index1 == index2)),
-        (IndexedIntro(ref inner_term1), IndexedIntro(ref inner_term2)) => 
-            is_terms_eq(inner_term1, inner_term2, equivs),
-        (IndexedElim(ref inner_term1), IndexedElim(ref inner_term2)) =>
-            is_terms_eq(inner_term1, inner_term2, equivs),
-        (Postulate(sym1), Postulate(sym2)) => bool_to_tc(sym1 == sym2),
-        _ => False(vec![(type1.clone(), type2.clone())])
-    }
+    let type_compare =
+        match (&type1.type_ann, &type2.type_ann) {
+            (Some(type_ann1), Some(type_ann2)) => is_terms_eq(&*type_ann1, &*type_ann2, equivs.clone()),
+            (_, _) => False(vec![(type1.clone(), type2.clone())])
+        };
+
+    let data_compare =
+        match &(&(*type1.data), &(*type2.data)) {
+            (TypeTypeIntro(level1, usage1), TypeTypeIntro(level2, usage2)) =>
+                comb(bool_to_tc(level1 <= level2), bool_to_tc(usage1 == usage2)),
+            (Var(index1), Var(index2)) => bool_to_tc(index1 == index2 || equivs.contains(&(*index1, *index2))),
+            (Rec(ref inner_term1), Rec(ref inner_term2)) =>
+                is_terms_eq(inner_term1, inner_term2, equivs),
+            (Let(ref bindings1, ref body1), Let(ref bindings2, ref body2)) =>
+                comb(
+                    bool_to_tc( // TODO: show specifics
+                        bindings1.iter()
+                            .zip(bindings2.iter())
+                            .map(|(binding1, binding2)| is_terms_eq(binding1, binding2, equivs.clone()))
+                            .all(|tc| if let True = tc { true } else { false })),
+                    is_terms_eq(body1, body2, equivs.clone())),
+            (FunctionTypeIntro(ref in_type1, ref out_type1), FunctionTypeIntro(ref in_type2, ref out_type2)) =>
+                comb(is_terms_eq(in_type1, in_type2, equivs.clone()), is_terms_eq(out_type1, out_type2, equivs)),
+            (FunctionIntro(ref body1), FunctionIntro(ref body2)) =>
+                is_terms_eq(body1, body2, equivs),
+            (FunctionElim(ref abs1, ref arg1), FunctionElim(ref abs2, ref arg2)) =>
+                comb(is_terms_eq(abs1, abs2, equivs.clone()), is_terms_eq(arg1, arg2, equivs)),
+            (VoidTypeIntro, VoidTypeIntro) => True,
+            (UnitTypeIntro, UnitTypeIntro) => True,
+            (UnitIntro, UnitIntro) => True,
+            (PairTypeIntro(ref fst_type1, ref snd_type1), PairTypeIntro(ref fst_type2, ref snd_type2)) =>
+                comb(is_terms_eq(fst_type1, fst_type2, equivs.clone()), is_terms_eq(snd_type1, snd_type2, equivs)),
+            (PairIntro(ref fst1, ref snd1), PairIntro(ref fst2, ref snd2)) =>
+                comb(is_terms_eq(fst1, fst2, equivs.clone()), is_terms_eq(snd1, snd2, equivs)),
+            (PairElim(ref discrim1, ref body1), PairElim(ref discrim2, ref body2)) =>
+                comb(is_terms_eq(discrim1, discrim2, equivs.clone()), is_terms_eq(body1, body2, equivs)),
+            (DoubTypeIntro, DoubTypeIntro) => True,
+            (DoubIntro(ref label1), DoubIntro(ref label2)) =>
+                bool_to_tc(label1 == label2),
+            (DoubElim(ref discrim1, ref left_branch1, ref right_branch1), DoubElim(ref discrim2, ref left_branch2, ref right_branch2)) =>
+                comb(is_terms_eq(discrim1, discrim2, equivs.clone()), comb(is_terms_eq(left_branch1, left_branch2, equivs.clone()), is_terms_eq(right_branch1, right_branch2, equivs))),
+            (FoldTypeIntro(ref inner_type1), FoldTypeIntro(ref inner_type2)) =>
+                is_terms_eq(inner_type1, inner_type2, equivs),
+            (FoldIntro(ref inner_term1), FoldIntro(ref inner_term2)) =>
+                is_terms_eq(inner_term1, inner_term2, equivs),
+            (FoldElim(ref inner_term1), FoldElim(ref inner_term2)) =>
+                is_terms_eq(inner_term1, inner_term2, equivs),
+            (IndexedTypeIntro(index1, ref inner_type1), IndexedTypeIntro(index2, ref inner_type2)) => 
+                comb(is_terms_eq(inner_type1, inner_type2, equivs), bool_to_tc(index1 == index2)),
+            (IndexedIntro(ref inner_term1), IndexedIntro(ref inner_term2)) => 
+                is_terms_eq(inner_term1, inner_term2, equivs),
+            (IndexedElim(ref inner_term1), IndexedElim(ref inner_term2)) =>
+                is_terms_eq(inner_term1, inner_term2, equivs),
+            (Postulate(sym1), Postulate(sym2)) => bool_to_tc(sym1 == sym2),
+            _ => False(vec![(type1.clone(), type2.clone())])
+        };
+
+    comb(data_compare, type_compare)
 }
