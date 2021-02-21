@@ -145,7 +145,7 @@ Staging is used to eliminate the overhead of abstraction. Polymorphism is one ex
 val double : comptime (Int -> Int)
 let double = fun x => x + x
 ```
-The arrow itself is `comptime`, but its input and output are not. Calling this function will evaluate the function, but not its argument or body, instead subsituting it into the body.
+The arrow itself is `comptime`, but its input and output are not. Calling this function will evaluate the function, but not its argument or body. The argument will be substituted into the body and the body into the call site.
 ```ml
 double(4)
 // becomes
@@ -175,7 +175,7 @@ Calling `compose`:
 let double = fun x => x + x
 let square = fun x => x * x
 
-compose(add, square)(5)
+compose(double, square)(5)
 ```
 Looks like this at runtime:
 ```ml
