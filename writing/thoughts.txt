@@ -712,6 +712,29 @@ Nope, I actually need to increase sharing
 
 I should make a little write-up teaching the differences between linear and uniqueness types
 Teaching substructural type systems
-Ordered type systems look super interesting, seems like a generalized version of Rust's lifetimes, definetily going to use something like them
+Ordered type systems look super interesting, seems like a generalized version of Rust's lifetimes, definitely going to use something like them
 
-I need to make some code samples for Clamn too, make it more understandable
+I need to make some code samples for Clamn too, to make it more understandable
+
+```
+map : (s1, s2, s3, s4 : Stage) -> (a1, a2 : Availability) -> (A : Type s1 a1) -> (B : Type s2 a2) -> _
+map s1 s2 s3 s4 a1 a2 A B =
+    let
+        ListOfA :
+            match a1 with
+                Exclusive => Type s1 a1
+                Unrestricted => Type s3 a1
+        ListOfA = List A
+        ListOfB :
+            match a1 with
+                Exclusive => Type s2 a2
+                Unrestricted => Type s4 a2
+        ListOfB = List B
+        map_inner : (A -> B) -> ListOfA -> ListOfB
+        map_inner f list =
+            match list with
+                Cons data rest => Cons (f data) (map_inner f rest)
+                Nil => Nil
+    in
+        map_inner
+```
