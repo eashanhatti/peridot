@@ -68,7 +68,7 @@ fn run() {
                             continue;
                         }
                     };
-                    println!("{:?}", core_module);
+                    println!("CORE TERM\n{:?}", core_module);
                     let core_module_type =
                         match core::typing::synth_type(&core_module, Context::new()) {
                             Ok(r#type) => r#type,
@@ -83,43 +83,6 @@ fn run() {
                     println!("END CORE TYPECHECK, TIME {:?}", now.elapsed());
                 } else {
                     println!("{:#?}", surface_module);
-                }
-            },
-            "elte" => {
-                let mut file = File::open(&Path::new(&s[5..])).unwrap();
-                let mut source = String::new();
-                file.read_to_string(&mut source);
-                println!("{:?}", source);
-                let surface_term = text_to_term(&source);
-                s.clear();
-                if let Ok(surface_term_ok) = surface_term {
-                    println!("{:?}", surface_term_ok);
-                    let surface_term_type = match infer_type(&surface_term_ok, State::new(0)) {
-                        Ok(r#type) => r#type,
-                        Err(errs) => {
-                            println!("INFER ERROR\n{:#?}", errs);
-                            continue;
-                        }
-                    };
-                    let core_term = match elab_term(&surface_term_ok, surface_term_type, State::new(0)) {
-                        Ok(term) => term,
-                        Err(errs) => {
-                            println!("SURFACE ERROR\n{:#?}", errs);
-                            continue;
-                        }
-                    };
-                    println!("{:?}", core_term);
-                    let core_term_type =
-                        match core::typing::synth_type(&core_term, Context::new()) {
-                            Ok(r#type) => r#type,
-                            Err(errs) => { println!("CORE TYPE ERROR\n{:#?}", errs); return; }
-                        };
-                    match core::typing::check(&core_term, core_term_type, Context::new()) {
-                        Ok(()) => println!("NO ERRORS"),
-                        Err(errs) => println!("CORE ERROR\n{:#?}", errs)
-                    }
-                } else {
-                    println!("{:#?}", surface_term);
                 }
             },
             _ => println!("'{:?}' not a command", &s[0..4])

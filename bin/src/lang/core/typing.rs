@@ -387,7 +387,16 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
                 	match context.get_dec(index) {
 						Some(var_type) => Ok(var_type),
 						None => Err(vec![Error::new(term, context, NonexistentVar { index })])
-					}
+					},
+				Let(ref bindings, ref body) => { // TODO: check bindings and body
+					let r#type =
+						Term::new(
+							Box::new(Let(
+								bindings.to_vec(),
+								body.r#type())),
+							None); // TODO: this should probably use `synth_type`
+					Ok(normalize(r#type, context))
+				}
                 _ => panic!("all terms must be explicitly typed, this term is not:\n{:#?}", term)
             }
     }

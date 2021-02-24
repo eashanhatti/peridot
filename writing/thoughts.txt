@@ -738,3 +738,81 @@ map s1 s2 s3 s4 a1 a2 A B =
     in
         map_inner
 ```
+
+
+split v0 =>
+    case v1
+        l => a : A
+        r =>
+            split v0 =>
+                case v1
+                    l => b : B
+                    r => c : C
+                :
+                    case v1
+                        l => B : Type
+                        r => C : Type
+            :
+                split v0 =>
+                    case v1
+                        l => B : Type
+                        r => C : Type
+    :
+        case v1
+            l => A
+            r =>
+                split v0 =>
+                    case v1
+                        l => B : Type
+                        r => C : Type
+:
+    split v0 =>
+        case v1
+            l => A
+            r =>
+                split v0 =>
+                    case v1
+                        l => B : Type
+                        r => C : Type
+
+let
+    case1 =
+        fun fun
+            case v1
+                l => B : Type
+                r => C : Type
+    split1 =
+        fun
+            split v0 =>
+                case1 v1 v0
+        : pi Discrim, Type
+    fun1 =
+        fun
+            split v0 =>
+                case v1
+                    l => b : B
+                    r => c : C
+                : case v1 v0
+            : split1 v0
+        : pi Discrim, split1 v0
+
+let
+    0 = split
+    1 = case
+    2 = split
+    3 = case
+    4 = split
+in
+    fun
+        split v0 =>
+            case v1
+                l => a
+                r =>
+                    split v0 =>
+                        case v1
+                            l => b
+                            r => c
+                        : v6
+                    : v5
+            : v6
+        : v5

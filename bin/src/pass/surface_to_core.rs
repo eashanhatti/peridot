@@ -65,6 +65,11 @@ mod syntax {
     }
 
     macro_rules! var {
+        ($index:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::Var($index)),
+                None)
+        };
         ($index:expr,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
                 Box::new(crate::lang::core::lang::InnerTerm::Var($index)),
@@ -209,6 +214,13 @@ mod syntax {
     }
 
     macro_rules! apply {
+        ($abs:expr, $arg:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::FunctionElim(
+                    $abs,
+                    $arg)),
+                None)
+        };
         ($abs:expr, $arg:expr,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
                 Box::new(crate::lang::core::lang::InnerTerm::FunctionElim(
@@ -216,6 +228,7 @@ mod syntax {
                     $arg)),
                 Some(Box::new($ann)))
         };
+
     }
 
     macro_rules! postulate {
@@ -231,6 +244,16 @@ mod syntax {
             crate::lang::core::lang::Term::new(
                 Box::new(crate::lang::core::lang::InnerTerm::IndexedTypeIntro($index, $inner)),
                 Some(Box::new($ann)))  
+        };
+    }
+
+    macro_rules! let_bind {
+        ($bindings:expr, $body:expr) => {
+            crate::lang::core::lang::Term::new(
+                Box::new(crate::lang::core::lang::InnerTerm::Let(
+                    $bindings,
+                    $body)),
+                None)
         };
     }
 }
@@ -1007,78 +1030,20 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                 _ => ()
             }
         }
-        /*
-        for ((ref name, _), ref item) in items.iter() {
-            match item {
-                FlattenedModuleItem::Declaration(r#type) => {
-                    let mut core_type = elab_term(r#type, infer_type(r#type, state.clone().with_globals_map_index(*indices_iter.next().unwrap()))?, state.clone())?;
-                    // println!("SURFACE_TYPE {:?}", r#type);
-                    // println!("CORE_TYPE {:?}", core_type);
-                    core_type.note = Some(Note(format!("item_type {:?}", name.clone())));
-                    level = std::cmp::max(level, core_type.level());
-                    state = state.clone().with_global_dec(name.clone(), core_type);
-                },
-                _ => ()
-            }
-        }
-        let mut core_items: Vec<core::Term> = Vec::new();
-        let mut indices_iter = indices.iter();
-        for ((ref name, _), ref item) in items.iter() {
-            let (core_item_type, item_id) = state.get_global_dec(name).unwrap(); // TODO: error reporting
-            // println!("CORE_TYPE END {:?}", core_item_type);
-            match item {
-                FlattenedModuleItem::TermDef(term) => {
-                    let mut term = elab_term(term, core_item_type.clone(), state.clone().with_globals_map_index(*indices_iter.next().unwrap()))?;
-                    term.type_ann = Some(Box::new(core_item_type));
-                    term.note = Some(Note(format!("item {:?}", name)));
-                    // println!("CORE_TERM {:?}", term);
-                    core_items.push(term);
-                },
-                FlattenedModuleItem::RecordTypeDef(fields) => { // TODO: use index
-                    fn make_type(mut fields: Iter<Name, crate::lang::surface::Term>, core_item_type: core::Term, state: State) -> ElabResult {
-                        use self::core::{
-                            Term,
-                            InnerTerm::*
-                        };
 
-                        if let Some((name, r#type)) = fields.next() {
-                            let core_item_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
-                            let next_state = state.clone().with_dec(name.clone(), core_item_type.clone());
-                            let core_rest_type = make_type(fields, core_item_type.clone(), next_state.clone())?;
-                            Ok(Term::new(
-                                Box::new(PairTypeIntro(
-                                    core_item_type.clone(),
-                                    core_rest_type)),
-                                Some(Box::new(core_item_type))))
-                        } else {
-                            Ok(Term::new(
-                                Box::new(UnitTypeIntro),
-                                Some(Box::new(Univ!(0, shared)))))
-                        }
-                    }
-
-                    core_items.push(core::Term::new(
-                        Box::new(core::InnerTerm::IndexedTypeIntro(
-                            item_id + 1usize,
-                            make_type(fields.iter(), core_item_type.clone(), state.clone())?)),
-                        Some(Box::new(core_item_type))));
-                },
-                _ => ()
-            }
-        }
-*/
         (core_items, level)
     };
-    let (core_map, discrim_type) = {
+    let core_module = {
         use self::core::{
             Term,
             InnerTerm::*
         };
         // println!("CITEMS {:?} {:?}", core_items.len(), core_items);
-        let mut core_map = core_items.pop().unwrap();
+        // let mut core_map = core_items.pop().unwrap();
         // println!("CI {:?}", core_map);
         // println!("CI LEN {:?}", core_items.len());
         // println!("CM {:?}", core_map.r#type());
+        /*
         let mut discrim_type = Unit!("discrim_unit" ,: Univ!(0, shared));
         let mut c = 0;
 
@@ -1132,26 +1097,130 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                         ,: core_map_case_type.clone())
                 ,: core_map_split_type);
         }
+        */
+        let mut core_map = core_items.pop().unwrap();
+        let mut discrim_type = Unit!("discrim_unit" ,: Univ!(0, shared));
+        let mut let_items = Vec::new();
+        let_items.push(
+            fun!(
+                    core_map.r#type()
+                ,:
+                    pi!(
+                        discrim_type.clone(),
+                        Univ!(level, shared)
+                    ,: Univ!(level, shared))));
+        for core_item in core_items.into_iter().rev() {
+            let core_map_case_type =
+                fun!(
+                    fun!(
+                        case!(
+                            var!(
+                                Bound(1),
+                                format!("core_map_type_case").as_str()
+                            ,: Doub!(format!("core_map_type_case").as_str() ,: Univ!(0, shared))),
+                            l => core_item.r#type();
+                            r =>
+                                apply!(
+                                    var!(Bound((let_items.len() - 1) + 2)), // + 2 since the two funs inc context by 2
+                                    var!(Bound(0)));
+                        ,: Univ!(level, shared))
+                    ,:
+                        pi!(
+                            discrim_type.clone(),
+                            Univ!(level, shared)
+                        ,: Univ!(level, shared)))
+                ,:
+                    pi!(
+                        Doub!(format!("core_map_type_case").as_str() ,: Univ!(0, shared)),
+                        pi!(
+                            discrim_type.clone(),
+                            Univ!(level, shared)
+                        ,: Univ!(level, shared))
+                    ,: Univ!(level, shared)));
+            let_items.push(core_map_case_type);
 
-        (core_map, discrim_type)
+            discrim_type =
+                Pair!(
+                    case!(
+                        var!(
+                            Bound(1),
+                            format!("discrim_type").as_str()
+                        ,: Doub!(format!("discrim_type").as_str() ,: Univ!(0, shared))),
+                        l => Unit!("discrim unit l" ,: Univ!(0, shared));
+                        r => discrim_type.clone();
+                    ,: Univ!(0, shared)),
+                    Doub!(format!("discrim_type_case") ,: Univ!(0, shared))
+                ,: Univ!(0, shared));
+
+            let core_map_split_type =
+                fun!(
+                    split!(
+                        var!(
+                            Bound(0),
+                            format!("core_map_type_split").as_str()
+                        ,: discrim_type.clone()),
+                        in
+                            apply!(
+                                apply!(
+                                    var!(Bound((let_items.len() - 1) + 3)), // + 3 since split and fun together inc context by 3
+                                    var!(Bound(1))),
+                                var!(Bound(0)))
+                    ,: Univ!(level, shared))
+                ,:
+                    pi!(
+                        discrim_type.clone(),
+                        Univ!(level, shared)
+                    ,: Univ!(level, shared)));
+            let_items.push(core_map_split_type);
+
+            core_map =
+                split!(
+                    var!(
+                        Bound(0),
+                        format!("core_map").as_str()
+                    ,: discrim_type.clone()),
+                    in
+                        case!(
+                            var!(
+                                Bound(1),
+                                format!("core_map").as_str()
+                            ,: Doub!(format!("core_map").as_str() ,: Univ!(0, shared))),
+                            l => core_item;
+                            r => core_map;
+                        ,: var!(Bound(6)))
+                ,: var!(Bound(5)));
+        }
+
+        let core_map_type = core_map.r#type();
+        let_bind!(
+            let_items,
+            fun!(
+                core_map
+            ,:
+                pi!(
+                    discrim_type,
+                    core_map_type
+                ,: Univ!(level, shared))))
     };
-    let core_map_type = core_map.r#type();
+
+    Ok(core_module)
+    // let core_map_type = core_map.r#type();
     // println!("CM {:?}", core_map_type);
 
-    use self::core::{
-        Term,
-        InnerTerm::*
-    };
+    // use self::core::{
+    //     Term,
+    //     InnerTerm::*
+    // };
 
-    let module_type =
-        pi!(
-            discrim_type,
-            core_map_type
-        ,: Univ!(level, shared));
+    // let module_type =
+    //     pi!(
+    //         discrim_type,
+    //         core_map_type
+    //     ,: Univ!(level, shared));
 
-    Ok(rec!(
-        fun!(
-            core_map
-        ,: module_type.clone())
-    ,: module_type))
+    // Ok(rec!(
+    //     fun!(
+    //         core_map
+    //     ,: module_type.clone())
+    // ,: module_type))
 }
