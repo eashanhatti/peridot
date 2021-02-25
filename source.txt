@@ -1,4 +1,6 @@
 module {
 	a : Fin 1;
 	a = fin 0;
+	b : Fin 1;
+	b = fin 0;
 }

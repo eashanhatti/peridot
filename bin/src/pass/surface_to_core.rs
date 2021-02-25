@@ -195,6 +195,14 @@ mod syntax {
                     $out_type)),
                 Some(Box::new($ann)))
         };
+        ($note:expr, $in_type:expr, $out_type:expr,: $ann:expr) => {
+            crate::lang::core::lang::Term::new_with_note(
+                Note(String::from($note)),
+                Box::new(crate::lang::core::lang::InnerTerm::FunctionTypeIntro(
+                    $in_type,
+                    $out_type)),
+                Some(Box::new($ann)))
+        };
     }
 
     macro_rules! fun {
@@ -972,7 +980,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
 
         let mut core_items = Vec::new();
         for ((name, kind), item) in items.iter() {
-            println!("NAME {:?} KIND {:?}", name, kind);
+            // println!("NAME {:?} KIND {:?}", name, kind);
             match item {
                 FlattenedModuleItem::Declaration(r#type) => {
                     let core_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
@@ -1004,10 +1012,10 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared)));
                     }
                     core_map = fun!(core_map ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared)));
-                    println!("CORE_MAP\n{:?}", core_map);
+                    // println!("CORE_MAP\n{:?}", core_map);
                     // why does Bound(0) work?
                     let normal_core_type = core::eval::normalize(core_type, Context::new().with_def(Bound(0), core_map));
-                    println!("NCT\n{:?}", normal_core_type);
+                    // println!("NCT\n{:?}", normal_core_type);
 
                     state =
                         state.with_global_dec(
@@ -1038,66 +1046,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
             Term,
             InnerTerm::*
         };
-        // println!("CITEMS {:?} {:?}", core_items.len(), core_items);
-        // let mut core_map = core_items.pop().unwrap();
-        // println!("CI {:?}", core_map);
-        // println!("CI LEN {:?}", core_items.len());
-        // println!("CM {:?}", core_map.r#type());
-        /*
-        let mut discrim_type = Unit!("discrim_unit" ,: Univ!(0, shared));
-        let mut c = 0;
-
-        for core_item in core_items.into_iter().rev() {
-            // println!("CI {:?}", core_item);
-            c += 1;
-            discrim_type =
-                Pair!(
-                    case!(
-                        var!(
-                            Bound(1),
-                            format!("discrim_type {}", c).as_str()
-                        ,: Doub!(format!("discrim_type {}", c).as_str() ,: Univ!(0, shared))),
-                        l => Unit!("discrim unit l" ,: Univ!(0, shared));
-                        r => discrim_type.clone();
-                    ,: Univ!(0, shared)),
-                    Doub!(format!("discrim_type_case {}", c) ,: Univ!(0, shared))
-                ,: Univ!(0, shared));
-
-            let core_map_case_type =
-                case!(
-                    var!(
-                        Bound(1),
-                        format!("core_map_type_case {}", c).as_str()
-                    ,: Doub!(format!("core_map_type_case {}", c).as_str() ,: Univ!(0, shared))),
-                    l => core_item.r#type();
-                    r => core_map.r#type();
-                ,: Univ!(level, shared));
-            let core_map_split_type =
-                split!(
-                    var!(
-                        Bound(0),
-                        format!("core_map_type_split {}", c).as_str()
-                    ,: discrim_type.clone()),
-                    in core_map_case_type.clone()
-                ,: Univ!(level, shared));
-            core_map =
-                split!(
-                    var!(
-                        Bound(0),
-                        format!("core_map {}", c).as_str()
-                    ,: discrim_type.clone()),
-                    in
-                        case!(
-                            var!(
-                                Bound(1),
-                                format!("core_map {}", c).as_str()
-                            ,: Doub!(format!("core_map {}", c).as_str() ,: Univ!(0, shared))),
-                            l => core_item;
-                            r => core_map;
-                        ,: core_map_case_type.clone())
-                ,: core_map_split_type);
-        }
-        */
+        let num_items = core_items.len();
         let mut core_map = core_items.pop().unwrap();
         let mut discrim_type = Unit!("discrim_unit" ,: Univ!(0, shared));
         let mut let_items = Vec::new();
@@ -1168,6 +1117,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                     ,: Univ!(level, shared))
                 ,:
                     pi!(
+                        "core_map_split_type_pi",
                         discrim_type.clone(),
                         Univ!(level, shared)
                     ,: Univ!(level, shared)));
@@ -1187,8 +1137,16 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             ,: Doub!(format!("core_map").as_str() ,: Univ!(0, shared))),
                             l => core_item;
                             r => core_map;
-                        ,: var!(Bound(6)))
-                ,: var!(Bound(5)));
+                        ,:
+                            apply!(
+                                apply!(
+                                    var!(Bound(num_items * 2)), // + 3 since split and fun together inc context by 3
+                                    var!(Bound(1))),
+                                var!(Bound(0))))
+                ,:
+                    apply!(
+                        var!(Bound(num_items * 2 - 1)),
+                        var!(Bound(0))));
         }
 
         let core_map_type = core_map.r#type();

@@ -388,7 +388,7 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
 						Some(var_type) => Ok(var_type),
 						None => Err(vec![Error::new(term, context, NonexistentVar { index })])
 					},
-				Let(ref bindings, ref body) => { // TODO: check bindings and body
+				Let(ref bindings, ref body) => { // TODO: check bindings and body?
 					let r#type =
 						Term::new(
 							Box::new(Let(
@@ -396,6 +396,17 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
 								body.r#type())),
 							None); // TODO: this should probably use `synth_type`
 					Ok(normalize(r#type, context))
+				},
+				FunctionElim(ref abs, ref arg) => { // TODO: checking?
+					let abs_type = synth_type(abs, context.clone())?;
+					match &*abs_type.data {
+						FunctionTypeIntro(_, ref out_type) =>
+							Ok(normalize(
+								out_type.clone(),
+								context.clone().inc_and_shift(1)
+									.with_def(Bound(0), normalize(arg.clone(), context)))),
+						_ => Err(vec![Error::new(abs, context, ExpectedOfFunctionType { giv_type: abs_type })])
+					}
 				}
                 _ => panic!("all terms must be explicitly typed, this term is not:\n{:#?}", term)
             }
@@ -491,41 +502,41 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 			// push_check(&mut errors, check_usage(out_type, in_type.clone(), Bound(0), context.clone().inc_and_shift(1).clone()));
 
-			let mut in_type_level = None;
-			let mut out_type_level = None;
-			if let TypeTypeIntro(level, _) = &(*in_type_type.data) {
-				in_type_level = Some(*level);
-			}
-			if let TypeTypeIntro(level, _) = &(*out_type_type.data) {
-				out_type_level = Some(*level);
-			}
+			// let mut in_type_level = None;
+			// let mut out_type_level = None;
+			// if let TypeTypeIntro(level, _) = &(*in_type_type.data) {
+			// 	in_type_level = Some(*level);
+			// }
+			// if let TypeTypeIntro(level, _) = &(*out_type_type.data) {
+			// 	out_type_level = Some(*level);
+			// }
 
-			match (in_type_level, out_type_level) {
-				(Some(in_type_level), Some(out_type_level)) => {
-					let giv_max = max(in_type_level, out_type_level);
-					if let TypeTypeIntro(exp_max, fn_usage) = *type_ann.clone().data {
-						if giv_max > exp_max {
-							errors.push(Error::new(
-								term,
-								context,
-								ExpectedOfTypeType {
-									min_level: exp_max,
-									giv_type: Term::new(Box::new(TypeTypeIntro(giv_max, fn_usage)), None)
-								}));
-						}
-					} else {
-						errors.push(Error::new(term, context, ExpectedOfTypeType { min_level: giv_max, giv_type: type_ann }))
-					}
-				},
-				(None, Some(out_type_level)) =>
-					errors.push(Error::new(in_type, context, ExpectedOfTypeType { min_level: out_type_level, giv_type: in_type_type })),
-				(Some(in_type_level), None) =>
-					errors.push(Error::new(out_type, context, ExpectedOfTypeType { min_level: in_type_level, giv_type: out_type_type })),
-				(None, None) => {
-					errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType { min_level: 0, giv_type: in_type_type }));
-					errors.push(Error::new(out_type, context, ExpectedOfTypeType { min_level: 0, giv_type: out_type_type }));
-				}
-			}
+			// match (in_type_level, out_type_level) {
+			// 	(Some(in_type_level), Some(out_type_level)) => {
+			// 		let giv_max = max(in_type_level, out_type_level);
+			// 		if let TypeTypeIntro(exp_max, fn_usage) = *type_ann.clone().data {
+			// 			if giv_max > exp_max {
+			// 				errors.push(Error::new(
+			// 					term,
+			// 					context,
+			// 					ExpectedOfTypeType {
+			// 						min_level: exp_max,
+			// 						giv_type: Term::new(Box::new(TypeTypeIntro(giv_max, fn_usage)), None)
+			// 					}));
+			// 			}
+			// 		} else {
+			// 			errors.push(Error::new(term, context, ExpectedOfTypeType { min_level: giv_max, giv_type: type_ann }))
+			// 		}
+			// 	},
+			// 	(None, Some(out_type_level)) =>
+			// 		errors.push(Error::new(in_type, context, ExpectedOfTypeType { min_level: out_type_level, giv_type: in_type_type })),
+			// 	(Some(in_type_level), None) =>
+			// 		errors.push(Error::new(out_type, context, ExpectedOfTypeType { min_level: in_type_level, giv_type: out_type_type })),
+			// 	(None, None) => {
+			// 		errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType { min_level: 0, giv_type: in_type_type }));
+			// 		errors.push(Error::new(out_type, context, ExpectedOfTypeType { min_level: 0, giv_type: out_type_type }));
+			// 	}
+			// }
 
 			wrap_checks(errors)
 		},

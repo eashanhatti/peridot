@@ -816,3 +816,41 @@ in
                     : v5
             : v6
         : v5
+
+let
+    0 = split
+    1 = case
+    2 = split
+in
+    fun
+        split v0 =>
+            case v1
+                l => a
+                r => b
+            : v4
+        : v3
+
+let
+    0 = split
+    1 = case
+    2 = split
+    3 = case
+    4 = split
+    5 = case
+    6 = split
+in
+    fun
+        split v0 =>
+            case v1
+                l => a
+                r =>
+                    split v0 =>
+                        case v1
+                            l => b
+                            r =>
+                                split v0 =>
+                                    case v1
+                                        l => c
+                                        r => d
+            : v8
+        : v7

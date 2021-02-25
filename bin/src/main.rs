@@ -5,7 +5,10 @@ use lang::{
 	core::{
         self,
         context::*,
-        lang::Note,
+        lang::{
+            Note,
+            mark_lines
+        },
         VarInner::*
     },
 	surface::{
@@ -61,13 +64,19 @@ fn run() {
                     //         continue;
                     //     }
                     // };
-                    let core_module = match elab_toplevel(&surface_module_ok, QualifiedName(Vec::new(), Name(String::from("Main")))) {
-                        Ok(module) => module,
-                        Err(errs) => {
-                            println!("SURFACE ERROR\n{:#?}", errs);
-                            continue;
-                        }
+                    let core_module = {
+                        let mut tmp =
+                            match elab_toplevel(&surface_module_ok, QualifiedName(Vec::new(), Name(String::from("Main")))) {
+                                Ok(module) => module,
+                                Err(errs) => {
+                                    println!("SURFACE ERROR\n{:#?}", errs);
+                                    continue;
+                                }
+                            };
+                        mark_lines(&mut tmp);
+                        tmp
                     };
+
                     println!("CORE TERM\n{:?}", core_module);
                     let core_module_type =
                         match core::typing::synth_type(&core_module, Context::new()) {

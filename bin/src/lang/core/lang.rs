@@ -83,6 +83,7 @@ pub enum InnerTerm {
     IndexedElim(Term),
     Postulate(Symbol)
 }
+use InnerTerm::*;
 
 fn indent_to_string(indent: usize) -> String {
     let mut string = String::new();
@@ -141,7 +142,7 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
     format!("{}{}\n", indent_to_string(indent), string)
 }
 
-#[derive(Clone, PartialEq, Hash, Eq)]
+#[derive(Clone, Copy, PartialEq, Hash, Eq)]
 pub struct Location {
     line: usize
 }
@@ -151,10 +152,8 @@ pub struct Term {
     pub data: Box<InnerTerm>,
     pub type_ann: Option<Box<Term>>,
     pub note: Option<Note>,
-    loc: Location
+    loc: Option<Location>
 }
-
-static mut line: usize = 0;
 
 // impl Clone for Term {
 //     fn clone(&self) -> Term {
@@ -169,7 +168,14 @@ static mut line: usize = 0;
 // }
 
 fn display_term(term: &Term, indent: usize) -> String {
-    let mut string = format!("{}: {}Term \"{}\"\n", format!("{:5}", term.loc.line), indent_to_string(indent), if let Some(Note(ref s)) = term.note { s.clone() } else { String::new() });
+    let mut string =
+        format!("{}: {}Term \"{}\"\n",
+            format!("{:5}", term.loc.map_or("no loc".to_string(), |loc| loc.line.to_string())), indent_to_string(indent),
+            if let Some(Note(ref s)) = term.note {
+                s.clone()
+            } else {
+                String::new()
+            });
     string = format!("{}       {}", string, display_inner_term(&*term.data, indent + 1));
     if let Some(type_ann) = &term.type_ann {
         string = format!("{}    {}", string, display_term(&*type_ann, indent + 1));
@@ -193,22 +199,20 @@ fn max(lop: usize, rop: usize) -> usize {
 
 impl Term {
     pub fn new(data: Box<InnerTerm>, r#type_ann: Option<Box<Term>>) -> Term {
-        unsafe { line += 1; }
         Term {
             data,
             type_ann,
             note: None,
-            loc: Location { line: unsafe { line } }
+            loc: None
         }
     }
 
     pub fn new_with_note(note: Note, data: Box<InnerTerm>, r#type_ann: Option<Box<Term>>) -> Term {
-        unsafe { line += 1; }
         Term {
             data,
             type_ann,
             note: Some(note),
-            loc: Location { line: unsafe { line } }
+            loc: None
         }
     }
 
@@ -337,4 +341,60 @@ pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(VarInner, VarInn
         };
 
     /*comb(*/data_compare/*, type_compare)*/
+}
+
+// for debugging
+pub fn mark_lines(term: &mut Term) {
+    fn mark_inner(term: &mut Term, loc: &mut Location) {
+        term.loc = Some(*loc);
+        loc.line += 1;
+        match *term.data {
+            Rec(ref mut inner) => mark_inner(inner, loc),
+            Let(ref mut bindings, ref mut body) => {
+                for binding in bindings {
+                    mark_inner(binding, loc);
+                }
+                mark_inner(body, loc);
+            },
+            FunctionTypeIntro(ref mut in_type, ref mut out_type) => {
+                mark_inner(in_type, loc);
+                mark_inner(out_type, loc);
+            },
+            FunctionIntro(ref mut body) => mark_inner(body, loc),
+            FunctionElim(ref mut abs, ref mut arg) => {
+                mark_inner(abs, loc);
+                mark_inner(arg, loc);
+            },
+            PairTypeIntro(ref mut fst_type, ref mut snd_type) => {
+                mark_inner(fst_type, loc);
+                mark_inner(snd_type, loc);
+            },
+            PairIntro(ref mut fst, ref mut snd) => {
+                mark_inner(fst, loc);
+                mark_inner(snd, loc);
+            },
+            PairElim(ref mut discrim, ref mut body) => {
+                mark_inner(discrim, loc);
+                mark_inner(body, loc);
+            },
+            DoubElim(ref mut discrim, ref mut branch1, ref mut branch2) => {
+                mark_inner(discrim, loc);
+                mark_inner(branch1, loc);
+                mark_inner(branch2, loc);
+            },
+            FoldTypeIntro(ref mut inner_type) => mark_inner(inner_type, loc),
+            FoldIntro(ref mut inner) => mark_inner(inner, loc),
+            FoldElim(ref mut folded_term) => mark_inner(folded_term, loc),
+            IndexedTypeIntro(_, ref mut inner_type) => mark_inner(inner_type, loc),
+            IndexedIntro(ref mut inner) => mark_inner(inner, loc),
+            IndexedElim(ref mut indexed_term) => mark_inner(indexed_term, loc),
+            _ => ()
+        }
+
+        if let Some(ref mut type_ann) = term.type_ann {
+            mark_inner(type_ann, loc);
+        }
+    }
+
+    mark_inner(term, &mut Location { line: 0 })
 }
