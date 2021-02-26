@@ -468,13 +468,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			let mut new_context = context.inc_and_shift(bindings.len().try_into().unwrap());
 			for (i, binding) in bindings.iter().enumerate() {
 				let binding_type = synth_type(binding, new_context.clone())?;
-				match check(binding, binding_type.clone(), new_context.clone()) {
-					Ok(()) => (),
-					Err(errs) => {
-						push_check::<()>(&mut errors, Err(errs));
-						continue;
-					}
-				}
+				check(binding, binding_type.clone(), new_context.clone())?;
 
 				let normal_binding = normalize(binding.clone(), new_context.clone());
 				new_context = new_context

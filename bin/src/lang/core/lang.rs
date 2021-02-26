@@ -103,8 +103,8 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
             Rec(ref inner) => format!("rec\n{}", display_term(inner, indent + 1)),
             Let(ref bindings, ref body) => {
                 let mut s = String::new();
-                for binding in bindings {
-                    s = format!("{}{:?}\n", s, binding);
+                for (i, binding) in bindings.iter().enumerate() {
+                    s = format!("{}ITEM '{}'{:?}\n", s, i, binding);
                 }
                 format!("{}\n{:?}", s, body)
             },
