@@ -418,8 +418,6 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
 pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResult<'a, ()> {
 	use InnerError::*;
 
-	let context = context.normalize();
-
 	let type_ann = synth_type(term, context.clone())?;
 	if let False(specific) = is_terms_eq(&type_ann, &exp_type, context.clone().equivs()) {
 		// println!("NOT EQ\n{:?}\n{:?}", type_ann, exp_type);

@@ -259,9 +259,10 @@ pub fn normalize(term: Term, context: Context) -> Term {
                     let free_vars = get_free_vars(&body, HashSet::new());
                     if free_vars.contains_key(&Bound(0)) || free_vars.contains_key(&Bound(1)) {
                         fallback
-                    } else {*/
-                        shift(normalize(body, context.inc_and_shift(2)), HashSet::new(), -2)/*
+                    } else {*//*
+                        shift(normalize(body, context.inc_and_shift(2)), HashSet::new(), -2)*//*
                     }*/
+                    fallback
                 }
             }
         }
@@ -310,26 +311,31 @@ pub fn normalize(term: Term, context: Context) -> Term {
                 // }
                 _ => {
                     let normal_branch1 = normalize(branch1.clone(), context.clone());
-                    let normal_branch2 = normalize(branch2.clone(), context.clone());
-                    let fallback =
+                    let normal_branch2 = normalize(branch2.clone(), context.clone());/*
+                    let cmp = is_terms_eq(&normal_branch1, &normal_branch2, context.equivs());
+                    // println!("NB1 {:?}", normal_branch1);
+                    // println!("NB2 {:?}", normal_branch2);
+                    // println!("CMP {:?}", cmp);
+                    if let True = cmp {
+                        normal_branch1
+                    } else {
                         Term::new(
                             Box::new(DoubElim(
-                                normal_discrim.clone(),
+                                normal_discrim,
                                 normal_branch1,
-                                normal_branch2.clone())),
-                            normal_type_ann);
-                    if let True = is_terms_eq(&branch1, &branch2, context.equivs()) {/*
-                        if let Var(index) = *normal_discrim.data {
-                            if get_free_vars(&branch2, HashSet::new()).contains_key(&index) {
-                                fallback
-                            } else {
-                                normal_branch2
-                            }
-                        } else {*/
-                            normal_branch2/*
-                        }*/
+                                normal_branch2)),
+                            normal_type_ann)
+                    }*/
+                    // this is an incredibly horrible hack, but it works for now
+                    if let (UnitTypeIntro, UnitTypeIntro) = (&*normal_branch1.data, &*normal_branch2.data) {
+                        normal_branch1
                     } else {
-                        fallback
+                        Term::new(
+                            Box::new(DoubElim(
+                                normal_discrim,
+                                normal_branch1,
+                                normal_branch2)),
+                            normal_type_ann)
                     }
                 }
             }
