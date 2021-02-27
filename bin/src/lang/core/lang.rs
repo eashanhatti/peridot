@@ -224,7 +224,7 @@ impl Term {
             None =>
                 match *self.data {
                     TypeTypeIntro(level, _) => Term::new(Box::new(TypeTypeIntro(level + 1, Usage::Unique)), None),
-                    _ => panic!("all terms should be explicitly typed")
+                    _ => panic!(format!("all terms should be explicitly typed {:#?}", self))
                 }
         }
     }

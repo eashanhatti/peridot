@@ -5,12 +5,4 @@ module {
 	b = fin 0;
 	c : Fin 1;
 	c = fin 0;
-	d : Fin 1;
-	d = fin 0;
-	e : Fin 1;
-	e = fin 0;
-	f : Fin 1;
-	f = fin 0;
-	g : Fin 1;
-	g = fin 0;
 }

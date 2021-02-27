@@ -185,7 +185,7 @@ pub fn level_of<'a>(r#type: &'a Term, context: Context) -> CheckResult<'a, usize
 
 // `term` should be checked before this is called
 // should make this more robust in the future
-fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Term> {
+pub fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Term> {
 	type Map = HashMap<VarInner, Term>;
 
 	fn inner(term: &Term, bounds: HashSet<VarInner>) -> Map {
@@ -389,13 +389,15 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
 						None => Err(vec![Error::new(term, context, NonexistentVar { index })])
 					},
 				Let(ref bindings, ref body) => { // TODO: check bindings and body?
-					let r#type =
-						Term::new(
-							Box::new(Let(
-								bindings.to_vec(),
-								body.r#type())),
-							None); // TODO: this should probably use `synth_type`
-					Ok(normalize(r#type, context))
+					let num_bindings = bindings.len().try_into().unwrap();
+		            let mut new_context = context.inc_and_shift(num_bindings);
+		            // let mut normal_bindings = Vec::new();
+		            for (i, binding) in bindings.clone().into_iter().enumerate() {
+		                let normal_binding = normalize(binding, new_context.clone());
+		                // normal_bindings.push(normal_binding.clone());
+		                new_context = new_context.with_def(Bound(i), normal_binding);
+		            }
+					Ok(normalize(body.r#type(), new_context))
 				},
 				FunctionElim(ref abs, ref arg) => { // TODO: checking?
 					let abs_type = synth_type(abs, context.clone())?;
@@ -418,7 +420,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 	let context = context.normalize();
 
-	let type_ann = synth_type(term, context.clone())?;
+	let type_ann = /*normalize(*/synth_type(term, context.clone())?/*, context.clone())*/;
+	let exp_type = /*normalize(*/exp_type/*, context.clone())*/;
 	if let False(specific) = is_terms_eq(&type_ann, &exp_type, context.clone().equivs()) {
 		// println!("NOT EQ\n{:?}\n{:?}", type_ann, exp_type);
 		return

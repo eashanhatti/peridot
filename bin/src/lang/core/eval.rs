@@ -7,7 +7,8 @@ use super::{
         VarInner::*,
         InnerTerm::*,
         Doub::*
-    }
+    },
+    typing::get_free_vars
 };
 use std::{
     collections::HashSet,
@@ -265,11 +266,26 @@ pub fn normalize(term: Term, context: Context) -> Term {
                     match label {
                         This => normalize(branch1, context),
                         That => normalize(branch2, context)
+                    },
+                _ => {
+                    let fallback =
+                        Term::new(
+                            Box::new(DoubElim(normal_discrim.clone(), normalize(branch1.clone(), Context::new()), normalize(branch2.clone(), Context::new()))),
+                            normal_type_ann);
+                    if let True = is_terms_eq(&branch1, &branch2, context.equivs()) {/*
+                        if let Var(index) = *normal_discrim.data {
+                            if get_free_vars(&branch2, HashSet::new()).contains_key(&index) {
+                                fallback
+                            } else {
+                                branch2
+                            }
+                        } else {*/
+                            branch2/*
+                        }*/
+                    } else {
+                        fallback
                     }
-                _ =>
-                    Term::new(
-                        Box::new(DoubElim(normal_discrim, normalize(branch1, Context::new()), normalize(branch2, Context::new()))),
-                        normal_type_ann)
+                }
             }
         },
         FoldTypeIntro(inner_type) => Term::new(Box::new(FoldTypeIntro(substitute(inner_type, context))), normal_type_ann),

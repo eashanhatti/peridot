@@ -1059,6 +1059,16 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                         Univ!(level, shared)
                     ,: Univ!(level, shared))));
         for (i, core_item) in core_items.into_iter().enumerate().rev() {
+            let discrim_case_type =
+                case!(
+                    var!(
+                        Bound(0),
+                        format!("discrim_type").as_str()
+                    ,: Doub!(format!("discrim_type").as_str() ,: Univ!(0, shared))),
+                    l => Unit!("discrim unit l" ,: Univ!(0, shared));
+                    r => discrim_type.clone();
+                ,: Univ!(0, shared));
+
             let core_map_case_type =
                 fun!(
                     fun!(
@@ -1075,14 +1085,14 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                         ,: Univ!(level, shared))
                     ,:
                         pi!(
-                            discrim_type.clone(),
+                            discrim_case_type.clone(),
                             Univ!(level, shared)
                         ,: Univ!(level, shared)))
                 ,:
                     pi!(
                         Doub!(format!("core_map_type_case").as_str() ,: Univ!(0, shared)),
                         pi!(
-                            discrim_type.clone(),
+                            discrim_case_type.clone(),
                             Univ!(level, shared)
                         ,: Univ!(level, shared))
                     ,: Univ!(level, shared)));
@@ -1090,8 +1100,8 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
 
             discrim_type =
                 Pair!(
-                    if i == 0 {
-                        discrim_type.clone()
+                    if i == num_items - 2 {
+                        Unit!( ,: Univ!(0, shared))
                     } else {
                         case!(
                             var!(
