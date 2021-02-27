@@ -77,7 +77,7 @@ fn run() {
                         tmp
                     };
 
-                    println!("CORE TERM\n{:?}", core_module);
+                    // println!("CORE TERM\n{:?}", core_module);
                     let core_module_type =
                         match core::typing::synth_type(&core_module, Context::new()) {
                             Ok(r#type) => r#type,

@@ -8,10 +8,10 @@ use super::{
         InnerTerm::*,
         Doub::*
     },
-    typing::get_free_vars
+    typing::synth_type
 };
 use std::{
-    collections::HashSet,
+    collections::{HashSet, HashMap},
     convert::TryInto
 };
 
@@ -241,17 +241,28 @@ pub fn normalize(term: Term, context: Context) -> Term {
             let normal_discrim = normalize(discrim, context.clone());
             match *normal_discrim.clone().data {
                 PairIntro(fst, snd) =>
-                    normalize(
-                        body,
-                        context.clone().inc_and_shift(2)
-                            .with_def(Bound(0), normalize(fst, context.clone()))
-                            .with_def(Bound(1), normalize(snd, context))),
-                _ =>
-                    Term::new(
-                        Box::new(PairElim(
-                            normal_discrim,
-                            normalize(body, context.inc_and_shift(2)))),
-                        normal_type_ann)
+                    shift(
+                        normalize(
+                            body,
+                            context.clone().inc_and_shift(2)
+                                .with_def(Bound(0), normalize(fst, context.clone()))
+                                .with_def(Bound(1), normalize(snd, context))),
+                        HashSet::new(),
+                        -2),
+                _ => {
+                    let fallback =
+                        Term::new(
+                            Box::new(PairElim(
+                                normal_discrim,
+                                normalize(body.clone(), context.clone().inc_and_shift(2)))),
+                            normal_type_ann);/*
+                    let free_vars = get_free_vars(&body, HashSet::new());
+                    if free_vars.contains_key(&Bound(0)) || free_vars.contains_key(&Bound(1)) {
+                        fallback
+                    } else {*/
+                        shift(normalize(body, context.inc_and_shift(2)), HashSet::new(), -2)/*
+                    }*/
+                }
             }
         }
         VoidTypeIntro => term,
@@ -267,20 +278,55 @@ pub fn normalize(term: Term, context: Context) -> Term {
                         This => normalize(branch1, context),
                         That => normalize(branch2, context)
                     },
+                // Var(index) => {
+                //     let branch1_context =
+                //         context.clone()
+                //             .with_def(
+                //                 index,
+                //                 Term::new(
+                //                     Box::new(DoubIntro(This)),
+                //                     Some(synth_type(discrim, context.clone()).unwrap())));
+                //     let branch2_context =
+                //         context.clone()
+                //             .with_def(
+                //                 index,
+                //                 Term::new(
+                //                     Box::new(DoubIntro(That)),
+                //                     synth_type(discrim, context.clone())?));
+                //     let normal_branch1 =
+                //         normalize(
+                //             branch1,
+                //             branch1_context);
+                //     let normal_branch2 =
+                //         normalize(
+                //             branch2,
+                //             branch2_context);
+                //     Term::new(
+                //             Box::new(DoubElim(
+                //                 normal_discrim.clone(),
+                //                 normal_branch1,
+                //                 normal_branch2)),
+                //             normal_type_ann)
+                // }
                 _ => {
+                    let normal_branch1 = normalize(branch1.clone(), context.clone());
+                    let normal_branch2 = normalize(branch2.clone(), context.clone());
                     let fallback =
                         Term::new(
-                            Box::new(DoubElim(normal_discrim.clone(), normalize(branch1.clone(), Context::new()), normalize(branch2.clone(), Context::new()))),
+                            Box::new(DoubElim(
+                                normal_discrim.clone(),
+                                normal_branch1,
+                                normal_branch2.clone())),
                             normal_type_ann);
                     if let True = is_terms_eq(&branch1, &branch2, context.equivs()) {/*
                         if let Var(index) = *normal_discrim.data {
                             if get_free_vars(&branch2, HashSet::new()).contains_key(&index) {
                                 fallback
                             } else {
-                                branch2
+                                normal_branch2
                             }
                         } else {*/
-                            branch2/*
+                            normal_branch2/*
                         }*/
                     } else {
                         fallback
