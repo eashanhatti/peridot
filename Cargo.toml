@@ -1,5 +1,5 @@
 [workspace]
 members = [
-	"lib",
+	"assoc_collections",
 	"bin"
 ]

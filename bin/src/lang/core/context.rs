@@ -172,19 +172,6 @@ impl Context {
             self.1)
     }
 
-    // TODO: renaming and possibly merging this with `update`
-    pub fn normalize(self) -> Context {
-        let now = std::time::Instant::now();
-        let new_context = Context(self.clone().0.into_iter().map(|(k, v)|
-            (k,
-                ContextEntry {
-                    dec: match v.dec { Some(dec) => Some(normalize(dec, self.clone())), None => None },
-                    def: match v.def { Some(def) => Some(normalize(def, self.clone())), None => None }
-                })).collect(), self.1);
-        println!("NORMALIZE TIME {:?}", now.elapsed());
-        new_context
-    }
-
     pub fn inc_and_shift(self, amount: isize) -> Self {
         self.inc(amount).shift(amount as isize)
     }
