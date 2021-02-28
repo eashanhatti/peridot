@@ -22,7 +22,7 @@ prec0 = _{ fun | fun_type | type_type | var | fin | fin_type | import
     fun = { "fn" ~ s+ ~ param_list ~ s*  ~ "=>" ~ s* ~ prec1 }
         param_list = { name ~ ( s* ~ "," ~ s ~ name )* }
     fun_type = { "[" ~ s* ~ name ~ s* ~ ":" ~ s* ~ prec1 ~ s* ~ "]" ~ ws* ~ "->" ~ ws* ~ prec1 }
-    type_type = { "Type" ~ s+ ~ num }
+    type_type = { "Type" }
     var = { name }
     fin = { "fin" ~ s+ ~ num }
     fin_type = { "Fin" ~ s+ ~ num }

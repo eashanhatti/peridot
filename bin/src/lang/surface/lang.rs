@@ -49,7 +49,7 @@ pub enum InnerTerm {
 	FunctionTypeIntro(Name, Term, Term),
 	FunctionIntro(BTreeSet<Name>, Term), // TODO: change this to a set that preserves insertion order
 	FunctionElim(Term, Vec<Term>),
-	TypeTypeIntro(usize),
+	TypeTypeIntro,
 	RecordTypeIntro(QualifiedName, HashMap<Name, Term>),
 	RecordIntro(HashMap<Name, Term>),
 	EnumTypeIntro(usize),

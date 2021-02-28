@@ -86,11 +86,11 @@ let point = Point { x = 3, y = 6 }
 let point_x = point.x // dot access
 ```
 
-#### Levity polymorphism
+#### Layout polymorphism
 
-Here we have `Either`, a tagged union. The data is stored flat and unboxed. Now the `(r)` in `Type(r)` seen earlier comes in. With levity polymorphism, types carry some extra information: their in-memory representation. That information is carried as a parameter on the type of types, `Type`. For instance, `Int : Type(64_bits)` would be well typed, `String : Type(32_bits)` would be ill typed (assume `String`s are bigger than 32 bits). In the previous examples, `r` was an implicit parameter.
+Here we have `Either`, a tagged union. The data is stored flat and unboxed. Now the `(r)` in `Type(r)` seen earlier comes in. With layout polymorphism, types carry some extra information: their in-memory representation. That information is carried as a parameter on the type of types, `Type`. For instance, `Int : Type(64_bits)` would be well typed, `String : Type(32_bits)` would be ill typed (assume `String`s are bigger than 32 bits). In the previous examples, `r` was an implicit parameter.
 
-`Either` is parameterized by `data_rep`, `A`, and `B`. `A` and `B` are marked to be of representation `data_rep` by passing `data_rep` to their types, `Type(data_rep)`. We want `data_rep` to always be known at compile time, so we use the square brackets around the parameter. Because the representation of `A` and `B` is known at compile time, the data can be stored flat and unboxed in the `data` field. Levity polymorphism gives us control over data representation and avoid unnecessary boxing. Note that this *also* depends on staging, which allows us to enforce that `data_rep` is compile time known.
+`Either` is parameterized by `data_rep`, `A`, and `B`. `A` and `B` are marked to be of representation `data_rep` by passing `data_rep` to their types, `Type(data_rep)`. We want `data_rep` to always be known at compile time, so we use the square brackets around the parameter. Because the representation of `A` and `B` is known at compile time, the data can be stored flat and unboxed in the `data` field. Layout polymorphism gives us control over data representation, allowing us to avoid unnecessary boxing. Note that this *also* depends on staging, which allows us to enforce that `data_rep` is compile time known.
 
 `tag` is an `enum`, which are like C enums. They're anonymous types.
 ```ml
@@ -103,7 +103,6 @@ struct Either : [data_rep: Rep] -> (A : Type(data_rep)) -> (B : Type(data_rep)) 
         end
 end
 ```
-An aside: The *levity* in levity polymorphism comes from what it was originally meant to be used for: abstracting over lifted and unlifted types in Haskell. It has since then been generalized to abstract over representations in general, so the name is slightly misleading now.
 
 We also need functions on `Rep`s, tagged unions pad the data field to be able to fit a value of a `A` *or* `B`. We can do that with `largest`, which takes two `Rep`s and returns the larger one. Here, `String`s take up more space than `Int`s, so `largest(int_rep, string_rep)` will return `string_rep`. A type does not have to exactly fit its representation, its representation is allowed to be larger than what is actually needed to store the value, which is why this works.
 ```ml
@@ -186,4 +185,4 @@ let square = fun x => x * x
 ```
 Although this example is small, this idea scales. Using staging, the overhead of higher order functions can be removed.
 
-**TODO**: Show partially evaluating a DSL. Explain how staging shows why polymorphic recursion cannot be monomorphized. Explain how levity polymorphism and staging work together
+**TODO**: Show partially evaluating a DSL. Explain how staging shows why polymorphic recursion cannot be monomorphized. Explain how layout polymorphism and staging work together

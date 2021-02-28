@@ -59,7 +59,7 @@ pub enum VarInner {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum InnerTerm {
-    TypeTypeIntro(usize, Usage),
+    TypeTypeIntro(Usage),
     Var(VarInner),
     Rec(Term),
     Let(Vec<Term>, Term),
@@ -98,7 +98,7 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
 
     let string =
         match term {
-            TypeTypeIntro(level, usage) => format!("Univ {} {:?}", level, usage),
+            TypeTypeIntro(usage) => format!("Univ {:?}", usage),
             Var(index) => format!("var {:?}", index),
             Rec(ref inner) => format!("rec\n{}", display_term(inner, indent + 1)),
             Let(ref bindings, ref body) => {
@@ -223,7 +223,7 @@ impl Term {
             Some(type_ann) => *type_ann.clone(),
             None =>
                 match *self.data {
-                    TypeTypeIntro(level, _) => Term::new(Box::new(TypeTypeIntro(level + 1, Usage::Unique)), None),
+                    TypeTypeIntro( _) => Term::new(Box::new(TypeTypeIntro(Usage::Unique)), None),
                     _ => panic!(format!("all terms should be explicitly typed {:#?}", self))
                 }
         }
@@ -231,16 +231,8 @@ impl Term {
 
     pub fn usage(&self) -> Usage { // called on types
         match *self.r#type().data {
-            InnerTerm::TypeTypeIntro(_, usage) => usage,
+            InnerTerm::TypeTypeIntro(usage) => usage,
             _ => Usage::Unique // so uniqueness types work with polymorphic kinds
-        }
-    }
-
-    pub fn level(&self) -> usize {
-        let r#type = self.r#type();
-        match *normalize(r#type, Context::new()).data {
-            InnerTerm::TypeTypeIntro(level, _) => level,
-            _ => panic!("level can only be extracted from types\n{:?}", self)
         }
     }
 }
@@ -291,8 +283,8 @@ pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(VarInner, VarInn
     */
     let data_compare =
         match &(&(*type1.data), &(*type2.data)) {
-            (TypeTypeIntro(level1, usage1), TypeTypeIntro(level2, usage2)) =>
-                comb(bool_to_tc(level1 <= level2), bool_to_tc(usage1 == usage2)),
+            (TypeTypeIntro(usage1), TypeTypeIntro(usage2)) =>
+                bool_to_tc(usage1 == usage2),
             (Var(index1), Var(index2)) => bool_to_tc(index1 == index2 || equivs.contains(&(*index1, *index2))),
             (Rec(ref inner_term1), Rec(ref inner_term2)) =>
                 is_terms_eq(inner_term1, inner_term2, equivs),

@@ -46,7 +46,7 @@ struct LangParser;
 							parse_term(pair_iter.next().unwrap()),
 							parse_term(pair_iter.next().unwrap())),
 					Rule::fun_elim => FunctionElim(parse_term(pair_iter.next().unwrap()), pair_iter.map(|pair| parse_term(pair)).collect()),
-					Rule::type_type => TypeTypeIntro(pair_iter.next().unwrap().as_str().parse::<usize>().unwrap()),
+					Rule::type_type => TypeTypeIntro,
 					Rule::var => Var(Name(pair_iter.next().unwrap().as_str().to_string())),
 					Rule::fin => EnumIntro(pair_iter.next().unwrap().as_str().parse::<usize>().unwrap()),
 					Rule::fin_type => EnumTypeIntro(pair_iter.next().unwrap().as_str().parse::<usize>().unwrap()),

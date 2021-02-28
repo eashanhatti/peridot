@@ -42,7 +42,7 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
                 }
                 Let(bindings.into_iter().map(|binding| shift(binding, new_bounds.clone(), amount)).collect(), shift(body, new_bounds, amount))
             }
-            TypeTypeIntro(level, usage) => TypeTypeIntro(level, usage),
+            TypeTypeIntro(usage) => TypeTypeIntro(usage),
             FunctionTypeIntro(in_type, out_type) => {
                 let out_type_bounds = {
                     let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 1).collect();
@@ -137,7 +137,7 @@ pub fn substitute(term: Term, context: Context) -> Term {
 
                 Let(subst_bindings, substitute(body, new_context))
             }
-            TypeTypeIntro(level, usage) => TypeTypeIntro(level, usage),
+            TypeTypeIntro(usage) => TypeTypeIntro(usage),
             FunctionTypeIntro(in_type, out_type) => {
                 let out_type_context = context.clone().inc_and_shift(1);
                 FunctionTypeIntro(
@@ -205,7 +205,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
 
             shift(normalize(body, new_context), HashSet::new(), -(num_bindings as isize))
         },
-        TypeTypeIntro(level, usage) => term,
+        TypeTypeIntro(_) => term,
         FunctionTypeIntro(in_type, out_type) => {
             let out_type_context = context.clone().inc_and_shift(1);
             Term::new(

@@ -35,7 +35,7 @@ extern crate rand;
 pub enum InnerError {
     MismatchedTypes { exp_type: Term, giv_type: Term, specific: Vec<(Term, Term)> },
     NonexistentVar { index: VarInner },
-    ExpectedOfTypeType { min_level: usize, giv_type: Term },
+    ExpectedOfTypeType { giv_type: Term },
     ExpectedOfFunctionType { giv_type: Term },
     ExpectedOfPairType { giv_type: Term },
     ExpectedOfDoubType { giv_type: Term },
@@ -128,7 +128,7 @@ pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 
 	sum(vec![
 		match *term.data {
-			TypeTypeIntro(level, usage) => singleton(0),
+			TypeTypeIntro(_) => singleton(0),
 			Var(index) => if index == target_index { singleton(1) } else { singleton(0) },
 			Rec(ref inner_term) => count_uses(inner_term, inc(target_index)),
 			Let(ref bindings, ref body) => unimplemented!(),
@@ -173,16 +173,6 @@ pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 		}])
 }
 
-pub fn level_of<'a>(r#type: &'a Term, context: Context) -> CheckResult<'a, usize> {
-	use InnerError::*;
-
-	let r#type_type = synth_type(r#type, context.clone())?;
-	match *r#type_type.data {
-		TypeTypeIntro(level, _) => Ok(level),
-		_ => Err(vec![Error::new(r#type, context, ExpectedOfTypeType { min_level: 1, giv_type: r#type_type })])
-	}
-}
-
 // `term` should be checked before this is called
 // should make this more robust in the future
 pub fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Term> {
@@ -222,7 +212,7 @@ pub fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner
 
 		collapse(vec![
 			match *term.data {
-				TypeTypeIntro(_, _) => HashMap::new(),
+				TypeTypeIntro(_) => HashMap::new(),
 				Var(index) =>
 					if bounds.contains(&index) {
 						HashMap::new()
@@ -382,7 +372,7 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
         },
         None =>
             match *term.data {
-                TypeTypeIntro(level, _) => Ok(Term::new(Box::new(TypeTypeIntro(level + 1, Usage::Unique)), None)),
+                TypeTypeIntro(_) => Ok(Term::new(Box::new(TypeTypeIntro(Usage::Unique)), None)),
                 Var(index) =>
                 	match context.get_dec(index) {
 						Some(var_type) => Ok(var_type),
@@ -429,15 +419,10 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 	}
 
 	match *term.data {
-		TypeTypeIntro(level, usage) =>
+		TypeTypeIntro(usage) =>
 			match *(type_ann.clone()).data {
-				TypeTypeIntro(type_ann_level, type_ann_usage) =>
-					if type_ann_level > level {
-						Ok(())
-					} else {
-						Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: level + 1, giv_type: type_ann })])
-					}
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: level + 1, giv_type: type_ann })])
+				TypeTypeIntro(type_ann_usage) => Ok(()),
+				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann })])
 			},
 		Var(index) => 
 			match context.get_dec(index) {
@@ -493,44 +478,6 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			push_check(
 				&mut errors,
 				check(out_type, out_type_type.clone(), out_type_context));
-
-			// push_check(&mut errors, check_usage(out_type, in_type.clone(), Bound(0), context.clone().inc_and_shift(1).clone()));
-
-			// let mut in_type_level = None;
-			// let mut out_type_level = None;
-			// if let TypeTypeIntro(level, _) = &(*in_type_type.data) {
-			// 	in_type_level = Some(*level);
-			// }
-			// if let TypeTypeIntro(level, _) = &(*out_type_type.data) {
-			// 	out_type_level = Some(*level);
-			// }
-
-			// match (in_type_level, out_type_level) {
-			// 	(Some(in_type_level), Some(out_type_level)) => {
-			// 		let giv_max = max(in_type_level, out_type_level);
-			// 		if let TypeTypeIntro(exp_max, fn_usage) = *type_ann.clone().data {
-			// 			if giv_max > exp_max {
-			// 				errors.push(Error::new(
-			// 					term,
-			// 					context,
-			// 					ExpectedOfTypeType {
-			// 						min_level: exp_max,
-			// 						giv_type: Term::new(Box::new(TypeTypeIntro(giv_max, fn_usage)), None)
-			// 					}));
-			// 			}
-			// 		} else {
-			// 			errors.push(Error::new(term, context, ExpectedOfTypeType { min_level: giv_max, giv_type: type_ann }))
-			// 		}
-			// 	},
-			// 	(None, Some(out_type_level)) =>
-			// 		errors.push(Error::new(in_type, context, ExpectedOfTypeType { min_level: out_type_level, giv_type: in_type_type })),
-			// 	(Some(in_type_level), None) =>
-			// 		errors.push(Error::new(out_type, context, ExpectedOfTypeType { min_level: in_type_level, giv_type: out_type_type })),
-			// 	(None, None) => {
-			// 		errors.push(Error::new(in_type, context.clone(), ExpectedOfTypeType { min_level: 0, giv_type: in_type_type }));
-			// 		errors.push(Error::new(out_type, context, ExpectedOfTypeType { min_level: 0, giv_type: out_type_type }));
-			// 	}
-			// }
 
 			wrap_checks(errors)
 		},
@@ -606,30 +553,6 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			// push_check(&mut errors, check_usage(fst_type, snd_type.clone(), Bound(1), fst_type_context));
 			// push_check(&mut errors, check_usage(snd_type, fst_type.clone(), Bound(0), snd_type_context));
 
-			match (*(fst_type_type.clone()).data, *(snd_type_type.clone()).data) {
-				(TypeTypeIntro(fst_level, fst_usage), TypeTypeIntro(snd_level, snd_usage)) =>
-					if let TypeTypeIntro(max_level, pair_usage) = *type_ann.clone().data {
-						if max(fst_level, snd_level) > max_level {
-							errors.push(Error::new(
-								term,
-								context,
-								MismatchedTypes {
-									exp_type: Term::new(Box::new(TypeTypeIntro(max_level, pair_usage)), None),
-									giv_type: Term::new(Box::new(TypeTypeIntro(max(fst_level, snd_level), pair_usage)), None),
-									specific: Vec::new()
-								}));
-						}
-					} else {
-						errors.push(Error::new(term, context, ExpectedOfTypeType { min_level: max(fst_level, snd_level), giv_type: type_ann }))
-					},
-				(_, TypeTypeIntro(level, _)) => errors.push(Error::new(fst_type, context, ExpectedOfTypeType { min_level: level, giv_type: fst_type_type })),
-				(TypeTypeIntro(level, _), _) => errors.push(Error::new(snd_type, context, ExpectedOfTypeType { min_level: level, giv_type: snd_type_type })),
-				(_, _) =>  {
-					errors.push(Error::new(fst_type, context.clone(), ExpectedOfTypeType { min_level: 0, giv_type: fst_type_type }));
-					errors.push(Error::new(snd_type, context, ExpectedOfTypeType { min_level: 0, giv_type: snd_type_type }));
-				}
-			}
-
 			wrap_checks(errors)
 		},
 		PairIntro(ref fst, ref snd) => {
@@ -699,13 +622,13 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		}
 		VoidTypeIntro =>
 			match *(type_ann.clone()).data {
-				TypeTypeIntro(_, _) => Ok(()),
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: 0, giv_type: type_ann.clone() })])
+				TypeTypeIntro(_) => Ok(()),
+				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
 			},
         UnitTypeIntro =>
         	match *(type_ann.clone()).data {
-				TypeTypeIntro(_, _) => Ok(()),
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: 0, giv_type: type_ann.clone() })])
+				TypeTypeIntro(_) => Ok(()),
+				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
 			},
         UnitIntro =>
         	match *(type_ann.clone()).data {
@@ -714,8 +637,8 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 			},
 		DoubTypeIntro =>
 			match *(type_ann.clone()).data {
-				TypeTypeIntro(_, _) => Ok(()),
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: 0, giv_type: type_ann.clone() })])
+				TypeTypeIntro(_) => Ok(()),
+				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
 			},
 		DoubIntro(_) =>
 			match *(type_ann.clone()).data {
@@ -764,13 +687,13 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		},
 		FoldTypeIntro(ref inner_type) =>
 			match *(type_ann.clone()).data {
-				TypeTypeIntro(_, _) => {
+				TypeTypeIntro(_) => {
 					let mut errors = Vec::new();
 					push_check(&mut errors, check(inner_type, synth_type(inner_type, context.clone())?, context.clone()));
 					push_check(&mut errors, check_type(inner_type, context.clone()));
 					wrap_checks(errors)
 				},
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: 0, giv_type: type_ann.clone() })])
+				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
 			},
 		FoldIntro(ref inner_term) =>
 			match *(type_ann.clone()).data {
@@ -786,13 +709,13 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		}
 		IndexedTypeIntro(_, ref inner_type) =>
 			match *(type_ann.clone()).data {
-				TypeTypeIntro(_, _) => {
+				TypeTypeIntro(_) => {
 					let mut errors = Vec::new();
 					push_check(&mut errors, check(inner_type, synth_type(inner_type, context.clone())?, context.clone()));
 					push_check(&mut errors, check_type(inner_type, context.clone()));
 					wrap_checks(errors)
 				},
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { min_level: 0, giv_type: type_ann.clone() })])
+				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
 			},
 		IndexedIntro(ref inner_term) =>
 			match *(type_ann.clone()).data {

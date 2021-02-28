@@ -42,24 +42,24 @@ use assoc_collections::*;
 #[macro_use]
 mod syntax {
     macro_rules! Univ {
-        ($level:expr, shared) => {
+        (shared) => {
             crate::lang::core::lang::Term::new(
-                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Shared)),
+                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro(Usage::Shared)),
                 None)
         };
-        ($level:expr, unique) => {
+        (unique) => {
             crate::lang::core::lang::Term::new(
-                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Unique)),
+                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro(Usage::Unique)),
                 None)
         };
-        ($level:expr, shared,: $ann:expr) => {
+        (shared,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
-                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Shared)),
+                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro(Usage::Shared)),
                 Some(Box::new($ann)))
         };
-        ($level:expr, unique,: $ann:expr) => {
+        (unique,: $ann:expr) => {
             crate::lang::core::lang::Term::new(
-                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro($level, Usage::Unique)),
+                Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro(Usage::Unique)),
                 Some(Box::new($ann)))
         }
     }
@@ -456,7 +456,7 @@ impl DoubleEndedIterator for GlobalsIterator<'_> {
 pub enum Error<'a> {
     MismatchedTypes { term: &'a Term, state: State, exp_type: core::Term, giv_type: core::Term, specific: Vec<(core::Term, core::Term)> },
     NonexistentVar { var: &'a Term, state: State, name: Name },
-    ExpectedOfTypeType { term: &'a Term, state: State, min_level: usize, giv_type: core::Term },
+    ExpectedOfTypeType { term: &'a Term, state: State, giv_type: core::Term },
     ExpectedOfFunctionType { term: &'a Term, state: State, giv_type: core::Term },
     ExpectedOfEnumType { term: &'a Term, state: State, giv_type: core::Term },
     EnumInhabitantTooLarge { term: &'a Term, state: State, inhabitant: usize, num_inhabitants: usize },
@@ -472,7 +472,7 @@ type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
 pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
     match &*term.data {
         Ann(_, ref type_ann) => Ok(elab_term(type_ann, infer_type(type_ann, state.clone())?, state)?),
-        TypeTypeIntro(level) => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(level + 1, core::lang::Usage::Shared)), None)),
+        TypeTypeIntro => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(core::lang::Usage::Shared)), None)),
         Var(ref name) =>
             if let Some((_, r#type)) = state.get_dec(name) {
                 Ok(r#type)
@@ -481,7 +481,7 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
             }
         FunctionTypeIntro(_, _, _) =>
             Ok(core::Term::new(
-                Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
+                Box::new(core::TypeTypeIntro(core::Usage::Shared)),
                 None
             )),
         FunctionElim(ref abs, _) => {
@@ -493,7 +493,7 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
         },
         EnumTypeIntro(_) =>
             Ok(core::Term::new(
-                Box::new(core::TypeTypeIntro(0, core::Usage::Shared)),
+                Box::new(core::TypeTypeIntro(core::Usage::Shared)),
                 None
             )),
         ImportTerm(path) =>
@@ -510,15 +510,15 @@ fn make_enum(inhabitant: usize, num_inhabitants: usize) -> core::Term {
     if inhabitant == 0 {
         if num_inhabitants > 1 {
             pair!(
-                doub!(this ,: Doub!( ,: Univ!(0, shared))),
-                unit!( ,: Unit!( ,: Univ!(0, shared)))
+                doub!(this ,: Doub!( ,: Univ!(shared))),
+                unit!( ,: Unit!( ,: Univ!(shared)))
             ,: make_enum_type(num_inhabitants))
         } else {
-            unit!( ,: Unit!( ,: Univ!(0, shared)))
+            unit!( ,: Unit!( ,: Univ!(shared)))
         }
     } else {
         pair!(
-            doub!(that ,: Doub!( ,: Univ!(0, shared))),
+            doub!(that ,: Doub!( ,: Univ!(shared))),
             make_enum(inhabitant - 1, num_inhabitants - 1)
         ,: r#type)
     }
@@ -526,18 +526,18 @@ fn make_enum(inhabitant: usize, num_inhabitants: usize) -> core::Term {
 
 fn make_enum_type(num_inhabitants: usize) -> core::Term {
     if num_inhabitants == 0 {
-        Void!( ,: Univ!(0, shared))
+        Void!( ,: Univ!(shared))
     } else if num_inhabitants == 1 {
-        Unit!( ,: Univ!(0, shared))
+        Unit!( ,: Univ!(shared))
     } else {
         Pair!(
-            Doub!( ,: Univ!(0, shared)),
+            Doub!( ,: Univ!(shared)),
             case!(
-                var!(Bound(0) ,: Doub!( ,: Univ!(0, shared))),
-                l => Unit!( ,: Univ!(0, shared));
+                var!(Bound(0) ,: Doub!( ,: Univ!(shared))),
+                l => Unit!( ,: Univ!(shared));
                 r => make_enum_type(num_inhabitants - 1);
-            ,: Univ!(0, shared))
-        ,: Univ!(0, shared))
+            ,: Univ!(shared))
+        ,: Univ!(shared))
     }
 }
 
@@ -577,31 +577,6 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             // println!("CORE_OUT_TYPE\n{:?}", core_out_type);
             let core_out_type_type = core_out_type.r#type();
 
-            match (*(core_in_type_type.clone()).data, *(core_out_type_type.clone()).data) {
-                (core::TypeTypeIntro(in_type_level, in_type_usage), core::TypeTypeIntro(out_type_level, out_usage)) =>
-                    if let core::TypeTypeIntro(max_level, pair_usage) = &*exp_type.data {
-                        if max(in_type_level, out_type_level) > *max_level {
-                            errors.push(
-                                MismatchedTypes {
-                                    term,
-                                    state,
-                                    exp_type: core::Term::new(Box::new(core::TypeTypeIntro(*max_level, *pair_usage)), None),
-                                    giv_type: core::Term::new(Box::new(core::TypeTypeIntro(max(in_type_level, out_type_level), *pair_usage)), None),
-                                    specific: Vec::new() });
-                        }
-                    } else {
-                        errors.push(ExpectedOfTypeType { term, state, min_level: max(in_type_level, out_type_level), giv_type: exp_type.clone() })
-                    },
-                (_, core::TypeTypeIntro(level, _)) =>
-                    errors.push(ExpectedOfTypeType { term: in_type, state, min_level: level, giv_type: core_in_type_type }),
-                (core::TypeTypeIntro(level, _), _) =>
-                    errors.push(ExpectedOfTypeType { term: out_type, state, min_level: level, giv_type: core_out_type_type }),
-                (_, _) =>  {
-                    errors.push(ExpectedOfTypeType { term: in_type, state: state.clone(), min_level: 0, giv_type: core_in_type_type });
-                    errors.push(ExpectedOfTypeType { term: out_type, state, min_level: 0, giv_type: core_out_type_type });
-                }
-            }
-
             if errors.len() > 0 {
                 Err(errors)
             } else {
@@ -615,13 +590,11 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
         FunctionIntro(ref param_names, ref body) => {
             let mut in_types = Vec::new();
             let mut curr_type = exp_type.clone();
-            let mut curr_univ_level = 0;
             let mut curr_state = state.clone();
             for param_name in param_names {
                 if let self::core::lang::InnerTerm::FunctionTypeIntro(in_type, out_type) = *curr_type.data {
                     in_types.push(in_type.clone());
                     curr_type = out_type;
-                    curr_univ_level = max(curr_univ_level, in_type.level());
                     curr_state = curr_state.with_dec(param_name.clone(), in_type);
                 } else {
                     let giv_type = {
@@ -631,7 +604,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                                 pi!(
                                     in_type,
                                     type_acc
-                                ,: Univ!(curr_univ_level, shared));
+                                ,: Univ!(shared));
                         }
                         type_acc
                     };
@@ -650,7 +623,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         pi!(
                             in_type,
                             body_acc_type
-                        ,: Univ!(curr_univ_level, shared)));
+                        ,: Univ!(shared)));
             }
             Ok(body_acc)
         },
@@ -687,12 +660,12 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
         },
         EnumTypeIntro(num_inhabitants) => {
             match &*exp_type.data {
-                core::InnerTerm::TypeTypeIntro(level, _) =>
+                core::InnerTerm::TypeTypeIntro(_) =>
                     Ok(Indexed!(
                         0,
                         make_enum_type(*num_inhabitants)
-                    ,: Univ!(*level, shared))),
-                _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type, min_level: 0 }])
+                    ,: Univ!(shared))),
+                _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type }])
             }
         },
         EnumIntro(inhabitant) =>
@@ -746,23 +719,19 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         Box::new(IndexedTypeIntro(
                             0,
                             enum_type)),
-                        Some(Box::new(Univ!(0, shared))))))))
+                        Some(Box::new(Univ!(shared))))))))
             } else {
                 Err(vec![ExpectedOfEnumType { term, state, giv_type: exp_type }])
             },
-        TypeTypeIntro(level) =>
+        TypeTypeIntro =>
             match *exp_type.data {
-                core::TypeTypeIntro(type_level, usage) =>
-                    if *level < type_level {
-                        Ok(core::Term::new(
-                            Box::new(core::InnerTerm::TypeTypeIntro(*level, core::Usage::Shared)),
-                            Some(Box::new(core::Term::new(
-                                Box::new(core::InnerTerm::TypeTypeIntro(type_level, usage)),
-                                None)))))
-                    } else {
-                        Err(vec![ExpectedOfTypeType { term, state, min_level: level + 1, giv_type: exp_type }])
-                    }
-                _ => Err(vec![ExpectedOfTypeType { term, state, min_level: 0, giv_type: exp_type }])
+                core::TypeTypeIntro(usage) =>
+                    Ok(core::Term::new(
+                        Box::new(core::InnerTerm::TypeTypeIntro(core::Usage::Shared)),
+                        Some(Box::new(core::Term::new(
+                            Box::new(core::InnerTerm::TypeTypeIntro(usage)),
+                            None))))),
+                _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type }])
             },
         ImportTerm(path) => {
             // println!("GLOBALS {:#?}", state.clone().globals());
@@ -785,7 +754,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         ()
                     } else {
                         // an import should never normalize down to this. if it ever does it will be ill-typed
-                        map.insert(i, postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared)));
+                        map.insert(i, postulate!(Symbol(rand::random::<usize>()) ,: Univ!(shared)));
                     }
                 }
                 let mut map = map.into_iter().collect::<Vec<(usize, core::Term)>>();
@@ -799,16 +768,16 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     if id == 0 {
                         if num_globals > 1 {
                             pair!(
-                                unit!( ,: Unit!( ,: Univ!(0, shared))),
-                                doub!(this ,: Doub!( ,: Univ!(0, shared)))
+                                unit!( ,: Unit!( ,: Univ!(shared))),
+                                doub!(this ,: Doub!( ,: Univ!(shared)))
                             ,: r#type)
                         } else {
-                            unit!( ,: Unit!( ,: Univ!(0, shared)))
+                            unit!( ,: Unit!( ,: Univ!(shared)))
                         }
                     } else {
                         pair!(
                             make_discrim(id - 1, num_globals - 1),
-                            doub!(that ,: Doub!( ,: Univ!(0, shared)))
+                            doub!(that ,: Doub!( ,: Univ!(shared)))
                         ,: r#type)
                     }
             }
@@ -817,16 +786,16 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 if num_globals == 0 {
                     unreachable!()
                 } else if num_globals == 1 {
-                    Unit!( ,: Univ!(0, shared))
+                    Unit!( ,: Univ!(shared))
                 } else {
                     Pair!(
                         case!(
-                            var!(Bound(1), "import discrim_type" ,: Doub!( ,: Univ!(0, shared))),
-                            l => Unit!( ,: Univ!(0, shared));
+                            var!(Bound(1), "import discrim_type" ,: Doub!( ,: Univ!(shared))),
+                            l => Unit!( ,: Univ!(shared));
                             r => make_discrim_type(num_globals - 1);
-                        ,: Univ!(0, shared)),
-                        Doub!( ,: Univ!(0, shared))
-                    ,: Univ!(0, shared))
+                        ,: Univ!(shared)),
+                        Doub!( ,: Univ!(shared))
+                    ,: Univ!(shared))
                 }
             }
 
@@ -846,10 +815,10 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                             var!(
                                 Bound(1),
                                 format!("case {:?}", c).as_str()
-                            ,: Doub!( ,: Univ!(0, shared))),
+                            ,: Doub!( ,: Univ!(shared))),
                             l => global_type;
                             r => global_map_type;
-                        ,: Univ!(42, shared));
+                        ,: Univ!(shared));
                     let core_map_split_type =
                         split!(
                             var!(
@@ -858,13 +827,13 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                                 format!("split {:?}", c).as_str()
                             ,: make_discrim_type(i + 2)),
                             in core_map_case_type.clone()
-                        ,: Univ!(42, shared));
+                        ,: Univ!(shared));
                     global_map_type = core_map_split_type;
                 }
                 pi!(
                     discrim.r#type(),
                     global_map_type
-                ,: Univ!(42, shared))
+                ,: Univ!(shared))
             };
             // println!("GMI {:?}", state.globals_map_index);
             let mut core_term =
@@ -881,7 +850,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             //             Box::new(core::InnerTerm::FoldIntro(core_term)),
             //             Some(Box::new(core::Term::new(
             //                 Box::new(core::InnerTerm::FoldTypeIntro(core_term_type)),
-            //                 Some(Box::new(Univ!(0, shared)))))));
+            //                 Some(Box::new(Univ!(shared)))))));
             // }
             Ok(core_term)
         }
@@ -940,9 +909,8 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
     let items = flatten_module(module, module_name);
     // elaborated module items and new state with all the new global declarations in it
     // global declarations are needed for their ids, so `ImportTerm` can calculate the needed arg to the globals map to get the definition
-    let (mut core_items, level) = {
+    let mut core_items = {
         let mut state = state;
-        let mut level = 0;
         let indices = {
             let num_decls = {
                 let mut n = 0;
@@ -984,12 +952,11 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
             match item {
                 FlattenedModuleItem::Declaration(r#type) => {
                     let core_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
-                    level = std::cmp::max(level, core_type.level());
                     let mut globals_iter = state.iter_globals();
                     let mut decs_symbols_iter = decs_symbols.iter();
                     let mut core_map = 
                         if state.globals.len() == 0 {
-                            unit!( ,: var!(Free(Symbol(rand::random::<usize>())), "no globals" ,: Univ!(0, shared)))
+                            unit!( ,: var!(Free(Symbol(rand::random::<usize>())), "no globals" ,: Univ!(shared)))
                         } else {
                             let (_, r#type, value, _) = globals_iter.next().unwrap();
                             value
@@ -1000,18 +967,18 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             split!(
                                 var!(
                                     Bound(0)
-                                ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared))),
+                                ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(shared))),
                                 in
                                     case!(
                                         var!(
                                             Bound(1)
-                                        ,: Doub!( ,: Univ!(0, shared))),
+                                        ,: Doub!( ,: Univ!(shared))),
                                         l => value;
                                         r => core_map;
-                                    ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared)))
-                            ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared)));
+                                    ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(shared)))
+                            ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(shared)));
                     }
-                    core_map = fun!(core_map ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(0, shared)));
+                    core_map = fun!(core_map ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(shared)));
                     // println!("CORE_MAP\n{:?}", core_map);
                     // why does Bound(0) work?
                     let normal_core_type = core::eval::normalize(core_type, Context::new().with_def(Bound(0), core_map));
@@ -1039,7 +1006,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
             }
         }
 
-        (core_items, level)
+        core_items
     };
     let core_module = {
         use self::core::{
@@ -1048,7 +1015,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
         };
         let num_items = core_items.len();
         let mut core_map = core_items.pop().unwrap();
-        let mut discrim_type = Unit!("discrim_unit" ,: Univ!(0, shared));
+        let mut discrim_type = Unit!("discrim_unit" ,: Univ!(shared));
         let mut let_items = Vec::new();
         let_items.push(
             fun!(
@@ -1056,18 +1023,18 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                 ,:
                     pi!(
                         discrim_type.clone(),
-                        Univ!(level, shared)
-                    ,: Univ!(level, shared))));
+                        Univ!(shared)
+                    ,: Univ!(shared))));
         for (i, core_item) in core_items.into_iter().enumerate().rev() {
             let discrim_case_type =
                 case!(
                     var!(
                         Bound(0),
                         format!("discrim_type").as_str()
-                    ,: Doub!(format!("discrim_type").as_str() ,: Univ!(0, shared))),
-                    l => Unit!("discrim unit l" ,: Univ!(0, shared));
+                    ,: Doub!(format!("discrim_type").as_str() ,: Univ!(shared))),
+                    l => Unit!("discrim unit l" ,: Univ!(shared));
                     r => discrim_type.clone();
-                ,: Univ!(0, shared));
+                ,: Univ!(shared));
 
             let core_map_case_type =
                 fun!(
@@ -1076,44 +1043,44 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             var!(
                                 Bound(1),
                                 format!("core_map_type_case").as_str()
-                            ,: Doub!(format!("core_map_type_case").as_str() ,: Univ!(0, shared))),
+                            ,: Doub!(format!("core_map_type_case").as_str() ,: Univ!(shared))),
                             l => core_item.r#type();
                             r =>
                                 apply!(
                                     var!(Bound((let_items.len() - 1) + 2)), // + 2 since the two funs inc context by 2
                                     var!(Bound(0)));
-                        ,: Univ!(level, shared))
+                        ,: Univ!(shared))
                     ,:
                         pi!(
                             discrim_case_type.clone(),
-                            Univ!(level, shared)
-                        ,: Univ!(level, shared)))
+                            Univ!(shared)
+                        ,: Univ!(shared)))
                 ,:
                     pi!(
-                        Doub!(format!("core_map_type_case").as_str() ,: Univ!(0, shared)),
+                        Doub!(format!("core_map_type_case").as_str() ,: Univ!(shared)),
                         pi!(
                             discrim_case_type.clone(),
-                            Univ!(level, shared)
-                        ,: Univ!(level, shared))
-                    ,: Univ!(level, shared)));
+                            Univ!(shared)
+                        ,: Univ!(shared))
+                    ,: Univ!(shared)));
             let_items.push(core_map_case_type);
 
             discrim_type =
                 Pair!(
                     if i == num_items - 2 {
-                        Unit!( ,: Univ!(0, shared))
+                        Unit!( ,: Univ!(shared))
                     } else {
                         case!(
                             var!(
                                 Bound(1),
                                 format!("discrim_type").as_str()
-                            ,: Doub!(format!("discrim_type").as_str() ,: Univ!(0, shared))),
-                            l => Unit!("discrim unit l" ,: Univ!(0, shared));
+                            ,: Doub!(format!("discrim_type").as_str() ,: Univ!(shared))),
+                            l => Unit!("discrim unit l" ,: Univ!(shared));
                             r => discrim_type.clone();
-                        ,: Univ!(0, shared))
+                        ,: Univ!(shared))
                     },
-                    Doub!(format!("discrim_type_case") ,: Univ!(0, shared))
-                ,: Univ!(0, shared));
+                    Doub!(format!("discrim_type_case") ,: Univ!(shared))
+                ,: Univ!(shared));
 
             let core_map_split_type =
                 fun!(
@@ -1128,13 +1095,13 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                                     var!(Bound((let_items.len() - 1) + 3)), // + 3 since split and fun together inc context by 3
                                     var!(Bound(1))),
                                 var!(Bound(0)))
-                    ,: Univ!(level, shared))
+                    ,: Univ!(shared))
                 ,:
                     pi!(
                         "core_map_split_type_pi",
                         discrim_type.clone(),
-                        Univ!(level, shared)
-                    ,: Univ!(level, shared)));
+                        Univ!(shared)
+                    ,: Univ!(shared)));
             let_items.push(core_map_split_type);
 
             core_map =
@@ -1148,7 +1115,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             var!(
                                 Bound(1),
                                 format!("core_map").as_str()
-                            ,: Doub!(format!("core_map").as_str() ,: Univ!(0, shared))),
+                            ,: Doub!(format!("core_map").as_str() ,: Univ!(shared))),
                             l => core_item;
                             r => core_map;
                         ,:
@@ -1172,7 +1139,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                 pi!(
                     discrim_type,
                     core_map_type
-                ,: Univ!(level, shared))))
+                ,: Univ!(shared))))
     };
 
     Ok(core_module)
@@ -1188,7 +1155,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
     //     pi!(
     //         discrim_type,
     //         core_map_type
-    //     ,: Univ!(level, shared));
+    //     ,: Univ!(shared));
 
     // Ok(rec!(
     //     fun!(
