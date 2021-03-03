@@ -3,8 +3,4 @@ module {
 	a = fin 0;
 	b : Fin 1;
 	b = fin 0;
-	c : Fin 1;
-	c = fin 0;
-	d : Fin 1;
-	d = fin 0;
 }

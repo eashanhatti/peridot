@@ -8,7 +8,8 @@ use std::{
             Iter
         }
     },
-    cmp::max
+    cmp::max,
+    convert::TryInto
 };
 use crate::{
     lang::{
@@ -1016,15 +1017,24 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
         let num_items = core_items.len();
         let mut core_map = core_items.pop().unwrap();
         let mut discrim_type = Unit!("discrim_unit" ,: Univ!(shared));
-        let mut let_items = Vec::new();
-        let_items.push(
+
+        let mut discrim_case_index = 0;
+        let mut discrim_split_index = 0;
+        let mut discrim_prev_index = 0;
+        let discrim_offset = ((num_items - 1) * 2) + 1;
+
+        let mut let_discrim_items = Vec::new();
+        let_discrim_items.push(discrim_type.clone());
+        let mut let_match_items = Vec::new();
+        let_match_items.push(
             fun!(
                     core_map.r#type()
                 ,:
                     pi!(
-                        discrim_type.clone(),
+                        var!(Bound(discrim_split_index + discrim_offset)),
                         Univ!(shared)
                     ,: Univ!(shared))));
+
         for (i, core_item) in core_items.into_iter().enumerate().rev() {
             let discrim_case_type =
                 case!(
@@ -1033,7 +1043,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                         format!("discrim_type").as_str()
                     ,: Doub!(format!("discrim_type").as_str() ,: Univ!(shared))),
                     l => Unit!("discrim unit l" ,: Univ!(shared));
-                    r => discrim_type.clone();
+                    r => var!(Bound(discrim_case_index + discrim_offset + 1));
                 ,: Univ!(shared));
 
             let core_map_case_type =
@@ -1047,7 +1057,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             l => core_item.r#type();
                             r =>
                                 apply!(
-                                    var!(Bound((let_items.len() - 1) + 2)), // + 2 since the two funs inc context by 2
+                                    var!(Bound((let_match_items.len() - 1) + 2)), // + 2 since the two funs inc context by 2
                                     var!(Bound(0)));
                         ,: Univ!(shared))
                     ,:
@@ -1063,53 +1073,48 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             Univ!(shared)
                         ,: Univ!(shared))
                     ,: Univ!(shared)));
-            let_items.push(core_map_case_type);
+            let_match_items.push(core_map_case_type);
+            discrim_case_index += 1;
 
             discrim_type =
                 Pair!(
-                    if i == num_items - 2 {
-                        Unit!( ,: Univ!(shared))
-                    } else {
-                        case!(
-                            var!(
-                                Bound(1),
-                                format!("discrim_type").as_str()
-                            ,: Doub!(format!("discrim_type").as_str() ,: Univ!(shared))),
-                            l => Unit!("discrim unit l" ,: Univ!(shared));
-                            r => discrim_type.clone();
-                        ,: Univ!(shared))
-                    },
+                    case!(
+                        var!(
+                            Bound(1),
+                            format!("discrim_type").as_str()
+                        ,: Doub!(format!("discrim_type").as_str() ,: Univ!(shared))),
+                        l => Unit!("discrim unit l" ,: Univ!(shared));
+                        r => var!(Bound(discrim_prev_index + 2));
+                    ,: Univ!(shared)),
                     Doub!(format!("discrim_type_case") ,: Univ!(shared))
                 ,: Univ!(shared));
+            discrim_prev_index += 1;
+            let_discrim_items.push(discrim_type.clone());
 
+            discrim_split_index += 1;
             let core_map_split_type =
                 fun!(
                     split!(
                         var!(
-                            Bound(0),
-                            format!("core_map_type_split").as_str()
-                        ,: discrim_type.clone()),
+                            Bound(0)),
                         in
                             apply!(
                                 apply!(
-                                    var!(Bound((let_items.len() - 1) + 3)), // + 3 since split and fun together inc context by 3
+                                    var!(Bound((let_match_items.len() - 1) + 3)), // + 3 since split and fun together inc context by 3
                                     var!(Bound(1))),
                                 var!(Bound(0)))
                     ,: Univ!(shared))
                 ,:
                     pi!(
                         "core_map_split_type_pi",
-                        discrim_type.clone(),
+                        var!(Bound(discrim_split_index + discrim_offset)),
                         Univ!(shared)
                     ,: Univ!(shared)));
-            let_items.push(core_map_split_type);
+            let_match_items.push(core_map_split_type);
 
             core_map =
                 split!(
-                    var!(
-                        Bound(0),
-                        format!("core_map").as_str()
-                    ,: discrim_type.clone()),
+                    var!(Bound(0)),
                     in
                         case!(
                             var!(
@@ -1132,14 +1137,16 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
 
         let core_map_type = core_map.r#type();
         let_bind!(
-            let_items,
-            fun!(
-                core_map
-            ,:
-                pi!(
-                    discrim_type,
-                    core_map_type
-                ,: Univ!(shared))))
+            let_discrim_items,
+            let_bind!(
+                let_match_items,
+                fun!(
+                    core_map
+                ,:
+                    pi!(
+                        discrim_type,
+                        core_map_type
+                    ,: Univ!(shared)))))
     };
 
     Ok(core_module)

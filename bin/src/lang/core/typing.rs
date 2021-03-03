@@ -382,12 +382,15 @@ pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term>
 					let num_bindings = bindings.len().try_into().unwrap();
 		            let mut new_context = context.inc_and_shift(num_bindings);
 		            // let mut normal_bindings = Vec::new();
-		            for (i, binding) in bindings.clone().into_iter().enumerate() {
-		                let normal_binding = normalize(binding, new_context.clone());
+		            for (i, binding) in bindings.iter().enumerate() {
+		                let normal_binding = normalize(binding.clone(), new_context.clone());
+		                let binding_type = synth_type(binding, new_context.clone())?;
 		                // normal_bindings.push(normal_binding.clone());
-		                new_context = new_context.with_def(Bound(i), normal_binding);
+		                new_context = new_context
+		                	.with_dec(Bound(i), binding_type)
+		                	.with_def(Bound(i), normal_binding);
 		            }
-					Ok(normalize(body.r#type(), new_context))
+					Ok(normalize(synth_type(body, new_context.clone())?, new_context))
 				},
 				FunctionElim(ref abs, ref arg) => { // TODO: checking?
 					let abs_type = synth_type(abs, context.clone())?;
