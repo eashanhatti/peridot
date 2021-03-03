@@ -20,7 +20,10 @@ use crate::{
                 ContextEntryKind::*
             },
             is_terms_eq,
-            eval::shift,
+            eval::{
+                shift,
+                normalize
+            },
             lang::{
                 TermComparison::*,
                 Usage,
@@ -1076,7 +1079,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
             let_match_items.push(core_map_case_type);
             discrim_case_index += 1;
 
-            discrim_type =
+            let cons_discrim_type = |r|
                 Pair!(
                     case!(
                         var!(
@@ -1084,12 +1087,13 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             format!("discrim_type").as_str()
                         ,: Doub!(format!("discrim_type").as_str() ,: Univ!(shared))),
                         l => Unit!("discrim unit l" ,: Univ!(shared));
-                        r => var!(Bound(discrim_prev_index + 2));
+                        r => r;
                     ,: Univ!(shared)),
                     Doub!(format!("discrim_type_case") ,: Univ!(shared))
                 ,: Univ!(shared));
+            discrim_type = cons_discrim_type(discrim_type.clone());
+            let_discrim_items.push(cons_discrim_type(var!(Bound(discrim_prev_index + 2))));
             discrim_prev_index += 1;
-            let_discrim_items.push(discrim_type.clone());
 
             discrim_split_index += 1;
             let core_map_split_type =
@@ -1144,7 +1148,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                     core_map
                 ,:
                     pi!(
-                        discrim_type,
+                        normalize(discrim_type, Context::new()),
                         core_map_type
                     ,: Univ!(shared)))))
     };

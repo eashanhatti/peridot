@@ -180,186 +180,197 @@ pub fn substitute(term: Term, context: Context) -> Term {
 }
 
 pub fn normalize(term: Term, context: Context) -> Term {
-    let normal_type_ann =
-        match term.type_ann.clone() {
-            Some(r#type) => Some(Box::new(normalize(*r#type, context.clone()))),
-            None => None
-        };
-    let term_note = term.note.clone();
+    fn normalize(term: Term, context: Context) -> Term {
+        let normal_type_ann =
+            match term.type_ann.clone() {
+                Some(r#type) => Some(Box::new(normalize(*r#type, context.clone()))),
+                None => None
+            };
+        let term_note = term.note.clone();
 
-    let mut new_term = match *term.data {
-        Var(index) => context.get_def(index).unwrap_or(term),
-        Rec(inner_term) => {
-            let new_context = context.clone().inc_and_shift(1).with_def(Bound(0), Term::new(Box::new(Rec(inner_term.clone())), term.type_ann.clone())).shift(1);
-            shift(normalize(inner_term, new_context), HashSet::new(), -1)
-        },
-        Let(bindings, body) => {
-            let num_bindings = bindings.len().try_into().unwrap();
-            let mut new_context = context.inc_and_shift(num_bindings);
-            let mut normal_bindings = Vec::new();
-            for (i, binding) in bindings.into_iter().enumerate() {
-                let normal_binding = normalize(binding, new_context.clone());
-                normal_bindings.push(normal_binding.clone());
-                new_context = new_context.with_def(Bound(i), normal_binding);
-            }
-
-            shift(normalize(body, new_context), HashSet::new(), -(num_bindings as isize))
-        },
-        TypeTypeIntro(_) => term,
-        FunctionTypeIntro(in_type, out_type) => {
-            let out_type_context = context.clone().inc_and_shift(1);
-            Term::new(
-                Box::new(FunctionTypeIntro(
-                    normalize(in_type, context),
-                    normalize(out_type, out_type_context))),
-                normal_type_ann)
-        },
-        FunctionIntro(body) => Term::new(Box::new(FunctionIntro(substitute(body, context.inc_and_shift(1)))), normal_type_ann),
-        FunctionElim(abs, arg) => {
-            let normal_abs = normalize(abs, context.clone());
-            let normal_arg = normalize(arg, context.clone());
-
-            match *normal_abs.data {
-                FunctionIntro(body) => {
-                    let shifted_normal_arg = shift(normal_arg, HashSet::new(), 1);
-                    shift(normalize(body, context.inc_and_shift(1).with_def(Bound(0), shifted_normal_arg)), HashSet::new(), -1)
-                },
-                _ =>
-                    Term::new(
-                        Box::new(FunctionElim(normal_abs, normal_arg)),
-                        normal_type_ann)
-            }
-        },
-        PairTypeIntro(fst_type, snd_type) => {
-            let new_context = context.inc_and_shift(2);
-            Term::new(
-                Box::new(PairTypeIntro(normalize(fst_type, new_context.clone()), normalize(snd_type, new_context))),
-                normal_type_ann)
-        },
-        PairIntro(fst, snd) => Term::new(Box::new(PairIntro(normalize(fst, context.clone()), normalize(snd, context))), normal_type_ann),
-        PairElim(discrim, body) => {
-            let normal_discrim = normalize(discrim, context.clone());
-            match *normal_discrim.clone().data {
-                PairIntro(fst, snd) =>
-                    shift(
-                        normalize(
-                            body,
-                            context.clone().inc_and_shift(2)
-                                .with_def(Bound(0), normalize(fst, context.clone()))
-                                .with_def(Bound(1), normalize(snd, context))),
-                        HashSet::new(),
-                        -2),
-                _ => {
-                    let fallback =
-                        Term::new(
-                            Box::new(PairElim(
-                                normal_discrim,
-                                normalize(body.clone(), context.clone().inc_and_shift(2)))),
-                            normal_type_ann);/*
-                    let free_vars = get_free_vars(&body, HashSet::new());
-                    if free_vars.contains_key(&Bound(0)) || free_vars.contains_key(&Bound(1)) {
-                        fallback
-                    } else {*//*
-                        shift(normalize(body, context.inc_and_shift(2)), HashSet::new(), -2)*//*
-                    }*/
-                    fallback
+        let mut new_term = match *term.data {
+            Var(index) => context.get_def(index).unwrap_or(term),
+            Rec(inner_term) => {
+                let new_context = context.clone().inc_and_shift(1).with_def(Bound(0), Term::new(Box::new(Rec(inner_term.clone())), term.type_ann.clone())).shift(1);
+                shift(normalize(inner_term, new_context), HashSet::new(), -1)
+            },
+            Let(bindings, body) => {
+                let num_bindings = bindings.len().try_into().unwrap();
+                let mut new_context = context.inc_and_shift(num_bindings);
+                let mut normal_bindings = Vec::new();
+                for (i, binding) in bindings.into_iter().enumerate() {
+                    let normal_binding = normalize(binding, new_context.clone());
+                    normal_bindings.push(normal_binding.clone());
+                    new_context = new_context.with_def(Bound(i), normal_binding);
                 }
-            }
-        }
-        VoidTypeIntro => term,
-        UnitTypeIntro => term,
-        UnitIntro => term,
-        DoubTypeIntro => term,
-        DoubIntro(_) => term,
-        DoubElim(discrim, branch1, branch2) => {
-            let normal_discrim = normalize(discrim, context.clone());
-            match *(normal_discrim.clone()).data {
-                DoubIntro(label) =>
-                    match label {
-                        This => normalize(branch1, context),
-                        That => normalize(branch2, context)
+
+                shift(normalize(body, new_context), HashSet::new(), -(num_bindings as isize))
+            },
+            TypeTypeIntro(_) => term,
+            FunctionTypeIntro(in_type, out_type) => {
+                let out_type_context = context.clone().inc_and_shift(1);
+                Term::new(
+                    Box::new(FunctionTypeIntro(
+                        normalize(in_type, context),
+                        normalize(out_type, out_type_context))),
+                    normal_type_ann)
+            },
+            FunctionIntro(body) => Term::new(Box::new(FunctionIntro(substitute(body, context.inc_and_shift(1)))), normal_type_ann),
+            FunctionElim(abs, arg) => {
+                let normal_abs = normalize(abs, context.clone());
+                let normal_arg = normalize(arg, context.clone());
+
+                match *normal_abs.data {
+                    FunctionIntro(body) => {
+                        let shifted_normal_arg = shift(normal_arg, HashSet::new(), 1);
+                        shift(normalize(body, context.inc_and_shift(1).with_def(Bound(0), shifted_normal_arg)), HashSet::new(), -1)
                     },
-                // Var(index) => {
-                //     let branch1_context =
-                //         context.clone()
-                //             .with_def(
-                //                 index,
-                //                 Term::new(
-                //                     Box::new(DoubIntro(This)),
-                //                     Some(synth_type(discrim, context.clone()).unwrap())));
-                //     let branch2_context =
-                //         context.clone()
-                //             .with_def(
-                //                 index,
-                //                 Term::new(
-                //                     Box::new(DoubIntro(That)),
-                //                     synth_type(discrim, context.clone())?));
-                //     let normal_branch1 =
-                //         normalize(
-                //             branch1,
-                //             branch1_context);
-                //     let normal_branch2 =
-                //         normalize(
-                //             branch2,
-                //             branch2_context);
-                //     Term::new(
-                //             Box::new(DoubElim(
-                //                 normal_discrim.clone(),
-                //                 normal_branch1,
-                //                 normal_branch2)),
-                //             normal_type_ann)
-                // }
-                _ => {
-                    let normal_branch1 = normalize(branch1.clone(), context.clone());
-                    let normal_branch2 = normalize(branch2.clone(), context.clone());/*
-                    let cmp = is_terms_eq(&normal_branch1, &normal_branch2, context.equivs());
-                    // println!("NB1 {:?}", normal_branch1);
-                    // println!("NB2 {:?}", normal_branch2);
-                    // println!("CMP {:?}", cmp);
-                    if let True = cmp {
-                        normal_branch1
-                    } else {
+                    _ =>
                         Term::new(
-                            Box::new(DoubElim(
-                                normal_discrim,
-                                normal_branch1,
-                                normal_branch2)),
+                            Box::new(FunctionElim(normal_abs, normal_arg)),
                             normal_type_ann)
-                    }*/
-                    // this is an incredibly horrible hack, but it works for now
-                    if let (UnitTypeIntro, UnitTypeIntro) = (&*normal_branch1.data, &*normal_branch2.data) {
-                        normal_branch1
-                    } else {
-                        Term::new(
-                            Box::new(DoubElim(
-                                normal_discrim,
-                                normal_branch1,
-                                normal_branch2)),
-                            normal_type_ann)
+                }
+            },
+            PairTypeIntro(fst_type, snd_type) => {
+                let new_context = context.inc_and_shift(2);
+                Term::new(
+                    Box::new(PairTypeIntro(normalize(fst_type, new_context.clone()), normalize(snd_type, new_context))),
+                    normal_type_ann)
+            },
+            PairIntro(fst, snd) => Term::new(Box::new(PairIntro(normalize(fst, context.clone()), normalize(snd, context))), normal_type_ann),
+            PairElim(discrim, body) => {
+                let normal_discrim = normalize(discrim, context.clone());
+                match *normal_discrim.clone().data {
+                    PairIntro(fst, snd) =>
+                        shift(
+                            normalize(
+                                body,
+                                context.clone().inc_and_shift(2)
+                                    .with_def(Bound(0), normalize(fst, context.clone()))
+                                    .with_def(Bound(1), normalize(snd, context))),
+                            HashSet::new(),
+                            -2),
+                    _ => {
+                        let fallback =
+                            Term::new(
+                                Box::new(PairElim(
+                                    normal_discrim,
+                                    normalize(body.clone(), context.clone().inc_and_shift(2)))),
+                                normal_type_ann);/*
+                        let free_vars = get_free_vars(&body, HashSet::new());
+                        if free_vars.contains_key(&Bound(0)) || free_vars.contains_key(&Bound(1)) {
+                            fallback
+                        } else {*//*
+                            shift(normalize(body, context.inc_and_shift(2)), HashSet::new(), -2)*//*
+                        }*/
+                        fallback
                     }
                 }
             }
-        },
-        FoldTypeIntro(inner_type) => Term::new(Box::new(FoldTypeIntro(substitute(inner_type, context))), normal_type_ann),
-        FoldIntro(inner_term) => normalize(inner_term, context),
-        FoldElim(folded_term) => {
-            let normal_folded_term = normalize(folded_term, context);
-            match *normal_folded_term.data {
-                FoldIntro(inner_term) => inner_term,
-                _ => Term::new(Box::new(FoldElim(normal_folded_term)), normal_type_ann)
-            }
-        },
-        IndexedTypeIntro(index, inner_type) => Term::new(Box::new(IndexedTypeIntro(index, normalize(inner_type, context))), normal_type_ann),
-        IndexedIntro(inner_term) => normalize(inner_term, context),
-        IndexedElim(indexed_term) => {
-            let normal_indexed_term = normalize(indexed_term, context);
-            match *normal_indexed_term.data {
-                IndexedIntro(inner_term) => inner_term,
-                _ => Term::new(Box::new(IndexedElim(normal_indexed_term)), normal_type_ann)
-            }
-        },
-        Postulate(_) => term
-    };
-    new_term.note = term_note;
-    new_term
+            VoidTypeIntro => term,
+            UnitTypeIntro => term,
+            UnitIntro => term,
+            DoubTypeIntro => term,
+            DoubIntro(_) => term,
+            DoubElim(discrim, branch1, branch2) => {
+                let normal_discrim = normalize(discrim, context.clone());
+                match *(normal_discrim.clone()).data {
+                    DoubIntro(label) =>
+                        match label {
+                            This => normalize(branch1, context),
+                            That => normalize(branch2, context)
+                        },
+                    // Var(index) => {
+                    //     let branch1_context =
+                    //         context.clone()
+                    //             .with_def(
+                    //                 index,
+                    //                 Term::new(
+                    //                     Box::new(DoubIntro(This)),
+                    //                     Some(synth_type(discrim, context.clone()).unwrap())));
+                    //     let branch2_context =
+                    //         context.clone()
+                    //             .with_def(
+                    //                 index,
+                    //                 Term::new(
+                    //                     Box::new(DoubIntro(That)),
+                    //                     synth_type(discrim, context.clone())?));
+                    //     let normal_branch1 =
+                    //         normalize(
+                    //             branch1,
+                    //             branch1_context);
+                    //     let normal_branch2 =
+                    //         normalize(
+                    //             branch2,
+                    //             branch2_context);
+                    //     Term::new(
+                    //             Box::new(DoubElim(
+                    //                 normal_discrim.clone(),
+                    //                 normal_branch1,
+                    //                 normal_branch2)),
+                    //             normal_type_ann)
+                    // }
+                    _ => {
+                        let normal_branch1 = normalize(branch1.clone(), context.clone());
+                        let normal_branch2 = normalize(branch2.clone(), context.clone());/*
+                        let cmp = is_terms_eq(&normal_branch1, &normal_branch2, context.equivs());
+                        // println!("NB1 {:?}", normal_branch1);
+                        // println!("NB2 {:?}", normal_branch2);
+                        // println!("CMP {:?}", cmp);
+                        if let True = cmp {
+                            normal_branch1
+                        } else {
+                            Term::new(
+                                Box::new(DoubElim(
+                                    normal_discrim,
+                                    normal_branch1,
+                                    normal_branch2)),
+                                normal_type_ann)
+                        }*/
+                        // this is an incredibly horrible hack, but it works for now
+                        if let (UnitTypeIntro, UnitTypeIntro) = (&*normal_branch1.data, &*normal_branch2.data) {
+                            normal_branch1
+                        } else {
+                            Term::new(
+                                Box::new(DoubElim(
+                                    normal_discrim,
+                                    normal_branch1,
+                                    normal_branch2)),
+                                normal_type_ann)
+                        }
+                    }
+                }
+            },
+            FoldTypeIntro(inner_type) => Term::new(Box::new(FoldTypeIntro(substitute(inner_type, context))), normal_type_ann),
+            FoldIntro(inner_term) => normalize(inner_term, context),
+            FoldElim(folded_term) => {
+                let normal_folded_term = normalize(folded_term, context);
+                match *normal_folded_term.data {
+                    FoldIntro(inner_term) => inner_term,
+                    _ => Term::new(Box::new(FoldElim(normal_folded_term)), normal_type_ann)
+                }
+            },
+            IndexedTypeIntro(index, inner_type) => Term::new(Box::new(IndexedTypeIntro(index, normalize(inner_type, context))), normal_type_ann),
+            IndexedIntro(inner_term) => normalize(inner_term, context),
+            IndexedElim(indexed_term) => {
+                let normal_indexed_term = normalize(indexed_term, context);
+                match *normal_indexed_term.data {
+                    IndexedIntro(inner_term) => inner_term,
+                    _ => Term::new(Box::new(IndexedElim(normal_indexed_term)), normal_type_ann)
+                }
+            },
+            Postulate(_) => term
+        };
+        new_term.note = term_note;
+        new_term
+    }
+
+    // let string_term = display_term(&term, 0);
+    // let now = std::time::Instant::now();
+    let normal_term = normalize(term, context);
+    // if now.elapsed().as_millis() > 100 {
+        // println!("{:?}", now.elapsed().as_millis());
+        // println!("{}", string_term);
+    // }
+    normal_term
 }

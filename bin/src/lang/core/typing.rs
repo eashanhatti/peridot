@@ -471,7 +471,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		FunctionTypeIntro(ref in_type, ref out_type) => {
 			let mut errors = Vec::new();
 
-			let out_type_context = context.clone().inc_and_shift(1).with_dec(Bound(0), in_type.clone());
+			let out_type_context = context.clone().inc_and_shift(1).with_dec(Bound(0), shift(in_type.clone(), HashSet::new(), 1));
 
 			let in_type_type = synth_type(in_type, context.clone())?;
 			let out_type_type = synth_type(out_type, out_type_context.clone())?;

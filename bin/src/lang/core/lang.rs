@@ -167,7 +167,7 @@ pub struct Term {
 //     }
 // }
 
-fn display_term(term: &Term, indent: usize) -> String {
+pub fn display_term(term: &Term, indent: usize) -> String {
     let mut string =
         format!("{}: {}Term \"{}\"\n",
             format!("{:5}", term.loc.map_or("no loc".to_string(), |loc| loc.line.to_string())), indent_to_string(indent),
