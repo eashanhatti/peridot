@@ -67,7 +67,7 @@ B : Type sB rB iB
 ```
 Let's try to write the `id` with a `rep : dyn'Rep` argument
 ```haskell
-id : sta'(rep : dyn'Rep) -> sta'(T : s1'rep'Type) -> T -> T
+id : sta'(rep : dyn'Rep) -> sta'(T : s'rep'Type) -> T -> T
 ```
 This does not typecheck, `rep` must be `static` because it is used as the representation of `T`, the parameter of a function. We'll cut out the less relevant bits
 ```haskell
@@ -97,7 +97,7 @@ decide i s1 s2 =
         true => s1
         false => s2
 
-data List : (A : (decide i s1 s2)'r'true'Type) -> (decide i s1 s3)'_'true'Type where
+data List : (A : (decide i s1 s2)'r'i'Type) -> (decide i s1 s3)'_'i'Type where
     nil : List A
     cons : A -> List A -> List A
 ```
@@ -122,7 +122,7 @@ decide i s1 s2 =
         true => s1
         false => s2
 
-data List : (A : (decide i s1 s2)'r'true'Type) -> (decide i s1 s3)'_'true'Type where
+data List : (A : (decide i s1 s2)'r'i'Type) -> (decide i s1 s3)'_'i'Type where
     nil : List A
     cons : A -> List A -> List A
 ```
