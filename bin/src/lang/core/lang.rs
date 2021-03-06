@@ -223,10 +223,11 @@ impl Term {
             None =>
                 match *self.data {
                     TypeTypeIntro(_) => Term::new(Box::new(TypeTypeIntro(Usage::Unique)), None),
+                    // these are here only for convience of implementation, hence why they panic if the type can't be inferred
                     Var(index) =>
                         match context.get_dec(index) {
                             Some(var_type) => var_type,
-                            None => panic!("nonexistent var")
+                            None => panic!("(var) all terms must be explicitly typed, this term is not:\n{:#?}", self)
                         },
                     Let(ref bindings, ref body) => {
                         let num_bindings = bindings.len().try_into().unwrap();
@@ -248,8 +249,8 @@ impl Term {
                                     out_type.clone(),
                                     context.clone().inc_and_shift(1)
                                         .with_def(Bound(0), normalize(arg.clone(), context))),
-                            _ => panic!("abs must be of a pi type\n{:#?}", self)
-                        }
+                            _ => panic!("(apply) all terms must be explicitly typed, this term is not:\n{:#?}", self)
+                        } 
                     }
                     _ => panic!("all terms must be explicitly typed, this term is not:\n{:#?}", self)
                 }

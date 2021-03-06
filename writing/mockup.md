@@ -135,7 +135,7 @@ val id : comptime (T : comptime Type(r)) -> s1 (s2 T -> s3 T)
 ```
 `s1`, `s2`, and `s3` are implicit parameters of type `Stage`. Stages are values, and can be abstracted over. The `Stage` type has two values, `comptime` and `runtime`. Here is `id` with the implicit parameters made explicit:
 ```ml
-val id : comptime (s1, s2, s3 : comptime Stage) -> comptime (T : comptime Type(r)) -> s1 (s2 T -> s3 T)
+val id : comptime (s1, s2, s3 : comptime Stage) -> comptime (r : comptime Rep) -> comptime (T : comptime Type(r)) -> s1 (s2 T -> s3 T)
 ```
 The monomorphized function `id` returns can be used at any stage. As an aside: `Stage`s must be `comptime`.
 
