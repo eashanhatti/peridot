@@ -24,8 +24,7 @@ Current Roadmap:
             - [ ] `World`
             - [ ] Basic FFI 
     - [x] Typechecker
-        - [x] Evaluator
-        - [x] Unification
+    - [x] Evaluator
     - [ ] Partial evaluation
         - [ ] Totality checking
 - [ ] Surface language

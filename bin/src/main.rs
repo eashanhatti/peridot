@@ -36,7 +36,7 @@ extern crate pest;
 #[macro_use]
 extern crate pest_derive;
 
-fn run() {
+fn repl() {
     let mut s = String::new();
     loop {
         print!("> ");
@@ -100,6 +100,52 @@ fn run() {
     }
 }
 
+fn direct() {
+    let filename = std::env::args().nth(1).unwrap();
+    println!("FILENAME {:?}", filename);
+    let mut file = File::open(&Path::new(&filename)).expect(&format!("CANNOT FIND FILE '{:?}'", filename));
+    let mut source = String::new();
+    file.read_to_string(&mut source);
+    println!("SOURCE {:?}", source);
+    let surface_module = text_to_module(&source);
+    if let Ok(surface_module_ok) = surface_module {
+        // println!("{:?}", surface_module_ok);
+        // let surface_term_type = match infer_type(&surface_term, State::new()) {
+        //     Ok(r#type) => r#type,
+        //     Err(errs) => {
+        //         println!("INFER ERROR\n{:#?}", errs);
+        //         continue;
+        //     }
+        // };
+        let core_module = {
+            let mut tmp =
+                match elab_toplevel(&surface_module_ok, QualifiedName(Vec::new(), Name(String::from("Main")))) {
+                    Ok(module) => module,
+                    Err(errs) => {
+                        println!("SURFACE ERROR\n{:#?}", errs);
+                        return;
+                    }
+                };
+            mark_lines(&mut tmp);
+            tmp
+        };
+
+        println!("CORE TERM\n{:?}", core_module);
+        let core_module_type =
+            match core::typing::synth_type(&core_module, Context::new()) {
+                Ok(r#type) => r#type,
+                Err(errs) => { println!("CORE TYPE ERROR\n{:#?}", errs); return; }
+            };
+        println!("CORE TYPECHECK");
+        let now = std::time::Instant::now();
+        match core::typing::check(&core_module, core_module_type, Context::new()) {
+            Ok(()) => println!("NO ERRORS"),
+            Err(errs) => println!("CORE ERROR\n{:#?}", errs)
+        }
+        println!("END CORE TYPECHECK, TIME {:?}", now.elapsed());
+    }
+}
+
 fn main() {
-    run()
+    direct();
 }

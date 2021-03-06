@@ -575,11 +575,11 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             let core_in_type = elab_term(in_type, infer_type(in_type, state.clone())?, state.clone())?;
             // println!("IN_TYPE\n{:?}", in_type);
             // println!("CORE_IN_TYPE\n{:?}", core_in_type);
-            let core_in_type_type = core_in_type.r#type();
+            let core_in_type_type = core_in_type.r#type(Context::new());
             let core_out_type = elab_term(out_type, infer_type(out_type, state.clone())?, state.clone().with_dec(var_name.clone(), core_in_type.clone()))?;
             // println!("OUT_TYPE\n{:?}", out_type);
             // println!("CORE_OUT_TYPE\n{:?}", core_out_type);
-            let core_out_type_type = core_out_type.r#type();
+            let core_out_type_type = core_out_type.r#type(Context::new());
 
             if errors.len() > 0 {
                 Err(errors)
@@ -619,7 +619,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             // println!("CURR_STATE\n{:?}", curr_state);
             let mut body_acc = elab_term(body, curr_type, curr_state)?;
             for in_type in in_types.into_iter().rev() {
-                let body_acc_type = body_acc.r#type();
+                let body_acc_type = body_acc.r#type(Context::new());
                 body_acc =
                     fun!(
                         body_acc
@@ -689,7 +689,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 } else {
                     while let PairTypeIntro(fst_type, snd_type) = *curr_type.data {
                         if let (DoubTypeIntro, DoubElim(discrim, branch1, branch2)) = (*fst_type.data.clone(), *snd_type.data.clone()) {
-                            if let (Var(Bound(0)), DoubTypeIntro, UnitTypeIntro) = (*discrim.data.clone(), *discrim.r#type().data, *branch1.data.clone()) {
+                            if let (Var(Bound(0)), DoubTypeIntro, UnitTypeIntro) = (*discrim.data.clone(), *discrim.r#type(Context::new()).data, *branch1.data.clone()) {
                                 curr_type = branch2;
                                 num_inhabitants += 1;
                             } else {/*
@@ -714,7 +714,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 }
 
                 let enum_val = make_enum(*inhabitant, num_inhabitants);
-                let enum_type = enum_val.r#type();
+                let enum_type = enum_val.r#type(Context::new());
                 // println!("INHAB {:?} NUM_INHAB {:?}", *inhabitant, num_inhabitants);
                 // println!("VAL {:?}\nTYPE {:?}", enum_val, enum_type);
                 Ok(Term::new(
@@ -806,7 +806,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             // println!("NUM GD{:?}", state.num_global_decs);
             let discrim = make_discrim(id, state.num_global_decs);
             // println!("DISCRIM {:?}", discrim);
-            // println!("DISCRIM_TYPE {:?}", discrim.r#type());
+            // println!("DISCRIM_TYPE {:?}", discrim.r#type(Context::new()));
             let global_map_type = {
                 let mut global_map_type = global_types.pop().unwrap();
                 let len = global_types.len();
@@ -835,7 +835,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     global_map_type = core_map_split_type;
                 }
                 pi!(
-                    discrim.r#type(),
+                    discrim.r#type(Context::new()),
                     global_map_type
                 ,: Univ!(shared))
             };
@@ -848,7 +848,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     discrim
                 ,: item_type);
             // if let None = state.get_global_def(path.clone()) {
-            //     let core_term_type = core_term.r#type();
+            //     let core_term_type = core_term.r#type(Context::new());
             //     core_term =
             //         core::Term::new(
             //             Box::new(core::InnerTerm::FoldIntro(core_term)),
@@ -1031,7 +1031,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
         let mut let_match_items = Vec::new();
         let_match_items.push(
             fun!(
-                    core_map.r#type()
+                    core_map.r#type(Context::new())
                 ,:
                     pi!(
                         var!(Bound(discrim_split_index + discrim_offset)),
@@ -1057,7 +1057,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                                 Bound(1),
                                 format!("core_map_type_case").as_str()
                             ,: Doub!(format!("core_map_type_case").as_str() ,: Univ!(shared))),
-                            l => core_item.r#type();
+                            l => core_item.r#type(Context::new());
                             r =>
                                 apply!(
                                     var!(Bound((let_match_items.len() - 1) + 2)), // + 2 since the two funs inc context by 2
@@ -1139,7 +1139,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                         var!(Bound(0))));
         }
 
-        let core_map_type = core_map.r#type();
+        let core_map_type = core_map.r#type(Context::new());
         let_bind!(
             let_discrim_items,
             let_bind!(
@@ -1154,7 +1154,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
     };
 
     Ok(core_module)
-    // let core_map_type = core_map.r#type();
+    // let core_map_type = core_map.r#type(Context::new());
     // println!("CM {:?}", core_map_type);
 
     // use self::core::{

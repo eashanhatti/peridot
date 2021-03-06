@@ -48,25 +48,25 @@ pub enum InnerError {
 use InnerError::*;
 
 #[derive(Debug)]
-pub struct Error<'a> {
-    term: &'a Term,
+pub struct Error {
+    loc: Location,
     error: InnerError,
     context: Context
 }
 
-impl<'a> Error<'a> {
-    pub fn new(term: &'a Term, context: Context, error: InnerError) -> Error<'a> {
+impl Error {
+    pub fn new(loc: Location, context: Context, error: InnerError) -> Error {
         Error {
-            term,
+            loc,
             context,
             error
         }
     }
 }
 
-pub type CheckResult<'a, U> = Result<U, Vec<Error<'a>>>;
+pub type CheckResult<T> = Result<T, Vec<Error>>;
 
-pub fn push_check<'a, U>(errors: &mut Vec<Error<'a>>, this_check: CheckResult<'a, U>) { // appends errors to an error list, if there are any
+pub fn push_check<T>(errors: &mut Vec<Error>, this_check: CheckResult<T>) { // appends errors to an error list, if there are any
 	match this_check {
 		Ok(_) => (),
 		Err(errs) => {
@@ -218,7 +218,7 @@ pub fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner
 						HashMap::new()
 					} else {
 						let mut map = HashMap::new();
-						map.insert(index, term.r#type());
+						map.insert(index, term.r#type(Context::new()));
 						map
 					},
 				Rec(ref inner_term) => inner(inner_term, with(inc(bounds.clone()), 0)),
@@ -274,7 +274,7 @@ pub fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner
 	inner(term, bounds)
 }
 
-pub fn wrap_checks<'a>(errors: Vec<Error<'a>>) -> CheckResult<'a, ()> {
+pub fn wrap_checks(errors: Vec<Error>) -> CheckResult<()> {
 	if errors.len() > 0 {
 		Err(errors)
 	} else {
@@ -282,133 +282,36 @@ pub fn wrap_checks<'a>(errors: Vec<Error<'a>>) -> CheckResult<'a, ()> {
 	}
 }
 
-pub fn check_usage<'a>(body: &'a Term, term_type: Term, target_index: VarInner, context: Context) -> CheckResult<'a, ()> {
-	use InnerError::*;
+// pub fn check_usage(body: &Term, term_type: Term, target_index: VarInner, context: Context) -> CheckResult<()> {
+// 	use InnerError::*;
 
-	match term_type.usage() {
-		Shared => Ok(()),
-		Unique =>
-			if count_uses(body, target_index) == (1, 1) {
-				Ok(())
-			} else {
-				Err(vec![Error::new(body, context, MismatchedUsage { var_index: target_index, exp_usage: (1, 1), giv_usage: count_uses(body, target_index) })])
-			}
-	}
-}
-
-// r#type should be checked with `check` before being checked with this
-pub fn check_type<'a>(r#type: &'a Term, context: Context) -> CheckResult<'a, ()> {
-	// panic!("`check_type` is not finished");
-
-	// fn check_type_aux<'a>(r#type: &'a Term, context: Context, exp_shared: bool) -> CheckResult<'a, ()> {
-	// 	let exp_usage =
-	// 		match r#type.usage(context.clone()) {
-	// 			Shared => true,
-	// 			Unique => false
-	// 		};
-
-	// 	match *r#type.0 {
-	// 		Ann(ref annd_term, ref type_ann) => {
-	// 			let mut errors = Vec::new();
-	// 			push_check(&mut errors, check_type_aux(type_ann, context.clone()));
-	// 			push_check(&mut errors, check_type_aux(annd_term, context, exp_usage));
-	// 			wrap_checks(errors)
-	// 		},
-	// 		// Rec(ref inner_term) => check_type_aux(inner_term, context, exp_usage),
-	// 		FunctionTypeIntro(ref in_type, ref out_type) => {
-	// 			let mut errors = Vec::new();
-	// 			push_check(&mut errors, check_type_aux(in_type, context.clone()));
-	// 			push_check(&mut errors, check_type_aux(out_type, context));
-	// 			wrap_checks(errors)
-	// 		},
-	// 		FunctionIntro(ref body) => check_type_aux(body, context, exp_usage),
-	// 		// FunctionElim(ref abs, ref arg) => {
-	// 		// 	let errors = Vec::new();
-	// 		// 	push_check(&mut errors, check_type_aux(abs,))
-	// 		// }
-	// 		PairTypeIntro(ref fst_type, ref snd_type) => {
-	// 			let mut errors = Vec::new();
-	// 			push_check(&mut errors, check_type_aux(fst_type, context.clone(), exp_usage));
-	// 			push_check(&mut errors, check_type_aux(snd_type, context, exp_usage));
-	// 			wrap_checks(errors)
-	// 		},
-	// 		FoldTypeIntro(ref inner_type) => check_type_aux(inner_type, context, exp_usage),
-	// 		_ =>
-	// 			match (r#type.usage(), exp_shared) {
-	// 				(Shared, true) => Ok(()),
-	// 				(Unique, true) => Err(vec![Error::new(r#type, ExpectedSharedTypeType)]),
-	// 				(Shared, false) => Ok(()),
-	// 				(Unique, false) => Ok(())
-	// 			}
-	// 	}
-	// }
-
-	// let mut errors = Vec::new();
-	// push_check(&mut errors, check_type_aux(r#type, context, should_expect_shared(r#type)));
-	// wrap_checks(errors)
-	Ok(()) // until i figure out how this is supposed to work
-}
+// 	match term_type.usage() {
+// 		Shared => Ok(()),
+// 		Unique =>
+// 			if count_uses(body, target_index) == (1, 1) {
+// 				Ok(())
+// 			} else {
+// 				Err(vec![Error::new(body.loc(), context, MismatchedUsage { var_index: target_index, exp_usage: (1, 1), giv_usage: count_uses(body, target_index) })])
+// 			}
+// 	}
+// }
 
 // returns the normalized and checked type of a term
 // type may be infered if the term is a universe, in all other cases the type must be given
 // when given, the type of the type is checked as well
 // minor concern, is 'synth_type' the right name for this?
-pub fn synth_type<'a>(term: &'a Term, context: Context) -> CheckResult<'a, Term> {
+pub fn synth_type(term: &Term, context: Context) -> CheckResult<Term> {
     use InnerTerm::*;
 
-    match &term.type_ann {
-        Some(r#type) => {
-            let r#type = &**r#type;
-            let mut errors = Vec::new();
-            
-            push_check(&mut errors, check(r#type, synth_type(r#type, context.clone())?, context.clone()));
-            push_check(&mut errors, check_type(r#type, context.clone()));
-
-            if errors.len() == 0 {
-                Ok(normalize(r#type.clone(), context))
-            } else {
-                Err(errors)
-            }
-        },
-        None =>
-            match *term.data {
-                TypeTypeIntro(_) => Ok(Term::new(Box::new(TypeTypeIntro(Usage::Unique)), None)),
-                Var(index) =>
-                	match context.get_dec(index) {
-						Some(var_type) => Ok(var_type),
-						None => Err(vec![Error::new(term, context, NonexistentVar { index })])
-					},
-				Let(ref bindings, ref body) => { // TODO: check bindings and body?
-					let num_bindings = bindings.len().try_into().unwrap();
-		            let mut new_context = context.inc_and_shift(num_bindings);
-		            // let mut normal_bindings = Vec::new();
-		            for (i, binding) in bindings.iter().enumerate() {
-		                let normal_binding = normalize(binding.clone(), new_context.clone());
-		                let binding_type = synth_type(binding, new_context.clone())?;
-		                // normal_bindings.push(normal_binding.clone());
-		                new_context = new_context
-		                	.with_dec(Bound(i), binding_type)
-		                	.with_def(Bound(i), normal_binding);
-		            }
-					Ok(normalize(synth_type(body, new_context.clone())?, new_context))
-				},
-				FunctionElim(ref abs, ref arg) => { // TODO: checking?
-					let abs_type = synth_type(abs, context.clone())?;
-					match &*abs_type.data {
-						FunctionTypeIntro(_, ref out_type) =>
-							Ok(normalize(
-								out_type.clone(),
-								context.clone().inc_and_shift(1)
-									.with_def(Bound(0), normalize(arg.clone(), context)))),
-						_ => Err(vec![Error::new(abs, context, ExpectedOfFunctionType { giv_type: abs_type })])
-					}
-				}
-                _ => panic!("all terms must be explicitly typed, this term is not:\n{:#?}", term)
-            }
+    let r#type = term.r#type(context.clone());
+    match &*r#type.data {
+    	TypeTypeIntro(_) => (),
+    	_ => check(&r#type, synth_type(&r#type, context.clone())?, context)?
     }
+    Ok(r#type)
 }
 
-pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResult<'a, ()> {
+pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 	use InnerError::*;
 
 	let type_ann = synth_type(term, context.clone())?;
@@ -416,7 +319,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		// println!("NOT EQ\n{:?}\n{:?}", type_ann, exp_type);
 		return
 			Err(vec![Error::new(
-				term,
+				term.loc(),
 				context,
 				MismatchedTypes { exp_type: exp_type.clone(), giv_type: type_ann.clone(), specific })]);
 	}
@@ -425,18 +328,18 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		TypeTypeIntro(usage) =>
 			match *(type_ann.clone()).data {
 				TypeTypeIntro(type_ann_usage) => Ok(()),
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfTypeType { giv_type: type_ann })])
 			},
 		Var(index) => 
 			match context.get_dec(index) {
 				Some(var_type) => {
 					if let False(specific) = is_terms_eq(&var_type, &type_ann, context.clone().equivs()) {
-						Err(vec![Error::new(term, context, MismatchedTypes { exp_type: var_type, giv_type: type_ann, specific })])
+						Err(vec![Error::new(term.loc(), context, MismatchedTypes { exp_type: var_type, giv_type: type_ann, specific })])
 					} else {
 						Ok(())
 					}
 				}
-				None => Err(vec![Error::new(term, context, NonexistentVar { index })])
+				None => Err(vec![Error::new(term.loc(), context, NonexistentVar { index })])
 			},
 		Rec(ref inner_term) => {
 			let mut errors = Vec::new();
@@ -503,7 +406,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					// 	}
 					// }
 				},
-				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: type_ann }))
+				_ => errors.push(Error::new(term.loc(), context, ExpectedOfFunctionType { giv_type: type_ann }))
 			}
 
 			wrap_checks(errors)
@@ -528,12 +431,12 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					push_check(
 						&mut errors,
 						if let False(specific) = is_terms_eq(&normal_out_type, &type_ann, context.clone().equivs()) {
-							Err(vec![Error::new(&term, context, MismatchedTypes { exp_type: type_ann, giv_type: normal_out_type, specific })])
+							Err(vec![Error::new(term.loc(), context, MismatchedTypes { exp_type: type_ann, giv_type: normal_out_type, specific })])
 						} else {
 							Ok(())
 						});
 				},
-				_ => errors.push(Error::new(term, context, ExpectedOfFunctionType { giv_type: abs_type }))
+				_ => errors.push(Error::new(term.loc(), context, ExpectedOfFunctionType { giv_type: abs_type }))
 			}
 
 			wrap_checks(errors)
@@ -573,7 +476,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 
 					wrap_checks(errors)
 				},
-				_ => Err(vec![Error::new(term, context, ExpectedOfPairType { giv_type: type_ann })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfPairType { giv_type: type_ann })])
 			}
 		},
 		PairElim(ref discrim, ref body) => {
@@ -618,7 +521,7 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 							Context::new().with_def(Bound(0), sym_fst).with_def(Bound(1), sym_snd))*/;
 					push_check(&mut errors, check(body, normal_type_ann, body_context.with_equiv(Bound(0), Free(sym_fst_id)).with_equiv(Bound(1), Free(sym_snd_id))));
 				}
-				_ => errors.push(Error::new(discrim, context, ExpectedOfPairType { giv_type: discrim_type }))
+				_ => errors.push(Error::new(discrim.loc(), context, ExpectedOfPairType { giv_type: discrim_type }))
 			}
 
 			wrap_checks(errors)
@@ -626,27 +529,27 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 		VoidTypeIntro =>
 			match *(type_ann.clone()).data {
 				TypeTypeIntro(_) => Ok(()),
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
 			},
         UnitTypeIntro =>
         	match *(type_ann.clone()).data {
 				TypeTypeIntro(_) => Ok(()),
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
 			},
         UnitIntro =>
         	match *(type_ann.clone()).data {
 				UnitTypeIntro => Ok(()),
-				_ => Err(vec![Error::new(term, context, ExpectedOfUnitType { giv_type: type_ann.clone() })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfUnitType { giv_type: type_ann.clone() })])
 			},
 		DoubTypeIntro =>
 			match *(type_ann.clone()).data {
 				TypeTypeIntro(_) => Ok(()),
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
 			},
 		DoubIntro(_) =>
 			match *(type_ann.clone()).data {
 				DoubTypeIntro => Ok(()),
-				_ => Err(vec![Error::new(term, context, ExpectedOfDoubType { giv_type: type_ann.clone() })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfDoubType { giv_type: type_ann.clone() })])
 			},
 		DoubElim(ref discrim, ref branch1, ref branch2) => {
 			let mut errors = Vec::new();
@@ -683,53 +586,43 @@ pub fn check<'a>(term: &'a Term, exp_type: Term, context: Context) -> CheckResul
 					// println!("BRANCH 2 CONTEXT {:?}", branch2_context.len());
 					push_check(&mut errors, check(branch2, normalize(type_ann, branch2_context.clone()), branch2_context));
 				},
-				_ => errors.push(Error::new(discrim, context, ExpectedOfDoubType { giv_type: discrim_type }))
+				_ => errors.push(Error::new(discrim.loc(), context, ExpectedOfDoubType { giv_type: discrim_type }))
 			}
 
 			wrap_checks(errors)
 		},
 		FoldTypeIntro(ref inner_type) =>
 			match *(type_ann.clone()).data {
-				TypeTypeIntro(_) => {
-					let mut errors = Vec::new();
-					push_check(&mut errors, check(inner_type, synth_type(inner_type, context.clone())?, context.clone()));
-					push_check(&mut errors, check_type(inner_type, context.clone()));
-					wrap_checks(errors)
-				},
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
+				TypeTypeIntro(_) => check(inner_type, synth_type(inner_type, context.clone())?, context.clone()),
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
 			},
 		FoldIntro(ref inner_term) =>
 			match *(type_ann.clone()).data {
 				FoldTypeIntro(inner_type) => check(inner_term, inner_type, context),
-				_ => Err(vec![Error::new(term, context, ExpectedOfFoldType { giv_type: type_ann.clone() })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfFoldType { giv_type: type_ann.clone() })])
 			},
 		FoldElim(ref folded_term) => {
 			let folded_term_type = synth_type(folded_term, context.clone())?;
 			match &*folded_term_type.data {
 				FoldTypeIntro(_) => check(folded_term, type_ann, context),
-				_ => Err(vec![Error::new(term, context, ExpectedOfFoldType { giv_type: folded_term_type })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfFoldType { giv_type: folded_term_type })])
 			}
 		}
 		IndexedTypeIntro(_, ref inner_type) =>
 			match *(type_ann.clone()).data {
-				TypeTypeIntro(_) => {
-					let mut errors = Vec::new();
-					push_check(&mut errors, check(inner_type, synth_type(inner_type, context.clone())?, context.clone()));
-					push_check(&mut errors, check_type(inner_type, context.clone()));
-					wrap_checks(errors)
-				},
-				_ => Err(vec![Error::new(term, context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
+				TypeTypeIntro(_) => check(inner_type, synth_type(inner_type, context.clone())?, context.clone()),
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfTypeType { giv_type: type_ann.clone() })])
 			},
 		IndexedIntro(ref inner_term) =>
 			match *(type_ann.clone()).data {
 				IndexedTypeIntro(_, inner_type) => check(inner_term, inner_type, context),
-				_ => Err(vec![Error::new(term, context, ExpectedOfIndexedType { giv_type: type_ann.clone() })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfIndexedType { giv_type: type_ann.clone() })])
 			},
 		IndexedElim(ref indexed_term) => {
 			let indexed_term_type = synth_type(indexed_term, context.clone())?;
 			match &*indexed_term_type.data {
 				IndexedTypeIntro(_, _) => check(indexed_term, type_ann, context),
-				_ => Err(vec![Error::new(term, context, ExpectedOfIndexedType { giv_type: indexed_term_type })])
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfIndexedType { giv_type: indexed_term_type })])
 			}
 		}
 		Postulate(_) => Ok(())

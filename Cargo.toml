@@ -3,3 +3,6 @@ members = [
 	"assoc_collections",
 	"bin"
 ]
+
+[profile.release]
+debug = true

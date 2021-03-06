@@ -4,7 +4,8 @@ use std::{
     collections::HashSet,
     fmt::{self, Debug, Display},
     default::*,
-    hash::Hash
+    hash::Hash,
+    convert::TryInto
 };
 use super::{
     context::*,
@@ -142,9 +143,9 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
     format!("{}{}\n", indent_to_string(indent), string)
 }
 
-#[derive(Clone, Copy, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash, Eq)]
 pub struct Location {
-    line: usize
+    pub line: usize
 }
 
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -189,16 +190,8 @@ impl Debug for Term {
     }
 }
 
-fn max(lop: usize, rop: usize) -> usize {
-    if lop > rop {
-        lop
-    } else {
-        rop
-    }
-}
-
 impl Term {
-    pub fn new(data: Box<InnerTerm>, r#type_ann: Option<Box<Term>>) -> Term {
+    pub fn new(data: Box<InnerTerm>, type_ann: Option<Box<Term>>) -> Term {
         Term {
             data,
             type_ann,
@@ -207,7 +200,7 @@ impl Term {
         }
     }
 
-    pub fn new_with_note(note: Note, data: Box<InnerTerm>, r#type_ann: Option<Box<Term>>) -> Term {
+    pub fn new_with_note(note: Note, data: Box<InnerTerm>, type_ann: Option<Box<Term>>) -> Term {
         Term {
             data,
             type_ann,
@@ -216,23 +209,50 @@ impl Term {
         }
     }
 
-    // returns the type of a term, unchecked. there is also no gaurantee the term is in normal form
-    pub fn r#type(&self) -> Term {
-        use InnerTerm::*;
-        match &self.type_ann {
-            Some(type_ann) => *type_ann.clone(),
-            None =>
-                match *self.data {
-                    TypeTypeIntro( _) => Term::new(Box::new(TypeTypeIntro(Usage::Unique)), None),
-                    _ => panic!(format!("all terms should be explicitly typed {:#?}", self))
-                }
-        }
+    pub fn loc(&self) -> Location {
+        self.loc.unwrap()
     }
 
-    pub fn usage(&self) -> Usage { // called on types
-        match *self.r#type().data {
-            InnerTerm::TypeTypeIntro(usage) => usage,
-            _ => Usage::Unique // so uniqueness types work with polymorphic kinds
+    // returns the type of a term, unchecked
+    pub fn r#type(&self, context: Context) -> Term {
+        use InnerTerm::*;
+        use VarInner::*;
+
+        match &self.type_ann {
+            Some(r#type) => normalize(*r#type.clone(), context),
+            None =>
+                match *self.data {
+                    TypeTypeIntro(_) => Term::new(Box::new(TypeTypeIntro(Usage::Unique)), None),
+                    Var(index) =>
+                        match context.get_dec(index) {
+                            Some(var_type) => var_type,
+                            None => panic!("nonexistent var")
+                        },
+                    Let(ref bindings, ref body) => {
+                        let num_bindings = bindings.len().try_into().unwrap();
+                        let mut new_context = context.inc_and_shift(num_bindings);
+                        for (i, binding) in bindings.iter().enumerate() {
+                            let normal_binding = normalize(binding.clone(), new_context.clone());
+                            let binding_type = binding.r#type(new_context.clone());
+                            new_context = new_context
+                                .with_dec(Bound(i), binding_type)
+                                .with_def(Bound(i), normal_binding);
+                        }
+                        normalize(body.r#type(new_context.clone()), new_context)
+                    },
+                    FunctionElim(ref abs, ref arg) => {
+                        let abs_type = abs.r#type(context.clone());
+                        match &*abs_type.data {
+                            FunctionTypeIntro(_, ref out_type) =>
+                                normalize(
+                                    out_type.clone(),
+                                    context.clone().inc_and_shift(1)
+                                        .with_def(Bound(0), normalize(arg.clone(), context))),
+                            _ => panic!("abs must be of a pi type\n{:#?}", self)
+                        }
+                    }
+                    _ => panic!("all terms must be explicitly typed, this term is not:\n{:#?}", self)
+                }
         }
     }
 }
