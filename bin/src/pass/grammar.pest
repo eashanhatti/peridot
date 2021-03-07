@@ -1,27 +1,33 @@
 s = _{ " " }
 nl = _{ NEWLINE | " " | "\t" }
 ws = _{ s | nl }
-keyword = { "import" | "Fin" | "fin" | "fn" | "unit" | "Unit" | "Type" | "module" | "recordtype" }
+keyword = { "import" | "end" | "Fin" | "fin" | "fn" | "unit" | "Unit" | "Type" | "module" | "record" | "where" }
 name = { !keyword ~ ( ASCII_ALPHANUMERIC | "_" )+ }
 full_name = { ( name ~ "." )+ ~ name }
 num = { ASCII_DIGIT+ }
 
-module = { "module" ~ s* ~ "{" ~ ws* ~ item_list ~ ws* ~ "}" }
+module = { "module" ~ ws+ ~ item_list ~ ws+ ~ "end" }
 item_list = _{ item ~ ws* ~ ";" ~ ( ws* ~ item ~ ws* ~ ";" )* }
-item = _{ term_def | dec }
+item = _{ record_def | term_def | dec }
     term_def = { name ~ ws* ~ "=" ~ ws* ~ term }
+    record_def = { "record" ~ s+ ~ name ~ s+ ~ param_list? ~ s* ~ "where" ~ ws+ ~ field_list ~ ws+ ~ "end" }
+        field_list = _{ field ~ (ws* ~ field)* }
+        field = { name ~ ws* ~ ":" ~ ws* ~ term ~ s* ~ ("," | NEWLINE) }
     dec = { name ~ ws* ~ ":" ~ ws* ~ term }
+    
+param_list = { name ~ ( s+ ~ name )* }
 
 term = _{ prec2 }
 prec2 = _{ fun_elim | prec1 }
     fun_elim = { prec1 ~ ws* ~ "(" ~ ws* ~ prec2 ~ ws* ~ ("," ~ ws* ~ prec2)* ~ ws* ~ ")" }
-prec1 = _{ ann | prec0 }
+prec1 = _{ ann | fun_type | prec0 }
     ann = { prec0 ~ s* ~ ":" ~ s* ~ prec1 }
-prec0 = _{ fun | fun_type | type_type | var | fin | fin_type | import
-         | "(" ~ s* ~ prec0 ~ s* ~ ")" }
+    fun_type = { dependent | simple }
+        dependent = { "[" ~ s* ~ name ~ s* ~ ":" ~ s* ~ prec1 ~ s* ~ "]" ~ ws* ~ "->" ~ ws* ~ prec1 }
+        simple = { prec0 ~ ws* ~ "->" ~ ws* ~ prec1}
+prec0 = _{ fun | type_type | var | fin | fin_type | import
+         | "(" ~ s* ~ term ~ s* ~ ")" }
     fun = { "fn" ~ s+ ~ param_list ~ s*  ~ "=>" ~ s* ~ prec1 }
-        param_list = { name ~ ( s* ~ "," ~ s ~ name )* }
-    fun_type = { "[" ~ s* ~ name ~ s* ~ ":" ~ s* ~ prec1 ~ s* ~ "]" ~ ws* ~ "->" ~ ws* ~ prec1 }
     type_type = { "Type" }
     var = { name }
     fin = { "fin" ~ s+ ~ num }

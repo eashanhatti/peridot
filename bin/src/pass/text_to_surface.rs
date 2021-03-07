@@ -7,6 +7,7 @@ use pest::{
 	Parser
 };
 extern crate pest_derive;
+use pest_derive::*;
 
 use crate::lang::surface::{
 	*,

@@ -1,8 +1,10 @@
-module {
-	a : Fin 1;
-	a = fin 0;
-	b : Fin 1;
-	b = fin 0;
-	c : Fin 1;
-	c = fin 0;
-}
+module
+    Pair : Type -> Type -> Type;
+    record Pair A B where
+        fst : A
+        snd : B
+    end;
+    
+    id : [A : Type] -> [B : Type] -> (Pair(A, B)) -> (Pair(A, B));
+    id = fn _ _ p => p;
+end

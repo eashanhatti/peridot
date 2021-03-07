@@ -31,10 +31,7 @@ use pass::{
     surface_to_core::*,
     text_to_surface::*
 };
-
 extern crate pest;
-#[macro_use]
-extern crate pest_derive;
 
 fn repl() {
     let mut s = String::new();
@@ -131,18 +128,18 @@ fn direct() {
         };
 
         println!("CORE TERM\n{:?}", core_module);
-        let core_module_type =
-            match core::typing::synth_type(&core_module, Context::new()) {
-                Ok(r#type) => r#type,
-                Err(errs) => { println!("CORE TYPE ERROR\n{:#?}", errs); return; }
-            };
-        println!("CORE TYPECHECK");
-        let now = std::time::Instant::now();
-        match core::typing::check(&core_module, core_module_type, Context::new()) {
-            Ok(()) => println!("NO ERRORS"),
-            Err(errs) => println!("CORE ERROR\n{:#?}", errs)
-        }
-        println!("END CORE TYPECHECK, TIME {:?}", now.elapsed());
+        // let core_module_type =
+        //     match core::typing::synth_type(&core_module, Context::new()) {
+        //         Ok(r#type) => r#type,
+        //         Err(errs) => { println!("CORE TYPE ERROR\n{:#?}", errs); return; }
+        //     };
+        // println!("CORE TYPECHECK");
+        // let now = std::time::Instant::now();
+        // match core::typing::check(&core_module, core_module_type, Context::new()) {
+        //     Ok(()) => println!("NO ERRORS"),
+        //     Err(errs) => println!("CORE ERROR\n{:#?}", errs)
+        // }
+        // println!("END CORE TYPECHECK, TIME {:?}", now.elapsed());
     }
 }
 
