@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 #[derive(Debug, Clone)]
 pub struct AssocVec<K, V> {
 	data: Vec<(K, V)>
