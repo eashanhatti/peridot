@@ -1,6 +1,6 @@
 #![allow(warnings)]
 
-use std::collections::{HashSet, HashMap, BTreeSet, BTreeMap};
+use std::collections::HashMap;
 extern crate assoc_collections;
 use assoc_collections::*;
 
@@ -24,7 +24,7 @@ impl QualifiedName {
 pub enum Item {
 	Declaration(Term), // `x : t`, `TermDef` and `RecordTypeDef` are for `x = v`
 	TermDef(Term),
-	RecordTypeDef(HashMap<Name, Term>),
+	RecordTypeDef(AssocSet<Name>, HashMap<Name, Term>),
 	ModuleDef(Module)
 }
 
@@ -46,11 +46,11 @@ pub enum InnerTerm {
 	Ann(Term, Term),
 	Var(Name),
 	ImportTerm(QualifiedName),
-	FunctionTypeIntro(Name, Term, Term),
-	FunctionIntro(BTreeSet<Name>, Term), // TODO: change this to a set that preserves insertion order
+	FunctionTypeIntro(Option<Name>, Term, Term),
+	FunctionIntro(AssocSet<Name>, Term),
 	FunctionElim(Term, Vec<Term>),
 	TypeTypeIntro,
-	RecordTypeIntro(QualifiedName, HashMap<Name, Term>),
+	RecordTypeIntro(QualifiedName, Vec<Term>, HashMap<Name, Term>),
 	RecordIntro(HashMap<Name, Term>),
 	EnumTypeIntro(usize),
 	EnumIntro(usize),

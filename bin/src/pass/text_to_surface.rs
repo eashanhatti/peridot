@@ -15,8 +15,8 @@ use crate::lang::surface::{
 };
 use std::collections::{
 	HashSet,
-	BTreeMap,
-	BTreeSet
+	HashMap,
+	BTreeMap
 };
 extern crate assoc_collections;
 use assoc_collections::*;
@@ -35,17 +35,30 @@ fn parse_term(mut pair: Pair<Rule>) -> Term {
 			Box::new(match pair_rule {
 				Rule::ann => Ann(parse_term(pair_iter.next().unwrap()), parse_term(pair_iter.next().unwrap())),
 				Rule::fun => {
-					let mut names = BTreeSet::new();
+					let mut names = AssocSet::new();
 					for name_pair in pair_iter.next().unwrap().into_inner() {
 						names.insert(Name(name_pair.as_str().to_string()));
 					}
 					FunctionIntro(names, parse_term(pair_iter.next().unwrap()))
 				},
-				Rule::fun_type =>
-					FunctionTypeIntro(
-						Name(pair_iter.next().unwrap().as_str().to_string()),
-						parse_term(pair_iter.next().unwrap()),
-						parse_term(pair_iter.next().unwrap())),
+				Rule::fun_type => {
+					let inner = pair_iter.next().unwrap();
+					let inner_rule = inner.as_rule();
+					let mut inner_iter = inner.into_inner();
+					match inner_rule {
+						Rule::dependent =>
+							FunctionTypeIntro(
+								Some(Name(inner_iter.next().unwrap().as_str().to_string())),
+								parse_term(inner_iter.next().unwrap()),
+								parse_term(inner_iter.next().unwrap())),
+						Rule::simple =>
+							FunctionTypeIntro(
+								None,
+								parse_term(inner_iter.next().unwrap()),
+								parse_term(inner_iter.next().unwrap())),
+						_ => unreachable!()
+					}
+				},
 				Rule::fun_elim => FunctionElim(parse_term(pair_iter.next().unwrap()), pair_iter.map(|pair| parse_term(pair)).collect()),
 				Rule::type_type => TypeTypeIntro,
 				Rule::var => Var(Name(pair_iter.next().unwrap().as_str().to_string())),
@@ -61,7 +74,7 @@ fn parse_term(mut pair: Pair<Rule>) -> Term {
 					let item_name = names.pop().unwrap();
 					ImportTerm(QualifiedName(names, item_name))
 				}
-				_ => unreachable!()
+				_ => unimplemented!()
 			}),
 		range: (pair_span.start(), pair_span.end())
 	}
@@ -75,12 +88,31 @@ fn parse_module(mut pair: Pair<Rule>) -> Module {
 			let rule = item.as_rule();
 			let mut item_iter = item.into_inner();
 			let name = Name(item_iter.next().unwrap().as_str().to_string());
-			let body = parse_term(item_iter.next().unwrap());
 			match rule {
-				Rule::dec => { items.insert((name, ItemKind::Dec), Item::Declaration(body)); },
-				Rule::term_def => { items.insert((name, ItemKind::Def), Item::TermDef(body)); },
+				Rule::dec => items.insert((name, ItemKind::Dec), Item::Declaration(parse_term(item_iter.next().unwrap()))),
+				Rule::term_def => items.insert((name, ItemKind::Def), Item::TermDef(parse_term(item_iter.next().unwrap()))),
+				Rule::record_def => {
+					let mut param_list = item_iter.next().unwrap();
+					let mut field_list = item_iter.next().unwrap();
+
+					let mut param_names = AssocSet::new();
+					for param in param_list.into_inner() {
+						param_names.insert(Name(param.as_str().to_string()));
+					}
+
+					let mut fields = HashMap::new();
+					for field in field_list.into_inner() {
+						let mut field_iter = field.into_inner();
+						fields.insert(
+							Name(field_iter.next().unwrap().as_str().to_string()),
+							parse_term(field_iter.next().unwrap()));
+					}
+
+					items.insert((name, ItemKind::Def), Item::RecordTypeDef(param_names, fields));
+				},
+				Rule::module_def => items.insert((name, ItemKind::Def), Item::ModuleDef(parse_module(item_iter.next().unwrap()))),
 				_ => unreachable!()
-			}
+			};
 		}
 
 		Module { items }

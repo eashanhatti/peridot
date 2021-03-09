@@ -1,10 +1,11 @@
 module
-    Pair : Type -> Type -> Type;
-    record Pair A B where
-        fst : A
-        snd : B
+    nested :: module
+        i : Fin 1;
+        i = fin 0;
     end;
-    
-    id : [A : Type] -> [B : Type] -> (Pair(A, B)) -> (Pair(A, B));
-    id = fn _ _ p => p;
+
+    Pair : Type -> Type -> Type;
+    Pair :: record A B where
+        fst : A, snd : B
+    end;
 end

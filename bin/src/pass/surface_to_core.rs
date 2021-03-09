@@ -166,7 +166,13 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             // println!("IN_TYPE\n{:?}", in_type);
             // println!("CORE_IN_TYPE\n{:?}", core_in_type);
             let core_in_type_type = core_in_type.r#type(Context::new());
-            let core_out_type = elab_term(out_type, infer_type(out_type, state.clone())?, state.clone().with_dec(var_name.clone(), core_in_type.clone()))?;
+            let out_type_context =
+                if let Some(some_var_name) = var_name {
+                    state.clone().with_dec(some_var_name.clone(), core_in_type.clone())
+                } else {
+                    state
+                };
+            let core_out_type = elab_term(out_type, infer_type(out_type, out_type_context.clone())?, out_type_context)?;
             // println!("OUT_TYPE\n{:?}", out_type);
             // println!("CORE_OUT_TYPE\n{:?}", core_out_type);
             let core_out_type_type = core_out_type.r#type(Context::new());
@@ -185,7 +191,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             let mut in_types = Vec::new();
             let mut curr_type = exp_type.clone();
             let mut curr_state = state.clone();
-            for param_name in param_names {
+            for param_name in param_names.iter() {
                 if let self::core::lang::InnerTerm::FunctionTypeIntro(in_type, out_type) = *curr_type.data {
                     in_types.push(in_type.clone());
                     curr_type = out_type;
@@ -474,7 +480,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
     enum FlattenedModuleItem<'a> { // local item type for module flattening
         Declaration(&'a crate::lang::surface::Term),
         TermDef(&'a crate::lang::surface::Term),
-        RecordTypeDef(&'a HashMap<Name, crate::lang::surface::Term>),
+        RecordTypeDef(&'a AssocSet<Name>, &'a HashMap<Name, crate::lang::surface::Term>),
     }
 
     // flatten the module structure, turning it into a more haskell-like structure
@@ -484,9 +490,18 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
         for ((item_name, _), item) in module.items.iter() {
             // println!("ITEM_NAME {:?}", item_name);
             match item {
-                Item::Declaration(r#type) => { items.insert((module_name.clone().with_name(item_name.clone()), ItemKind::Dec), FlattenedModuleItem::Declaration(r#type)); },
-                Item::TermDef(term) => { items.insert((module_name.clone().with_name(item_name.clone()), ItemKind::Def), FlattenedModuleItem::TermDef(term)); },
-                Item::RecordTypeDef(fields) => { items.insert((module_name.clone().with_name(item_name.clone()), ItemKind::Def), FlattenedModuleItem::RecordTypeDef(fields)); },
+                Item::Declaration(r#type) =>
+                    { items.insert(
+                        (module_name.clone().with_name(item_name.clone()), ItemKind::Dec),
+                        FlattenedModuleItem::Declaration(r#type)); },
+                Item::TermDef(term) =>
+                    { items.insert(
+                        (module_name.clone().with_name(item_name.clone()), ItemKind::Def),
+                        FlattenedModuleItem::TermDef(term)); },
+                Item::RecordTypeDef(params, fields) =>
+                    { items.insert(
+                        (module_name.clone().with_name(item_name.clone()), ItemKind::Def),
+                        FlattenedModuleItem::RecordTypeDef(params, fields)); },
                 Item::ModuleDef(submodule) => {
                     let mut flat = flatten_module(submodule, module_name.clone().with_name(item_name.clone()));
                     while flat.len() > 0 {
@@ -596,7 +611,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                     // println!("CORE_TERM {:?}", term);
                     core_items.push(core_term);
                 }
-                _ => ()
+                _ => unimplemented!()
             }
         }
 
