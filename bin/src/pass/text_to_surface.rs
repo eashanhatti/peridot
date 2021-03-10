@@ -100,7 +100,7 @@ fn parse_module(mut pair: Pair<Rule>) -> Module {
 						param_names.insert(Name(param.as_str().to_string()));
 					}
 
-					let mut fields = HashMap::new();
+					let mut fields = AssocVec::new();
 					for field in field_list.into_inner() {
 						let mut field_iter = field.into_inner();
 						fields.insert(

@@ -26,18 +26,6 @@ impl Debug for Note {
 }
 
 #[derive(Copy, Clone, PartialEq, Hash, Eq)]
-pub enum Usage {
-    Unique,
-    Shared
-}
-
-impl Debug for Usage {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self { Unique => "unique", Shared => "shared" })
-    }
-}
-
-#[derive(Copy, Clone, PartialEq, Hash, Eq)]
 pub enum Doub {
     This,
     That
@@ -60,7 +48,7 @@ pub enum VarInner {
 
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum InnerTerm {
-    TypeTypeIntro(Usage),
+    TypeTypeIntro,
     Var(VarInner),
     Rec(Term),
     Let(Vec<Term>, Term),
@@ -99,7 +87,7 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
 
     let string =
         match term {
-            TypeTypeIntro(usage) => format!("Univ {:?}", usage),
+            TypeTypeIntro => String::from("Univ"),
             Var(index) => format!("var {:?}", index),
             Rec(ref inner) => format!("rec\n{}", display_term(inner, indent + 1)),
             Let(ref bindings, ref body) => {
@@ -222,7 +210,7 @@ impl Term {
             Some(r#type) => normalize(*r#type.clone(), context),
             None =>
                 match *self.data {
-                    TypeTypeIntro(_) => Term::new(Box::new(TypeTypeIntro(Usage::Unique)), None),
+                    TypeTypeIntro => Term::new(Box::new(TypeTypeIntro), None),
                     // these are here only for convience of implementation, hence why they panic if the type can't be inferred
                     Var(index) =>
                         match context.get_dec(index) {
@@ -304,8 +292,7 @@ pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(VarInner, VarInn
     */
     let data_compare =
         match &(&(*type1.data), &(*type2.data)) {
-            (TypeTypeIntro(usage1), TypeTypeIntro(usage2)) =>
-                bool_to_tc(usage1 == usage2),
+            (TypeTypeIntro, TypeTypeIntro) => True,
             (Var(index1), Var(index2)) => bool_to_tc(index1 == index2 || equivs.contains(&(*index1, *index2))),
             (Rec(ref inner_term1), Rec(ref inner_term2)) =>
                 is_terms_eq(inner_term1, inner_term2, equivs),

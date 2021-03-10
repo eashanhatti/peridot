@@ -26,7 +26,6 @@ use crate::{
             },
             lang::{
                 TermComparison::*,
-                Usage,
                 Note,
                 VarInner::*,
                 VarInner,
@@ -66,7 +65,7 @@ type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
 pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
     match &*term.data {
         Ann(_, ref type_ann) => Ok(elab_term(type_ann, infer_type(type_ann, state.clone())?, state)?),
-        TypeTypeIntro => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro(core::lang::Usage::Shared)), None)),
+        TypeTypeIntro => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro), None)),
         Var(ref name) =>
             if let Some((_, r#type)) = state.get_dec(name) {
                 Ok(r#type)
@@ -75,7 +74,7 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
             }
         FunctionTypeIntro(_, _, _) =>
             Ok(core::Term::new(
-                Box::new(core::TypeTypeIntro(core::Usage::Shared)),
+                Box::new(core::TypeTypeIntro),
                 None
             )),
         FunctionElim(ref abs, _) => {
@@ -87,7 +86,7 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
         },
         EnumTypeIntro(_) =>
             Ok(core::Term::new(
-                Box::new(core::TypeTypeIntro(core::Usage::Shared)),
+                Box::new(core::TypeTypeIntro),
                 None
             )),
         ImportTerm(path) =>
@@ -104,15 +103,15 @@ fn make_enum(inhabitant: usize, num_inhabitants: usize) -> core::Term {
     if inhabitant == 0 {
         if num_inhabitants > 1 {
             pair!(
-                doub!(this ,: Doub!( ,: Univ!(shared))),
-                unit!( ,: Unit!( ,: Univ!(shared)))
+                doub!(this ,: Doub!( ,: Univ!())),
+                unit!( ,: Unit!( ,: Univ!()))
             ,: make_enum_type(num_inhabitants))
         } else {
-            unit!( ,: Unit!( ,: Univ!(shared)))
+            unit!( ,: Unit!( ,: Univ!()))
         }
     } else {
         pair!(
-            doub!(that ,: Doub!( ,: Univ!(shared))),
+            doub!(that ,: Doub!( ,: Univ!())),
             make_enum(inhabitant - 1, num_inhabitants - 1)
         ,: r#type)
     }
@@ -120,18 +119,18 @@ fn make_enum(inhabitant: usize, num_inhabitants: usize) -> core::Term {
 
 fn make_enum_type(num_inhabitants: usize) -> core::Term {
     if num_inhabitants == 0 {
-        Void!( ,: Univ!(shared))
+        Void!( ,: Univ!())
     } else if num_inhabitants == 1 {
-        Unit!( ,: Univ!(shared))
+        Unit!( ,: Univ!())
     } else {
         Pair!(
-            Doub!( ,: Univ!(shared)),
+            Doub!( ,: Univ!()),
             case!(
-                var!(Bound(0) ,: Doub!( ,: Univ!(shared))),
-                l => Unit!( ,: Univ!(shared));
+                var!(Bound(0) ,: Doub!( ,: Univ!())),
+                l => Unit!( ,: Univ!());
                 r => make_enum_type(num_inhabitants - 1);
-            ,: Univ!(shared))
-        ,: Univ!(shared))
+            ,: Univ!())
+        ,: Univ!())
     }
 }
 
@@ -204,7 +203,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                                 pi!(
                                     in_type,
                                     type_acc
-                                ,: Univ!(shared));
+                                ,: Univ!());
                         }
                         type_acc
                     };
@@ -223,7 +222,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         pi!(
                             in_type,
                             body_acc_type
-                        ,: Univ!(shared)));
+                        ,: Univ!()));
             }
             Ok(body_acc)
         },
@@ -260,11 +259,11 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
         },
         EnumTypeIntro(num_inhabitants) => {
             match &*exp_type.data {
-                core::InnerTerm::TypeTypeIntro(_) =>
+                core::InnerTerm::TypeTypeIntro =>
                     Ok(Indexed!(
                         0,
                         make_enum_type(*num_inhabitants)
-                    ,: Univ!(shared))),
+                    ,: Univ!())),
                 _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type }])
             }
         },
@@ -319,17 +318,17 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         Box::new(IndexedTypeIntro(
                             0,
                             enum_type)),
-                        Some(Box::new(Univ!(shared))))))))
+                        Some(Box::new(Univ!())))))))
             } else {
                 Err(vec![ExpectedOfEnumType { term, state, giv_type: exp_type }])
             },
         TypeTypeIntro =>
             match *exp_type.data {
-                core::TypeTypeIntro(usage) =>
+                core::TypeTypeIntro =>
                     Ok(core::Term::new(
-                        Box::new(core::InnerTerm::TypeTypeIntro(core::Usage::Shared)),
+                        Box::new(core::InnerTerm::TypeTypeIntro),
                         Some(Box::new(core::Term::new(
-                            Box::new(core::InnerTerm::TypeTypeIntro(usage)),
+                            Box::new(core::InnerTerm::TypeTypeIntro),
                             None))))),
                 _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type }])
             },
@@ -354,7 +353,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         ()
                     } else {
                         // an import should never normalize down to this. if it ever does it will be ill-typed
-                        map.insert(i, postulate!(Symbol(rand::random::<usize>()) ,: Univ!(shared)));
+                        map.insert(i, postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
                     }
                 }
                 let mut map = map.into_iter().collect::<Vec<(usize, core::Term)>>();
@@ -368,16 +367,16 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                     if id == 0 {
                         if num_globals > 1 {
                             pair!(
-                                unit!( ,: Unit!( ,: Univ!(shared))),
-                                doub!(this ,: Doub!( ,: Univ!(shared)))
+                                unit!( ,: Unit!( ,: Univ!())),
+                                doub!(this ,: Doub!( ,: Univ!()))
                             ,: r#type)
                         } else {
-                            unit!( ,: Unit!( ,: Univ!(shared)))
+                            unit!( ,: Unit!( ,: Univ!()))
                         }
                     } else {
                         pair!(
                             make_discrim(id - 1, num_globals - 1),
-                            doub!(that ,: Doub!( ,: Univ!(shared)))
+                            doub!(that ,: Doub!( ,: Univ!()))
                         ,: r#type)
                     }
             }
@@ -386,16 +385,16 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 if num_globals == 0 {
                     unreachable!()
                 } else if num_globals == 1 {
-                    Unit!( ,: Univ!(shared))
+                    Unit!( ,: Univ!())
                 } else {
                     Pair!(
                         case!(
-                            var!(Bound(1), "import discrim_type" ,: Doub!( ,: Univ!(shared))),
-                            l => Unit!( ,: Univ!(shared));
+                            var!(Bound(1), "import discrim_type" ,: Doub!( ,: Univ!())),
+                            l => Unit!( ,: Univ!());
                             r => make_discrim_type(num_globals - 1);
-                        ,: Univ!(shared)),
-                        Doub!( ,: Univ!(shared))
-                    ,: Univ!(shared))
+                        ,: Univ!()),
+                        Doub!( ,: Univ!())
+                    ,: Univ!())
                 }
             }
 
@@ -415,10 +414,10 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                             var!(
                                 Bound(1),
                                 format!("case {:?}", c).as_str()
-                            ,: Doub!( ,: Univ!(shared))),
+                            ,: Doub!( ,: Univ!())),
                             l => global_type;
                             r => global_map_type;
-                        ,: Univ!(shared));
+                        ,: Univ!());
                     let core_map_split_type =
                         split!(
                             var!(
@@ -427,13 +426,13 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                                 format!("split {:?}", c).as_str()
                             ,: make_discrim_type(i + 2)),
                             in core_map_case_type.clone()
-                        ,: Univ!(shared));
+                        ,: Univ!());
                     global_map_type = core_map_split_type;
                 }
                 pi!(
                     discrim.r#type(Context::new()),
                     global_map_type
-                ,: Univ!(shared))
+                ,: Univ!())
             };
             // println!("GMI {:?}", state.globals_map_index);
             let mut core_term =
@@ -450,7 +449,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             //             Box::new(core::InnerTerm::FoldIntro(core_term)),
             //             Some(Box::new(core::Term::new(
             //                 Box::new(core::InnerTerm::FoldTypeIntro(core_term_type)),
-            //                 Some(Box::new(Univ!(shared)))))));
+            //                 Some(Box::new(Univ!()))))));
             // }
             Ok(core_term)
         }
@@ -480,7 +479,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
     enum FlattenedModuleItem<'a> { // local item type for module flattening
         Declaration(&'a crate::lang::surface::Term),
         TermDef(&'a crate::lang::surface::Term),
-        RecordTypeDef(&'a AssocSet<Name>, &'a HashMap<Name, crate::lang::surface::Term>),
+        RecordTypeDef(&'a AssocSet<Name>, &'a AssocVec<Name, crate::lang::surface::Term>),
     }
 
     // flatten the module structure, turning it into a more haskell-like structure
@@ -565,7 +564,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                     let mut decs_symbols_iter = decs_symbols.iter();
                     let mut core_map = 
                         if state.globals().len() == 0 {
-                            unit!( ,: var!(Free(Symbol(rand::random::<usize>())), "no globals" ,: Univ!(shared)))
+                            unit!( ,: var!(Free(Symbol(rand::random::<usize>())), "no globals" ,: Univ!()))
                         } else {
                             let (_, r#type, value, _) = globals_iter.next().unwrap();
                             value
@@ -576,18 +575,18 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             split!(
                                 var!(
                                     Bound(0)
-                                ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(shared))),
+                                ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!())),
                                 in
                                     case!(
                                         var!(
                                             Bound(1)
-                                        ,: Doub!( ,: Univ!(shared))),
+                                        ,: Doub!( ,: Univ!())),
                                         l => value;
                                         r => core_map;
-                                    ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(shared)))
-                            ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(shared)));
+                                    ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()))
+                            ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
                     }
-                    core_map = fun!(core_map ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!(shared)));
+                    core_map = fun!(core_map ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
                     // println!("CORE_MAP\n{:?}", core_map);
                     // why does Bound(0) work?
                     let normal_core_type = core::eval::normalize(core_type, Context::new().with_def(Bound(0), core_map));
@@ -611,7 +610,58 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                     // println!("CORE_TERM {:?}", term);
                     core_items.push(core_term);
                 }
-                _ => unimplemented!()
+                FlattenedModuleItem::RecordTypeDef(params, fields) => {
+                    let core_item_type = state.clone().get_global_dec(name).unwrap().0; // TODO: error reporting
+                    let mut record_type_type = core_item_type.clone();
+                    let mut fields_state = state.clone();
+                    let mut param_types = Vec::new();
+
+                    for param_name in params.iter() {
+                        if let core::FunctionTypeIntro(ref in_type, ref out_type) = *record_type_type.data {
+                            fields_state = fields_state.with_dec(param_name.clone(), in_type.clone());
+                            param_types.push(in_type.clone());
+                            record_type_type = out_type.clone();
+                        } else {
+                            panic!("record param error not implemented");
+                        }
+                    }
+
+                    if let core::InnerTerm::TypeTypeIntro = *record_type_type.data {
+                        let mut core_field_types = Vec::new();
+
+                        for (field_name, field_type) in fields.iter() {
+                            let core_field_type = elab_term(field_type, infer_type(field_type, fields_state.clone())?, fields_state.clone())?;
+                            core_field_types.push(core_field_type.clone());
+                            fields_state = fields_state.with_dec(field_name.clone(), core_field_type); // TODO: inc and shift because of core pair types
+                        }
+
+                        let mut core_record_type = Unit!("core_record_type_unit" ,: Univ!());
+                        for core_field_type in core_field_types {
+                            core_record_type =
+                                Pair!(
+                                    core_field_type,
+                                    core_record_type
+                                ,: Univ!());
+                        }
+
+                        let mut core_record_type_cons = core_record_type;
+                        for param_type in param_types.iter().rev() {
+                            let core_record_type_cons_type = core_record_type_cons.r#type(Context::new());
+                            core_record_type_cons =
+                                fun!(
+                                    core_record_type_cons
+                                ,: 
+                                    pi!(
+                                        param_type.clone(),
+                                        core_record_type_cons_type
+                                    ,: Univ!()));
+                        }
+
+                        core_items.push(core_record_type_cons);
+                    } else {
+                        panic!("record_type_type error not implemented{:#?}", record_type_type);
+                    }
+                }
             }
         }
 
@@ -624,7 +674,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
         };
         let num_items = core_items.len();
         let mut core_map = core_items.pop().unwrap();
-        let mut discrim_type = Unit!("discrim_unit" ,: Univ!(shared));
+        let mut discrim_type = Unit!("discrim_unit" ,: Univ!());
 
         let mut discrim_case_index = 0;
         let mut discrim_split_index = 0;
@@ -640,8 +690,8 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                 ,:
                     pi!(
                         var!(Bound(discrim_split_index + discrim_offset)),
-                        Univ!(shared)
-                    ,: Univ!(shared))));
+                        Univ!()
+                    ,: Univ!())));
 
         for (i, core_item) in core_items.into_iter().enumerate().rev() {
             let discrim_case_type =
@@ -649,10 +699,10 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                     var!(
                         Bound(0),
                         format!("discrim_type").as_str()
-                    ,: Doub!(format!("discrim_type").as_str() ,: Univ!(shared))),
-                    l => Unit!("discrim unit l" ,: Univ!(shared));
+                    ,: Doub!(format!("discrim_type").as_str() ,: Univ!())),
+                    l => Unit!("discrim unit l" ,: Univ!());
                     r => var!(Bound(discrim_case_index + discrim_offset + 1));
-                ,: Univ!(shared));
+                ,: Univ!());
 
             let core_map_case_type =
                 fun!(
@@ -661,26 +711,26 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             var!(
                                 Bound(1),
                                 format!("core_map_type_case").as_str()
-                            ,: Doub!(format!("core_map_type_case").as_str() ,: Univ!(shared))),
+                            ,: Doub!(format!("core_map_type_case").as_str() ,: Univ!())),
                             l => core_item.r#type(Context::new());
                             r =>
                                 apply!(
                                     var!(Bound((let_match_items.len() - 1) + 2)), // + 2 since the two funs inc context by 2
                                     var!(Bound(0)));
-                        ,: Univ!(shared))
+                        ,: Univ!())
                     ,:
                         pi!(
                             discrim_case_type.clone(),
-                            Univ!(shared)
-                        ,: Univ!(shared)))
+                            Univ!()
+                        ,: Univ!()))
                 ,:
                     pi!(
-                        Doub!(format!("core_map_type_case").as_str() ,: Univ!(shared)),
+                        Doub!(format!("core_map_type_case").as_str() ,: Univ!()),
                         pi!(
                             discrim_case_type.clone(),
-                            Univ!(shared)
-                        ,: Univ!(shared))
-                    ,: Univ!(shared)));
+                            Univ!()
+                        ,: Univ!())
+                    ,: Univ!()));
             let_match_items.push(core_map_case_type);
             discrim_case_index += 1;
 
@@ -690,12 +740,12 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                         var!(
                             Bound(1),
                             format!("discrim_type").as_str()
-                        ,: Doub!(format!("discrim_type").as_str() ,: Univ!(shared))),
-                        l => Unit!("discrim unit l" ,: Univ!(shared));
+                        ,: Doub!(format!("discrim_type").as_str() ,: Univ!())),
+                        l => Unit!("discrim unit l" ,: Univ!());
                         r => r;
-                    ,: Univ!(shared)),
-                    Doub!(format!("discrim_type_case") ,: Univ!(shared))
-                ,: Univ!(shared));
+                    ,: Univ!()),
+                    Doub!(format!("discrim_type_case") ,: Univ!())
+                ,: Univ!());
             discrim_type = cons_discrim_type(discrim_type.clone());
             let_discrim_items.push(cons_discrim_type(var!(Bound(discrim_prev_index + 2))));
             discrim_prev_index += 1;
@@ -712,13 +762,13 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                                     var!(Bound((let_match_items.len() - 1) + 3)), // + 3 since split and fun together inc context by 3
                                     var!(Bound(1))),
                                 var!(Bound(0)))
-                    ,: Univ!(shared))
+                    ,: Univ!())
                 ,:
                     pi!(
                         "core_map_split_type_pi",
                         var!(Bound(discrim_split_index + discrim_offset)),
-                        Univ!(shared)
-                    ,: Univ!(shared)));
+                        Univ!()
+                    ,: Univ!()));
             let_match_items.push(core_map_split_type);
 
             core_map =
@@ -729,7 +779,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             var!(
                                 Bound(1),
                                 format!("core_map").as_str()
-                            ,: Doub!(format!("core_map").as_str() ,: Univ!(shared))),
+                            ,: Doub!(format!("core_map").as_str() ,: Univ!())),
                             l => core_item;
                             r => core_map;
                         ,:
@@ -755,7 +805,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                     pi!(
                         normalize(discrim_type, Context::new()),
                         core_map_type
-                    ,: Univ!(shared)))))
+                    ,: Univ!()))))
     };
 
     Ok(core_module)

@@ -1,11 +1,6 @@
 module
-    nested :: module
-        i : Fin 1;
-        i = fin 0;
-    end;
-
-    Pair : Type -> Type -> Type;
-    Pair :: record A B where
-        fst : A, snd : B
+    Pair : Type;
+    Pair :: record where
+        a : Fin 1
     end;
 end

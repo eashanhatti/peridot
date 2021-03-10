@@ -10,13 +10,13 @@ module = { "module" ~ ws+ ~ item_list ~ ws+ ~ "end" }
 item_list = _{ item ~ ws* ~ ";" ~ ( ws* ~ item ~ ws* ~ ";" )* }
 item = _{ record_def | module_def | term_def | dec }
     term_def = { name ~ ws* ~ "=" ~ ws* ~ term }
-    record_def = { name ~ ws* ~ "::" ~ ws* ~ "record" ~ s+ ~ param_list? ~ s* ~ "where" ~ ws* ~ field_list ~ ws* ~ "end" }
+    record_def = { name ~ ws* ~ "::" ~ ws* ~ "record" ~ s+ ~ param_list ~ s* ~ "where" ~ ws* ~ field_list ~ ws* ~ "end" }
         field_list = { (field ~ (ws* ~ field)*)? }
         field = { name ~ ws* ~ ":" ~ ws* ~ term ~ s* ~ ("," | NEWLINE) }
     module_def = { name ~ ws* ~ "::" ~ ws* ~ module }
     dec = { name ~ ws* ~ ":" ~ ws* ~ term }
     
-param_list = { name ~ ( s+ ~ name )* }
+param_list = { (name ~ ( s+ ~ name )*)? }
 
 term = _{ prec2 }
 prec2 = _{ fun_elim | prec1 }

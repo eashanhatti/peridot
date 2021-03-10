@@ -1,23 +1,13 @@
 #[macro_export]
 macro_rules! Univ {
-    (shared) => {
+    () => {
         crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro(Usage::Shared)),
+            Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro),
             None)
     };
-    (unique) => {
+    (,: $ann:expr) => {
         crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro(Usage::Unique)),
-            None)
-    };
-    (shared,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro(Usage::Shared)),
-            Some(Box::new($ann)))
-    };
-    (unique,: $ann:expr) => {
-        crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro(Usage::Unique)),
+            Box::new(crate::lang::core::lang::InnerTerm::TypeTypeIntro),
             Some(Box::new($ann)))
     }
 }

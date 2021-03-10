@@ -63,7 +63,7 @@ fn repl() {
                     // };
                     let core_module = {
                         let mut tmp =
-                            match elab_toplevel(&surface_module_ok, QualifiedName(Vec::new(), Name(String::from("Main")))) {
+                            match elab_toplevel(&surface_module_ok, QualifiedName(Vec::new(), Name(String::from("main")))) {
                                 Ok(module) => module,
                                 Err(errs) => {
                                     println!("SURFACE ERROR\n{:#?}", errs);
@@ -134,7 +134,7 @@ fn direct() {
     if let Ok(surface_module_ok) = surface_module {
         let core_module = {
             let mut tmp =
-                match elab_toplevel(&surface_module_ok, QualifiedName(Vec::new(), Name(String::from("Main")))) {
+                match elab_toplevel(&surface_module_ok, QualifiedName(Vec::new(), Name(String::from("main")))) {
                     Ok(module) => module,
                     Err(errs) => {
                         println!("SURFACE ERROR\n{:#?}", errs);
