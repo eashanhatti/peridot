@@ -17,7 +17,6 @@ Current Roadmap:
         - [x] Dependent functions
         - [x] Dependent pairs
         - [x] Opt-in lazy eval
-        - [x] Uniqueness types
         - [ ] Staging
         - [ ] Layout Polymorphism
         - [ ] External interaction/effects

@@ -47,13 +47,13 @@ use InnerError::*;
 
 #[derive(Debug)]
 pub struct Error {
-    loc: Location,
+    loc: Option<Location>,
     error: InnerError,
     context: Context
 }
 
 impl Error {
-    pub fn new(loc: Location, context: Context, error: InnerError) -> Error {
+    pub fn new(loc: Option<Location>, context: Context, error: InnerError) -> Error {
         Error {
             loc,
             context,

@@ -167,9 +167,9 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             let core_in_type_type = core_in_type.r#type(Context::new());
             let out_type_context =
                 if let Some(some_var_name) = var_name {
-                    state.clone().with_dec(some_var_name.clone(), core_in_type.clone())
+                    state.with_dec(some_var_name.clone(), core_in_type.clone())
                 } else {
-                    state
+                    state.raw_inc_and_shift(1)
                 };
             let core_out_type = elab_term(out_type, infer_type(out_type, out_type_context.clone())?, out_type_context)?;
             // println!("OUT_TYPE\n{:?}", out_type);

@@ -1,19 +1,9 @@
 module
-    Foo : Type -> Type -> Type;
-    Foo = record A B where
-        bar : A
-        baz : B
+    Foo : Type;
+    Foo = record where
+    	field : Fin 1
     end;
 
-    Foo2 : Type -> Type;
-    Foo2 = record A where end;
-
-    Foo3 : Type;
-    Foo3 = record where
-    	T : Type
-    	x : T
-    end;
-
-    Foo4 : Type;
-    Foo4 = record where end;
+    id : import main.Foo -> import main.Foo;
+    id = fn x => x;
 end

@@ -197,8 +197,8 @@ impl Term {
         }
     }
 
-    pub fn loc(&self) -> Location {
-        self.loc.unwrap()
+    pub fn loc(&self) -> Option<Location> {
+        self.loc
     }
 
     // returns the type of a term, unchecked
