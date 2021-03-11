@@ -1,6 +1,19 @@
 module
-    Pair : Type;
-    Pair :: record where
-        a : Fin 1
+    Foo : Type -> Type -> Type;
+    Foo = record A B where
+        bar : A
+        baz : B
     end;
+
+    Foo2 : Type -> Type;
+    Foo2 = record A where end;
+
+    Foo3 : Type;
+    Foo3 = record where
+    	T : Type
+    	x : T
+    end;
+
+    Foo4 : Type;
+    Foo4 = record where end;
 end

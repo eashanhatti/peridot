@@ -628,15 +628,16 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
 
                     if let core::InnerTerm::TypeTypeIntro = *record_type_type.data {
                         let mut core_field_types = Vec::new();
+                        fields_state = fields_state.raw_inc_and_shift(2);
 
                         for (field_name, field_type) in fields.iter() {
                             let core_field_type = elab_term(field_type, infer_type(field_type, fields_state.clone())?, fields_state.clone())?;
                             core_field_types.push(core_field_type.clone());
-                            fields_state = fields_state.with_dec(field_name.clone(), core_field_type); // TODO: inc and shift because of core pair types
+                            fields_state = fields_state.with_dec(field_name.clone(), core_field_type).raw_inc_and_shift(2);
                         }
 
                         let mut core_record_type = Unit!("core_record_type_unit" ,: Univ!());
-                        for core_field_type in core_field_types {
+                        for core_field_type in core_field_types.into_iter().rev() {
                             core_record_type =
                                 Pair!(
                                     core_field_type,
@@ -657,6 +658,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                                     ,: Univ!()));
                         }
 
+                        state = state.with_global_def(name.clone(), core_record_type_cons.clone());
                         core_items.push(core_record_type_cons);
                     } else {
                         panic!("record_type_type error not implemented{:#?}", record_type_type);

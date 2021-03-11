@@ -34,10 +34,10 @@ pub struct State {
 }
 
 impl State {
-	pub fn new(num_global_decs: usize) -> State {
+	pub fn new(num_global_decs: usize) -> Self {
         let map1: HashMap<Name, VarInner> = HashMap::new();
         let map2: HashMap<QualifiedName, (core::Term, core::Term, usize)> = HashMap::new();
-		State {
+		Self {
             locals: Context::new(),
             local_names_to_indices: map1,
             globals: map2,
@@ -47,7 +47,7 @@ impl State {
         }
 	}
 
-    pub fn with_dec(self, name: Name, r#type: core::Term) -> State {
+    pub fn with_dec(self, name: Name, r#type: core::Term) -> Self {
         let mut local_names_to_indices: HashMap<Name, VarInner> =
             self.local_names_to_indices.into_iter().map(|(k, v)|
                 if let Bound(index) = v {
@@ -57,7 +57,7 @@ impl State {
                 }).collect();
         local_names_to_indices.insert(name, Bound(0));
 
-        State {
+        Self {
             locals: self.locals.inc_and_shift(1).with_dec(Bound(0), shift(r#type, HashSet::new(), 1)),
             local_names_to_indices,
             globals_map_index: self.globals_map_index + 1,
@@ -66,10 +66,10 @@ impl State {
     }
 
     // declare before use, `with_dec(name, _)` must have been called before this is
-    pub fn with_def(self, name: Name, value: core::Term) -> State {
+    pub fn with_def(self, name: Name, value: core::Term) -> Self {
         if let Some(index) = self.local_names_to_indices.get(&name) {
             if self.locals.exists_dec(*index) {
-                State {
+                Self {
                     locals: self.locals.with_def(*index, value),
                     ..self
                 }
@@ -100,13 +100,13 @@ impl State {
         Some((entry.0, entry.1.def?))
     }
 
-    pub fn with_global_dec(self, name: QualifiedName, r#type: core::Term) -> State {
+    pub fn with_global_dec(self, name: QualifiedName, r#type: core::Term) -> Self {
         if let Some(_) = self.globals.get(&name) {
             panic!("duplicate global");
         } else {
             let mut globals = self.globals;
             globals.insert(name, (r#type.clone(), postulate!(Symbol(rand::random::<usize>()) ,: r#type), self.global_id));
-            State {
+            Self {
                 globals,
                 global_id: self.global_id + 1,
                 ..self
@@ -114,7 +114,7 @@ impl State {
         }
     }
 
-    pub fn with_global_def(mut self, name: QualifiedName, value: core::Term) -> State {
+    pub fn with_global_def(mut self, name: QualifiedName, value: core::Term) -> Self {
         if let Some((r#type, _, id)) = self.globals.get(&name) {
             let r#type = r#type.clone();
             let id = *id;
@@ -155,9 +155,27 @@ impl State {
         }
     }
 
-    pub fn with_globals_map_index(self, index: usize) -> State {
-        State {
+    pub fn with_globals_map_index(self, index: usize) -> Self {
+        Self {
             globals_map_index: index,
+            ..self
+        }
+    }
+
+    // this is a hack (?)
+    pub fn raw_inc_and_shift(self, amount: isize) -> Self {
+        let locals = self.locals.inc_and_shift(amount);
+        let mut local_names_to_indices = self.local_names_to_indices;
+        for (name, ref mut index) in &mut local_names_to_indices {
+            if let Bound(ref mut bound_index) = index {
+                *bound_index = ((*bound_index as isize) + amount) as usize;
+            }
+        }
+
+        Self {
+            locals,
+            local_names_to_indices,
+            globals_map_index: self.globals_map_index + 1,
             ..self
         }
     }
