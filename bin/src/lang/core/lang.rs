@@ -293,14 +293,17 @@ pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(VarInner, VarInn
     let data_compare =
         match &(&(*type1.data), &(*type2.data)) {
             (TypeTypeIntro, TypeTypeIntro) => True,
-            (Var(index1), Var(index2)) => bool_to_tc(index1 == index2 || equivs.contains(&(*index1, *index2))),
+            (Var(index1), Var(index2)) =>
+                match index1 == index2 || equivs.contains(&(*index1, *index2)) {
+                    true => True,
+                    false => False(vec![(type1.clone(), type2.clone())])
+                },
             (Rec(ref inner_term1), Rec(ref inner_term2)) =>
                 is_terms_eq(inner_term1, inner_term2, equivs),
             (Let(ref bindings1, ref body1), Let(ref bindings2, ref body2)) =>
                 comb(
                     bool_to_tc( // TODO: show specifics
-                        bindings1.iter()
-                            .zip(bindings2.iter())
+                        bindings1.iter().zip(bindings2.iter())
                             .map(|(binding1, binding2)| is_terms_eq(binding1, binding2, equivs.clone()))
                             .all(|tc| if let True = tc { true } else { false })),
                     is_terms_eq(body1, body2, equivs.clone())),

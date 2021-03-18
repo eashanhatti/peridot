@@ -1,5 +1,6 @@
 #![allow(warnings)]
 
+use crate::lang::core::lang::Symbol;
 use std::collections::HashMap;
 extern crate assoc_collections;
 use assoc_collections::*;

@@ -146,7 +146,7 @@ pub fn substitute(term: Term, context: Context) -> Term {
             FunctionIntro(body) => FunctionIntro(substitute(body, context.inc_and_shift(1))),
             FunctionElim(abs, arg) => FunctionElim(substitute(abs, context.clone()), substitute(arg, context)),
             PairTypeIntro(fst_type, snd_type) => {
-                let fst_type_context = context.clone().inc_and_shift(1);
+                let fst_type_context = context.clone().inc_and_shift(2);
                 let snd_type_context = fst_type_context.clone();
                 PairTypeIntro(substitute(fst_type, fst_type_context), substitute(snd_type, snd_type_context))
             },

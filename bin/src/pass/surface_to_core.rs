@@ -161,7 +161,9 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
         FunctionTypeIntro(var_name, ref in_type, ref out_type) => {
             // TODO: remove the `?` and add proper error handling
             let mut errors = Vec::new();
+            // println!("IN_TYPE_STATE {:?}", state);
             let core_in_type = elab_term(in_type, infer_type(in_type, state.clone())?, state.clone())?;
+            // println!("CORE_IN_TYPE {:?}", core_in_type);
             // println!("IN_TYPE\n{:?}", in_type);
             // println!("CORE_IN_TYPE\n{:?}", core_in_type);
             let core_in_type_type = core_in_type.r#type(Context::new());
@@ -192,6 +194,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             let mut curr_state = state.clone();
             for param_name in param_names.iter() {
                 if let self::core::lang::InnerTerm::FunctionTypeIntro(in_type, out_type) = *curr_type.data {
+                    println!("IN_TYPE {:?}", in_type);
                     in_types.push(in_type.clone());
                     curr_type = out_type;
                     curr_state = curr_state.with_dec(param_name.clone(), in_type);
@@ -212,6 +215,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             }
 
             // println!("CURR_STATE\n{:?}", curr_state);
+            // println!("CURR_TYPE {:?}", curr_type);
             let mut body_acc = elab_term(body, curr_type, curr_state)?;
             for in_type in in_types.into_iter().rev() {
                 let body_acc_type = body_acc.r#type(Context::new());
@@ -333,126 +337,118 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type }])
             },
         ImportTerm(path) => {
-            // println!("GLOBALS {:#?}", state.clone().globals());
-            // println!("INDEX {:?}", state.globals_map_index);
-            // println!("TO {:?}", state.clone());
-            let (item_type, id) =
-                if let Some(entry) = state.get_global_dec(path) {
-                    entry
-                } else {
-                    return Err(vec![NonexistentGlobal { import: term, state, name: path.clone() }]);
-                };
-            let mut global_types = {
-                let mut map: HashMap<usize, core::Term> = HashMap::new();
-                for (_, (global_type, _, global_id)) in state.globals().iter() {
-                    // println!("GT {:?}", global_type);
-                    map.insert(*global_id, global_type.clone());
-                }
-                for i in 0..state.num_global_decs {
-                    if let Some(_) = map.get(&i) {
-                        ()
-                    } else {
-                        // an import should never normalize down to this. if it ever does it will be ill-typed
-                        map.insert(i, postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
-                    }
-                }
-                let mut map = map.into_iter().collect::<Vec<(usize, core::Term)>>();
-                map.sort_by(|(id1, _), (id2, _)| id1.cmp(id2));
-                map.into_iter()
-                    .map(|(_, r#type)| r#type)
-                    .collect::<Vec<core::Term>>()
-            };
-            fn make_discrim(id: usize, num_globals: usize) -> core::Term {
-                    let r#type = make_discrim_type(num_globals);
-                    if id == 0 {
-                        if num_globals > 1 {
-                            pair!(
-                                unit!( ,: Unit!( ,: Univ!())),
-                                doub!(this ,: Doub!( ,: Univ!()))
-                            ,: r#type)
-                        } else {
-                            unit!( ,: Unit!( ,: Univ!()))
-                        }
-                    } else {
-                        pair!(
-                            make_discrim(id - 1, num_globals - 1),
-                            doub!(that ,: Doub!( ,: Univ!()))
-                        ,: r#type)
-                    }
-            }
-
-            fn make_discrim_type(num_globals: usize) -> core::Term {
-                if num_globals == 0 {
-                    unreachable!()
-                } else if num_globals == 1 {
-                    Unit!( ,: Univ!())
-                } else {
-                    Pair!(
-                        case!(
-                            var!(Bound(1), "import discrim_type" ,: Doub!( ,: Univ!())),
-                            l => Unit!( ,: Univ!());
-                            r => make_discrim_type(num_globals - 1);
-                        ,: Univ!()),
-                        Doub!( ,: Univ!())
-                    ,: Univ!())
-                }
-            }
-
-            // println!("NUM GD{:?}", state.num_global_decs);
-            let discrim = make_discrim(id, state.num_global_decs);
-            // println!("DISCRIM {:?}", discrim);
-            // println!("DISCRIM_TYPE {:?}", discrim.r#type(Context::new()));
-            let global_map_type = {
-                let mut global_map_type = global_types.pop().unwrap();
-                let len = global_types.len();
-                let mut c = 0;
-                for (i, global_type) in global_types.into_iter().rev().enumerate() {
-                    // println!("I {:?} LEN - 1 {:?} GMI {:?}", i, len - 1, state.globals_map_index);
-                    c += 1;
-                    let core_map_case_type =
-                        case!(
-                            var!(
-                                Bound(1),
-                                format!("case {:?}", c).as_str()
-                            ,: Doub!( ,: Univ!())),
-                            l => global_type;
-                            r => global_map_type;
-                        ,: Univ!());
-                    let core_map_split_type =
-                        split!(
-                            var!(
-                                // if i == len - 1 { Bound(state.globals_map_index) } else { Bound(0) }
-                                Bound(0),
-                                format!("split {:?}", c).as_str()
-                            ,: make_discrim_type(i + 2)),
-                            in core_map_case_type.clone()
-                        ,: Univ!());
-                    global_map_type = core_map_split_type;
-                }
-                pi!(
-                    discrim.r#type(Context::new()),
-                    global_map_type
-                ,: Univ!())
-            };
-            // println!("GMI {:?}", state.globals_map_index);
-            let mut core_term =
-                apply!(
-                    var!(
-                        Bound(state.globals_map_index)
-                    ,: global_map_type),
-                    discrim
-                ,: item_type);
-            // if let None = state.get_global_def(path.clone()) {
-            //     let core_term_type = core_term.r#type(Context::new());
-            //     core_term =
-            //         core::Term::new(
-            //             Box::new(core::InnerTerm::FoldIntro(core_term)),
-            //             Some(Box::new(core::Term::new(
-            //                 Box::new(core::InnerTerm::FoldTypeIntro(core_term_type)),
-            //                 Some(Box::new(Univ!()))))));
+            // // println!("GLOBALS {:#?}", state.clone().globals());
+            // // println!("INDEX {:?}", state.globals_map_index);
+            // // println!("TO {:?}", state.clone());
+            // let (item_type, id) =
+            //     if let Some(entry) = state.get_global_dec(path) {
+            //         entry
+            //     } else {
+            //         return Err(vec![NonexistentGlobal { import: term, state, name: path.clone() }]);
+            //     };
+            // let mut global_types = {
+            //     let mut map: HashMap<usize, core::Term> = HashMap::new();
+            //     for (_, (global_type, _, global_id)) in state.globals().iter() {
+            //         // println!("GT {:?}", global_type);
+            //         map.insert(*global_id, global_type.clone());
+            //     }
+            //     for i in 0..state.num_global_decs {
+            //         if let Some(_) = map.get(&i) {
+            //             ()
+            //         } else {
+            //             // an import should never normalize down to this. if it ever does it will be ill-typed
+            //             map.insert(i, postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
+            //         }
+            //     }
+            //     let mut map = map.into_iter().collect::<Vec<(usize, core::Term)>>();
+            //     map.sort_by(|(id1, _), (id2, _)| id1.cmp(id2));
+            //     map.into_iter()
+            //         .map(|(_, r#type)| r#type)
+            //         .collect::<Vec<core::Term>>()
+            // };
+            // fn make_discrim(id: usize, num_globals: usize) -> core::Term {
+            //     let r#type = make_discrim_type(num_globals);
+            //     if id == 0 {
+            //         if num_globals > 1 {
+            //             pair!(
+            //                 unit!( ,: Unit!( ,: Univ!())),
+            //                 doub!(this ,: Doub!( ,: Univ!()))
+            //             ,: r#type)
+            //         } else {
+            //             unit!( ,: Unit!( ,: Univ!()))
+            //         }
+            //     } else {
+            //         pair!(
+            //             make_discrim(id - 1, num_globals - 1),
+            //             doub!(that ,: Doub!( ,: Univ!()))
+            //         ,: r#type)
+            //     }
             // }
-            Ok(core_term)
-        }
+
+            // fn make_discrim_type(num_globals: usize) -> core::Term {
+            //     if num_globals == 0 {
+            //         unreachable!()
+            //     } else if num_globals == 1 {
+            //         Unit!( ,: Univ!())
+            //     } else {
+            //         Pair!(
+            //             case!(
+            //                 var!(Bound(1), "import discrim_type" ,: Doub!( ,: Univ!())),
+            //                 l => Unit!( ,: Univ!());
+            //                 r => make_discrim_type(num_globals - 1);
+            //             ,: Univ!()),
+            //             Doub!( ,: Univ!())
+            //         ,: Univ!())
+            //     }
+            // }
+
+            // // println!("NUM GD{:?}", state.num_global_decs);
+            // let discrim = make_discrim(id, state.num_global_decs);
+            // // println!("DISCRIM {:?}", discrim);
+            // // println!("DISCRIM_TYPE {:?}", discrim.r#type(Context::new()));
+            // let global_map_type = {
+            //     let mut global_map_type = global_types.pop().unwrap();
+            //     let len = global_types.len();
+            //     let mut c = 0;
+            //     for (i, global_type) in global_types.into_iter().rev().enumerate() {
+            //         // println!("I {:?} LEN - 1 {:?} GMI {:?}", i, len - 1, state.globals_map_index);
+            //         c += 1;
+            //         let core_map_case_type =
+            //             case!(
+            //                 var!(
+            //                     Bound(1),
+            //                     format!("case {:?}", c).as_str()
+            //                 ,: Doub!( ,: Univ!())),
+            //                 l => global_type;
+            //                 r => global_map_type;
+            //             ,: Univ!());
+            //         let core_map_split_type =
+            //             split!(
+            //                 var!(
+            //                     // if i == len - 1 { Bound(state.globals_map_index) } else { Bound(0) }
+            //                     Bound(0),
+            //                     format!("split {:?}", c).as_str()
+            //                 ,: make_discrim_type(i + 2)),
+            //                 in core_map_case_type.clone()
+            //             ,: Univ!());
+            //         global_map_type = core_map_split_type;
+            //     }
+            //     pi!(
+            //         discrim.r#type(Context::new()),
+            //         global_map_type
+            //     ,: Univ!())
+            // };
+            // // println!("GMI {:?}", state.globals_map_index);
+            // let mut core_term =
+            //     apply!(
+            //         var!(
+            //             Bound(state.globals_map_index)
+            //         ,: global_map_type),
+            //         discrim
+            //     ,: item_type);
+            // Ok(core_term)
+            Ok(state.get_global_def(path.clone()).unwrap().0)
+        },
         _ => unimplemented!()
     }
 }
@@ -559,43 +555,45 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
             // println!("NAME {:?} KIND {:?}", name, kind);
             match item {
                 FlattenedModuleItem::Declaration(r#type) => {
-                    let core_type = elab_term(r#type, infer_type(r#type, state.clone())?, state.clone())?;
-                    let mut globals_iter = state.iter_globals();
-                    let mut decs_symbols_iter = decs_symbols.iter();
-                    let mut core_map = 
-                        if state.globals().len() == 0 {
-                            unit!( ,: var!(Free(Symbol(rand::random::<usize>())), "no globals" ,: Univ!()))
-                        } else {
-                            let (_, r#type, value, _) = globals_iter.next().unwrap();
-                            value
-                        };
+                    let new_state = state.clone().with_globals_map_index((*decs_indices_iter.next().unwrap()));
+                    let core_type = elab_term(r#type, infer_type(r#type, new_state.clone())?, new_state)?;
+                    // println!("CORE_TYPE {:?}", core_type);
+                    // let mut globals_iter = state.iter_globals();
+                    // let mut decs_symbols_iter = decs_symbols.iter();
+                    // let mut core_map = 
+                    //     if state.globals().len() == 0 {
+                    //         unit!( ,: var!(Free(Symbol(rand::random::<usize>())), "no globals" ,: Univ!()))
+                    //     } else {
+                    //         let (_, r#type, value, _) = globals_iter.next().unwrap();
+                    //         value
+                    //     };
 
-                    for ((_, r#type, value, _), symbol) in globals_iter.zip(decs_symbols_iter) {
-                        core_map =
-                            split!(
-                                var!(
-                                    Bound(0)
-                                ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!())),
-                                in
-                                    case!(
-                                        var!(
-                                            Bound(1)
-                                        ,: Doub!( ,: Univ!())),
-                                        l => value;
-                                        r => core_map;
-                                    ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()))
-                            ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
-                    }
-                    core_map = fun!(core_map ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
-                    // println!("CORE_MAP\n{:?}", core_map);
-                    // why does Bound(0) work?
-                    let normal_core_type = core::eval::normalize(core_type, Context::new().with_def(Bound(0), core_map));
+                    // for ((_, r#type, value, _), symbol) in globals_iter.zip(decs_symbols_iter) {
+                    //     core_map =
+                    //         split!(
+                    //             var!(
+                    //                 Bound(0)
+                    //             ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!())),
+                    //             in
+                    //                 case!(
+                    //                     var!(
+                    //                         Bound(1)
+                    //                     ,: Doub!( ,: Univ!())),
+                    //                     l => value;
+                    //                     r => core_map;
+                    //                 ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()))
+                    //         ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
+                    // }
+                    // core_map = fun!(core_map ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
+                    // println!("CORE_MAP{}\n{:?}", state.globals_map_index, core_map);
+                    // // why does Bound(0) work?
+                    // let normal_core_type = core::eval::normalize(core_type, Context::new().with_def(Bound(state.globals_map_index), core_map));
                     // println!("NCT\n{:?}", normal_core_type);
 
                     state =
                         state.with_global_dec(
                             name.clone(),
-                            normal_core_type);
+                            core_type);
                 }
                 FlattenedModuleItem::TermDef(term) => {
                     let core_item_type = state.get_global_dec(name).unwrap().0; // TODO: error reporting

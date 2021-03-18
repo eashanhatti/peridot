@@ -114,7 +114,7 @@ data ListOfNonErased : (A : s1'r'false'Type) -> s2'_'false'Type where
     cons : A -> List A -> List A
 ```
 
-Thinking about it again, this actually shouldn't be a problem. Let's take the one using `decide` again
+Thinking about it again, this actually does work. Let's take the one using `decide` again
 ```haskell
 decide : Erased -> Stage -> Stage -> Stage
 decide i s1 s2 =
@@ -126,6 +126,4 @@ data List : (A : (decide i s1 s2)'r'i'Type) -> (decide i s1 s3)'_'i'Type where
     nil : List A
     cons : A -> List A -> List A
 ```
-It seemed like this would fail because `(decide i s1 s2) /= (decide i s1 s3)`. However, the fact that it has to assume `i` will be `true` here will cause them both to normalize to `s1`, making the well-formedness check pass. Note that that assumption only occurs during the well-formedness check, otherwise that would cause some weird behavior
-
-I'll need to make sure rigorously that this system is correct, but it looks like it will work
+It seemed like this would fail because `(decide i s1 s2) /= (decide i s1 s3)`. However, the fact that it has to assume `i` will be `true` here will cause them both to normalize to `s1`, making the well-formedness check pass.
