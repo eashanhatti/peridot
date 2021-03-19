@@ -175,7 +175,17 @@ impl State {
         Self {
             locals,
             local_names_to_indices,
-            globals_map_index: self.globals_map_index + 1,
+            globals_map_index: ((self.globals_map_index as isize) + amount) as usize,
+            ..self
+        }
+    }
+
+    pub fn raw_with_dec(self, name: Name, index: VarInner, r#type: core::Term) -> Self {
+        let mut local_names_to_indices = self.local_names_to_indices;
+        local_names_to_indices.insert(name, index);
+        Self {
+            local_names_to_indices,
+            locals: self.locals.with_dec(index, r#type),
             ..self
         }
     }
