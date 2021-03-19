@@ -631,7 +631,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                         for (field_name, field_type) in fields.iter() {
                             let core_field_type = elab_term(field_type, infer_type(field_type, fields_state.clone())?, fields_state.clone())?;
                             core_field_types.push(core_field_type.clone());
-                            fields_state = fields_state.with_dec(field_name.clone(), core_field_type).raw_inc_and_shift(2);
+                            fields_state = fields_state.with_dec(field_name.clone(), core_field_type).raw_inc_and_shift(1);
                         }
 
                         let mut core_record_type = Unit!("core_record_type_unit" ,: Univ!());

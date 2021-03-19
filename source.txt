@@ -1,7 +1,9 @@
 module
-    Foo : Type -> Type;
-    Foo = record A where
-    	field : A
+    Foo : Type -> Type -> Type -> Type;
+    Foo = record A B C where
+    	a : C
+    	b : B
+    	c : A
     end;
 
     id : import main.Foo -> import main.Foo;
