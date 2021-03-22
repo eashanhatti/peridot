@@ -45,24 +45,26 @@ use assoc_collections::*;
 extern crate macros;
 use macros::*;
 
+type Range = (usize, usize);
+
 #[derive(Debug)]
-pub enum Error<'a> {
-    MismatchedTypes { term: &'a Term, state: State, exp_type: core::Term, giv_type: core::Term, specific: Vec<(core::Term, core::Term)> },
-    NonexistentVar { var: &'a Term, state: State, name: Name },
-    ExpectedOfTypeType { term: &'a Term, state: State, giv_type: core::Term },
-    ExpectedOfFunctionType { term: &'a Term, state: State, giv_type: core::Term },
-    ExpectedOfEnumType { term: &'a Term, state: State, giv_type: core::Term },
-    EnumInhabitantTooLarge { term: &'a Term, state: State, inhabitant: usize, num_inhabitants: usize },
-    MismatchedFunctionArgsNum { func: &'a Term, state: State, exp_num: usize, giv_num: usize },
-    CannotInferType { term: &'a Term, state: State },
-    NonexistentGlobal { import: &'a Term, state: State, name: QualifiedName }
+pub enum Error {
+    MismatchedTypes { range: Range, state: State, exp_type: core::Term, giv_type: core::Term, specific: Vec<(core::Term, core::Term)> },
+    NonexistentVar { range: Range, state: State, name: Name },
+    ExpectedOfTypeType { range: Range, state: State, giv_type: core::Term },
+    ExpectedOfFunctionType { range: Range, state: State, giv_type: core::Term },
+    ExpectedOfEnumType { range: Range, state: State, giv_type: core::Term },
+    EnumInhabitantTooLarge { range: Range, state: State, inhabitant: usize, num_inhabitants: usize },
+    MismatchedFunctionArgsNum { range: Range, state: State, exp_num: usize, giv_num: usize },
+    CannotInferType { range: Range, state: State },
+    NonexistentGlobal { range: Range, state: State, name: QualifiedName }
 }
 use Error::*;
 
-type ElabResult<'a> = Result<core::Term, Vec<Error<'a>>>;
+type ElabResult = Result<core::Term, Vec<Error>>;
 
 // term may be unchecked
-pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
+pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult {
     match &*term.data {
         Ann(_, ref type_ann) => Ok(elab_term(type_ann, infer_type(type_ann, state.clone())?, state)?),
         TypeTypeIntro => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro), None)),
@@ -70,7 +72,7 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
             if let Some((_, r#type)) = state.get_dec(name) {
                 Ok(r#type)
             } else {
-                Err(vec![Error::NonexistentVar { var: term, state, name: name.clone() }])
+                Err(vec![Error::NonexistentVar { range: term.range, state, name: name.clone() }])
             }
         FunctionTypeIntro(_, _, _) =>
             Ok(core::Term::new(
@@ -81,7 +83,7 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
             let abs_type = infer_type(abs, state.clone())?;
             match &*abs_type.data {
                 core::InnerTerm::FunctionTypeIntro(_, ref out_type) => Ok(out_type.clone()),
-                _ => Err(vec![ExpectedOfFunctionType { term: abs, state, giv_type: abs_type }])
+                _ => Err(vec![ExpectedOfFunctionType { range: abs.range, state, giv_type: abs_type }])
             }
         },
         EnumTypeIntro(_) =>
@@ -92,9 +94,9 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult<'a> {
         ImportTerm(path) =>
             match state.get_global_dec(path) {
                 Some((r#type, _)) => Ok(r#type),
-                None => Err(vec![NonexistentGlobal { import: term, state, name: path.clone() }])
+                None => Err(vec![NonexistentGlobal { range: term.range, state, name: path.clone() }])
             },
-        _ => Err(vec![Error::CannotInferType { term, state }])
+        _ => Err(vec![Error::CannotInferType { range: term.range, state }])
     }
 }
 
@@ -135,13 +137,13 @@ fn make_enum_type(num_inhabitants: usize) -> core::Term {
 }
 
 // checks a surface term, and either returns the elaborated term or errors
-pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResult<'a> {
+pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> ElabResult {
     match &*term.data {
         Ann(ref annd_term, ref type_ann) => {
             let core_type_ann = elab_term(type_ann, infer_type(type_ann, state.clone())?, state.clone())?;
             let cmp = is_terms_eq(&core_type_ann, &exp_type, state.clone().locals().clone().equivs());
             if let False(specific) = cmp {
-                return Err(vec![MismatchedTypes { term, state, exp_type: exp_type, giv_type: core_type_ann, specific }])
+                return Err(vec![MismatchedTypes { range: term.range, state, exp_type: exp_type, giv_type: core_type_ann, specific }])
             }
             elab_term(annd_term, core_type_ann, state)
         },
@@ -150,12 +152,12 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 Some((index, var_type)) => {
                     let cmp = is_terms_eq(&var_type, &exp_type, state.clone().locals().clone().equivs());
                     if let False(specific) = cmp {
-                        Err(vec![MismatchedTypes { term, state, exp_type, giv_type: var_type, specific }])
+                        Err(vec![MismatchedTypes { range: term.range, state, exp_type, giv_type: var_type, specific }])
                     } else {
                         Ok(core::Term::new_with_note(Note(format!("{:?}", name)), Box::new(core::Var(index)), Some(Box::new(var_type))))
                     }
                 },
-                None => Err(vec![NonexistentVar { var: term, state, name: name.clone() }])
+                None => Err(vec![NonexistentVar { range: term.range, state, name: name.clone() }])
             }
         },
         FunctionTypeIntro(var_name, ref in_type, ref out_type) => {
@@ -194,7 +196,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             let mut curr_state = state.clone();
             for param_name in param_names.iter() {
                 if let self::core::lang::InnerTerm::FunctionTypeIntro(in_type, out_type) = *curr_type.data {
-                    println!("IN_TYPE {:?}", in_type);
+                    // println!("IN_TYPE {:?}", in_type);
                     in_types.push(in_type.clone());
                     curr_type = out_type;
                     curr_state = curr_state.with_dec(param_name.clone(), in_type);
@@ -210,7 +212,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         }
                         type_acc
                     };
-                    return Err(vec![MismatchedTypes { term, state, exp_type, giv_type, specific: Vec::new() }]);
+                    return Err(vec![MismatchedTypes { range: term.range, state, exp_type, giv_type, specific: Vec::new() }]);
                 }
             }
 
@@ -236,7 +238,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             if let core::InnerTerm::FunctionTypeIntro(_, _) = &*abs_type.data {
                 ()
             } else {
-                return Err(vec![ExpectedOfFunctionType { term: abs, state, giv_type: abs_type }])
+                return Err(vec![ExpectedOfFunctionType { range: abs.range, state, giv_type: abs_type }])
             }
 
             let mut in_types = Vec::new();
@@ -247,7 +249,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             }
             out_types.remove(0);
             if args.len() != in_types.len() {
-                return Err(vec![MismatchedFunctionArgsNum { func: term, state, exp_num: in_types.len(), giv_num: args.len() }])
+                return Err(vec![MismatchedFunctionArgsNum { range: term.range, state, exp_num: in_types.len(), giv_num: args.len() }])
             }
             let mut core_args: Vec<core::Term> = Vec::new();
             for (i, in_type) in in_types.into_iter().enumerate() {
@@ -268,7 +270,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         0,
                         make_enum_type(*num_inhabitants)
                     ,: Univ!())),
-                _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type }])
+                _ => Err(vec![ExpectedOfTypeType { range: term.range, state, giv_type: exp_type }])
             }
         },
         EnumIntro(inhabitant) =>
@@ -296,20 +298,20 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                                 println!("discrim {:?}", discrim);
                                 println!("branch1 {:?}", branch1);
                                 panic!();*/
-                                return Err(vec![ExpectedOfEnumType { term, state, giv_type: exp_type }]);
+                                return Err(vec![ExpectedOfEnumType { range: term.range, state, giv_type: exp_type }]);
                             }
                         } else {/*
                             println!("num_inhabitants {:?}", num_inhabitants);
                             println!("fst_type {:?}", fst_type);
                             println!("snd_type {:?}", snd_type);
                             panic!();*/
-                            return Err(vec![ExpectedOfEnumType { term, state, giv_type: exp_type }]);
+                            return Err(vec![ExpectedOfEnumType { range: term.range, state, giv_type: exp_type }]);
                         }
                     }
                 }
 
                 if !(*inhabitant < num_inhabitants) {
-                    return Err(vec![EnumInhabitantTooLarge { term, state, inhabitant: *inhabitant, num_inhabitants }]);
+                    return Err(vec![EnumInhabitantTooLarge { range: term.range, state, inhabitant: *inhabitant, num_inhabitants }]);
                 }
 
                 let enum_val = make_enum(*inhabitant, num_inhabitants);
@@ -324,7 +326,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                             enum_type)),
                         Some(Box::new(Univ!())))))))
             } else {
-                Err(vec![ExpectedOfEnumType { term, state, giv_type: exp_type }])
+                Err(vec![ExpectedOfEnumType { range: term.range, state, giv_type: exp_type }])
             },
         TypeTypeIntro =>
             match *exp_type.data {
@@ -334,7 +336,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                         Some(Box::new(core::Term::new(
                             Box::new(core::InnerTerm::TypeTypeIntro),
                             None))))),
-                _ => Err(vec![ExpectedOfTypeType { term, state, giv_type: exp_type }])
+                _ => Err(vec![ExpectedOfTypeType { range: term.range, state, giv_type: exp_type }])
             },
         ImportTerm(path) => {
             // // println!("GLOBALS {:#?}", state.clone().globals());
@@ -453,13 +455,15 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
     }
 }
 
-pub fn elab_toplevel<'a>(module: &'a Module, module_name: QualifiedName) -> ElabResult<'a> {
+pub fn elab_toplevel<'a>(module: &'a Module, module_name: QualifiedName) -> ElabResult {
     fn calc_num_decs(module: &Module) -> usize {
         let mut n = 0;
         for (_, item) in module.items.iter() {
-            match item {
-                Item::Declaration(r#type) => n += 1,
-                Item::ModuleDef(submodule) => n += calc_num_decs(submodule),
+            use InnerItem::*;
+
+            match &item.data {
+                Declaration(r#type) => n += 1,
+                ModuleDef(submodule) => n += calc_num_decs(submodule),
                 _ => ()
             }
         }
@@ -470,12 +474,12 @@ pub fn elab_toplevel<'a>(module: &'a Module, module_name: QualifiedName) -> Elab
     elab_module(module, module_name, State::new(starting_info))
 }
 
-fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State) -> ElabResult<'a> {
+fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State) -> ElabResult {
     #[derive(Debug)]
     enum FlattenedModuleItem<'a> { // local item type for module flattening
-        Declaration(&'a crate::lang::surface::Term),
-        TermDef(&'a crate::lang::surface::Term),
-        RecordTypeDef(&'a AssocSet<Name>, &'a AssocVec<Name, crate::lang::surface::Term>),
+        Declaration(Range, &'a crate::lang::surface::Term),
+        TermDef(Range, &'a crate::lang::surface::Term),
+        RecordTypeDef(Range, &'a AssocSet<Name>, &'a AssocVec<Name, crate::lang::surface::Term>),
     }
 
     // flatten the module structure, turning it into a more haskell-like structure
@@ -483,22 +487,24 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
         let mut items = AssocVec::new();
         // println!("ITEMS\n{:#?}", module.items);
         for ((item_name, _), item) in module.items.iter() {
+            use InnerItem::*;
+            use ItemKind::*;
             // println!("ITEM_NAME {:?}", item_name);
-            match item {
-                Item::Declaration(r#type) =>
+            match &item.data {
+                Declaration(r#type) =>
                     { items.insert(
-                        (module_name.clone().with_name(item_name.clone()), ItemKind::Dec),
-                        FlattenedModuleItem::Declaration(r#type)); },
-                Item::TermDef(term) =>
+                        (module_name.clone().with_name(item_name.clone()), Dec),
+                        FlattenedModuleItem::Declaration(item.range, r#type)); },
+                TermDef(term) =>
                     { items.insert(
-                        (module_name.clone().with_name(item_name.clone()), ItemKind::Def),
-                        FlattenedModuleItem::TermDef(term)); },
-                Item::RecordTypeDef(params, fields) =>
+                        (module_name.clone().with_name(item_name.clone()), Def),
+                        FlattenedModuleItem::TermDef(item.range, term)); },
+                RecordTypeDef(params, fields) =>
                     { items.insert(
-                        (module_name.clone().with_name(item_name.clone()), ItemKind::Def),
-                        FlattenedModuleItem::RecordTypeDef(params, fields)); },
-                Item::ModuleDef(submodule) => {
-                    let mut flat = flatten_module(submodule, module_name.clone().with_name(item_name.clone()));
+                        (module_name.clone().with_name(item_name.clone()), Def),
+                        FlattenedModuleItem::RecordTypeDef(item.range, params, fields)); },
+                ModuleDef(submodule) => {
+                    let mut flat = flatten_module(&submodule, module_name.clone().with_name(item_name.clone()));
                     while flat.len() > 0 {
                         let (key, val) = flat.remove_entry(0);
                         items.insert(key, val);
@@ -519,7 +525,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
             let num_decls = {
                 let mut n = 0;
                 for (_, item) in items.iter() {
-                    if let FlattenedModuleItem::Declaration(_) = item {
+                    if let FlattenedModuleItem::Declaration(_, _) = item {
                         n += 1;
                     }
                 }
@@ -538,7 +544,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
         let decs_symbols = {
             let mut symbols = Vec::new();
             for (_, item) in items.iter() {
-                if let FlattenedModuleItem::Declaration(_) = item {
+                if let FlattenedModuleItem::Declaration(_, _) = item {
                     symbols.push(Symbol(rand::random::<usize>()));
                 }
             }
@@ -554,7 +560,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
         for ((name, kind), item) in items.iter() {
             // println!("NAME {:?} KIND {:?}", name, kind);
             match item {
-                FlattenedModuleItem::Declaration(r#type) => {
+                FlattenedModuleItem::Declaration(_, r#type) => {
                     let new_state = state.clone().with_globals_map_index((*decs_indices_iter.next().unwrap()));
                     let core_type = elab_term(r#type, infer_type(r#type, new_state.clone())?, new_state)?;
                     // println!("CORE_TYPE {:?}", core_type);
@@ -595,7 +601,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             name.clone(),
                             core_type);
                 }
-                FlattenedModuleItem::TermDef(term) => {
+                FlattenedModuleItem::TermDef(_, term) => {
                     let core_item_type = state.get_global_dec(name).unwrap().0; // TODO: error reporting
                     let mut core_term =
                         elab_term(
@@ -608,7 +614,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                     // println!("CORE_TERM {:?}", term);
                     core_items.push(core_term);
                 }
-                FlattenedModuleItem::RecordTypeDef(params, fields) => {
+                FlattenedModuleItem::RecordTypeDef(range, params, fields) => {
                     let core_item_type = state.clone().get_global_dec(name).unwrap().0; // TODO: error reporting
                     let mut record_type_type = core_item_type.clone();
                     let mut fields_state = state.clone();
@@ -620,11 +626,11 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             param_types.push(in_type.clone());
                             record_type_type = out_type.clone();
                         } else {
-                            panic!("record param error not implemented");
+                            return Err(vec![ExpectedOfFunctionType { range: *range, state: fields_state, giv_type: record_type_type }]);
                         }
                     }
 
-                    if let core::InnerTerm::TypeTypeIntro = *record_type_type.data {
+                    if let core::InnerTerm::TypeTypeIntro = &*record_type_type.data {
                         let mut core_field_types = Vec::new();
                         fields_state = fields_state.raw_inc_and_shift(2);
 
@@ -661,7 +667,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                         state = state.with_global_def(name.clone(), core_record_type_cons.clone());
                         core_items.push(core_record_type_cons);
                     } else {
-                        panic!("record_type_type error not implemented{:#?}", record_type_type);
+                        return Err(vec![ExpectedOfTypeType { range: *range, state, giv_type: record_type_type }])
                     }
                 }
             }

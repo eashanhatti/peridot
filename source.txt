@@ -1,6 +1,6 @@
 module
     Foo : Type -> Type;
-    Foo = record A where
+    Foo = record where
     	T : Type
     	x : A
     	y : T

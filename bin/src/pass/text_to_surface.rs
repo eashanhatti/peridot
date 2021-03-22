@@ -86,11 +86,24 @@ fn parse_module(mut pair: Pair<Rule>) -> Module {
 		let mut items = AssocVec::new();
 		for item in items_iter {
 			let rule = item.as_rule();
+			let pair_span = item.as_span();
 			let mut item_iter = item.into_inner();
 			let name = Name(item_iter.next().unwrap().as_str().to_string());
 			match rule {
-				Rule::dec => items.insert((name, ItemKind::Dec), Item::Declaration(parse_term(item_iter.next().unwrap()))),
-				Rule::term_def => items.insert((name, ItemKind::Def), Item::TermDef(parse_term(item_iter.next().unwrap()))),
+				Rule::dec =>
+					items.insert(
+						(name, ItemKind::Dec),
+						Item {
+							data: InnerItem::Declaration(parse_term(item_iter.next().unwrap())),
+							range: (pair_span.start(), pair_span.end())
+						}),
+				Rule::term_def =>
+					items.insert(
+						(name, ItemKind::Def),
+						Item {
+							data: InnerItem::TermDef(parse_term(item_iter.next().unwrap())),
+							range: (pair_span.start(), pair_span.end())
+						}),
 				Rule::record_def => {
 					let mut param_list = item_iter.next().unwrap();
 					let mut field_list = item_iter.next().unwrap();
@@ -108,9 +121,20 @@ fn parse_module(mut pair: Pair<Rule>) -> Module {
 							parse_term(field_iter.next().unwrap()));
 					}
 
-					items.insert((name, ItemKind::Def), Item::RecordTypeDef(param_names, fields));
+					items.insert(
+						(name, ItemKind::Def),
+						Item {
+							data: InnerItem::RecordTypeDef(param_names, fields),
+							range: (pair_span.start(), pair_span.end())
+						});
 				},
-				Rule::module_def => items.insert((name, ItemKind::Def), Item::ModuleDef(parse_module(item_iter.next().unwrap()))),
+				Rule::module_def =>
+					items.insert(
+						(name, ItemKind::Def),
+						Item {
+							data: InnerItem::ModuleDef(parse_module(item_iter.next().unwrap())),
+							range: (pair_span.start(), pair_span.end())
+						}),
 				_ => unreachable!()
 			};
 		}

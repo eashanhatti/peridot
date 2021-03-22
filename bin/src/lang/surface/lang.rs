@@ -22,11 +22,17 @@ impl QualifiedName {
 }
 
 #[derive(Debug)]
-pub enum Item {
+pub enum InnerItem {
 	Declaration(Term), // `x : t`, `TermDef` and `RecordTypeDef` are for `x = v`
 	TermDef(Term),
 	RecordTypeDef(AssocSet<Name>, AssocVec<Name, Term>),
 	ModuleDef(Module)
+}
+
+#[derive(Debug)]
+pub struct Item {
+	pub data: InnerItem,
+	pub range: (usize, usize)
 }
 
 pub enum Visibility {

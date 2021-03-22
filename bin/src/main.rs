@@ -135,7 +135,10 @@ fn direct() {
         let core_module = {
             let mut tmp =
                 match elab_toplevel(&surface_module_ok, QualifiedName(Vec::new(), Name(String::from("main")))) {
-                    Ok(module) => module,
+                    Ok(module) => {
+                        println!("NO SURFACE ERRORS");
+                        module
+                    },
                     Err(errs) => {
                         println!("SURFACE ERROR\n{:#?}", errs);
                         return;
@@ -155,7 +158,7 @@ fn direct() {
             println!("CORE TYPECHECK");
             let now = std::time::Instant::now();
             match core::typing::check(&core_module, core_module_type, Context::new()) {
-                Ok(()) => println!("NO ERRORS"),
+                Ok(()) => println!("NO CORE ERRORS"),
                 Err(errs) => println!("CORE ERROR\n{:#?}", errs)
             }
             println!("END CORE TYPECHECK, TIME {:?}", now.elapsed());

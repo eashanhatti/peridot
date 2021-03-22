@@ -162,7 +162,7 @@ impl State {
         }
     }
 
-    // this is a hack (?)
+    // this is a hack
     pub fn raw_inc_and_shift(self, amount: isize) -> Self {
         let locals = self.locals.inc_and_shift(amount);
         let mut local_names_to_indices = self.local_names_to_indices;
@@ -180,6 +180,7 @@ impl State {
         }
     }
 
+    // this also is a hack
     pub fn raw_with_dec(self, name: Name, index: VarInner, r#type: core::Term) -> Self {
         let mut local_names_to_indices = self.local_names_to_indices;
         local_names_to_indices.insert(name, index);
