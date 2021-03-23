@@ -73,6 +73,17 @@ fn parse_term(mut pair: Pair<Rule>) -> Term {
 							.collect::<Vec<Name>>();
 					let item_name = names.pop().unwrap();
 					ImportTerm(QualifiedName(names, item_name))
+				},
+				Rule::record_val => {
+					let mut fields = HashMap::new();
+					for field_pair in pair_iter {
+						let mut inner = field_pair.into_inner();
+						let name = Name(inner.next().unwrap().as_str().to_string());
+						let val = parse_term(inner.next().unwrap());
+						fields.insert(name, val);
+					}
+
+					RecordIntro(fields)
 				}
 				_ => unimplemented!()
 			}),

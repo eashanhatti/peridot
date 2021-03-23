@@ -26,13 +26,16 @@ prec1 = _{ ann | fun_type | prec0 }
     fun_type = { dependent | simple }
         dependent = { "[" ~ s* ~ name ~ s* ~ ":" ~ s* ~ prec1 ~ s* ~ "]" ~ ws* ~ "->" ~ ws* ~ prec1 }
         simple = { prec0 ~ ws* ~ "->" ~ ws* ~ prec1}
-prec0 = _{ fun | type_type | var | fin | fin_type | import
+prec0 = _{ fun | type_type | var | fin | fin_type | import | record_val
          | "(" ~ s* ~ term ~ s* ~ ")" }
-    fun = { "fn" ~ s+ ~ param_list ~ s*  ~ "=>" ~ s* ~ prec1 }
+    fun = { "fn" ~ s+ ~ param_list ~ s*  ~ "=>" ~ s* ~ prec2 }
     type_type = { "Type" }
     var = { name }
     fin = { "fin" ~ s+ ~ num }
     fin_type = { "Fin" ~ s+ ~ num }
     import = { "import" ~ ws* ~ full_name }
+    record_val = { "record" ~ ws* ~ "[" ~ ws* ~ field_vals_list? ~ ws* ~ "]" }
+    field_vals_list = _{ field_val ~ ( "," ~ ws* ~ field_val )* }
+        field_val = { name ~ ws* ~ "=" ~ ws* ~ prec2 }
 
 main = _{ SOI ~ module ~ EOI }
