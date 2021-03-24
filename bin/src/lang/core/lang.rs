@@ -41,7 +41,7 @@ impl Display for Doub {
 pub struct Symbol(pub usize);
 
 #[derive(Copy, Clone, PartialEq, Hash, Eq, Debug)]
-pub enum VarInner {
+pub enum InnerVar {
     Bound(usize),
     Free(Symbol)
 }
@@ -49,7 +49,7 @@ pub enum VarInner {
 #[derive(Clone, PartialEq, Hash, Eq)]
 pub enum InnerTerm {
     TypeTypeIntro,
-    Var(VarInner),
+    Var(InnerVar),
     Rec(Term),
     Let(Vec<Term>, Term),
     FunctionTypeIntro(Term, Term),
@@ -144,18 +144,6 @@ pub struct Term {
     loc: Option<Location>
 }
 
-// impl Clone for Term {
-//     fn clone(&self) -> Term {
-//         unsafe { line += 1; }
-//         Term {
-//             data: self.data.clone(),
-//             type_ann: self.type_ann.clone(),
-//             note: self.note.clone(),
-//             loc: Location { line: unsafe { line } }
-//         }
-//     }
-// }
-
 pub fn display_term(term: &Term, indent: usize) -> String {
     let mut string =
         format!("{}: {}Term \"{}\"\n",
@@ -204,7 +192,7 @@ impl Term {
     // returns the type of a term, unchecked
     pub fn r#type(&self, context: Context) -> Term {
         use InnerTerm::*;
-        use VarInner::*;
+        use InnerVar::*;
 
         match &self.type_ann {
             Some(r#type) => normalize(*r#type.clone(), context),
@@ -281,7 +269,7 @@ fn bool_to_tc(it: bool) -> TermComparison {
 static mut count: usize = 0;
 
 // checks if two terms are equal
-pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(VarInner, VarInner)>) -> TermComparison {
+pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(InnerVar, InnerVar)>) -> TermComparison {
     use InnerTerm::*;
     /* TODO: figure out how to make this work properly
     let type_compare =

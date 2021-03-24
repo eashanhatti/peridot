@@ -220,6 +220,15 @@ macro_rules! Indexed {
 }
 
 #[macro_export]
+macro_rules! indexed {
+    ($inner:expr,: $ann:expr) => {
+        crate::lang::core::lang::Term::new(
+            Box::new(crate::lang::core::lang::InnerTerm::IndexedIntro($inner)),
+            Some(Box::new($ann)))  
+    };
+}
+
+#[macro_export]
 macro_rules! let_bind {
     ($bindings:expr, $body:expr) => {
         crate::lang::core::lang::Term::new(

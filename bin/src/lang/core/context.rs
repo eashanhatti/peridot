@@ -3,7 +3,7 @@
 use super::{
     lang::{
         *,
-        VarInner::*,
+        InnerVar::*,
         InnerTerm::*
     },
     eval::*
@@ -33,14 +33,14 @@ pub struct ContextEntry {
 }
 
 #[derive(Clone, Debug)]
-pub struct Context(HashMap<VarInner, ContextEntry>, HashSet<(VarInner, VarInner)>);
+pub struct Context(HashMap<InnerVar, ContextEntry>, HashSet<(InnerVar, InnerVar)>);
 
 impl Context {
     pub fn new() -> Self {
         Context(HashMap::new(), HashSet::new())
     }
 
-    pub fn exists_dec(&self, index: VarInner) -> bool {
+    pub fn exists_dec(&self, index: InnerVar) -> bool {
         if let Some(ContextEntry { dec: Some(_), def: _ }) = self.0.get(&index) {
             true
         } else {
@@ -48,7 +48,7 @@ impl Context {
         }
     }
 
-    pub fn exists_def(&self, index: VarInner) -> bool {
+    pub fn exists_def(&self, index: InnerVar) -> bool {
         if let Some(ContextEntry { dec: _, def: Some(_) }) = self.0.get(&index) {
             true
         } else {
@@ -56,18 +56,18 @@ impl Context {
         }
     }
 
-    pub fn get(&self, index: VarInner) -> Option<ContextEntry> {
+    pub fn get(&self, index: InnerVar) -> Option<ContextEntry> {
         match self.0.get(&index) {
             Some(term) => Some(term.clone()),
             None => None
         }
     }
 
-    pub fn get_dec(&self, index: VarInner) -> Option<Term> {
+    pub fn get_dec(&self, index: InnerVar) -> Option<Term> {
         self.get(index)?.dec
     }
 
-    pub fn get_def(&self, index: VarInner) -> Option<Term> {
+    pub fn get_def(&self, index: InnerVar) -> Option<Term> {
         self.get(index)?.def
     }
 
@@ -82,7 +82,7 @@ impl Context {
         new
     }
 
-    pub fn with(mut self, index: VarInner, kind: ContextEntryKind, entry: Term) -> Self {
+    pub fn with(mut self, index: InnerVar, kind: ContextEntryKind, entry: Term) -> Self {
         if let Some(ContextEntry { ref mut dec, ref mut def }) = self.0.get_mut(&index) {
             match kind {
                 Dec => *dec = Some(entry),
@@ -97,15 +97,15 @@ impl Context {
         Context(self.0, self.1)
     }
 
-    pub fn with_dec(self, index: VarInner, entry: Term) -> Self {
+    pub fn with_dec(self, index: InnerVar, entry: Term) -> Self {
         self.with(index, Dec, entry)
     }
 
-    pub fn with_def(self, index: VarInner, entry: Term) -> Self {
+    pub fn with_def(self, index: InnerVar, entry: Term) -> Self {
         self.with(index, Def, entry)
     }
 
-    pub fn without(mut self, index: VarInner) -> Self {
+    pub fn without(mut self, index: InnerVar) -> Self {
         self.0.remove(&index);
         self
     }
@@ -136,7 +136,7 @@ impl Context {
             self.1)
     }
 
-    pub fn update(self, index: VarInner, val: Term) -> Self {
+    pub fn update(self, index: InnerVar, val: Term) -> Self {
         Context(
             self.0.into_iter().map(|(k, v)|
                 (k,
@@ -176,13 +176,13 @@ impl Context {
         self.inc(amount).shift(amount as isize)
     }
 
-    pub fn with_equiv(self, v1: VarInner, v2: VarInner) -> Context {
+    pub fn with_equiv(self, v1: InnerVar, v2: InnerVar) -> Context {
         let mut equivs = self.1;
         equivs.insert((v1, v2));
         Context(self.0, equivs)
     }
 
-    pub fn equivs(self) -> HashSet<(VarInner, VarInner)> {
+    pub fn equivs(self) -> HashSet<(InnerVar, InnerVar)> {
         self.1
     }
 
@@ -196,7 +196,7 @@ impl Context {
 }
 
 pub struct ContextIterator {
-    inner_iter: IntoIter<VarInner, ContextEntry>,
+    inner_iter: IntoIter<InnerVar, ContextEntry>,
 }
 
 impl ContextIterator {
@@ -206,7 +206,7 @@ impl ContextIterator {
 }
 
 impl Iterator for ContextIterator {
-    type Item = (VarInner, ContextEntry);
+    type Item = (InnerVar, ContextEntry);
 
     fn next(&mut self) -> Option<Self::Item> {
         self.inner_iter.next()

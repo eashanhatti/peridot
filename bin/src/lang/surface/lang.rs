@@ -57,7 +57,6 @@ pub enum InnerTerm {
 	FunctionIntro(AssocSet<Name>, Term),
 	FunctionElim(Term, Vec<Term>),
 	TypeTypeIntro,
-	RecordTypeIntro(QualifiedName, Vec<Term>),
 	RecordIntro(HashMap<Name, Term>),
 	EnumTypeIntro(usize),
 	EnumIntro(usize),

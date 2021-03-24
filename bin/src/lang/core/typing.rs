@@ -3,7 +3,7 @@
 use super::{
 	lang::{
 		*,
-		VarInner::*,
+		InnerVar::*,
 		InnerTerm::*,
 		TermComparison::*
 	},
@@ -33,7 +33,7 @@ extern crate rand;
 #[derive(Debug)]
 pub enum InnerError {
     MismatchedTypes { exp_type: Term, giv_type: Term, specific: Vec<(Term, Term)> },
-    NonexistentVar { index: VarInner },
+    NonexistentVar { index: InnerVar },
     ExpectedOfTypeType { giv_type: Term },
     ExpectedOfFunctionType { giv_type: Term },
     ExpectedOfPairType { giv_type: Term },
@@ -75,7 +75,7 @@ pub fn push_check<T>(errors: &mut Vec<Error>, this_check: CheckResult<T>) { // a
 	}
 }
 
-pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
+pub fn count_uses(term: &Term, target_index: InnerVar) -> (usize, usize) {
 	fn collapse(intervals: Vec<(usize, usize)>) -> (usize, usize) {
 		let mut min = std::usize::MAX;
 		let mut max = 0;
@@ -106,7 +106,7 @@ pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 		(min, max)
 	}
 
-	fn inc(index: VarInner) -> VarInner {
+	fn inc(index: InnerVar) -> InnerVar {
 		if let Bound(bound_index) = index {
 			Bound(bound_index + 1)
 		} else {
@@ -114,7 +114,7 @@ pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 		}
 	}
 
-	fn inc_by(index: VarInner, by: usize) -> VarInner {
+	fn inc_by(index: InnerVar, by: usize) -> InnerVar {
 		if let Bound(bound_index) = index {
 			Bound(bound_index + by)
 		} else {
@@ -173,10 +173,10 @@ pub fn count_uses(term: &Term, target_index: VarInner) -> (usize, usize) {
 
 // `term` should be checked before this is called
 // should make this more robust in the future
-pub fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner, Term> {
-	type Map = HashMap<VarInner, Term>;
+pub fn get_free_vars(term: &Term, bounds: HashSet<InnerVar>) -> HashMap<InnerVar, Term> {
+	type Map = HashMap<InnerVar, Term>;
 
-	fn inner(term: &Term, bounds: HashSet<VarInner>) -> Map {
+	fn inner(term: &Term, bounds: HashSet<InnerVar>) -> Map {
 		fn collapse(maps: Vec<Map>) -> Map {
 			let mut new_map: Map = HashMap::new();
 			for map in maps {
@@ -187,16 +187,16 @@ pub fn get_free_vars(term: &Term, bounds: HashSet<VarInner>) -> HashMap<VarInner
 			new_map
 		}
 
-		fn inc(set: HashSet<VarInner>) -> HashSet<VarInner> {
+		fn inc(set: HashSet<InnerVar>) -> HashSet<InnerVar> {
 			inc_by(set, 1)
 		}
 
-		fn inc_by(set: HashSet<VarInner>, by: usize) -> HashSet<VarInner> {
-			let mut tmp = set.into_iter().map(|i| if let Bound(i_bound) = i { Bound(i_bound + by) } else { i }).collect::<HashSet<VarInner>>();
+		fn inc_by(set: HashSet<InnerVar>, by: usize) -> HashSet<InnerVar> {
+			let mut tmp = set.into_iter().map(|i| if let Bound(i_bound) = i { Bound(i_bound + by) } else { i }).collect::<HashSet<InnerVar>>();
 			tmp
 		}
 
-		fn with(mut set: HashSet<VarInner>, index: usize) -> HashSet<VarInner> {
+		fn with(mut set: HashSet<InnerVar>, index: usize) -> HashSet<InnerVar> {
 			set.insert(Bound(index));
 			set
 		}

@@ -9,7 +9,11 @@ use std::{
         }
     },
     cmp::max,
-    convert::TryInto
+    convert::TryInto,
+    sync::atomic::{
+        AtomicUsize,
+        Ordering
+    }
 };
 use crate::{
     lang::{
@@ -27,8 +31,8 @@ use crate::{
             lang::{
                 TermComparison::*,
                 Note,
-                VarInner::*,
-                VarInner,
+                InnerVar::*,
+                InnerVar,
                 Symbol
             },
         },
@@ -54,6 +58,7 @@ pub enum Error {
     ExpectedOfTypeType { range: Range, state: State, giv_type: core::Term },
     ExpectedOfFunctionType { range: Range, state: State, giv_type: core::Term },
     ExpectedOfEnumType { range: Range, state: State, giv_type: core::Term },
+    ExpectedOfRecordType { range: Range, state: State, giv_type: core::Term },
     EnumInhabitantTooLarge { range: Range, state: State, inhabitant: usize, num_inhabitants: usize },
     MismatchedFunctionArgsNum { range: Range, state: State, exp_num: usize, giv_num: usize },
     CannotInferType { range: Range, state: State },
@@ -134,6 +139,14 @@ fn make_enum_type(num_inhabitants: usize) -> core::Term {
             ,: Univ!())
         ,: Univ!())
     }
+}
+
+static NOMINAL_ID: AtomicUsize = AtomicUsize::new(1);
+
+fn next_nominal_id() -> usize {
+    let index = NOMINAL_ID.load(Ordering::SeqCst);
+    NOMINAL_ID.fetch_add(1, Ordering::SeqCst);
+    index
 }
 
 // checks a surface term, and either returns the elaborated term or errors
@@ -451,6 +464,76 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
             // Ok(core_term)
             Ok(state.get_global_def(path.clone()).unwrap().0)
         },
+        RecordIntro(fields) => {
+            if let core::InnerTerm::IndexedTypeIntro(id, mut inner_type) = *exp_type.data {
+                let order = state.get_nominal_id_to_field_order(id).unwrap();
+                let field_types = {
+                    let mut tmp = Vec::new();
+                    while let core::PairTypeIntro(fst_type, snd_type) = *inner_type.data {
+                        tmp.push(fst_type);
+                        inner_type = snd_type;
+                    }
+                    tmp
+                };
+                let ordered_fields = {
+                    let mut tmp: Vec<(Name, Term)> = Vec::new();
+                    for (name, val) in fields.into_iter() {
+                        let i = *order.get(&name).unwrap();
+                        let pair = (name.clone(), val.clone());
+                        if tmp.len() == 0 || i > tmp.len() - 1 {
+                            tmp.push(pair);
+                        } else {
+                            tmp.insert(i, pair);
+                        }
+                    }
+                    tmp
+                };
+
+                let mut core_fields = Vec::new();
+                let mut fields_state = state;
+                for ((field_name, field_val), field_type) in ordered_fields.iter().zip(field_types.iter()) {
+                    let core_field = elab_term(field_val, normalize(field_type.clone(), fields_state.locals().clone()), fields_state.clone())?;
+                    core_fields.push(core_field.clone());
+                    fields_state = fields_state
+                        .raw_with_dec(field_name.clone(), Bound(0), field_type.clone())
+                        .with_def(field_name.clone(), core_field)
+                        .raw_inc_and_shift(2);
+                }
+
+                fn make_val(mut core_fields: Vec<core::Term>, mut core_field_types: Vec<core::Term>) -> core::Term {
+                    if core_fields.len() == 0 {
+                        unit!( ,: make_type(core_field_types))
+                    } else {
+                        let this_type = make_type(core_field_types.clone());
+                        core_field_types.remove(0);
+                        pair!(
+                            core_fields.remove(0),
+                            make_val(core_fields, core_field_types)
+                        ,: this_type)
+                    }
+                }
+
+                fn make_type(mut core_field_types: Vec<core::Term>) -> core::Term {
+                    if core_field_types.len() == 0 {
+                        Unit!( ,: Univ!())
+                    } else {
+                        Pair!(
+                            core_field_types.remove(0),
+                            make_type(core_field_types)
+                        ,: Univ!())
+                    }
+                }
+
+                // println!("CORE_FIELDS {:?}", core_fields);
+                // println!("FTs {:?}", field_types);
+                let mut val = make_val(core_fields, field_types);
+                let val_type = val.r#type(Context::new());
+                val = indexed!(val ,: Indexed!(id, val_type ,: Univ!()));
+                Ok(val)
+            } else {
+                return Err(vec![ExpectedOfRecordType { range: term.range, state, giv_type: exp_type }]);
+            }
+        }
         _ => unimplemented!()
     }
 }
@@ -602,7 +685,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             core_type);
                 }
                 FlattenedModuleItem::TermDef(_, term) => {
-                    let core_item_type = state.get_global_dec(name).unwrap().0; // TODO: error reporting
+                    let core_item_type = normalize(state.get_global_dec(name).unwrap().0, Context::new()); // TODO: error reporting
                     let mut core_term =
                         elab_term(
                             term,
@@ -633,13 +716,15 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                     if let core::InnerTerm::TypeTypeIntro = &*record_type_type.data {
                         let mut core_field_types = Vec::new();
                         fields_state = fields_state.raw_inc_and_shift(2);
+                        let mut names_to_order = HashMap::new();
 
-                        for (field_name, field_type) in fields.iter() {
+                        for (i, (field_name, field_type)) in fields.iter().enumerate() {
                             let core_field_type = elab_term(field_type, infer_type(field_type, fields_state.clone())?, fields_state.clone())?;
                             core_field_types.push(core_field_type.clone());
                             fields_state = fields_state
                                 .raw_with_dec(field_name.clone(), Bound(0), core_field_type)
                                 .raw_inc_and_shift(2);
+                            names_to_order.insert(field_name.clone(), i);
                         }
 
                         let mut core_record_type = Unit!("core_record_type_unit" ,: Univ!());
@@ -651,9 +736,11 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                                 ,: Univ!());
                         }
 
-                        let mut core_record_type_cons = core_record_type;
+                        let nominal_id = next_nominal_id();
+                        let mut core_record_type_cons = Indexed!(nominal_id, core_record_type ,: Univ!());
                         for param_type in param_types.iter().rev() {
                             let core_record_type_cons_type = core_record_type_cons.r#type(Context::new());
+                            // TODO: task 3
                             core_record_type_cons =
                                 fun!(
                                     core_record_type_cons
@@ -664,7 +751,9 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                                     ,: Univ!()));
                         }
 
-                        state = state.with_global_def(name.clone(), core_record_type_cons.clone());
+                        state = state
+                            .with_global_def(name.clone(), core_record_type_cons.clone())
+                            .with_nominal_id_to_field_order(nominal_id, names_to_order);
                         core_items.push(core_record_type_cons);
                     } else {
                         return Err(vec![ExpectedOfTypeType { range: *range, state, giv_type: record_type_type }])

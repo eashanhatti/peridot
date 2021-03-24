@@ -1,11 +1,19 @@
 module
-    Foo : Type -> Type;
-    Foo = record where
-    	T : Type
-    	x : A
-    	y : T
+    Pair : Type -> Type -> Type;
+    Pair = record A B where
+    	fst : A
+    	snd : B
     end;
 
-    id : import main.Foo -> import main.Foo;
-    id = fn x => x;
+    example : (import main.Pair)(Fin 1, Fin 1);
+    example = record [
+    	fst = fin 0,
+    	snd = fin 0
+    ];
+
+    example2 : [A : Type] -> A -> (import main.Pair)(Fin 1, A);
+    example2 = fn A a => record [
+    	fst = fin 0,
+    	snd = a
+    ];
 end

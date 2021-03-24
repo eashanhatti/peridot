@@ -4,7 +4,7 @@ use super::{
     context::*,
     lang::{
         *,
-        VarInner::*,
+        InnerVar::*,
         InnerTerm::*,
         Doub::*
     }

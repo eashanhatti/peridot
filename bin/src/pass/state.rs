@@ -9,8 +9,8 @@ use crate::{
             context::*,
             eval::shift,
             lang::{
-                VarInner::*,
-                VarInner,
+                InnerVar::*,
+                InnerVar,
                 Symbol
             },
         },
@@ -19,6 +19,8 @@ use crate::{
 };
 extern crate macros;
 use macros::*;
+extern crate assoc_collections;
+use assoc_collections::*;
 
 // globals maps names to type id pairs
 // id is used to calculate the arg needed to pass to the globals map at index zero in order to get that global term
@@ -26,16 +28,17 @@ use macros::*;
 #[derive(Clone, Debug)]
 pub struct State {
 	locals: Context,
-    local_names_to_indices: HashMap<Name, VarInner>,
+    local_names_to_indices: HashMap<Name, InnerVar>,
     globals: HashMap<QualifiedName, (core::Term, core::Term, usize)>, // dec, def, id
     global_id: usize,
     pub globals_map_index: usize,
-    pub num_global_decs: usize
+    pub num_global_decs: usize,
+    nominal_ids_to_field_order: HashMap<usize, HashMap<Name, usize>> // field name, field position in core type
 }
 
 impl State {
 	pub fn new(num_global_decs: usize) -> Self {
-        let map1: HashMap<Name, VarInner> = HashMap::new();
+        let map1: HashMap<Name, InnerVar> = HashMap::new();
         let map2: HashMap<QualifiedName, (core::Term, core::Term, usize)> = HashMap::new();
 		Self {
             locals: Context::new(),
@@ -43,12 +46,26 @@ impl State {
             globals: map2,
             global_id: 0,
             globals_map_index: 0,
-            num_global_decs
+            num_global_decs,
+            nominal_ids_to_field_order: HashMap::new()
         }
 	}
 
+    pub fn with_nominal_id_to_field_order(mut self, id: usize, dec: HashMap<Name, usize>) -> Self {
+        self.nominal_ids_to_field_order.insert(id, dec);
+        self
+    }
+
+    pub fn get_nominal_id_to_field_order(&self, id: usize) -> Option<HashMap<Name, usize>> {
+        if let Some(val) = self.nominal_ids_to_field_order.get(&id) {
+            Some(val.clone())
+        } else {
+            None
+        }
+    }
+
     pub fn with_dec(self, name: Name, r#type: core::Term) -> Self {
-        let mut local_names_to_indices: HashMap<Name, VarInner> =
+        let mut local_names_to_indices: HashMap<Name, InnerVar> =
             self.local_names_to_indices.into_iter().map(|(k, v)|
                 if let Bound(index) = v {
                     (k, Bound(index + 1))
@@ -81,7 +98,7 @@ impl State {
         }
     }
 
-    pub fn get(&self, name: &Name) -> Option<(VarInner, ContextEntry)> {
+    pub fn get(&self, name: &Name) -> Option<(InnerVar, ContextEntry)> {
         if let Some(index) = self.local_names_to_indices.get(name) {
             if let Some(entry) = self.locals.get(*index) {
                 return Some((*index, entry));
@@ -90,12 +107,12 @@ impl State {
         None
     }
 
-    pub fn get_dec(&self, name: &Name) -> Option<(VarInner, core::Term)> {
+    pub fn get_dec(&self, name: &Name) -> Option<(InnerVar, core::Term)> {
         let entry = self.get(name)?;
         Some((entry.0, entry.1.dec?))
     }
 
-    pub fn get_def(&self, name: &Name) -> Option<(VarInner, core::Term)> {
+    pub fn get_def(&self, name: &Name) -> Option<(InnerVar, core::Term)> {
         let entry = self.get(name)?;
         Some((entry.0, entry.1.def?))
     }
@@ -181,7 +198,7 @@ impl State {
     }
 
     // this also is a hack
-    pub fn raw_with_dec(self, name: Name, index: VarInner, r#type: core::Term) -> Self {
+    pub fn raw_with_dec(self, name: Name, index: InnerVar, r#type: core::Term) -> Self {
         let mut local_names_to_indices = self.local_names_to_indices;
         local_names_to_indices.insert(name, index);
         Self {
