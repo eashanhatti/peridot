@@ -100,6 +100,10 @@ impl<T: Eq + PartialEq> AssocSet<T> {
 		false
 	}
 
+	pub fn get(&self, i: usize) -> &T {
+		&self.data[i]
+	}
+
 	pub fn insert(&mut self, is: T) {
 		for i in &mut self.data {
 			if *i == is {

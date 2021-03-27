@@ -435,10 +435,16 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 				PairTypeIntro(fst_type, snd_type) => {
 					let mut errors = Vec::new();
 
-					let fst_context = context.clone().inc_and_shift(2).with_dec(Bound(1), snd_type.clone()).with_def(Bound(1), normalize(snd.clone(), context.clone()));
-					let snd_context = context.clone().inc_and_shift(2).with_dec(Bound(0), fst_type.clone()).with_def(Bound(0), normalize(fst.clone(), context.clone()));
+					let fst_context = context.clone().inc_and_shift(2)
+						.with_dec(Bound(1), snd_type.clone())
+						.with_def(Bound(1), normalize(snd.clone(), context.clone().inc_and_shift(2)));
+					let snd_context = context.clone().inc_and_shift(2)
+						.with_dec(Bound(0), fst_type.clone())
+						.with_def(Bound(0), normalize(fst.clone(), context.clone().inc_and_shift(2)));
 					let normal_fst_type = normalize(fst_type, fst_context.clone());
 					let normal_snd_type = normalize(snd_type, snd_context.clone());
+					// println!("FST {:?}", fst);
+					// println!("FST_CONTEXT {:#?}", fst_context);
 
 					push_check(&mut errors, check(fst, normal_fst_type, fst_context));
 					push_check(&mut errors, check(snd, normal_snd_type, snd_context));

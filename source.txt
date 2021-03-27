@@ -5,15 +5,12 @@ module
     	snd : B
     end;
 
-    example : (import main.Pair)(Fin 1, Fin 1);
-    example = record [
-    	fst = fin 0,
-    	snd = fin 0
-    ];
+    sing : Type -> Type;
+    sing = fn T => ((import main.Pair)(T, T));
 
-    example2 : [A : Type] -> A -> (import main.Pair)(Fin 1, A);
-    example2 = fn A a => record [
-    	fst = fin 0,
-    	snd = a
+    example : [T : Type] -> T -> ((import main.sing)(T));
+    example = fn T x => record [
+    	fst = x,
+    	snd = x
     ];
 end

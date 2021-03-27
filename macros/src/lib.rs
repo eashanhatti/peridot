@@ -171,6 +171,12 @@ macro_rules! fun {
             Box::new(crate::lang::core::lang::InnerTerm::FunctionIntro($body)),
             Some(Box::new($ann)))
     };
+    ($note:expr, $body:expr,: $ann:expr) => {
+        crate::lang::core::lang::Term::new_with_note(
+            Note(String::from($note)),
+            Box::new(crate::lang::core::lang::InnerTerm::FunctionIntro($body)),
+            Some(Box::new($ann)))
+    };
 }
 
 #[macro_export]

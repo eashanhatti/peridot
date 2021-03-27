@@ -76,7 +76,11 @@ fn run() {
                         module
                     },
                     Err(errs) => {
-                        println!("SURFACE ERROR\n{:#?}", errs);
+                        println!("SURFACE ERRORS");
+                        for err in errs {
+                            println!("SOURCE\n{}", &source[err.range.0..err.range.1]);
+                            println!("ERROR\n{:#?}", err);
+                        }
                         return;
                     }
                 };
