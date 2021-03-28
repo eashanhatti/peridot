@@ -513,7 +513,13 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 let mut core_fields = Vec::new();
                 let mut fields_state = state.clone();
                 for ((field_name, field_val), field_type) in ordered_fields.iter().zip(field_types.iter()) {
-                    let core_field = elab_term(field_val, normalize(field_type.clone(), fields_state.locals().clone()), fields_state.clone().raw_inc_and_shift(2))?;
+                    let core_field =
+                        elab_term(
+                            field_val,
+                            normalize(
+                                field_type.clone(),
+                                fields_state.locals().clone().inc_and_shift(2)),
+                            fields_state.clone().raw_inc_and_shift(2))?;
                     core_fields.push(core_field.clone());
                     fields_state = fields_state
                         .raw_inc_and_shift(2)
@@ -736,11 +742,14 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
 
                     if let core::InnerTerm::TypeTypeIntro = &*record_type_type.data {
                         let mut core_field_types = Vec::new();
-                        fields_state = fields_state.raw_inc_and_shift(2);
                         let mut names_to_order = HashMap::new();
 
                         for (i, (field_name, field_type)) in fields.iter().enumerate() {
-                            let core_field_type = elab_term(field_type, infer_type(field_type, fields_state.clone())?, fields_state.clone())?;
+                            let core_field_type =
+                                elab_term(
+                                    field_type,
+                                    infer_type(field_type, fields_state.clone().raw_inc_and_shift(2))?,
+                                    fields_state.clone().raw_inc_and_shift(2))?;
                             core_field_types.push(core_field_type.clone());
                             fields_state = fields_state
                                 .raw_inc_and_shift(2)

@@ -1,16 +1,13 @@
 module
-    Pair : Type -> Type -> Type;
-    Pair = record A B where
-    	fst : A
-    	snd : B
+    Pair : Type;
+    Pair = record where
+        T : Type
+        x : T
     end;
 
-    sing : Type -> Type;
-    sing = fn T => ((import main.Pair)(T, T));
-
-    example : [T : Type] -> T -> ((import main.sing)(T));
-    example = fn T x => record [
-    	fst = x,
-    	snd = x
+    example : [A : Type] -> A -> import main.Pair;
+    example = fn A a => record [
+        T = A,
+        x = a
     ];
 end
