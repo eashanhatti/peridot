@@ -10,7 +10,6 @@ There are a few features I want to implement, but are less of a priority, namely
 * **Layout Polymorphism**. Staging combined with dependent types does allow for some control over memory layout if types are treated as representations, but I'd like for it to be more fine-grained
 * **Multiple Memory Management Options**. I probably won't go with tracing GC, multiple memory management options are very nice to have in a systems language
 
-Current work is in increasing the elaborator's performance and implementing dependent records. Staging and pattern matching are next on the list of things to implement.\
 Current Roadmap:
 - [ ] Core language
     - [ ] Language
@@ -33,7 +32,7 @@ Current Roadmap:
         - [x] Imports
     - [ ] Typing
         - [x] Dependent functions
-        - [ ] Dependent records
+        - [x] Dependent records
         - [ ] Staging
         - [ ] Layout Polymorphism
         - [ ] Basic type inference

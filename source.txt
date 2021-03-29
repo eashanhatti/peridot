@@ -1,13 +1,7 @@
 module
-    Pair : Type;
-    Pair = record where
-        T : Type
-        x : T
-    end;
+    a : Fin 1;
+    b : Fin 1;
 
-    example : [A : Type] -> A -> import main.Pair;
-    example = fn A a => record [
-        T = A,
-        x = a
-    ];
+    a = import main.b;
+    b = import main.a;
 end

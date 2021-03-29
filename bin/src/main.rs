@@ -215,4 +215,19 @@ mod tests {
 
         assert_eq!(run(String::from("dcoretc"), source), Ok(()));        
     }
+
+    #[test]
+    fn mut_rec() {
+        let source = indoc!{"
+            module
+                a : Fin 1;
+                b : Fin 1;
+
+                a = import main.b;
+                b = import main.a;
+            end
+        "}.to_string();
+
+        assert_eq!(run(String::from("dcoretc"), source), Ok(()));  
+    }
 }

@@ -373,117 +373,60 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 _ => Err(vec![Error::new(term.range, state, ExpectedOfTypeType { giv_type: exp_type })])
             },
         ImportTerm(path) => {
-            // // println!("GLOBALS {:#?}", state.clone().globals());
-            // // println!("INDEX {:?}", state.globals_map_index);
-            // // println!("TO {:?}", state.clone());
-            // let (item_type, id) =
-            //     if let Some(entry) = state.get_global_dec(path) {
-            //         entry
-            //     } else {
-            //         return Err(vec![NonexistentGlobal { import: term, state, name: path.clone() }]);
-            //     };
-            // let mut global_types = {
-            //     let mut map: HashMap<usize, core::Term> = HashMap::new();
-            //     for (_, (global_type, _, global_id)) in state.globals().iter() {
-            //         // println!("GT {:?}", global_type);
-            //         map.insert(*global_id, global_type.clone());
-            //     }
-            //     for i in 0..state.num_global_decs {
-            //         if let Some(_) = map.get(&i) {
-            //             ()
-            //         } else {
-            //             // an import should never normalize down to this. if it ever does it will be ill-typed
-            //             map.insert(i, postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
-            //         }
-            //     }
-            //     let mut map = map.into_iter().collect::<Vec<(usize, core::Term)>>();
-            //     map.sort_by(|(id1, _), (id2, _)| id1.cmp(id2));
-            //     map.into_iter()
-            //         .map(|(_, r#type)| r#type)
-            //         .collect::<Vec<core::Term>>()
-            // };
-            // fn make_discrim(id: usize, num_globals: usize) -> core::Term {
-            //     let r#type = make_discrim_type(num_globals);
-            //     if id == 0 {
-            //         if num_globals > 1 {
-            //             pair!(
-            //                 unit!( ,: Unit!( ,: Univ!())),
-            //                 doub!(this ,: Doub!( ,: Univ!()))
-            //             ,: r#type)
-            //         } else {
-            //             unit!( ,: Unit!( ,: Univ!()))
-            //         }
-            //     } else {
-            //         pair!(
-            //             make_discrim(id - 1, num_globals - 1),
-            //             doub!(that ,: Doub!( ,: Univ!()))
-            //         ,: r#type)
-            //     }
-            // }
+            if let Some(entry) = state.get_global_def(path.clone()) {
+                Ok(entry.0)
+            } else {
+                let (item_type, id) =
+                    if let Some(entry) = state.get_global_dec(path) {
+                        entry
+                    } else {
+                        return Err(vec![Error::new(term.range, state, NonexistentGlobal { name: path.clone() })]);
+                    };
+                fn make_discrim(id: usize, num_globals: usize) -> core::Term {
+                    let r#type = make_discrim_type(num_globals);
+                    if id == 0 {
+                        if num_globals > 1 {
+                            pair!(
+                                unit!( ,: Unit!( ,: Univ!())),
+                                doub!(this ,: Doub!( ,: Univ!()))
+                            ,: r#type)
+                        } else {
+                            unit!( ,: Unit!( ,: Univ!()))
+                        }
+                    } else {
+                        pair!(
+                            make_discrim(id - 1, num_globals - 1),
+                            doub!(that ,: Doub!( ,: Univ!()))
+                        ,: r#type)
+                    }
+                }
 
-            // fn make_discrim_type(num_globals: usize) -> core::Term {
-            //     if num_globals == 0 {
-            //         unreachable!()
-            //     } else if num_globals == 1 {
-            //         Unit!( ,: Univ!())
-            //     } else {
-            //         Pair!(
-            //             case!(
-            //                 var!(Bound(1), "import discrim_type" ,: Doub!( ,: Univ!())),
-            //                 l => Unit!( ,: Univ!());
-            //                 r => make_discrim_type(num_globals - 1);
-            //             ,: Univ!()),
-            //             Doub!( ,: Univ!())
-            //         ,: Univ!())
-            //     }
-            // }
+                fn make_discrim_type(num_globals: usize) -> core::Term {
+                    if num_globals == 0 {
+                        unreachable!()
+                    } else if num_globals == 1 {
+                        Unit!( ,: Univ!())
+                    } else {
+                        Pair!(
+                            case!(
+                                var!(Bound(1), "import discrim_type" ,: Doub!( ,: Univ!())),
+                                l => Unit!( ,: Univ!());
+                                r => make_discrim_type(num_globals - 1);
+                            ,: Univ!()),
+                            Doub!( ,: Univ!())
+                        ,: Univ!())
+                    }
+                }
 
-            // // println!("NUM GD{:?}", state.num_global_decs);
-            // let discrim = make_discrim(id, state.num_global_decs);
-            // // println!("DISCRIM {:?}", discrim);
-            // // println!("DISCRIM_TYPE {:?}", discrim.r#type(Context::new()));
-            // let global_map_type = {
-            //     let mut global_map_type = global_types.pop().unwrap();
-            //     let len = global_types.len();
-            //     let mut c = 0;
-            //     for (i, global_type) in global_types.into_iter().rev().enumerate() {
-            //         // println!("I {:?} LEN - 1 {:?} GMI {:?}", i, len - 1, state.globals_map_index);
-            //         c += 1;
-            //         let core_map_case_type =
-            //             case!(
-            //                 var!(
-            //                     Bound(1),
-            //                     format!("case {:?}", c).as_str()
-            //                 ,: Doub!( ,: Univ!())),
-            //                 l => global_type;
-            //                 r => global_map_type;
-            //             ,: Univ!());
-            //         let core_map_split_type =
-            //             split!(
-            //                 var!(
-            //                     // if i == len - 1 { Bound(state.globals_map_index) } else { Bound(0) }
-            //                     Bound(0),
-            //                     format!("split {:?}", c).as_str()
-            //                 ,: make_discrim_type(i + 2)),
-            //                 in core_map_case_type.clone()
-            //             ,: Univ!());
-            //         global_map_type = core_map_split_type;
-            //     }
-            //     pi!(
-            //         discrim.r#type(Context::new()),
-            //         global_map_type
-            //     ,: Univ!())
-            // };
-            // // println!("GMI {:?}", state.globals_map_index);
-            // let mut core_term =
-            //     apply!(
-            //         var!(
-            //             Bound(state.globals_map_index)
-            //         ,: global_map_type),
-            //         discrim
-            //     ,: item_type);
-            // Ok(core_term)
-            Ok(state.get_global_def(path.clone()).unwrap().0)
+                let discrim = make_discrim(id, state.num_global_decs);
+                let mut core_term =
+                    apply!(
+                        var!(
+                            Bound(state.globals_map_index)),
+                        discrim
+                    ,: item_type);
+                Ok(core_term)
+            }
         },
         RecordIntro(fields) => {
             if let core::InnerTerm::IndexedTypeIntro(id, mut inner_type) = *exp_type.data {
