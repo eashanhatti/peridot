@@ -11,7 +11,8 @@ use pest_derive::*;
 
 use crate::lang::surface::{
 	*,
-	InnerTerm::*
+	InnerTerm::*,
+	InnerPattern::*
 };
 use std::collections::{
 	HashSet,
@@ -85,7 +86,42 @@ fn parse_term(mut pair: Pair<Rule>) -> Term {
 
 					RecordIntro(fields)
 				}
+				Rule::match_expr => {
+					let discrim = parse_term(pair_iter.next().unwrap());
+					let mut clauses = Vec::new();
+					for clause in pair_iter {
+						let mut inner = clause.into_inner();
+						let pattern = parse_pattern(inner.next().unwrap());
+						let body = parse_term(inner.next().unwrap());
+						clauses.push((pattern, body));
+					}
+
+					Match(discrim, clauses)
+				}
 				_ => unimplemented!()
+			}),
+		range: (pair_span.start(), pair_span.end())
+	}
+}
+
+fn parse_pattern(mut pair: Pair<Rule>) -> Pattern {
+	let pair_rule = pair.as_rule();
+	let pair_span = pair.as_span();
+	let pair_str = pair.as_str();
+	let mut pair_iter = pair.into_inner();
+	Pattern {
+		data:
+			Box::new(match pair_rule {
+				Rule::record_pattern => {
+					let mut patterns = Vec::new();
+					for pattern in pair_iter {
+						patterns.push(parse_pattern(pattern));
+					}
+					Record(patterns)
+				},
+				Rule::fin_pattern => Enum(pair_iter.next().unwrap().as_str().parse::<usize>().unwrap()),
+				Rule::binding_pattern => Binding(Name(pair_str.to_string())),
+				_ => unreachable!()
 			}),
 		range: (pair_span.start(), pair_span.end())
 	}

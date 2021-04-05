@@ -49,8 +49,6 @@ use assoc_collections::*;
 extern crate macros;
 use macros::*;
 
-type Range = (usize, usize);
-
 #[derive(Debug)]
 pub enum InnerError {
     MismatchedTypes { exp_type: core::Term, giv_type: core::Term, specific: Vec<(core::Term, core::Term)> },

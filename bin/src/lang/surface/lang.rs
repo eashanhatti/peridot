@@ -5,6 +5,8 @@ use std::collections::HashMap;
 extern crate assoc_collections;
 use assoc_collections::*;
 
+pub type Range = (usize, usize);
+
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Clone, Debug)]
 pub struct Name(pub String);
 
@@ -32,7 +34,7 @@ pub enum InnerItem {
 #[derive(Debug)]
 pub struct Item {
 	pub data: InnerItem,
-	pub range: (usize, usize)
+	pub range: Range
 }
 
 pub enum Visibility {
@@ -60,19 +62,25 @@ pub enum InnerTerm {
 	RecordIntro(HashMap<Name, Term>),
 	EnumTypeIntro(usize),
 	EnumIntro(usize),
-	Match(HashMap<Pattern, Term>), // elim form of records and enums
+	Match(Term, Vec<(Pattern, Term)>), // elim form of records and enums
 	Let(AssocVec<Name, Term>, Term)
 }
 
 #[derive(Debug, Clone)]
 pub struct Term {
 	pub data: Box<InnerTerm>,
-	pub range: (usize, usize),
+	pub range: Range,
 }
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
-pub enum Pattern {
+pub struct Pattern {
+	pub data: Box<InnerPattern>,
+	pub range: Range
+}
+
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
+pub enum InnerPattern {
 	Record(Vec<Pattern>),
 	Enum(usize),
-	Binding(Name) // binding
+	Binding(Name)
 }

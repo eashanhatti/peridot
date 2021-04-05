@@ -1,4 +1,4 @@
-## Staging
+## Staging Notes
 
 Kinds are indexed by their stage: `Type s`\
 `sta'T` and `dyn'T` will be syntactic sugar for `T : Type static` and `T : Type dynamic`. Or more generally, `s'T` is `T : Type s`

@@ -1,7 +1,8 @@
 module
-    a : Fin 1;
-    b : Fin 1;
-
-    a = import main.b;
-    b = import main.a;
+    not : Fin 2 -> Fin 2
+    not = fn b =>
+    	match b with
+    		fin 1 => fin 0
+    		fin 0 => fin 1
+    	end
 end
