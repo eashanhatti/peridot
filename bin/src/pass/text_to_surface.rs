@@ -26,6 +26,67 @@ use assoc_collections::*;
 #[grammar = "C:\\Users\\Eashan\\dev\\clamn\\bin\\src\\pass\\grammar.pest"]
 struct LangParser;
 
+fn parse_items(mut pair: Pair<Rule>) -> AssocVec<(Name, ItemKind), Item> {
+	let items_iter = pair.into_inner();
+	let mut items = AssocVec::new();
+	for item in items_iter {
+		let rule = item.as_rule();
+		let pair_span = item.as_span();
+		let mut item_iter = item.into_inner();
+		let name = Name(item_iter.next().unwrap().as_str().to_string());
+		match rule {
+			Rule::dec =>
+				items.insert(
+					(name, ItemKind::Dec),
+					Item {
+						data: InnerItem::Declaration(parse_term(item_iter.next().unwrap())),
+						range: (pair_span.start(), pair_span.end())
+					}),
+			Rule::term_def =>
+				items.insert(
+					(name, ItemKind::Def),
+					Item {
+						data: InnerItem::TermDef(parse_term(item_iter.next().unwrap())),
+						range: (pair_span.start(), pair_span.end())
+					}),
+			Rule::record_def => {
+				let mut param_list = item_iter.next().unwrap();
+				let mut field_list = item_iter.next().unwrap();
+
+				let mut param_names = AssocSet::new();
+				for param in param_list.into_inner() {
+					param_names.insert(Name(param.as_str().to_string()));
+				}
+
+				let mut fields = AssocVec::new();
+				for field in field_list.into_inner() {
+					let mut field_iter = field.into_inner();
+					fields.insert(
+						Name(field_iter.next().unwrap().as_str().to_string()),
+						parse_term(field_iter.next().unwrap()));
+				}
+
+				items.insert(
+					(name, ItemKind::Def),
+					Item {
+						data: InnerItem::RecordTypeDef(param_names, fields),
+						range: (pair_span.start(), pair_span.end())
+					});
+			},
+			Rule::module_def =>
+				items.insert(
+					(name, ItemKind::Def),
+					Item {
+						data: InnerItem::ModuleDef(parse_module(item_iter.next().unwrap())),
+						range: (pair_span.start(), pair_span.end())
+					}),
+			_ => unreachable!()
+		};
+	}
+
+	items
+}
+
 fn parse_term(mut pair: Pair<Rule>) -> Term {
 	let pair_rule = pair.as_rule();
 	let pair_span = pair.as_span();
@@ -129,72 +190,15 @@ fn parse_pattern(mut pair: Pair<Rule>) -> Pattern {
 
 fn parse_module(mut pair: Pair<Rule>) -> Module {
 	if pair.as_rule() == Rule::module {
-		let items_iter = pair.into_inner();
-		let mut items = AssocVec::new();
-		for item in items_iter {
-			let rule = item.as_rule();
-			let pair_span = item.as_span();
-			let mut item_iter = item.into_inner();
-			let name = Name(item_iter.next().unwrap().as_str().to_string());
-			match rule {
-				Rule::dec =>
-					items.insert(
-						(name, ItemKind::Dec),
-						Item {
-							data: InnerItem::Declaration(parse_term(item_iter.next().unwrap())),
-							range: (pair_span.start(), pair_span.end())
-						}),
-				Rule::term_def =>
-					items.insert(
-						(name, ItemKind::Def),
-						Item {
-							data: InnerItem::TermDef(parse_term(item_iter.next().unwrap())),
-							range: (pair_span.start(), pair_span.end())
-						}),
-				Rule::record_def => {
-					let mut param_list = item_iter.next().unwrap();
-					let mut field_list = item_iter.next().unwrap();
-
-					let mut param_names = AssocSet::new();
-					for param in param_list.into_inner() {
-						param_names.insert(Name(param.as_str().to_string()));
-					}
-
-					let mut fields = AssocVec::new();
-					for field in field_list.into_inner() {
-						let mut field_iter = field.into_inner();
-						fields.insert(
-							Name(field_iter.next().unwrap().as_str().to_string()),
-							parse_term(field_iter.next().unwrap()));
-					}
-
-					items.insert(
-						(name, ItemKind::Def),
-						Item {
-							data: InnerItem::RecordTypeDef(param_names, fields),
-							range: (pair_span.start(), pair_span.end())
-						});
-				},
-				Rule::module_def =>
-					items.insert(
-						(name, ItemKind::Def),
-						Item {
-							data: InnerItem::ModuleDef(parse_module(item_iter.next().unwrap())),
-							range: (pair_span.start(), pair_span.end())
-						}),
-				_ => unreachable!()
-			};
-		}
-
-		Module { items }
+		Module { items: parse_items(pair.into_inner().next().unwrap()) }
 	} else {
 		unreachable!()
 	}
 }
 
 pub fn text_to_module(input: &str) -> Result<Module, Error<Rule>> { // TODO: error reporting
-	let ast = LangParser::parse(Rule::module, input)?.next().unwrap();
-	Ok(parse_module(ast))
+	let ast = LangParser::parse(Rule::item_list, input)?.next().unwrap();
+	Ok(Module { items: parse_items(ast) })
 }
 
 pub fn text_to_term(input: &str) -> Result<Term, Error<Rule>> { // TODO: error reporting

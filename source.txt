@@ -1,8 +1,11 @@
-module
-    not : Fin 2 -> Fin 2
-    not = fn b =>
-    	match b with
-    		fin 1 => fin 0
-    		fin 0 => fin 1
-    	end
+m = module
+	foo : a
+	foo = b
 end
+
+not : Fin 2 -> Fin 2
+not = fn b =>
+	match b with
+		fin 0 => fin 1
+		fin 1 => fin 0
+	end

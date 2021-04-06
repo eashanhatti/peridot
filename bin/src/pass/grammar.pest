@@ -7,7 +7,7 @@ full_name = { ( name ~ "." )+ ~ name }
 num = { ASCII_DIGIT+ }
 
 module = { "module" ~ ws+ ~ item_list ~ ws+ ~ "end" }
-item_list = _{ item ~ ((";" | NEWLINE) ~ ws* ~ item )* }
+item_list = { item ~ ((";" | NEWLINE) ~ ws* ~ item )* }
 item = _{ record_def | module_def | term_def | dec }
     term_def = { name ~ ws* ~ "=" ~ ws* ~ term }
     record_def = { name ~ ws* ~ "=" ~ ws* ~ "record" ~ s+ ~ param_list ~ s* ~ "where" ~ ws* ~ field_list ~ ws* ~ "end" }
@@ -46,5 +46,3 @@ prec0 = _{ fun | type_type | var | fin | fin_type | import | record_val | match_
             record_pattern = { "[" ~ ws* ~ pattern ~ ( ( ws* ~ "," ~ ws* ~ pattern )* )? ~ ws* ~ "]" }
             fin_pattern = { "fin" ~ ws+ ~ num }
             binding_pattern = { name }
-
-main = _{ SOI ~ module ~ EOI }
