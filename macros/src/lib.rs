@@ -235,6 +235,15 @@ macro_rules! indexed {
 }
 
 #[macro_export]
+macro_rules! indexed_elim {
+    ($inner:expr,: $ann:expr) => {
+        crate::lang::core::lang::Term::new(
+            Box::new(crate::lang::core::lang::InnerTerm::IndexedElim($inner)),
+            Some(Box::new($ann)))  
+    };
+}
+
+#[macro_export]
 macro_rules! let_bind {
     ($bindings:expr, $body:expr) => {
         crate::lang::core::lang::Term::new(

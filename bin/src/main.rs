@@ -230,4 +230,18 @@ mod tests {
 
         assert_eq!(run(String::from("dcoretc"), source), Ok(()));  
     }
+
+    #[test]
+    fn not_match() {
+        let source = indoc!{"
+            not : Fin 2 -> Fin 2
+            not = fn b =>
+                match b with
+                    fin 0 => fin 1
+                    fin 1 => fin 0
+                end
+        "};
+
+        assert_eq!(run(String::from("dcoretc"), source), Ok(())); 
+    }
 }

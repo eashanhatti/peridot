@@ -58,9 +58,11 @@ pub enum InnerError {
     ExpectedOfEnumType { giv_type: core::Term },
     ExpectedOfRecordType { giv_type: core::Term },
     EnumInhabitantTooLarge { inhabitant: usize, num_inhabitants: usize },
+    EnumPatternTooLarge { inhabitant: usize, num_inhabitants: usize },
     MismatchedFunctionArgsNum { exp_num: usize, giv_num: usize },
     CannotInferType,
-    NonexistentGlobal { name: QualifiedName }
+    NonexistentGlobal { name: QualifiedName },
+    CannotElimVoid
 }
 use InnerError::*;
 
@@ -128,8 +130,10 @@ fn make_enum(inhabitant: usize, num_inhabitants: usize) -> core::Term {
                 doub!(this ,: Doub!( ,: Univ!())),
                 unit!( ,: Unit!( ,: Univ!()))
             ,: make_enum_type(num_inhabitants))
-        } else {
+        } else if num_inhabitants == 1 {
             unit!( ,: Unit!( ,: Univ!()))
+        } else {
+            panic!("cannot construct Fin 0")
         }
     } else {
         pair!(
@@ -320,6 +324,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 } else if let &UnitTypeIntro = &*curr_type.data {
                     num_inhabitants = 1;
                 } else {
+                    // TODO: might be bugs here
                     while let PairTypeIntro(fst_type, snd_type) = *curr_type.data {
                         if let (DoubTypeIntro, DoubElim(discrim, branch1, branch2)) = (*fst_type.data.clone(), *snd_type.data.clone()) {
                             if let (Var(Bound(0)), DoubTypeIntro, UnitTypeIntro) = (*discrim.data.clone(), *discrim.r#type(Context::new()).data, *branch1.data.clone()) {
@@ -332,6 +337,9 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                                 panic!();*/
                                 return Err(vec![Error::new(term.range, state, ExpectedOfEnumType { giv_type: exp_type })]);
                             }
+                        } else if let (DoubTypeIntro, UnitTypeIntro) = (*fst_type.data, &*snd_type.data) {
+                            curr_type = snd_type;
+                            num_inhabitants += 2;
                         } else {/*
                             println!("num_inhabitants {:?}", num_inhabitants);
                             println!("fst_type {:?}", fst_type);
@@ -500,6 +508,125 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 Ok(val)
             } else {
                 return Err(vec![Error::new(term.range, state, ExpectedOfRecordType { giv_type: exp_type })]);
+            }
+        },
+        Match(discrim, clauses) => {
+            let discrim_type = infer_type(discrim, state.clone())?;
+            let core_discrim = elab_term(discrim, discrim_type.clone(), state.clone())?;
+            if let core::InnerTerm::IndexedTypeIntro(index, ref inner_type) = *discrim_type.data { // discrim is a Fin or Record
+                if index == 0 { // discrim is a Fin
+                    let num_inhabs = {
+                        let mut n = 1;
+                        let mut r#type = inner_type;
+                        if let core::InnerTerm::VoidTypeIntro = &*r#type.data {
+                            n = 0;
+                        }
+                        while let core::InnerTerm::PairTypeIntro(_, next_type) = &*r#type.data {
+                            n += 1;
+                            r#type = &next_type;
+                        }
+                        n
+                    };
+                    // println!("NUM_INHABS {:?}", num_inhabs);
+
+                    let cons_branch_state = |d: &Fn() -> core::Term|
+                        if let Var(name) = &*discrim.data {
+                            state.clone().with_def(name.clone(), d())
+                        } else {
+                            state.clone()
+                        };
+                    let mut errors = Vec::new();
+                    let mut core_branches = HashMap::new();
+                    for (pattern, branch) in clauses {
+                        if let InnerPattern::Enum(inhab) = *pattern.data {
+                            if inhab >= num_inhabs {
+                                errors.push(
+                                    Error::new(
+                                        pattern.range,
+                                        state.clone(),
+                                        EnumPatternTooLarge { inhabitant: inhab, num_inhabitants: num_inhabs }));
+                                continue;
+                            }
+                            let branch_state = cons_branch_state(&|| make_enum(inhab, num_inhabs));
+                            let normal_exp_type = normalize(exp_type.clone(), branch_state.locals().clone());
+                            let core_branch =
+                                match elab_term(branch, normal_exp_type, branch_state) {
+                                    Ok(core_term) => core_term,
+                                    Err(errs) => {
+                                        for err in errs {
+                                            errors.push(err)
+                                        }
+                                        continue;
+                                    }
+                                };
+                            core_branches.insert(inhab, core_branch);
+                        } else {
+                            unimplemented!() // expected Fin pattern
+                        }
+                    }
+
+                    if errors.len() == 0 {
+                        // exaustiveness check
+                        for i in 0..num_inhabs {
+                            if !core_branches.contains_key(&i) {
+                                unimplemented!()
+                            }
+                        }
+
+                        match num_inhabs {
+                            0 => Err(vec![Error::new(term.range, state, CannotElimVoid)]),
+                            1 => Ok(core_branches.remove(&0).unwrap()),
+                            _ => {
+                                let mut core_match = core_branches.remove(&(num_inhabs - 1)).unwrap();
+                                for i in (0..num_inhabs - 1).rev() {
+                                    let core_branch = core_branches.remove(&i).unwrap();
+                                    let core_branch_type = core_branch.r#type(Context::new());
+                                    let core_match_type = core_match.r#type(Context::new());
+                                    let case_type =
+                                        case!(
+                                            var!(Bound(0)),
+                                            l => core_branch_type;
+                                            r => core_match_type;
+                                        ,: Univ!());
+                                    let split_discrim =
+                                        if i == 0 {
+                                            indexed_elim!(
+                                                 core_discrim.clone()
+                                            ,: inner_type.clone())
+                                        } else {
+                                            var!(Bound(1))
+                                        };
+                                    let split_type =
+                                        split!(
+                                            split_discrim.clone(),
+                                            in
+                                                case_type.clone()
+                                        ,: Univ!());
+
+                                    core_match =
+                                        split!(
+                                            split_discrim,
+                                            in
+                                                case!(
+                                                    var!(Bound(0)),
+                                                    l => core_branch;
+                                                    r => core_match;
+                                                ,: case_type)
+                                        ,: split_type)
+                                }
+
+                                Ok(core_match)
+                            }
+                        }
+                    } else {
+                        Err(errors)
+                    }
+                } else { // discrim is a Record
+                    unimplemented!()
+                }
+            } else {
+                println!("{:?}", discrim_type);
+                unimplemented!() // expected Fin or Record
             }
         }
         _ => unimplemented!()
