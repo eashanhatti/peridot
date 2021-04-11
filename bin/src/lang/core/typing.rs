@@ -171,107 +171,6 @@ pub fn count_uses(term: &Term, target_index: InnerVar) -> (usize, usize) {
 		}])
 }
 
-// `term` should be checked before this is called
-// should make this more robust in the future
-pub fn get_free_vars(term: &Term, bounds: HashSet<InnerVar>) -> HashMap<InnerVar, Term> {
-	type Map = HashMap<InnerVar, Term>;
-
-	fn inner(term: &Term, bounds: HashSet<InnerVar>) -> Map {
-		fn collapse(maps: Vec<Map>) -> Map {
-			let mut new_map: Map = HashMap::new();
-			for map in maps {
-				for (k, v) in map {
-					new_map.insert(k, v);
-				}
-			}
-			new_map
-		}
-
-		fn inc(set: HashSet<InnerVar>) -> HashSet<InnerVar> {
-			inc_by(set, 1)
-		}
-
-		fn inc_by(set: HashSet<InnerVar>, by: usize) -> HashSet<InnerVar> {
-			let mut tmp = set.into_iter().map(|i| if let Bound(i_bound) = i { Bound(i_bound + by) } else { i }).collect::<HashSet<InnerVar>>();
-			tmp
-		}
-
-		fn with(mut set: HashSet<InnerVar>, index: usize) -> HashSet<InnerVar> {
-			set.insert(Bound(index));
-			set
-		}
-
-		let type_ann_free_vars =
-			if let Some(type_ann) = &term.type_ann {
-				inner(&*type_ann, bounds.clone())
-			} else {
-				Map::new()
-			};
-
-		collapse(vec![
-			match *term.data {
-				TypeTypeIntro => HashMap::new(),
-				Var(index) =>
-					if bounds.contains(&index) {
-						HashMap::new()
-					} else {
-						let mut map = HashMap::new();
-						map.insert(index, term.r#type(Context::new()));
-						map
-					},
-				Rec(ref inner_term) => inner(inner_term, with(inc(bounds.clone()), 0)),
-				Let(ref bindings, ref body) => unimplemented!(),
-				FunctionTypeIntro(ref in_type, ref out_type) =>
-					collapse(vec![
-						inner(in_type, bounds.clone()),
-						inner(out_type, with(inc(bounds.clone()), 0))
-					]),
-				FunctionIntro(ref body) => inner(body, with(inc(bounds.clone()), 0)),
-				FunctionElim(ref abs, ref arg) =>
-					collapse(vec![
-						inner(abs, bounds.clone()),
-						inner(arg, bounds)
-					]),
-				PairTypeIntro(ref fst_type, ref snd_type) =>
-					collapse(vec![
-						inner(fst_type, with(inc_by(bounds.clone(), 2), 1)),
-						inner(snd_type, with(inc_by(bounds.clone(), 2), 0))
-					]),
-				PairIntro(ref fst, ref snd) =>
-					collapse(vec![
-						inner(fst, bounds.clone()),
-						inner(snd, bounds)
-					]),
-				PairElim(ref discrim, ref body) =>
-					collapse(vec![
-						inner(discrim, bounds.clone()),
-						inner(body, with(with(inc_by(bounds.clone(), 2), 0), 1))
-					]),
-				VoidTypeIntro => HashMap::new(),
-				UnitTypeIntro => HashMap::new(),
-				UnitIntro => HashMap::new(),
-				DoubTypeIntro => HashMap::new(),
-				DoubIntro(_) => HashMap::new(),
-				DoubElim(ref discrim, ref branch1, ref branch2) =>
-					collapse(vec![
-						inner(branch1, bounds.clone()),
-						inner(branch2, bounds.clone()),
-						inner(discrim, bounds)
-					]),
-				FoldTypeIntro(ref inner_type) => inner(inner_type, bounds.clone()),
-				FoldIntro(ref inner_term) => inner(inner_term, bounds.clone()),
-				FoldElim(ref folded_term) => inner(folded_term, bounds),
-				IndexedTypeIntro(_, ref inner_type) => inner(inner_type, bounds.clone()),
-				IndexedIntro(ref inner_term) => inner(inner_term, bounds.clone()),
-				IndexedElim(ref folded_term) => inner(folded_term, bounds),
-				Postulate(_) => Map::new()
-			},
-			type_ann_free_vars])
-	}
-
-	inner(term, bounds)
-}
-
 pub fn wrap_checks(errors: Vec<Error>) -> CheckResult<()> {
 	if errors.len() > 0 {
 		Err(errors)
@@ -596,7 +495,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 		IndexedElim(ref indexed_term) => {
 			let indexed_term_type = synth_type(indexed_term, context.clone())?;
 			match &*indexed_term_type.data {
-				IndexedTypeIntro(_, _) => check(indexed_term, type_ann, context),
+				IndexedTypeIntro(_, inner_type) => check(indexed_term, indexed_term_type, context),
 				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfIndexedType { giv_type: indexed_term_type })])
 			}
 		}

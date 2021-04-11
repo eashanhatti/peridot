@@ -238,22 +238,30 @@ pub fn normalize(term: Term, context: Context) -> Term {
         PairIntro(fst, snd) => Term::new(Box::new(PairIntro(normalize(fst, context.clone()), normalize(snd, context))), normal_type_ann),
         PairElim(discrim, body) => {
             let normal_discrim = normalize(discrim, context.clone());
-            match *normal_discrim.clone().data {
-                PairIntro(fst, snd) =>
-                    shift(
-                        normalize(
-                            body,
-                            context.clone().inc_and_shift(2)
-                                .with_def(Bound(0), normalize(fst, context.clone()))
-                                .with_def(Bound(1), normalize(snd, context))),
-                        HashSet::new(),
-                        -2),
-                _ => 
-                    Term::new(
-                        Box::new(PairElim(
-                            normal_discrim,
-                            normalize(body.clone(), context.clone().inc_and_shift(2)))),
-                        normal_type_ann)
+            let free_vars = get_free_vars(&body, HashSet::new());
+            if !free_vars.contains_key(&Bound(0)) && !free_vars.contains_key(&Bound(1)) {
+                shift(
+                    normalize(body, context.clone().inc_and_shift(2)),
+                    HashSet::new(),
+                    -2)
+            } else {
+                match *normal_discrim.clone().data {
+                    PairIntro(fst, snd) =>
+                        shift(
+                            normalize(
+                                body,
+                                context.clone().inc_and_shift(2)
+                                    .with_def(Bound(0), normalize(fst, context.clone()))
+                                    .with_def(Bound(1), normalize(snd, context))),
+                            HashSet::new(),
+                            -2),
+                    _ => 
+                        Term::new(
+                            Box::new(PairElim(
+                                normal_discrim,
+                                normalize(body.clone(), context.clone().inc_and_shift(2)))),
+                            normal_type_ann)
+                }
             }
         }
         VoidTypeIntro => term,
@@ -272,7 +280,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
                 _ => {
                     let normal_branch1 = normalize(branch1.clone(), context.clone());
                     let normal_branch2 = normalize(branch2.clone(), context.clone());
-                    if let (UnitTypeIntro, UnitTypeIntro) = (&*normal_branch1.data, &*normal_branch2.data) {
+                    if let True = is_terms_eq(&normal_branch1, &normal_branch2, context.equivs()) /*(UnitTypeIntro, UnitTypeIntro) = (&*normal_branch1.data, &*normal_branch2.data)*/ {
                         normal_branch1
                     } else {
                         Term::new(
