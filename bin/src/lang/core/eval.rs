@@ -237,7 +237,6 @@ pub fn normalize(term: Term, context: Context) -> Term {
         },
         PairIntro(fst, snd) => Term::new(Box::new(PairIntro(normalize(fst, context.clone()), normalize(snd, context))), normal_type_ann),
         PairElim(discrim, body) => {
-            let normal_discrim = normalize(discrim, context.clone());
             let free_vars = get_free_vars(&body, HashSet::new());
             if !free_vars.contains_key(&Bound(0)) && !free_vars.contains_key(&Bound(1)) {
                 shift(
@@ -245,6 +244,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
                     HashSet::new(),
                     -2)
             } else {
+                let normal_discrim = normalize(discrim, context.clone());
                 match *normal_discrim.clone().data {
                     PairIntro(fst, snd) =>
                         shift(

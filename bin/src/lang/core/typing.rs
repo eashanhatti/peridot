@@ -186,7 +186,7 @@ pub fn wrap_checks(errors: Vec<Error>) -> CheckResult<()> {
 pub fn synth_type(term: &Term, context: Context) -> CheckResult<Term> {
     use InnerTerm::*;
 
-    let r#type = term.r#type(context.clone());
+    let r#type = normalize(term.r#type(context.clone()), context.clone());
     match &*r#type.data {
     	TypeTypeIntro => (),
     	_ => check(&r#type, synth_type(&r#type, context.clone())?, context)?
