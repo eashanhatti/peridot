@@ -123,10 +123,8 @@ mod tests {
     #[test]
     fn id_fun() {
         let source = indoc!{"
-            module
-                id : [T : Type] -> T -> T;
-                id = fn T x => x;
-            end
+            id : [T : Type] -> T -> T
+            id = fn T x => x
         "}.to_string();
 
         assert_eq!(run(String::from("dcoretc"), source), Ok(()));
@@ -135,19 +133,17 @@ mod tests {
     #[test]
     fn records1() {
         let source = indoc!{"
-            module
-                Pair : Type -> Type -> Type;
-                Pair = record A B where
-                    fst : A
-                    snd : B
-                end;
-
-                example : [T : Type] -> T -> ((import main.Pair)(T, Fin 1));
-                example = fn T x => record [
-                    fst = x,
-                    snd = fin 0
-                ];
+            Pair : Type -> Type -> Type;
+            Pair = record A B where
+                fst : A
+                snd : B
             end
+
+            example : [T : Type] -> T -> ((import main.Pair)(T, Fin 1));
+            example = fn T x => record [
+                fst = x,
+                snd = fin 0
+            ]
         "}.to_string();
 
         assert_eq!(run(String::from("dcoretc"), source), Ok(()));
@@ -156,19 +152,17 @@ mod tests {
     #[test]
     fn records2() {
         let source = indoc!{"
-            module
-                Exists : Type;
-                Exists = record where
-                    T : Type
-                    x : T
-                end;
+            Exists : Type;
+            Exists = record where
+                T : Type
+                x : T
+            end;
 
-                example : [A : Type] -> A -> import main.Exists;
-                example = fn A a => record [
-                    T = A,
-                    x = a
-                ];
-            end
+            example : [A : Type] -> A -> import main.Exists;
+            example = fn A a => record [
+                T = A,
+                x = a
+            ]
         "}.to_string();
 
         assert_eq!(run(String::from("dcoretc"), source), Ok(()));
@@ -177,19 +171,17 @@ mod tests {
     #[test]
     fn records3() {
         let source = indoc!{"
-            module
-                Pair : Type -> Type -> Type;
-                Pair = record A B where
-                    fst : A
-                    snd : B
-                end;
+            Pair : Type -> Type -> Type;
+            Pair = record A B where
+                fst : A
+                snd : B
+            end;
 
-                example : [T : Type] -> T -> ((import main.Pair)(T, T));
-                example = fn T x => record [
-                    fst = x,
-                    snd = x
-                ];
-            end
+            example : [T : Type] -> T -> ((import main.Pair)(T, T));
+            example = fn T x => record [
+                fst = x,
+                snd = x
+            ]
         "}.to_string();
 
         assert_eq!(run(String::from("dcoretc"), source), Ok(()));
@@ -198,19 +190,17 @@ mod tests {
     #[test]
     fn records4() {
         let source = indoc!{"
-            module
-                Exists : Type;
-                Exists = record where
-                    T : Type
-                    x : T
-                end;
+            Exists : Type;
+            Exists = record where
+                T : Type
+                x : T
+            end;
 
-                example : import main.Exists;
-                example = record [
-                    T = [A : Type] -> A -> A,
-                    x = fn A a => a
-                ];
-            end
+            example : import main.Exists;
+            example = record [
+                T = [A : Type] -> A -> A,
+                x = fn A a => a
+            ]
         "}.to_string();
 
         assert_eq!(run(String::from("dcoretc"), source), Ok(()));        
@@ -219,13 +209,11 @@ mod tests {
     #[test]
     fn mut_rec() {
         let source = indoc!{"
-            module
-                a : Fin 1;
-                b : Fin 1;
+            a : Fin 1
+            b : Fin 1
 
-                a = import main.b;
-                b = import main.a;
-            end
+            a = import main.b
+            b = import main.a
         "}.to_string();
 
         assert_eq!(run(String::from("dcoretc"), source), Ok(()));  
@@ -240,7 +228,25 @@ mod tests {
                     fin 0 => fin 1
                     fin 1 => fin 0
                 end
-        "};
+        "}.to_string();
+
+        assert_eq!(run(String::from("dcoretc"), source), Ok(())); 
+    }
+
+    #[test]
+    fn and_match() {
+        let source = indoc!{"
+            and : Fin 2 -> Fin 2 -> Fin 2
+            and = fn x y =>
+                match x with
+                    fin 0 => fin 0
+                    fin 1 =>
+                        match y with
+                            fin 0 => fin 0
+                            fin 1 => fin 1
+                        end
+                end
+        "}.to_string();
 
         assert_eq!(run(String::from("dcoretc"), source), Ok(())); 
     }

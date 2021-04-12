@@ -280,7 +280,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
                 _ => {
                     let normal_branch1 = normalize(branch1.clone(), context.clone());
                     let normal_branch2 = normalize(branch2.clone(), context.clone());
-                    if let True = is_terms_eq(&normal_branch1, &normal_branch2, context.equivs()) /*(UnitTypeIntro, UnitTypeIntro) = (&*normal_branch1.data, &*normal_branch2.data)*/ {
+                    if let True = is_terms_eq(&normal_branch1, &normal_branch2, context.equivs()) {
                         normal_branch1
                     } else {
                         Term::new(

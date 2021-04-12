@@ -276,14 +276,13 @@ static mut count: usize = 0;
 
 // checks if two terms are equal
 pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: HashSet<(InnerVar, InnerVar)>) -> TermComparison {
-    use InnerTerm::*;
-    /* TODO: figure out how to make this work properly
+    use InnerTerm::*;/*
     let type_compare =
         match (&type1.type_ann, &type2.type_ann) {
             (Some(type_ann1), Some(type_ann2)) => is_terms_eq(&*type_ann1, &*type_ann2, equivs.clone()),
-            (_, _) => False(vec![(type1.clone(), type2.clone())])
-        };
-    */
+            _ => True
+        };*/
+    
     let data_compare =
         match &(&(*type1.data), &(*type2.data)) {
             (TypeTypeIntro, TypeTypeIntro) => True,

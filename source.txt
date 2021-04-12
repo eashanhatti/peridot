@@ -1,5 +1,10 @@
-f : Fin 1 -> Fin 1
-f = fn x => x
-
-g : Fin 2 -> Fin 2
-g = fn x => x
+and : Fin 2 -> Fin 2 -> Fin 2
+and = fn x y =>
+	match x with
+		fin 0 => fin 0
+		fin 1 =>
+			match y with
+				fin 0 => fin 0
+				fin 1 => fin 1
+			end
+	end
