@@ -549,8 +549,14 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                             }
                             let branch_state = cons_branch_state(&|| make_enum(inhab, num_inhabs));
                             let normal_exp_type = normalize(exp_type.clone(), branch_state.locals().clone());
+                            let shift_amount =
+                                if inhab == num_inhabs - 1 {
+                                    (inhab * 2).try_into().unwrap()
+                                } else {
+                                    ((inhab + 1) * 2).try_into().unwrap()
+                                };
                             let core_branch =
-                                match elab_term(branch, normal_exp_type, branch_state) {
+                                match elab_term(branch, normal_exp_type, branch_state.raw_inc_and_shift(shift_amount)) {
                                     Ok(core_term) => core_term,
                                     Err(errs) => {
                                         for err in errs {
