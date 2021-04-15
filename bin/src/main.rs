@@ -7,7 +7,8 @@ use lang::{
         context::*,
         lang::{
             Note,
-            mark_lines
+            mark_lines,
+            is_terms_eq
         },
         InnerVar::*
     },
@@ -34,6 +35,8 @@ use pass::{
 extern crate pest;
 extern crate indoc;
 use indoc::indoc;
+extern crate macros;
+use macros::*;
 
 macro_rules! if_opt {
     ($opt:expr, $opts:expr, $body:expr) => {{
@@ -41,12 +44,19 @@ macro_rules! if_opt {
             $body
         }
     }};
+    ($opt:expr, $opts:expr, $body:expr, $else:expr) => {{
+        if $opts.contains($opt) {
+            $body
+        } else {
+            $else
+        }
+    }};
 }
 
 fn run(options: String, source: String) -> Result<(), ()> {
-    if_opt!("ptext", &options, println!("SOURCE\n{}", source));
+    if_opt!("ptext", options, println!("SOURCE\n{}", source));
     let surface_module = text_to_module(&source);
-    if_opt!("past", &options, println!("AST {:#?}", surface_module));
+    if_opt!("past", options, println!("AST {:#?}", surface_module));
 
     if let Ok(surface_module_ok) = surface_module {
         let core_module = {
@@ -69,8 +79,9 @@ fn run(options: String, source: String) -> Result<(), ()> {
             tmp
         };
 
-        if_opt!("pcore", &options, println!("CORE TERM\n{:?}", core_module));
-        if_opt!("dcoretc", &options, {
+        if_opt!("pcore", options, println!("CORE TERM\n{:?}", core_module));
+        if_opt!("ptype", options, println!("CORE TYPE\n{:?}", core_module.r#type(Context::new())));
+        if_opt!("dcoretc", options, {
             let core_module_type =
                 match core::typing::synth_type(&core_module, Context::new()) {
                     Ok(r#type) => r#type,
@@ -80,7 +91,10 @@ fn run(options: String, source: String) -> Result<(), ()> {
             let now = std::time::Instant::now();
             match core::typing::check(&core_module, core_module_type, Context::new()) {
                 Ok(()) => println!("NO CORE ERRORS"),
-                Err(errs) => { println!("CORE ERROR\n{:#?}", errs); return Err(()) }
+                Err(errs) => {
+                    println!("CORE ERRORS\n{:#?}", if_opt!("perrs", options, errs, Vec::new()));
+                    return Err(())
+                }
             }
             // println!("END CORE TYPECHECK, TIME {:?}", now.elapsed());
         });
@@ -113,6 +127,7 @@ fn main() {
         };
     let mut source = String::new();
     file.read_to_string(&mut source);
+
     run(options, source);
 }
 

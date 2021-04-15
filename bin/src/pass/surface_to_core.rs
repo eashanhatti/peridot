@@ -173,7 +173,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
     match &*term.data {
         Ann(ref annd_term, ref type_ann) => {
             let core_type_ann = elab_term(type_ann, infer_type(type_ann, state.clone())?, state.clone())?;
-            let cmp = is_terms_eq(&core_type_ann, &exp_type, state.clone().locals().clone().equivs());
+            let cmp = is_terms_eq(&core_type_ann, &exp_type, state.locals().equivs());
             if let False(specific) = cmp {
                 return Err(vec![Error::new(term.range, state, MismatchedTypes { exp_type: exp_type, giv_type: core_type_ann, specific })])
             }
@@ -182,7 +182,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
         Var(ref name) => {
             match state.get_dec(name) {
                 Some((index, var_type)) => {
-                    let cmp = is_terms_eq(&var_type, &exp_type, state.clone().locals().clone().equivs());
+                    let cmp = is_terms_eq(&var_type, &exp_type, state.locals().equivs());
                     if let False(specific) = cmp {
                         Err(vec![Error::new(term.range, state, MismatchedTypes { exp_type, giv_type: var_type, specific })])
                     } else {

@@ -1,10 +1,5 @@
-and : Fin 2 -> Fin 2 -> Fin 2
-and = fn x y =>
-	match x with
-		fin 0 => fin 0
-		fin 1 =>
-			match y with
-				fin 0 => fin 0
-				fin 1 => fin 1
-			end
-	end
+x : Fin 2
+x = fin 0
+
+y : Fin 1
+y = fin 0

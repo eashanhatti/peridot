@@ -6,7 +6,8 @@ use super::{
         *,
         InnerVar::*,
         InnerTerm::*,
-        Doub::*
+        Doub::*,
+        TermComparison::*
     }
 };
 use std::{
@@ -237,10 +238,11 @@ pub fn normalize(term: Term, context: Context) -> Term {
         },
         PairIntro(fst, snd) => Term::new(Box::new(PairIntro(normalize(fst, context.clone()), normalize(snd, context))), normal_type_ann),
         PairElim(discrim, body) => {
-            let free_vars = get_free_vars(&body, HashSet::new());
+            let pre_normal_body = normalize(body, context.clone().inc_and_shift(2));
+            let free_vars = get_free_vars(&pre_normal_body, HashSet::new());
             if !free_vars.contains_key(&Bound(0)) && !free_vars.contains_key(&Bound(1)) {
                 shift(
-                    normalize(body, context.clone().inc_and_shift(2)),
+                    pre_normal_body,
                     HashSet::new(),
                     -2)
             } else {
@@ -249,7 +251,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
                     PairIntro(fst, snd) =>
                         shift(
                             normalize(
-                                body,
+                                pre_normal_body,
                                 context.clone().inc_and_shift(2)
                                     .with_def(Bound(0), normalize(fst, context.clone()))
                                     .with_def(Bound(1), normalize(snd, context))),
@@ -259,7 +261,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
                         Term::new(
                             Box::new(PairElim(
                                 normal_discrim,
-                                normalize(body.clone(), context.clone().inc_and_shift(2)))),
+                                pre_normal_body)),
                             normal_type_ann)
                 }
             }
@@ -280,7 +282,14 @@ pub fn normalize(term: Term, context: Context) -> Term {
                 _ => {
                     let normal_branch1 = normalize(branch1.clone(), context.clone());
                     let normal_branch2 = normalize(branch2.clone(), context.clone());
-                    if let True = is_terms_eq(&normal_branch1, &normal_branch2, context.equivs()) {
+                    let cmp = is_terms_eq(&normal_branch1, &normal_branch2, context.equivs());
+                    if let True = &cmp {
+                        // println!("NB1{:?}", normal_branch1);
+                        // println!("NB2{:?}", normal_branch2);
+                        // println!("B1{:?}", branch1);
+                        // println!("B2{:?}", branch2);
+                        // println!("CTX {:#?}", context);
+                        // println!("EQ {:?}", cmp);
                         normal_branch1
                     } else {
                         Term::new(

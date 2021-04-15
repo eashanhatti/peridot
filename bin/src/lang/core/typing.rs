@@ -198,7 +198,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 	use InnerError::*;
 
 	let type_ann = synth_type(term, context.clone())?;
-	if let False(specific) = is_terms_eq(&type_ann, &exp_type, context.clone().equivs()) {
+	if let False(specific) = is_terms_eq(&type_ann, &exp_type, context.equivs()) {
 		// println!("NOT EQ\n{:?}\n{:?}", type_ann, exp_type);
 		return
 			Err(vec![Error::new(
@@ -216,7 +216,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 		Var(index) => 
 			match context.get_dec(index) {
 				Some(var_type) => {
-					if let False(specific) = is_terms_eq(&var_type, &type_ann, context.clone().equivs()) {
+					if let False(specific) = is_terms_eq(&var_type, &type_ann, context.equivs()) {
 						Err(vec![Error::new(term.loc(), context, MismatchedTypes { exp_type: var_type, giv_type: type_ann, specific })])
 					} else {
 						Ok(())
@@ -301,7 +301,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 								.with_def(Bound(0), normalize(arg.clone(), context.clone())));
 					push_check(
 						&mut errors,
-						if let False(specific) = is_terms_eq(&normal_out_type, &type_ann, context.clone().equivs()) {
+						if let False(specific) = is_terms_eq(&normal_out_type, &type_ann, context.equivs()) {
 							Err(vec![Error::new(term.loc(), context, MismatchedTypes { exp_type: type_ann, giv_type: normal_out_type, specific })])
 						} else {
 							Ok(())

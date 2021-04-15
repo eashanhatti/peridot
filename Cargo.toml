@@ -4,6 +4,3 @@ members = [
 	"macros",
 	"bin"
 ]
-
-[profile.release]
-debug = true

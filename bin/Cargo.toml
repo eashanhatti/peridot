@@ -13,3 +13,4 @@ rand = "0.8.0"
 assoc_collections = { path = "../assoc_collections" }
 macros = { path = "../macros" }
 indoc = "1.0"
+backtrace = "0.3"

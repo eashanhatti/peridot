@@ -182,8 +182,8 @@ impl Context {
         Context(self.0, equivs)
     }
 
-    pub fn equivs(self) -> HashSet<(InnerVar, InnerVar)> {
-        self.1
+    pub fn equivs(&self) -> &HashSet<(InnerVar, InnerVar)> {
+        &self.1
     }
 
     pub fn len(&self) -> usize {
