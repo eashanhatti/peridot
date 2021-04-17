@@ -738,3 +738,36 @@ map s1 s2 s3 s4 a1 a2 A B =
     in
         map_inner
 ```
+
+```haskell
+record HashMap : (a : Type) -> (a -> Type) -> Type where
+    --snip--
+end
+
+insert : {a : Type} -> {b : a -> Type} -> (key : a) -> b key -> HashMap a b -> HashMap a b
+insert = --snip--
+
+get : {a : Type} -> {b : a -> Type} -> (key : a) -> HashMap a b -> b key
+get = --snip--
+
+-------------------------------
+
+mono_defs : static (HashMap Type (\a => Option a -> a -> a))
+mono_defs = new HashMap
+
+unwrap_or : static {a : Type} -> Option a -> a -> a
+unwrap_or a =
+    case get a mono_defs of
+        Some mono_def => mono_def
+        Sone =>
+            let
+                new_mono_def : Option a -> a -> a
+                new_mono_def option other =
+                    case option of
+                        Some x => x
+                        None => other
+            in do
+                mono_defs := insert a new_mono_def mono_defs
+                new_mono_def
+```
+Monomorphization implemented in userspace. Monomorphized implementations of `unwrap_or` are shared across the program, no code is duplicated

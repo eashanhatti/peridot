@@ -1,5 +1,1 @@
-x : Fin 2
-x = fin 0
-
-y : Fin 1
-y = fin 0
+Foo = record where end

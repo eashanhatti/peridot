@@ -318,7 +318,7 @@ pub fn elab_term<'a>(term: &'a Term, exp_type: core::Term, state: State) -> Elab
                 };
 
                 let mut num_inhabitants = 0;
-                let mut curr_type = inner_type;
+                let mut curr_type = normalize(inner_type, state.locals().clone());
                 if let &VoidTypeIntro = &*curr_type.data {
                     ()
                 } else if let &UnitTypeIntro = &*curr_type.data {
@@ -747,46 +747,17 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                 FlattenedModuleItem::Declaration(_, r#type) => {
                     let new_state = state.clone().with_globals_map_index((*decs_indices_iter.next().unwrap()));
                     let core_type = elab_term(r#type, infer_type(r#type, new_state.clone())?, new_state)?;
-                    // println!("CORE_TYPE {:?}", core_type);
-                    // let mut globals_iter = state.iter_globals();
-                    // let mut decs_symbols_iter = decs_symbols.iter();
-                    // let mut core_map = 
-                    //     if state.globals().len() == 0 {
-                    //         unit!( ,: var!(Free(Symbol(rand::random::<usize>())), "no globals" ,: Univ!()))
-                    //     } else {
-                    //         let (_, r#type, value, _) = globals_iter.next().unwrap();
-                    //         value
-                    //     };
-
-                    // for ((_, r#type, value, _), symbol) in globals_iter.zip(decs_symbols_iter) {
-                    //     core_map =
-                    //         split!(
-                    //             var!(
-                    //                 Bound(0)
-                    //             ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!())),
-                    //             in
-                    //                 case!(
-                    //                     var!(
-                    //                         Bound(1)
-                    //                     ,: Doub!( ,: Univ!())),
-                    //                     l => value;
-                    //                     r => core_map;
-                    //                 ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()))
-                    //         ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
-                    // }
-                    // core_map = fun!(core_map ,: postulate!(Symbol(rand::random::<usize>()) ,: Univ!()));
-                    // println!("CORE_MAP{}\n{:?}", state.globals_map_index, core_map);
-                    // // why does Bound(0) work?
-                    // let normal_core_type = core::eval::normalize(core_type, Context::new().with_def(Bound(state.globals_map_index), core_map));
-                    // println!("NCT\n{:?}", normal_core_type);
-
                     state =
                         state.with_global_dec(
                             name.clone(),
                             core_type);
                 }
-                FlattenedModuleItem::TermDef(_, term) => {
-                    let core_item_type = normalize(state.get_global_dec(name).unwrap().0, Context::new()); // TODO: error reporting
+                FlattenedModuleItem::TermDef(range, term) => {
+                    let dec = match state.get_global_dec(name) {
+                        Some(dec) => dec.0,
+                        None => return Err(vec![Error::new(*range, state, NonexistentGlobal { name: name.clone() })])
+                    };
+                    let core_item_type = normalize(dec, state.locals().clone());
                     let mut core_term =
                         elab_term(
                             term,
@@ -799,7 +770,11 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                     core_items.push(core_term);
                 }
                 FlattenedModuleItem::RecordTypeDef(range, params, fields) => {
-                    let core_item_type = state.clone().get_global_dec(name).unwrap().0; // TODO: error reporting
+                    let dec = match state.get_global_dec(name) {
+                        Some(dec) => dec.0,
+                        None => return Err(vec![Error::new(*range, state, NonexistentGlobal { name: name.clone() })])
+                    };
+                    let core_item_type = normalize(dec, state.locals().clone());
                     let mut record_type_type = core_item_type.clone();
                     let mut fields_state = state.clone();
                     let mut param_types = Vec::new();

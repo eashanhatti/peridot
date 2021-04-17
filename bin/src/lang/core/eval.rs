@@ -1,5 +1,3 @@
-#![allow(warnings)]
-
 use super::{
     context::*,
     lang::{
@@ -7,7 +5,7 @@ use super::{
         InnerVar::*,
         InnerTerm::*,
         Doub::*,
-        TermComparison::*
+        TermComparison
     }
 };
 use std::{
@@ -111,7 +109,6 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
 }
 
 pub fn substitute(term: Term, context: Context) -> Term {
-    let term_clone = term.clone();
     let substd_type_ann =
         match term.type_ann {
             Some(r#type) => Some(Box::new(substitute(*r#type, context.clone()))),
@@ -283,7 +280,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
                     let normal_branch1 = normalize(branch1.clone(), context.clone());
                     let normal_branch2 = normalize(branch2.clone(), context.clone());
                     let cmp = is_terms_eq(&normal_branch1, &normal_branch2, context.equivs());
-                    if let True = &cmp {
+                    if let TermComparison::True = &cmp {
                         // println!("NB1{:?}", normal_branch1);
                         // println!("NB2{:?}", normal_branch2);
                         // println!("B1{:?}", branch1);
