@@ -265,4 +265,32 @@ mod tests {
 
         assert_eq!(run(String::from("dcoretc"), source), Ok(())); 
     }
+
+    #[test]
+    fn and_not_match() {
+        let source = indoc!{"
+            and : Fin 2 -> Fin 2 -> Fin 2
+            and = fn x y =>
+                match x with
+                    fin 0 => fin 0
+                    fin 1 =>
+                        match y with
+                            fin 0 => fin 0
+                            fin 1 => fin 1
+                        end
+                end
+
+            not : Fin 2 -> Fin 2
+            not = fn x =>
+                match x with
+                    fin 0 => fin 1
+                    fin 1 => fin 0
+                end
+
+            main : Fin 2
+            main = (import main.not)(fin 0)
+        "}.to_string();
+
+        assert_eq!(run(String::from("dcoretc"), source), Ok(())); 
+    }
 }
