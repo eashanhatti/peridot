@@ -184,7 +184,7 @@ fn parse_pattern(mut pair: Pair<Rule>) -> Pattern {
 				Rule::binding_pattern => Binding(Name(pair_str.to_string())),
 				_ => unreachable!()
 			}),
-		range: (pair_span.start(), pair_span.end())
+		range: Some((pair_span.start(), pair_span.end()))
 	}
 }
 

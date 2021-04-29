@@ -75,7 +75,7 @@ pub struct Term {
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub struct Pattern {
 	pub data: Box<InnerPattern>,
-	pub range: Range
+	pub range: Option<Range>
 }
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]

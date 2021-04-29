@@ -177,132 +177,239 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
     }
     enum CaseTree {
         Record(CaseTreeBody),
-        Enum(Vec<CaseTreeBody>)
+        Enum(Vec<CaseTreeBody>),
+        DoNothing(CaseTreeBody)
     }
-    enum IncompleteDiscrim {
-        Record(Vec<IncompleteDiscrim>),
-        Fin(usize)
+    #[derive(Clone)]
+    enum Discrim {
+        Record(Vec<Discrim>),
+        Enum(usize),
+        Whatever
     }
 
-    fn num_enum_type_inhabs(r#type: &core::Term) -> usize {
+    fn readback_as_enum_type(r#type: &core::Term) -> usize {
+        use self::core::lang::{
+            Term,
+            InnerTerm::*,
+            Doub
+        };
 
+        let mut num_inhabitants = 0;
+        let mut curr_type = r#type;
+        if let &VoidTypeIntro = &*curr_type.data {
+            ()
+        } else if let &UnitTypeIntro = &*curr_type.data {
+            num_inhabitants = 1;
+        } else {
+            // TODO: might be bugs here
+            while let PairTypeIntro(ref fst_type, ref snd_type) = &*curr_type.data {
+                if let (DoubTypeIntro, DoubElim(ref discrim, ref branch1, ref branch2)) = (&*fst_type.data, &*snd_type.data) {
+                    if let (Var(Bound(0)), DoubTypeIntro, UnitTypeIntro) = (&*discrim.data, &*discrim.r#type(Context::new()).data, &*branch1.data) {
+                        curr_type = branch2;
+                        num_inhabitants += 1;
+                    } else {
+                        unreachable!();
+                    }
+                } else if let (DoubTypeIntro, UnitTypeIntro) = (&*fst_type.data, &*snd_type.data) {
+                    curr_type = snd_type;
+                    num_inhabitants += 2;
+                } else {
+                    unreachable!();
+                }
+            }
+        }
+        num_inhabitants
     }
 
-    fn is_complete(incomplete_discrim: &IncompleteDiscrim, discrim_type: &core::Term) -> bool {
+    fn readback_as_record_type(r#type: &core::Term) -> Vec<&core::Term> {
+        let mut curr_type = r#type;
+        let mut field_types = Vec::new();
+        while let core::InnerTerm::PairTypeIntro(ref fst_type, ref snd_type) = *curr_type.data {
+            field_types.push(fst_type);
+            curr_type = snd_type;
+        }
+        field_types
+    }
 
+    fn is_complete(discrim: &Discrim, discrim_type: &core::Term) -> bool {
+        unimplemented!()
+    }
+
+    fn calc_complete_state(state: State, discrim: Discrim, discrim_type: &core::Term) -> State {
+        unimplemented!()
     }
 
     fn elab_matching_branch(
         clauses: &Vec<(Pattern, Term)>,
-        incomplete_discrim: &IncompleteDiscrim,
+        discrim: &Discrim,
         discrim_type: &core::Term,
-        state: State) -> Option<ElabResult>
+        state: &State) -> Option<ElabResult>
     {
-
+        unimplemented!()
     }
 
-    fn complete_discrim_to_pattern(discrim: &IncompleteDiscrim) -> Pattern {
-
+    fn complete_discrim_to_pattern(discrim: &Discrim) -> Pattern {
+        Pattern {
+            data:
+                Box::new(match discrim {
+                    Discrim::Record(fields) => InnerPattern::Record(fields.iter().map(complete_discrim_to_pattern).collect()),
+                    Discrim::Enum(inhab) => InnerPattern::Enum(*inhab),
+                    Discrim::Whatever => unimplemented!()
+                }),
+            range: None
+        }
     }
 
     enum NextType {
         Record,
-        Enum(usize)
+        Enum(usize),
+        Unelimable
     }
-    fn next_type(incomplete_discrim: &IncompleteDiscrim, discrim_type: &core::Term) -> (NextType, usize) {
-
+    fn next_type(incomplete_discrim: &Discrim, discrim_type: &core::Term) -> (NextType, usize) {
+        unimplemented!()
     }
 
     // fills the hole in `incomplete_discrim` with `fill_with`
-    fn next_discrim(incomplete_discrim: IncompleteDiscrim, fill_with: IncompleteDiscrim) -> IncompleteDiscrim {
+    fn next_discrim(incomplete_discrim: Discrim, fill_with: Discrim, discrim_type: &core::Term) -> Discrim {
+        fn rec(incomplete_discrim: Discrim, fill_with: Discrim, discrim_type: &core::Term) -> Option<Discrim> {
+            use std::cmp::Ordering::*;
 
-    }
+            if let Discrim::Record(mut fields) = incomplete_discrim {
+                let readback = readback_as_record_type(discrim_type);
+                match readback.len().partial_cmp(&fields.len()).unwrap() {
+                    Less => unreachable!(),
+                    Equal => None,
+                    Greater => {
+                        for (i, (mut field, ref field_type)) in fields.iter_mut().zip(readback.iter()).enumerate() {
+                            match rec(field.clone(), fill_with.clone(), field_type) {
+                                Some(new_field) => {
+                                    *field = new_field;
+                                    assert!(i == fields.len() - 1);
+                                    return Some(Discrim::Record(fields));
+                                },
+                                None => ()
+                            }
+                        }
+                        fields.push(fill_with);
+                        Some(Discrim::Record(fields))
+                    }
+                }
+            } else {
+                None
+            }
+        }
 
-    fn calc_complete_state(state: State, incomplete_discrim: IncompleteDiscrim, discrim_type: &core::Term) -> State {
-
+        if let Some(next) = rec(incomplete_discrim, fill_with, &discrim_type) {
+            next
+        } else {
+            unreachable!()
+        }
     }
 
     fn lower(
         clauses: &Vec<(Pattern, Term)>,
-        incomplete_discrim: IncompleteDiscrim,
+        incomplete_discrim: Discrim,
         discrim_type: core::Term,
         match_range: Range,
         state: &State) -> Result<CaseTreeBody, Vec<Error>>
     {
-        let matching_branch =
-            elab_matching_branch(
-                clauses,
-                &incomplete_discrim,
-                &discrim_type,
-                calc_complete_state(
-                    state.clone(),
-                    incomplete_discrim,
-                    &discrim_type));
-        if let Some(core_branch) =  {
-            Ok(CaseTreeBody::Term(core_branch))
+        let matching_branch = elab_matching_branch(clauses, &incomplete_discrim, &discrim_type, state);
+        if let Some(core_branch) = matching_branch {
+            Ok(CaseTreeBody::Term(core_branch?))
         } else {
             if is_complete(&incomplete_discrim, &discrim_type) {
                 return Err(vec![
                     Error::new(
                         match_range,
-                        state,
-                        InexaustiveMatch { missing_pattern: complete_discrim_to_pattern(incomplete_discrim) })]);
+                        state.clone(),
+                        InexaustiveMatch { missing_pattern: complete_discrim_to_pattern(&incomplete_discrim) })]);
             } else {
                 let (fill_type, index) = next_type(&incomplete_discrim, &discrim_type);
                 let case_tree =
                     match fill_type {
-                        NextType::Record => {
-                            let next_incomplete_discrim = next_discrim(incomplete_discrim, IncompleteDiscrim::Record(Vec::new()));
+                        NextType::Record =>
                             CaseTree::Record(lower(
                                 clauses,
-                                next_incomplete_discrim,
+                                next_discrim(incomplete_discrim, Discrim::Record(Vec::new()), &discrim_type),
                                 discrim_type,
                                 match_range,
-                                state))
-                        },
+                                state)?),
                         NextType::Enum(num_inhabs) => {
                             let mut branches = Vec::new();
+                            let mut errors = Vec::new();
                             for n in 0..num_inhabs {
-                                let next_incomplete_discrim = next_discrim(incomplete_discrim, IncompleteDiscrim::Fin(n));
-                                branches.push(lower(
+                                match lower(
                                     clauses,
-                                    next_incomplete_discrim,
+                                    next_discrim(incomplete_discrim.clone(), Discrim::Enum(n), &discrim_type),
+                                    discrim_type.clone(),
+                                    match_range,
+                                    state)
+                                {
+                                    Ok(branch) => branches.push(branch),
+                                    Err(errs) =>
+                                        for err in errs {
+                                            errors.push(err)
+                                        }
+                                }
+                            }
+                            if errors.len() > 0 {
+                                return Err(errors)
+                            } else {
+                                CaseTree::Enum(branches)
+                            }
+                        }
+                        NextType::Unelimable =>
+                            CaseTree::DoNothing(
+                                lower(
+                                    clauses,
+                                    next_discrim(incomplete_discrim, Discrim::Whatever, &discrim_type),
                                     discrim_type,
                                     match_range,
-                                    state));
-                            }
-                            CaseTree::Enum(branches)
-                        }
+                                    state)?)
                     };
-                Ok(CaseTreeBody::CaseTree(index, case_tree))
+                Ok(CaseTreeBody::CaseTree(index, Box::new(case_tree)))
             }
         }
     }
 
     let case_tree =
-        if let IndexedTypeIntro(index, _) = &*discrim_type.data {
-            if index == 0 {
+        if let core::InnerTerm::IndexedTypeIntro(index, inner_type) = &*discrim_type.data {
+            if *index == 0 {
                 let mut branches = Vec::new();
-                for n in 0..num_inhabs {
-                    branches.push(lower(
-                        clauses,
-                        IncompleteDiscrim::Fin(n),
-                        discrim_type.clone(),
-                        match_range,
-                        state));
+                let mut errors = Vec::new();
+                for n in 0..readback_as_enum_type(&inner_type) {
+                    match lower(clauses, Discrim::Enum(n), inner_type.clone(), match_range, state) {
+                        Ok(branch) => branches.push(branch),
+                        Err(errs) =>
+                            for err in errs {
+                                errors.push(err)
+                            }
+                    }
                 }
-                CaseTree::Enum(branches)
+                if errors.len() > 0 {
+                    return Err(errors)
+                } else {
+                    CaseTree::Enum(branches)
+                }
             } else {
                 CaseTree::Record(lower(
                     clauses,
-                    IncompleteDiscrim::Record(Vec::new()),
-                    discrim_type.clone(),
+                    Discrim::Record(Vec::new()),
+                    inner_type.clone(),
                     match_range,
-                    state))
+                    state)?)
             }
         } else {
-            return Err(vec![Error::new(match_range, state.clone(), CannotMatchOn { discrim_type })])
+            match elab_matching_branch(clauses, &Discrim::Whatever, &discrim_type, state) {
+                Some(branch) => CaseTree::DoNothing(CaseTreeBody::Term(branch?)),
+                None => return Err(vec![Error::new(
+                    match_range,
+                    state.clone(),
+                    InexaustiveMatch { missing_pattern: complete_discrim_to_pattern(&Discrim::Whatever) })])
+            }
         };
+
+    unimplemented!()
 }
 
 // checks a surface term, and either returns the elaborated term or errors
@@ -650,7 +757,7 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
         Match(discrim, clauses) => {
             let discrim_type = infer_type(discrim, state.clone())?;
             let core_discrim = elab_term(discrim, discrim_type.clone(), state.clone())?;
-            elab_match(core_discrim, discrim_type, clauses, state)
+            elab_match(core_discrim, discrim_type, clauses, &state, term.range)
         }
         _ => unimplemented!()
     }
@@ -672,7 +779,7 @@ pub fn elab_toplevel<'a>(module: &'a Module, module_name: QualifiedName) -> Elab
     }
 
     let starting_info = calc_num_decs(module);
-    let core_module = elab_module(module, module_name, State::new(starting_info))
+    let core_module = elab_module(module, module_name, State::new(starting_info));
     core_module
 }
 
