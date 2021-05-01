@@ -1,20 +1,17 @@
-and : Fin 2 -> Fin 2 -> Fin 2
-and = fn x y =>
-	match x with
-		fin 0 => fin 0
-		fin 1 =>
-			match y with
-				fin 0 => fin 0
-				fin 1 => fin 1
-			end
-	end
+T : Type
+T = record where
+	fst : Fin 1
+	snd : Fin 1
+end
 
-not : Fin 2 -> Fin 2
-not = fn x =>
-	match x with
-		fin 0 => fin 1
-		fin 1 => fin 0
-	end
+Pair : Type
+Pair = record where
+	fst : import main.T
+	snd : Fin 2
+end
 
-main : Fin 2
-main = (import main.not)(fin 0)
+foo : Fin 2
+foo =
+	match (record [ fst = (record [ fst = fin 0, snd = fin 0 ] : (import main.T)), snd = fin 0 ] : (import main.Pair)) with
+		[[a, b], c] => a
+	end

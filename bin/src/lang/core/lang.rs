@@ -238,6 +238,14 @@ impl Term {
                 }
         }
     }
+
+    pub fn as_indexed_type_intro(&self) -> (usize, &Term) {
+        if let IndexedTypeIntro(ref type_index, ref inner_type) = &*self.data {
+            (*type_index, inner_type)
+        } else {
+            panic!("FAIL: `as_index_type_intro`")
+        }
+    }
 }
 
 #[derive(Debug)]
