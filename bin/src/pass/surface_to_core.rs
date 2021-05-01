@@ -254,7 +254,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
                 Box::new(match discrim {
                     Discrim::Record(fields) => InnerPattern::Record(fields.iter().map(complete_discrim_to_pattern).collect()),
                     Discrim::Enum(inhab) => InnerPattern::Enum(*inhab),
-                    Discrim::Whatever => unimplemented!()
+                    Discrim::Whatever => InnerPattern::Binding(Name("_".to_string()))
                 }),
             range: None
         }
@@ -266,7 +266,48 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
         Unelimable
     }
     fn next_type(incomplete_discrim: &Discrim, discrim_type: &core::Term) -> (NextType, usize) {
-        unimplemented!()
+        fn rec(incomplete_discrim: &Discrim, discrim_type: &core::Term, index: &mut usize, next_type: &mut Option<NextType>) {
+            use std::cmp::Ordering::*;
+
+            match incomplete_discrim {
+                Discrim::Record(fields) => {
+                    let readback = readback_as_record_type(discrim_type);
+                    match readback.len().partial_cmp(&fields.len()).unwrap() {
+                        Less => unreachable!(),
+                        Equal =>
+                            for (field, field_type) in fields.iter().zip(readback.iter()) {
+                                rec(field, field_type, index, next_type);
+                            },
+                        Greater => {
+                            for (field, field_type) in fields.iter().zip(readback.iter()) {
+                                rec(field, field_type, index, next_type);
+                            }
+                            if let core::InnerTerm::IndexedTypeIntro(i, ref inner_type) = &*readback[fields.len()].data {
+                                if *i == 0 {
+                                    *next_type = Some(NextType::Enum(readback_as_enum_type(inner_type)));
+                                } else {
+                                    *next_type = Some(NextType::Record);
+                                }
+                            } else {
+                                *next_type = Some(NextType::Unelimable);
+                            }
+                        }
+                    }
+                },
+                Discrim::Enum(_) | Discrim::Whatever => *index += 1
+            }
+        }
+
+        assert!(if let Discrim::Record(_) = incomplete_discrim {
+            true
+        } else {
+            false
+        });
+
+        let mut index = 0; // this might cover up bugs, keep it in mind
+        let mut next_type = None;
+        rec(incomplete_discrim, discrim_type, &mut index, &mut next_type);
+        (next_type.expect("`None` `next_type`"), index)
     }
 
     // fills the hole in `incomplete_discrim` with `fill_with`
