@@ -1,7 +1,7 @@
 T : Type
 T = record where
-	fst : Fin 1
-	snd : Fin 1
+	fst : Fin 2
+	snd : Fin 2
 end
 
 Pair : Type
@@ -12,6 +12,7 @@ end
 
 foo : Fin 2
 foo =
-	match (record [ fst = (record [ fst = fin 0, snd = fin 0 ] : (import main.T)), snd = fin 0 ] : (import main.Pair)) with
-		[[a, b], c] => a
+	match (record [ fst = fin 0, snd = fin 0 ] : (import main.T)) with
+		[x, fin 0] => x
+		[fin 1, y] => y
 	end

@@ -170,7 +170,7 @@ fn next_nominal_id() -> usize {
     index
 }
 
-fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Pattern, Term)>, state: &State, match_range: Range) -> ElabResult {
+fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Term, clauses: &Vec<(Pattern, Term)>, state: &State, match_range: Range) -> ElabResult {
     #[derive(Debug)]
     enum CaseTreeBody {
         CaseTree(usize, Box<CaseTree>), // scrutinee, scrutinizer
@@ -269,6 +269,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
         clauses: &Vec<(Pattern, Term)>,
         discrim: &Discrim,
         discrim_type: &core::Term,
+        exp_type: &core::Term,
         state: &State) -> Option<ElabResult>
     {
         fn matches(pattern: &Pattern, discrim: &Discrim) -> bool {
@@ -284,13 +285,37 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
             }
         }
 
-        fn cons_branch_state(pattern: &Pattern, discrim: &Discrim, state: State) -> State {
-            unimplemented!()
+        fn cons_branch_state(pattern: &Pattern, discrim_type: &core::Term, mut state: State) -> State {
+            fn rec(pattern: &Pattern, discrim_type: &core::Term, state: &mut State) {
+                if let (
+                    InnerPattern::Record(ref fields),
+                    core::InnerTerm::IndexedTypeIntro(_, inner_type)
+                ) = (&*pattern.data, &*discrim_type.data) {
+                    let readback = readback_as_record_type(inner_type);
+                    for (field, field_type) in fields.iter().zip(readback.into_iter()) {
+                        match &*field.data {
+                            InnerPattern::Binding(bound_name) =>
+                                *state = state.clone() // well, that's gotta be inefficient
+                                    .raw_inc_and_shift(2)
+                                    .raw_with_dec(bound_name.clone(), Bound(0), field_type.clone()),
+                            InnerPattern::Record(_) => rec(field, field_type, state),
+                            InnerPattern::Enum(_) => ()
+                        }
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
+
+            rec(pattern, discrim_type, &mut state);
+            state
         }
 
         for (ref pattern, ref branch) in clauses {
             if matches(pattern, discrim) {
-                return Some(Ok(unit!( ,: Unit!( ,: Univ!())))) // TODO: implement
+                let branch_state = cons_branch_state(pattern, discrim_type, state.clone());
+                // let normal_exp_type = normalize(exp_type.clone(), branch_state.locals().clone());
+                return Some(elab_term(branch, exp_type.clone(), branch_state));
             }
         }
 
@@ -420,10 +445,11 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
         clauses: &Vec<(Pattern, Term)>,
         incomplete_discrim: Discrim,
         discrim_type: core::Term,
+        exp_type: core::Term,
         match_range: Range,
         state: &State) -> Result<CaseTreeBody, Vec<Error>>
     {
-        let matching_branch = elab_matching_branch(clauses, &incomplete_discrim, &discrim_type, state);
+        let matching_branch = elab_matching_branch(clauses, &incomplete_discrim, &discrim_type, &exp_type, state);
         if let Some(core_branch) = matching_branch {
             Ok(CaseTreeBody::Term(core_branch?))
         } else {
@@ -442,6 +468,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
                                 clauses,
                                 next_discrim(incomplete_discrim, Discrim::Record(Vec::new()), &discrim_type),
                                 discrim_type,
+                                exp_type,
                                 match_range,
                                 state)?),
                         NextType::Enum(num_inhabs) => {
@@ -452,6 +479,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
                                     clauses,
                                     next_discrim(incomplete_discrim.clone(), Discrim::Enum(n), &discrim_type),
                                     discrim_type.clone(),
+                                    exp_type.clone(),
                                     match_range,
                                     state)
                                 {
@@ -474,6 +502,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
                                     clauses,
                                     next_discrim(incomplete_discrim, Discrim::Whatever, &discrim_type),
                                     discrim_type,
+                                    exp_type,
                                     match_range,
                                     state)?)
                     };
@@ -489,7 +518,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
                 let mut errors = Vec::new();
                 dbg!(inner_type);
                 for n in 0..dbg!(readback_as_enum_type(&inner_type)) {
-                    match lower(clauses, Discrim::Enum(n), discrim_type.clone(), match_range, state) {
+                    match lower(clauses, Discrim::Enum(n), discrim_type.clone(), exp_type.clone(), match_range, state) {
                         Ok(branch) => branches.push(branch),
                         Err(errs) =>
                             for err in errs {
@@ -507,11 +536,12 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
                     clauses,
                     Discrim::Record(Vec::new()),
                     discrim_type.clone(),
+                    exp_type,
                     match_range,
                     state)?))
             }
         } else {
-            match elab_matching_branch(clauses, &Discrim::Whatever, &discrim_type, state) {
+            match elab_matching_branch(clauses, &Discrim::Whatever, &discrim_type, &exp_type, state) {
                 Some(branch) => Ok(CaseTree::DoNothing(CaseTreeBody::Term(branch?))),
                 None => Err(vec![Error::new(
                     match_range,
@@ -520,7 +550,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, clauses: &Vec<(Patt
             }
         };
 
-    println!("CASE_TREE\n{:#?}", case_tree());
+    println!("CASE_TREE\n{:#?}", case_tree()?);
     unimplemented!()
 }
 
@@ -870,7 +900,7 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
         Match(discrim, clauses) => {
             let discrim_type = infer_type(discrim, state.clone())?;
             let core_discrim = elab_term(discrim, discrim_type.clone(), state.clone())?;
-            elab_match(core_discrim, discrim_type, clauses, &state, term.range)
+            elab_match(core_discrim, discrim_type, exp_type, clauses, &state, term.range)
         }
         _ => unimplemented!()
     }
