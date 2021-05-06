@@ -15,4 +15,5 @@ foo =
 	match (record [ fst = fin 0, snd = fin 0 ] : (import main.T)) with
 		[x, fin 0] => x
 		[fin 1, y] => y
+		[fin 0, z] => z
 	end

@@ -42,48 +42,18 @@ use crate::{
         }
     }
 };
-use super::state::*;
+use super::{
+    state::*,
+    error::{
+        *,
+        InnerError::*
+    }
+};
 extern crate rand;
 extern crate assoc_collections;
 use assoc_collections::*;
 extern crate macros;
 use macros::*;
-
-#[derive(Debug)]
-pub enum InnerError {
-    MismatchedTypes { exp_type: core::Term, giv_type: core::Term, specific: Vec<(core::Term, core::Term)> },
-    NonexistentVar { name: Name },
-    ExpectedOfTypeType { giv_type: core::Term },
-    ExpectedOfFunctionType { giv_type: core::Term },
-    ExpectedOfEnumType { giv_type: core::Term },
-    ExpectedOfRecordType { giv_type: core::Term },
-    EnumInhabitantTooLarge { inhabitant: usize, num_inhabitants: usize },
-    EnumPatternTooLarge { inhabitant: usize, num_inhabitants: usize },
-    MismatchedFunctionArgsNum { exp_num: usize, giv_num: usize },
-    CannotInferType,
-    NonexistentGlobal { name: QualifiedName },
-    CannotElimVoid,
-    InexaustiveMatch { missing_pattern: Pattern },
-    CannotMatchOn { discrim_type: core::Term }
-}
-use InnerError::*;
-
-#[derive(Debug)]
-pub struct Error {
-    pub range: Range,
-    pub state: State,
-    pub inner: InnerError
-}
-
-impl Error {
-    pub fn new(range: Range, state: State, inner: InnerError) -> Self {
-        Error {
-            range,
-            state,
-            inner
-        }
-    }
-}
 
 type ElabResult = Result<core::Term, Vec<Error>>;
 
@@ -297,7 +267,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                             InnerPattern::Binding(bound_name) =>
                                 *state = state.clone() // well, that's gotta be inefficient
                                     .raw_inc_and_shift(2)
-                                    .raw_with_dec(bound_name.clone(), Bound(0), field_type.clone()),
+                                    .raw_with_dec(bound_name.clone(), Bound(0), normalize(field_type.clone(), Context::new())),
                             InnerPattern::Record(_) => rec(field, field_type, state),
                             InnerPattern::Enum(_) => ()
                         }
