@@ -42,24 +42,52 @@ use crate::{
         }
     }
 };
-use super::{
-    state::*,
-    error::{
-        *,
-        InnerError::*
-    }
-};
+use super::state::*;
 extern crate rand;
 extern crate assoc_collections;
 use assoc_collections::*;
 extern crate macros;
 use macros::*;
 
+#[derive(Debug, Clone)]
+pub enum InnerError {
+    NonexistentVar { name: Name },
+    MismatchedTypes { exp_type: core::Term, giv_type: core::Term, specific: Vec<(core::Term, core::Term)> },
+    ExpectedOfTypeType { giv_type: core::Term },
+    ExpectedOfFunctionType { giv_type: core::Term },
+    ExpectedOfEnumType { giv_type: core::Term },
+    ExpectedOfRecordType { giv_type: core::Term },
+    NonexistentGlobal { name: QualifiedName },
+    EnumInhabitantTooLarge { inhabitant: usize, num_inhabitants: usize },
+    MismatchedFunctionArgsNum { exp_num: usize, giv_num: usize },
+    InexaustiveMatch { missing_pattern: Pattern },
+    CannotInferType
+}
+use InnerError::*;
+
+#[derive(Debug, Clone)]
+pub struct Error {
+    pub inner: InnerError,
+    pub state: State,
+    pub range: Range
+}
+
+impl Error {
+    pub fn new(range: Range, state: State, inner: InnerError) -> Error {
+        Error {
+            inner,
+            state,
+            range
+        }
+    }
+}
+
 type ElabResult = Result<core::Term, Vec<Error>>;
 
 // term may be unchecked
 pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult {
-    match &*term.data {
+    let context = state.locals().clone();
+    Ok(normalize(match &*term.data {
         Ann(_, ref type_ann) => Ok(elab_term(type_ann, infer_type(type_ann, state.clone())?, state)?),
         TypeTypeIntro => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro), None)),
         Var(ref name) =>
@@ -91,7 +119,7 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult {
                 None => Err(vec![Error::new(term.range, state, NonexistentGlobal { name: path.clone() })])
             },
         _ => Err(vec![Error::new(term.range, state, CannotInferType)])
-    }
+    }?, context))
 }
 
 fn make_enum(inhabitant: usize, num_inhabitants: usize) -> core::Term {
@@ -105,7 +133,7 @@ fn make_enum(inhabitant: usize, num_inhabitants: usize) -> core::Term {
         } else if num_inhabitants == 1 {
             unit!( ,: Unit!( ,: Univ!()))
         } else {
-            panic!("cannot construct Fin 0")
+            panic!("cannot construct Fin {}", num_inhabitants)
         }
     } else {
         pair!(
@@ -174,7 +202,6 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             num_inhabitants = 1;
         } else {
             // TODO: might be bugs here
-            num_inhabitants = 1;
             while let PairTypeIntro(ref fst_type, ref snd_type) = &*curr_type.data {
                 if let (DoubTypeIntro, DoubElim(ref discrim, ref branch1, ref branch2)) = (&*fst_type.data, &*snd_type.data) {
                     if let (Var(Bound(0)), DoubTypeIntro, UnitTypeIntro) = (&*discrim.data, &*discrim.r#type(Context::new()).data, &*branch1.data) {
@@ -209,7 +236,40 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         field_types
     }
 
-    fn is_complete(discrim: &Discrim, discrim_type: &core::Term) -> bool {
+    fn readback_discrim_to_core(discrim: &Discrim, discrim_type: &core::Term) -> core::Term {
+        match discrim {
+            Discrim::Record(fields) => {
+                let readback = readback_as_record_type(discrim_type);
+                let mut core_fields = Vec::new();
+                for (field, field_type) in fields.iter().zip(readback.into_iter()) {
+                    core_fields.push(readback_discrim_to_core(field, field_type));
+                }
+                let mut core_term = unit!( ,: Unit!( ,: Univ!()));
+                for field in core_fields {
+                    let field_type = field.r#type(Context::new());
+                    let core_term_type = core_term.r#type(Context::new());
+                    core_term =
+                        pair!(
+                            field,
+                            core_term
+                        ,:
+                            Pair!(
+                                field_type,
+                                core_term_type
+                            ,: Univ!()));
+                }
+                core_term
+            },
+            Discrim::Enum(inhab) => {
+                let mut core_term = make_enum(*inhab, readback_as_enum_type(discrim_type.as_indexed_type_intro().1));
+                core_term.type_ann = Some(Box::new(discrim_type.clone()));
+                core_term
+            },
+            Discrim::Whatever => postulate!(Symbol(rand::random::<usize>()) ,: discrim_type.clone())
+        }
+    }
+
+    fn is_complete(discrim: &Discrim, discrim_type: &core::Term, context: Context) -> bool {
         if let core::InnerTerm::IndexedTypeIntro(type_index, ref inner_type) = &*discrim_type.data {
             if *type_index == 0 {
                 if let Discrim::Enum(_) = discrim {
@@ -220,7 +280,24 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             } else {
                 if let Discrim::Record(fields) = discrim {
                     let readback = readback_as_record_type(&inner_type);
-                    readback.len() == fields.len() && fields.iter().zip(readback.iter()).all(|(df, rf)| is_complete(df, rf))
+                    let is_lens_equal = readback.len() == fields.len();
+                    let is_fields_complete = {
+                        let mut context = context;
+                        let mut is_fields_complete = true;
+                        context = context.inc_and_shift(2);
+                        for (field, field_type) in fields.iter().zip(readback.into_iter()) {
+                            is_fields_complete =
+                                is_fields_complete &&
+                                is_complete(field, &normalize(field_type.clone(), context.clone()), context.clone());
+                            context = context.clone()
+                                .with_def(
+                                    Bound(0),
+                                    normalize(readback_discrim_to_core(&field, field_type), context.clone()))
+                        }
+                        is_fields_complete
+                    };
+
+                    is_lens_equal && is_fields_complete
                 } else {
                     unreachable!("DISCRIM\n{:#?}\nDISCRIM_TYPE\n{:#?}", discrim, discrim_type)
                 }
@@ -242,12 +319,12 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         exp_type: &core::Term,
         state: &State) -> Option<ElabResult>
     {
-        fn matches(pattern: &Pattern, discrim: &Discrim) -> bool {
+        fn is_match(pattern: &Pattern, discrim: &Discrim) -> bool {
             match (&*pattern.data, discrim) {
                 (InnerPattern::Record(pattern_fields), Discrim::Record(discrim_fields)) =>
                     pattern_fields.len() == discrim_fields.len() &&
                     pattern_fields.iter().zip(discrim_fields.iter())
-                        .all(|(pf, df)| matches(pf, df)),
+                        .all(|(pf, df)| is_match(pf, df)),
                 (InnerPattern::Enum(pattern_inhab), Discrim::Enum(discrim_inhab)) =>
                     pattern_inhab == discrim_inhab,
                 (InnerPattern::Binding(_), _) => true,
@@ -257,10 +334,9 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
 
         fn cons_branch_state(pattern: &Pattern, discrim_type: &core::Term, mut state: State) -> State {
             fn rec(pattern: &Pattern, discrim_type: &core::Term, state: &mut State) {
-                if let (
-                    InnerPattern::Record(ref fields),
-                    core::InnerTerm::IndexedTypeIntro(_, inner_type)
-                ) = (&*pattern.data, &*discrim_type.data) {
+                if let (InnerPattern::Record(ref fields), core::InnerTerm::IndexedTypeIntro(_, inner_type))
+                     = (&*pattern.data, &*discrim_type.data)
+                {
                     let readback = readback_as_record_type(inner_type);
                     for (field, field_type) in fields.iter().zip(readback.into_iter()) {
                         match &*field.data {
@@ -272,8 +348,6 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                             InnerPattern::Enum(_) => ()
                         }
                     }
-                } else {
-                    unreachable!()
                 }
             }
 
@@ -282,9 +356,8 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         }
 
         for (ref pattern, ref branch) in clauses {
-            if matches(pattern, discrim) {
+            if is_match(pattern, discrim) {
                 let branch_state = cons_branch_state(pattern, discrim_type, state.clone());
-                // let normal_exp_type = normalize(exp_type.clone(), branch_state.locals().clone());
                 return Some(elab_term(branch, exp_type.clone(), branch_state));
             }
         }
@@ -309,26 +382,26 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         Enum(usize),
         Unelimable
     }
-    fn next_type(incomplete_discrim: &Discrim, discrim_type: &core::Term) -> (NextType, usize) {
-        fn rec(incomplete_discrim: &Discrim, discrim_type: &core::Term, index: &mut usize, next_type: &mut Option<NextType>) {
+    fn next_type(incomplete_discrim: &Discrim, discrim_type: &core::Term, context: Context) -> (NextType, usize) {
+        fn rec(incomplete_discrim: &Discrim, discrim_type: &core::Term, index: &mut usize, next_type: &mut Option<NextType>, mut context: Context) {
             use std::cmp::Ordering::*;
 
             match incomplete_discrim {
                 Discrim::Record(fields) => {
                     let readback = readback_as_record_type(discrim_type.as_indexed_type_intro().1);
-                    match readback.len().partial_cmp(&fields.len()).unwrap() {
+                    let comparison = readback.len().partial_cmp(&fields.len()).unwrap();
+                    let readback_next = readback[fields.len()].clone();
+                    for (field, field_type) in fields.iter().zip(readback.into_iter()) {
+                        context = context.inc_and_shift(2);
+                        rec(field, &normalize(field_type.clone(), context.clone()), index, next_type, context.clone());
+                        context = context.clone().with_def(Bound(0), normalize(readback_discrim_to_core(&field, field_type), context.clone()))
+                    }
+                    match comparison {
                         Less => unreachable!(),
-                        Equal => {
-                            for (field, field_type) in fields.iter().zip(readback.iter()) {
-                                rec(field, field_type, index, next_type);
-                            }
-                        },
+                        Equal => (),
                         Greater => {
-                            for (field, field_type) in fields.iter().zip(readback.iter()) {
-                                rec(field, field_type, index, next_type);
-                            }
-                            if let core::InnerTerm::IndexedTypeIntro(i, ref inner_type) = &*readback[fields.len()].data {
-                                if *i == 0 {
+                            if let core::InnerTerm::IndexedTypeIntro(i, ref inner_type) = *normalize(readback_next, context).data {
+                                if i == 0 {
                                     *next_type = Some(NextType::Enum(readback_as_enum_type(inner_type)));
                                 } else {
                                     *next_type = Some(NextType::Record);
@@ -351,7 +424,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
 
         let mut index = 0; // this might cover up bugs, keep it in mind
         let mut next_type = None;
-        rec(incomplete_discrim, discrim_type, &mut index, &mut next_type);
+        rec(incomplete_discrim, discrim_type, &mut index, &mut next_type, context);
         (
             if let Some(some_next_type) = next_type {
                 some_next_type
@@ -362,48 +435,40 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
     }
 
     // fills the hole in `incomplete_discrim` with `fill_with`
-    fn next_discrim(incomplete_discrim: Discrim, fill_with: Discrim, discrim_type: &core::Term) -> Discrim {
-        fn rec(incomplete_discrim: Discrim, fill_with: Discrim, discrim_type: &core::Term) -> Option<Discrim> {
+    fn next_discrim(incomplete_discrim: Discrim, fill_with: Discrim, discrim_type: &core::Term, context: Context) -> Discrim {
+        fn rec(incomplete_discrim: Discrim, fill_with: Discrim, discrim_type: &core::Term, mut context: Context) -> Option<Discrim> {
             use std::cmp::Ordering::*;
 
             if let Discrim::Record(mut fields) = incomplete_discrim {
                 let readback = readback_as_record_type(discrim_type.as_indexed_type_intro().1);
-                match readback.len().partial_cmp(&fields.len()).unwrap() {
-                    Less => unreachable!(),
-                    Equal => {
-                        for (i, (mut field, ref field_type)) in fields.iter_mut().zip(readback.iter()).enumerate() {
-                            match rec(field.clone(), fill_with.clone(), field_type) {
-                                Some(new_field) => {
-                                    *field = new_field;
-                                    assert!(i == fields.len() - 1);
-                                    return Some(Discrim::Record(fields));
-                                },
-                                None => ()
-                            }
-                        }
-                        None
-                    },
+                let comparison = readback.len().partial_cmp(&fields.len()).unwrap();
+                for (i, (mut field, field_type)) in fields.iter_mut().zip(readback.into_iter()).enumerate() {
+                    context = context.inc_and_shift(2);
+                    match rec(field.clone(), fill_with.clone(), &normalize(field_type.clone(), context.clone()), context.clone()) {
+                        Some(new_field) => {
+                            *field = new_field;
+                            assert!(i == fields.len() - 1);
+                            return Some(Discrim::Record(fields));
+                        },
+                        None => ()
+                    }
+
+                    context = context.clone().with_def(Bound(0), normalize(readback_discrim_to_core(&field, field_type), context.clone()))
+                }
+                match comparison {
+                    Equal => None,
                     Greater => {
-                        for (i, (mut field, ref field_type)) in fields.iter_mut().zip(readback.iter()).enumerate() {
-                            match rec(field.clone(), fill_with.clone(), field_type) {
-                                Some(new_field) => {
-                                    *field = new_field;
-                                    assert!(i == fields.len() - 1);
-                                    return Some(Discrim::Record(fields));
-                                },
-                                None => ()
-                            }
-                        }
                         fields.push(fill_with);
                         Some(Discrim::Record(fields))
                     }
+                    _ => unreachable!()
                 }
             } else {
                 None
             }
         }
 
-        if let Some(next) = rec(incomplete_discrim, fill_with, &discrim_type) {
+        if let Some(next) = rec(incomplete_discrim, fill_with, &discrim_type, context) {
             next
         } else {
             // println!("DISCRIM\n{:#?}\nFILL_WITH\n{:#?}\nDISCRIM_TYPE\n{:#?}", incomplete_discrim, fill_with, discrim_type);
@@ -423,20 +488,20 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         if let Some(core_branch) = matching_branch {
             Ok(CaseTreeBody::Term(core_branch?))
         } else {
-            if is_complete(&incomplete_discrim, &discrim_type) {
+            if is_complete(&incomplete_discrim, &discrim_type, state.locals().clone()) {
                 return Err(vec![
                     Error::new(
                         match_range,
                         state.clone(),
                         InexaustiveMatch { missing_pattern: complete_discrim_to_pattern(&incomplete_discrim) })]);
             } else {
-                let (fill_type, index) = next_type(&incomplete_discrim, &discrim_type);
+                let (fill_type, index) = next_type(&incomplete_discrim, &discrim_type, state.locals().clone());
                 let case_tree =
                     match fill_type {
                         NextType::Record =>
                             CaseTree::Record(lower(
                                 clauses,
-                                next_discrim(incomplete_discrim, Discrim::Record(Vec::new()), &discrim_type),
+                                next_discrim(incomplete_discrim, Discrim::Record(Vec::new()), &discrim_type, state.locals().clone()),
                                 discrim_type,
                                 exp_type,
                                 match_range,
@@ -447,7 +512,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                             for n in 0..num_inhabs {
                                 match lower(
                                     clauses,
-                                    next_discrim(incomplete_discrim.clone(), Discrim::Enum(n), &discrim_type),
+                                    next_discrim(incomplete_discrim.clone(), Discrim::Enum(n), &discrim_type, state.locals().clone()),
                                     discrim_type.clone(),
                                     exp_type.clone(),
                                     match_range,
@@ -470,7 +535,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                             CaseTree::DoNothing(
                                 lower(
                                     clauses,
-                                    next_discrim(incomplete_discrim, Discrim::Whatever, &discrim_type),
+                                    next_discrim(incomplete_discrim, Discrim::Whatever, &discrim_type, state.locals().clone()),
                                     discrim_type,
                                     exp_type,
                                     match_range,
@@ -486,8 +551,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             if *index == 0 {
                 let mut branches = Vec::new();
                 let mut errors = Vec::new();
-                dbg!(inner_type);
-                for n in 0..dbg!(readback_as_enum_type(&inner_type)) {
+                for n in 0..readback_as_enum_type(&inner_type) {
                     match lower(clauses, Discrim::Enum(n), discrim_type.clone(), exp_type.clone(), match_range, state) {
                         Ok(branch) => branches.push(branch),
                         Err(errs) =>
@@ -526,9 +590,15 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
 
 // checks a surface term, and either returns the elaborated term or errors
 pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult {
+    // {
+    //     let type_ann = infer_type(term, state.clone())?;
+    //     if let False(specific) = is_terms_eq(&exp_type, &type_ann, state.locals().equivs()) {
+    //         return Err(vec![Error::new(term.range, state, MismatchedTypes { exp_type, giv_type: type_ann, specific })]);
+    //     }
+    // }
     match &*term.data {
         Ann(ref annd_term, ref type_ann) => {
-            let core_type_ann = elab_term(type_ann, infer_type(type_ann, state.clone())?, state.clone())?;
+            let core_type_ann = normalize(elab_term(type_ann, infer_type(type_ann, state.clone())?, state.clone())?, state.locals().clone());
             let cmp = is_terms_eq(&core_type_ann, &exp_type, state.locals().equivs());
             if let False(specific) = cmp {
                 return Err(vec![Error::new(term.range, state, MismatchedTypes { exp_type: exp_type, giv_type: core_type_ann, specific })])
@@ -538,6 +608,7 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
         Var(ref name) => {
             match state.get_dec(name) {
                 Some((index, var_type)) => {
+                    let var_type = normalize(var_type, state.locals().clone());
                     let cmp = is_terms_eq(&var_type, &exp_type, state.locals().equivs());
                     if let False(specific) = cmp {
                         Err(vec![Error::new(term.range, state, MismatchedTypes { exp_type, giv_type: var_type, specific })])

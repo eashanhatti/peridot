@@ -1,19 +1,9 @@
-T : Type
-T = record where
-	fst : Fin 2
-	snd : Fin 2
+Option : Type -> Type
+Option = record A where
+	tag : Fin 2
+	data :
+		match tag with
+			fin 0 => A
+			fin 1 => Fin 1
+		end : Type
 end
-
-Pair : Type
-Pair = record where
-	fst : import main.T
-	snd : Fin 2
-end
-
-foo : Fin 2
-foo =
-	match (record [ fst = fin 0, snd = fin 0 ] : (import main.T)) with
-		[x, fin 0] => x
-		[fin 1, y] => y
-		[fin 0, z] => z
-	end
