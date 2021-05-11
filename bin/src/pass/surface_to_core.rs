@@ -476,7 +476,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         }
     }
 
-    fn lower(
+    fn lower_to_case_tree(
         clauses: &Vec<(Pattern, Term)>,
         incomplete_discrim: Discrim,
         discrim_type: core::Term,
@@ -499,7 +499,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                 let case_tree =
                     match fill_type {
                         NextType::Record =>
-                            CaseTree::Record(lower(
+                            CaseTree::Record(lower_to_case_tree(
                                 clauses,
                                 next_discrim(incomplete_discrim, Discrim::Record(Vec::new()), &discrim_type, state.locals().clone()),
                                 discrim_type,
@@ -510,7 +510,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                             let mut branches = Vec::new();
                             let mut errors = Vec::new();
                             for n in 0..num_inhabs {
-                                match lower(
+                                match lower_to_case_tree(
                                     clauses,
                                     next_discrim(incomplete_discrim.clone(), Discrim::Enum(n), &discrim_type, state.locals().clone()),
                                     discrim_type.clone(),
@@ -533,7 +533,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         }
                         NextType::Unelimable =>
                             CaseTree::DoNothing(
-                                lower(
+                                lower_to_case_tree(
                                     clauses,
                                     next_discrim(incomplete_discrim, Discrim::Whatever, &discrim_type, state.locals().clone()),
                                     discrim_type,
@@ -546,13 +546,149 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         }
     }
 
+    fn lower_to_core(case_tree: CaseTree, discrim_type: core::Term) -> core::Term {
+        fn lower_body(case_tree_body: CaseTreeBody, r#type: core::Term) -> core::Term {
+            match case_tree_body {
+                CaseTreeBody::CaseTree(discrim, case_tree) => apply!(var!(Bound(discrim)), lower_to_core(*case_tree, r#type)),
+                CaseTreeBody::Term(body) => body
+            }
+        }
+
+        match case_tree {
+            CaseTree::Record(body) => { 
+                use self::core::InnerTerm::*;
+
+                fn make(r#type: core::Term, body: core::Term) -> core::Term {
+                    if let PairTypeIntro(_, snd_type) = *r#type.data {
+                        let split_body = make(snd_type, body);
+                        let split_body_type = split_body.r#type(Context::new()); // TODO: pass around context
+                        split!(
+                            var!(Bound(1)),
+                            in
+                                split_body
+                        ,:
+                            split!(
+                                var!(Bound(1)),
+                                in
+                                    split_body_type
+                            ,: Univ!()))
+                    } else {
+                        body
+                    }
+                }
+                if let PairTypeIntro(_, snd_type) = *discrim_type.as_indexed_type_intro().1.clone().data {
+                    let split_body = make(snd_type.clone(), lower_body(body, snd_type));
+                    let split_body_type = split_body.r#type(Context::new()); // TODO: pass around context
+                    fun!(
+                        split!(
+                            var!(Bound(0)),
+                            in
+                                split_body
+                        ,:
+                            split!(
+                                var!(Bound(0)),
+                                in
+                                    split_body_type.clone()
+                            ,: Univ!()))
+                    ,:
+                        pi!(
+                            discrim_type,
+                            split!(
+                                var!(Bound(0)),
+                                in
+                                    split_body_type.clone()
+                            ,: Univ!())
+                        ,: Univ!()))
+                } else {
+                    unreachable!()
+                }
+            },
+            CaseTree::Enum(branches) => {
+                let mut core_branches = branches.into_iter().map(|b| lower_body(b, discrim_type.clone())).collect::<Vec<core::Term>>();
+                if core_branches.len() == 1 {
+                    let core_branch = core_branches.remove(0);
+                    let core_branch_type = core_branch.r#type(Context::new());
+                    fun!(
+                        core_branch
+                    ,:
+                        pi!(
+                            discrim_type,
+                            core_branch_type
+                        ,: Univ!()))
+                } else {
+                    let mut core_term = core_branches.remove(core_branches.len() - 1);
+                    let first_branch = core_branches.remove(0);
+                    for core_branch in core_branches.into_iter().rev() {
+                        let case_type =
+                            case!(
+                                var!(Bound(0)),
+                                l => core_branch.r#type(Context::new());
+                                r => core_term.r#type(Context::new());
+                            ,: Univ!());
+                        let split_type =
+                            split!(
+                                var!(Bound(1)),
+                                in
+                                    case_type.clone()
+                            ,: Univ!());
+
+                        core_term =
+                            split!(
+                                var!(Bound(1)),
+                                in
+                                    case!(
+                                        var!(Bound(0)),
+                                        l => core_branch;
+                                        r => core_term;
+                                    ,: case_type)
+                            ,: split_type);
+                    }
+
+
+                    let case_type =
+                        case!(
+                            var!(Bound(0)),
+                            l => first_branch.r#type(Context::new());
+                            r => core_term.r#type(Context::new());
+                        ,: Univ!());
+                    let split_type =
+                        split!(
+                            var!(Bound(1)),
+                            in
+                                case_type.clone()
+                        ,: Univ!());
+                    core_term =
+                        split!(
+                            var!(Bound(0)),
+                            in
+                                case!(
+                                    var!(Bound(0)),
+                                    l => first_branch;
+                                    r => core_term;
+                                ,: case_type)
+                        ,: split_type);
+
+                    let core_term_type = core_term.r#type(Context::new());
+                    fun!(
+                        core_term
+                    ,:
+                        pi!(
+                            discrim_type,
+                            core_term_type
+                        ,: Univ!()))
+                }
+            },
+            CaseTree::DoNothing(body) => lower_body(body, discrim_type)
+        }
+    }
+
     let case_tree = ||
         if let core::InnerTerm::IndexedTypeIntro(index, inner_type) = &*discrim_type.data {
             if *index == 0 {
                 let mut branches = Vec::new();
                 let mut errors = Vec::new();
                 for n in 0..readback_as_enum_type(&inner_type) {
-                    match lower(clauses, Discrim::Enum(n), discrim_type.clone(), exp_type.clone(), match_range, state) {
+                    match lower_to_case_tree(clauses, Discrim::Enum(n), discrim_type.clone(), exp_type.clone(), match_range, state) {
                         Ok(branch) => branches.push(branch),
                         Err(errs) =>
                             for err in errs {
@@ -566,7 +702,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                     Ok(CaseTree::Enum(branches))
                 }
             } else {
-                Ok(CaseTree::Record(lower(
+                Ok(CaseTree::Record(lower_to_case_tree(
                     clauses,
                     Discrim::Record(Vec::new()),
                     discrim_type.clone(),
@@ -583,8 +719,9 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                     InexaustiveMatch { missing_pattern: complete_discrim_to_pattern(&Discrim::Whatever) })])
             }
         };
-
-    println!("CASE_TREE\n{:#?}", case_tree()?);
+    let case_tree = case_tree()?;
+    println!("CASE_TREE\n{:#?}", case_tree);
+    println!("CORE_TERM\n{:#?}", lower_to_core(case_tree, discrim_type));
     unimplemented!()
 }
 

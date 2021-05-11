@@ -1,9 +1,11 @@
-Option : Type -> Type
-Option = record A where
-	tag : Fin 2
-	data :
-		match tag with
-			fin 0 => A
-			fin 1 => Fin 1
-		end : Type
+T : Type
+T = record where
+	fst : Fin 1
+	snd : Fin 1
 end
+
+foo : Fin 1
+foo =
+	match (record [ fst = fin 0, snd = fin 0 ] : import main.T) with
+		[x, y] => x
+	end
