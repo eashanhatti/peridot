@@ -549,7 +549,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
     fn lower_to_core(case_tree: CaseTree, discrim_type: core::Term) -> core::Term {
         fn lower_body(case_tree_body: CaseTreeBody, r#type: core::Term) -> core::Term {
             match case_tree_body {
-                CaseTreeBody::CaseTree(discrim, case_tree) => apply!(var!(Bound(discrim)), lower_to_core(*case_tree, r#type)),
+                CaseTreeBody::CaseTree(discrim, case_tree) => apply!(lower_to_core(*case_tree, r#type), var!(Bound(discrim))),
                 CaseTreeBody::Term(body) => body
             }
         }
