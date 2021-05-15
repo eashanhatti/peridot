@@ -243,7 +243,15 @@ impl Term {
         if let IndexedTypeIntro(ref type_index, ref inner_type) = &*self.data {
             (*type_index, inner_type)
         } else {
-            panic!("FAIL: `as_index_type_intro`")
+            panic!("FAIL: `as_indexed_type_intro`")
+        }
+    }
+
+    pub fn as_indexed_intro(&self) -> &Term {
+        if let IndexedIntro(ref inner_term) = &*self.data {
+            inner_term
+        } else {
+            panic!("FAIL: `as_indexed_intro`")
         }
     }
 }

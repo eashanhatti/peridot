@@ -576,17 +576,20 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         body
                     }
                 }
-                if let PairTypeIntro(_, snd_type) = *discrim_type.as_indexed_type_intro().1.clone().data {
+
+                let inner_discrim_type = discrim_type.as_indexed_type_intro().1.clone();
+                if let PairTypeIntro(_, snd_type) = *inner_discrim_type.clone().data {
                     let split_body = make(snd_type.clone(), lower_body(body, snd_type));
-                    let split_body_type = split_body.r#type(Context::new()); // TODO: pass around context
+                    let split_body_type = split_body.r#type(Context::new());
+                    let discrim = indexed_elim!(var!(Bound(0)) ,: inner_discrim_type.clone());
                     fun!(
                         split!(
-                            var!(Bound(0)),
+                            discrim.clone(),
                             in
                                 split_body
                         ,:
                             split!(
-                                var!(Bound(0)),
+                                discrim.clone(),
                                 in
                                     split_body_type.clone()
                             ,: Univ!()))
@@ -594,7 +597,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         pi!(
                             discrim_type,
                             split!(
-                                var!(Bound(0)),
+                                discrim,
                                 in
                                     split_body_type.clone()
                             ,: Univ!())
@@ -720,9 +723,11 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             }
         };
     let case_tree = case_tree()?;
-    println!("CASE_TREE\n{:#?}", case_tree);
-    println!("CORE_TERM\n{:#?}", lower_to_core(case_tree, discrim_type));
-    unimplemented!()
+    // println!("CASE_TREE\n{:#?}", case_tree);
+    // let inner_discrim_type = discrim.r#type(Context::new()).as_indexed_type_intro().1.clone();
+    let core_term = apply!(lower_to_core(case_tree, discrim_type), discrim);
+    // println!("CORE_TERM\n{:#?}", core_term);
+    Ok(core_term)
 }
 
 // checks a surface term, and either returns the elaborated term or errors
