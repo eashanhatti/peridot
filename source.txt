@@ -1,11 +1,17 @@
-T : Type
-T = record where
+U : Type
+U = record where
 	fst : Fin 1
 	snd : Fin 1
 end
 
+T : Type
+T = record where
+	fst : Fin 1
+	snd : import main.U
+end
+
 foo : Fin 1
 foo =
-	match (record [ fst = fin 0, snd = fin 0 ] : import main.T) with
+	match record [ fst = fin 0, snd = record [ fst = fin 0, snd = fin 0] : import main.U ] : import main.T with
 		[x, y] => x
 	end

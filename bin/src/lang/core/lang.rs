@@ -254,6 +254,14 @@ impl Term {
             panic!("FAIL: `as_indexed_intro`")
         }
     }
+
+    pub fn as_pair_type_intro(&self) -> (&Term, &Term) {
+        if let PairTypeIntro(ref fst_type, ref snd_type) = &*self.data {
+            (fst_type, snd_type)
+        } else {
+            panic!("FAIL: `as_pair_type_intro`")
+        }
+    }
 }
 
 #[derive(Debug)]
