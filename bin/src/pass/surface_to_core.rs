@@ -356,15 +356,18 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                 }
             }
 
-            rec(pattern, discrim_type, &mut state);
+            if let InnerPattern::Binding(ref name) = &*pattern.data {
+                state = state.with_dec(name.clone(), discrim_type.clone());
+            } else {
+                rec(pattern, discrim_type, &mut state);
+            }
             state
         }
 
         for (ref pattern, ref branch) in clauses {
             if is_match(pattern, discrim) {
                 let branch_state = cons_branch_state(pattern, discrim_type, state.clone());
-                println!("EXP_TYPE\n{:?}", exp_type);
-                return Some(dbg!(elab_term(branch, exp_type.clone(), branch_state)));
+                return Some(elab_term(branch, exp_type.clone(), branch_state));
             }
         }
 
@@ -413,15 +416,21 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         Less => unreachable!(),
                         Equal => (),
                         Greater => {
-                            if let core::InnerTerm::IndexedTypeIntro(i, ref inner_type) = *normalize(readback_next.clone(), context).data {
-                                if i == 0 {
-                                    *next_type = Some(NextType::Enum(readback_as_enum_type(inner_type)));
+                            *next_type = 
+                                if let core::InnerTerm::IndexedTypeIntro(i, ref inner_type) = *normalize(readback_next.clone(), context).data {
+                                    if i == 0 {
+                                        let num_inhabs = readback_as_enum_type(inner_type);
+                                        if num_inhabs > 0 {
+                                            Some(NextType::Enum(num_inhabs))
+                                        } else {
+                                            Some(NextType::Unelimable)
+                                        }
+                                    } else {
+                                        Some(NextType::Record)
+                                    }
                                 } else {
-                                    *next_type = Some(NextType::Record);
-                                }
-                            } else {
-                                *next_type = Some(NextType::Unelimable);
-                            }
+                                    Some(NextType::Unelimable)
+                                };
 
                             *next_discrim_type = Some(readback_next);
                         }
@@ -441,6 +450,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         let mut next_type = None;
         let mut next_discrim_type = None;
         rec(incomplete_discrim, discrim_type, &mut index, &mut next_type, &mut next_discrim_type, context);
+
         (next_type.unwrap(), index, next_discrim_type.unwrap())
     }
 
@@ -691,28 +701,43 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         ,: Univ!()))
                 }
             },
-            CaseTree::DoNothing(body) => lower_body(body)
+            CaseTree::DoNothing(body) => {
+                let core_body = lower_body(body);
+                let core_body_type = core_body.r#type(Context::new());
+                fun!(
+                    core_body
+                ,:
+                    pi!(
+                        discrim_type,
+                        core_body_type
+                    ,: Univ!()))
+            }
         }
     }
 
     let case_tree = ||
         if let core::InnerTerm::IndexedTypeIntro(index, inner_type) = &*discrim_type.data {
             if *index == 0 {
-                let mut branches = Vec::new();
-                let mut errors = Vec::new();
-                for n in 0..readback_as_enum_type(&inner_type) {
-                    match lower_to_case_tree(clauses, Discrim::Enum(n), discrim_type.clone(), exp_type.clone(), match_range, state) {
-                        Ok(branch) => branches.push(branch),
-                        Err(errs) =>
-                            for err in errs {
-                                errors.push(err)
-                            }
+                let num_inhabs = readback_as_enum_type(&inner_type);
+                if num_inhabs > 0 {
+                    let mut branches = Vec::new();
+                    let mut errors = Vec::new();
+                    for n in 0..num_inhabs {
+                        match lower_to_case_tree(clauses, Discrim::Enum(n), discrim_type.clone(), exp_type.clone(), match_range, state) {
+                            Ok(branch) => branches.push(branch),
+                            Err(errs) =>
+                                for err in errs {
+                                    errors.push(err)
+                                }
+                        }
                     }
-                }
-                if errors.len() > 0 {
-                    Err(errors)
+                    if errors.len() > 0 {
+                        Err(errors)
+                    } else {
+                        Ok(CaseTree::Enum(branches))
+                    }
                 } else {
-                    Ok(CaseTree::Enum(branches))
+                    Ok(CaseTree::DoNothing(lower_to_case_tree(clauses, Discrim::Whatever, discrim_type.clone(), exp_type.clone(), match_range, state)?))
                 }
             } else {
                 Ok(CaseTree::Record(lower_to_case_tree(
