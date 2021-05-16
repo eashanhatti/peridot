@@ -85,10 +85,10 @@ impl Error {
 type ElabResult = Result<core::Term, Vec<Error>>;
 
 // term may be unchecked
-pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult {
+pub fn infer_type<'a>(term: &'a Term, state: State, exp_type: Option<core::Term>) -> ElabResult {
     let context = state.locals().clone();
     Ok(normalize(match &*term.data {
-        Ann(_, ref type_ann) => Ok(elab_term(type_ann, infer_type(type_ann, state.clone())?, state)?),
+        Ann(_, ref type_ann) => Ok(elab_term(type_ann, infer_type(type_ann, state.clone(), None)?, state)?),
         TypeTypeIntro => Ok(core::Term::new(Box::new(core::InnerTerm::TypeTypeIntro), None)),
         Var(ref name) =>
             if let Some((_, r#type)) = state.get_dec(name) {
@@ -102,7 +102,7 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult {
                 None
             )),
         FunctionElim(ref abs, _) => {
-            let abs_type = infer_type(abs, state.clone())?;
+            let abs_type = infer_type(abs, state.clone(), None)?;
             match &*abs_type.data {
                 core::InnerTerm::FunctionTypeIntro(_, ref out_type) => Ok(out_type.clone()),
                 _ => Err(vec![Error::new(abs.range, state, ExpectedOfFunctionType { giv_type: abs_type })])
@@ -118,7 +118,12 @@ pub fn infer_type<'a>(term: &'a Term, state: State) -> ElabResult {
                 Some((r#type, _)) => Ok(r#type),
                 None => Err(vec![Error::new(term.range, state, NonexistentGlobal { name: path.clone() })])
             },
-        _ => Err(vec![Error::new(term.range, state, CannotInferType)])
+        _ =>
+            if let Some(some_exp_type) = exp_type {
+                Ok(some_exp_type)
+            } else {
+                Err(vec![Error::new(term.range, state, CannotInferType)])
+            }
     }?, context))
 }
 
@@ -358,7 +363,8 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         for (ref pattern, ref branch) in clauses {
             if is_match(pattern, discrim) {
                 let branch_state = cons_branch_state(pattern, discrim_type, state.clone());
-                return Some(elab_term(branch, exp_type.clone(), branch_state));
+                println!("EXP_TYPE\n{:?}", exp_type);
+                return Some(dbg!(elab_term(branch, exp_type.clone(), branch_state)));
             }
         }
 
@@ -736,15 +742,15 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
 
 // checks a surface term, and either returns the elaborated term or errors
 pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult {
-    // {
-    //     let type_ann = infer_type(term, state.clone())?;
-    //     if let False(specific) = is_terms_eq(&exp_type, &type_ann, state.locals().equivs()) {
-    //         return Err(vec![Error::new(term.range, state, MismatchedTypes { exp_type, giv_type: type_ann, specific })]);
-    //     }
-    // }
+    {
+        let type_ann = infer_type(term, state.clone(), Some(exp_type.clone()))?;
+        if let False(specific) = is_terms_eq(&exp_type, &type_ann, state.locals().equivs()) {
+            return Err(vec![Error::new(term.range, state, MismatchedTypes { exp_type, giv_type: type_ann, specific })]);
+        }
+    }
     match &*term.data {
         Ann(ref annd_term, ref type_ann) => {
-            let core_type_ann = normalize(elab_term(type_ann, infer_type(type_ann, state.clone())?, state.clone())?, state.locals().clone());
+            let core_type_ann = normalize(elab_term(type_ann, infer_type(type_ann, state.clone(), None)?, state.clone())?, state.locals().clone());
             let cmp = is_terms_eq(&core_type_ann, &exp_type, state.locals().equivs());
             if let False(specific) = cmp {
                 return Err(vec![Error::new(term.range, state, MismatchedTypes { exp_type: exp_type, giv_type: core_type_ann, specific })])
@@ -769,7 +775,7 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
             // TODO: remove the `?` and add proper error handling
             let mut errors = Vec::new();
             // println!("IN_TYPE_STATE {:?}", state);
-            let core_in_type = elab_term(in_type, infer_type(in_type, state.clone())?, state.clone())?;
+            let core_in_type = elab_term(in_type, infer_type(in_type, state.clone(), None)?, state.clone())?;
             // println!("CORE_IN_TYPE {:?}", core_in_type);
             // println!("IN_TYPE\n{:?}", in_type);
             // println!("CORE_IN_TYPE\n{:?}", core_in_type);
@@ -780,7 +786,7 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
                 } else {
                     state.raw_inc_and_shift(1)
                 };
-            let core_out_type = elab_term(out_type, infer_type(out_type, out_type_context.clone())?, out_type_context)?;
+            let core_out_type = elab_term(out_type, infer_type(out_type, out_type_context.clone(), None)?, out_type_context)?;
             // println!("OUT_TYPE\n{:?}", out_type);
             // println!("CORE_OUT_TYPE\n{:?}", core_out_type);
             let core_out_type_type = core_out_type.r#type(Context::new());
@@ -842,7 +848,7 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
             Ok(body_acc)
         },
         FunctionElim(ref abs, ref args) => {
-            let abs_type = infer_type(abs, state.clone())?;
+            let abs_type = infer_type(abs, state.clone(), None)?;
             let core_abs = elab_term(abs, abs_type.clone(), state.clone())?; // change to not use `?` later
             if let core::InnerTerm::FunctionTypeIntro(_, _) = &*abs_type.data {
                 ()
@@ -1085,7 +1091,7 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
             }
         },
         Match(discrim, clauses) => {
-            let discrim_type = infer_type(discrim, state.clone())?;
+            let discrim_type = infer_type(discrim, state.clone(), None)?;
             let core_discrim = elab_term(discrim, discrim_type.clone(), state.clone())?;
             elab_match(core_discrim, discrim_type, exp_type, clauses, &state, term.range)
         }
@@ -1201,7 +1207,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
             match item {
                 FlattenedModuleItem::Declaration(_, r#type) => {
                     let new_state = state.clone().with_globals_map_index((*decs_indices_iter.next().unwrap()));
-                    let core_type = elab_term(r#type, infer_type(r#type, new_state.clone())?, new_state)?;
+                    let core_type = elab_term(r#type, infer_type(r#type, new_state.clone(), None)?, new_state)?;
                     state =
                         state.with_global_dec(
                             name.clone(),
@@ -1252,7 +1258,7 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                             let core_field_type =
                                 elab_term(
                                     field_type,
-                                    infer_type(field_type, fields_state.clone().raw_inc_and_shift(2))?,
+                                    infer_type(field_type, fields_state.clone().raw_inc_and_shift(2), None)?,
                                     fields_state.clone().raw_inc_and_shift(2))?;
                             core_field_types.push(core_field_type.clone());
                             fields_state = fields_state
