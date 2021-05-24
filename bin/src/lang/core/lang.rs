@@ -88,6 +88,20 @@ fn indent_to_string(indent: usize) -> String {
     string
 }
 
+static mut display_type: bool = false;
+
+pub fn set_display_type(v: bool) {
+    unsafe {
+        display_type = v;
+    }
+}
+
+pub fn get_display_type() -> bool {
+    unsafe {
+        return display_type
+    }
+}
+
 fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
     use InnerTerm::*;
 
@@ -160,15 +174,18 @@ pub fn display_term(term: &Term, indent: usize) -> String {
                 String::new()
             });
     string = format!("{}       {}", string, display_inner_term(&*term.data, indent + 1));
-    if let Some(type_ann) = &term.type_ann {
-        string = format!("{}    {}", string, display_term(&*type_ann, indent + 1));
+    if get_display_type() {
+        if let Some(type_ann) = &term.type_ann {
+            string = format!("{}    {}", string, display_term(&*type_ann, indent + 1));
+        }
     }
     string
 }
 
 impl Debug for Term {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", display_term(self, 0))
+        let string_term = display_term(self, 0).as_str().replace("\n\n", "\n");
+        write!(f, "{}", string_term)
     }
 }
 

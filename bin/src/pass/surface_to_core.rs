@@ -165,6 +165,40 @@ fn make_enum_type(num_inhabitants: usize) -> core::Term {
     }
 }
 
+fn readback_as_enum_type(r#type: &core::Term) -> usize {
+    use self::core::lang::{
+        Term,
+        InnerTerm::*,
+        Doub
+    };
+
+    let mut num_inhabitants = 0;
+    let mut curr_type = r#type;
+    match &*curr_type.data {
+        VoidTypeIntro => (),
+        UnitTypeIntro => num_inhabitants = 1,
+        PairTypeIntro(_, _) => {
+            while let PairTypeIntro(ref fst_type, ref snd_type) = &*curr_type.data {
+                if let (DoubTypeIntro, DoubElim(ref discrim, ref branch1, ref branch2)) = (&*fst_type.data, &*snd_type.data) {
+                    if let (Var(Bound(0)), DoubTypeIntro, UnitTypeIntro) = (&*discrim.data, &*discrim.r#type(Context::new()).data, &*branch1.data) {
+                        curr_type = branch2;
+                        num_inhabitants += 1;
+                    } else {
+                        unreachable!();
+                    }
+                } else if let (DoubTypeIntro, UnitTypeIntro) = (&*fst_type.data, &*snd_type.data) {
+                    curr_type = snd_type;
+                    num_inhabitants += 2;
+                } else {
+                    unreachable!();
+                }
+            }
+        },
+        _ => unreachable!()
+    }
+    num_inhabitants
+}
+
 static NOMINAL_ID: AtomicUsize = AtomicUsize::new(1);
 
 fn next_nominal_id() -> usize {
@@ -192,48 +226,14 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         Whatever
     }
 
-    fn readback_as_enum_type(r#type: &core::Term) -> usize {
-        use self::core::lang::{
-            Term,
-            InnerTerm::*,
-            Doub
-        };
-
-        let mut num_inhabitants = 0;
-        let mut curr_type = r#type;
-        if let &VoidTypeIntro = &*curr_type.data {
-            ()
-        } else if let &UnitTypeIntro = &*curr_type.data {
-            num_inhabitants = 1;
-        } else {
-            // TODO: might be bugs here
-            while let PairTypeIntro(ref fst_type, ref snd_type) = &*curr_type.data {
-                if let (DoubTypeIntro, DoubElim(ref discrim, ref branch1, ref branch2)) = (&*fst_type.data, &*snd_type.data) {
-                    if let (Var(Bound(0)), DoubTypeIntro, UnitTypeIntro) = (&*discrim.data, &*discrim.r#type(Context::new()).data, &*branch1.data) {
-                        curr_type = branch2;
-                        num_inhabitants += 1;
-                    } else {
-                        unreachable!();
-                    }
-                } else if let (DoubTypeIntro, UnitTypeIntro) = (&*fst_type.data, &*snd_type.data) {
-                    curr_type = snd_type;
-                    num_inhabitants += 2;
-                } else {
-                    unreachable!();
-                }
-            }
-        }
-        num_inhabitants
-    }
-
     fn readback_as_record_type(r#type: &core::Term) -> Vec<&core::Term> {
         let mut curr_type = r#type;
         let mut field_types = Vec::new();
-        assert!(if let core::InnerTerm::PairTypeIntro(_, _) = *curr_type.data {
-            true
+        if let core::InnerTerm::PairTypeIntro(_, _) = *curr_type.data {
+            ()
         } else {
-            false
-        });
+            unreachable!("{:#?}", curr_type);
+        }
         while let core::InnerTerm::PairTypeIntro(ref fst_type, ref snd_type) = *curr_type.data {
             field_types.push(fst_type);
             curr_type = snd_type;
@@ -244,7 +244,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
     fn readback_discrim_to_core(discrim: &Discrim, discrim_type: &core::Term) -> core::Term {
         match discrim {
             Discrim::Record(fields) => {
-                let readback = readback_as_record_type(discrim_type);
+                let readback = readback_as_record_type(discrim_type.as_indexed_type_intro().1);
                 let mut core_fields = Vec::new();
                 for (field, field_type) in fields.iter().zip(readback.into_iter()) {
                     core_fields.push(readback_discrim_to_core(field, field_type));
@@ -337,6 +337,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             }
         }
 
+        // TODO: fix index calculation of pattern bound variables
         fn cons_branch_state(pattern: &Pattern, discrim_type: &core::Term, mut state: State) -> State {
             fn rec(pattern: &Pattern, discrim_type: &core::Term, state: &mut State) {
                 if let (InnerPattern::Record(ref fields), core::InnerTerm::IndexedTypeIntro(_, inner_type))
@@ -386,16 +387,76 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         }
     }
 
+    fn next_index(incomplete_discrim: &Discrim, discrim_type: &core::Term, context: Context) -> usize {
+        fn count_index(field: &Discrim, field_type: &core::Term) -> usize {
+            match field {
+                Discrim::Record(ref fields) => {
+                    let mut index = 1;
+                    let readback = readback_as_record_type(field_type.as_indexed_type_intro().1);
+                    assert!(readback.len() == fields.len());
+                    for (field, field_type) in fields.iter().zip(readback.into_iter()) {
+                        index += count_index(field, field_type);
+                    }
+                    index + fields.len() * 2
+                },
+                Discrim::Enum(inhab) => 1, // TODO: make this work for `Fin n where n > 1`
+                Discrim::Whatever => 1
+            }
+        }
+
+        fn rec(incomplete_discrim: &Discrim, discrim_type: &core::Term, context: Context) -> usize {
+            if let Discrim::Record(ref fields) = incomplete_discrim {
+                use std::cmp::Ordering::*;
+
+                let readback = readback_as_record_type(discrim_type.as_indexed_type_intro().1);
+                match readback.len().partial_cmp(&fields.len()).unwrap() {
+                    Less | Equal => unreachable!(),
+                    Greater => {
+                        if fields.len() == 0 {
+                            (readback.len() - 1) * 2
+                        } else {
+                            let mut index = 0;
+                            let mut context = context;
+                            for i in 0..fields.len() - 1 {
+                                context = context.inc_and_shift(2);
+                                let core_field =
+                                    normalize(
+                                        readback_discrim_to_core(&fields[i], &readback[i]).clone(),
+                                        context.clone());
+                                index += count_index(&fields[i], &readback[i]);
+                                context = context
+                                    .with_dec(Bound(0), readback[i].clone())
+                                    .with_def(Bound(0), core_field);
+                            }
+                            context = context.inc_and_shift(2);
+
+                            let field = &fields[fields.len() - 1];
+                            let field_type = &readback[fields.len() - 1];
+                            if is_complete(&field, field_type, context.clone()) {
+                                index + count_index(field, field_type)
+                            } else {
+                                rec(field, field_type, context)
+                            }
+                        }
+                    }
+                }
+            } else {
+                unreachable!()
+            }
+        }
+
+        rec(incomplete_discrim, discrim_type, context)
+    } 
+
     enum NextType {
         Record,
         Enum(usize),
         Unelimable
     }
-    fn next_type(incomplete_discrim: &Discrim, discrim_type: &core::Term, context: Context) -> (NextType, usize, core::Term) {
+    fn next_type(incomplete_discrim: &Discrim, discrim_type: &core::Term, context: Context) -> (NextType, core::Term) {
         fn rec(
             incomplete_discrim: &Discrim,
             discrim_type: &core::Term,
-            index: &mut usize,
             next_type: &mut Option<NextType>,
             next_discrim_type: &mut Option<core::Term>,
             mut context: Context)
@@ -406,16 +467,16 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                 Discrim::Record(fields) => {
                     let readback = readback_as_record_type(discrim_type.as_indexed_type_intro().1);
                     let comparison = readback.len().partial_cmp(&fields.len()).unwrap();
-                    let readback_next = readback[fields.len()].clone();
-                    for (field, field_type) in fields.iter().zip(readback.into_iter()) {
+                    for (field, field_type) in fields.iter().zip(readback.iter()) {
                         context = context.inc_and_shift(2);
-                        rec(field, &normalize(field_type.clone(), context.clone()), index, next_type, next_discrim_type, context.clone());
-                        context = context.clone().with_def(Bound(0), normalize(readback_discrim_to_core(&field, field_type), context.clone()))
+                        rec(field, &normalize((*field_type).clone(), context.clone()), next_type, next_discrim_type, context.clone());
+                        context = context.clone().with_def(Bound(0), normalize(readback_discrim_to_core(&field, field_type), context.clone()));
                     }
                     match comparison {
                         Less => unreachable!(),
                         Equal => (),
                         Greater => {
+                            let readback_next = readback[fields.len()].clone();
                             *next_type = 
                                 if let core::InnerTerm::IndexedTypeIntro(i, ref inner_type) = *normalize(readback_next.clone(), context).data {
                                     if i == 0 {
@@ -436,7 +497,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         }
                     }
                 },
-                Discrim::Enum(_) | Discrim::Whatever => *index += 1
+                _ => ()
             }
         }
 
@@ -446,12 +507,11 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             false
         });
 
-        let mut index = 0; // this might cover up bugs, keep it in mind
         let mut next_type = None;
         let mut next_discrim_type = None;
-        rec(incomplete_discrim, discrim_type, &mut index, &mut next_type, &mut next_discrim_type, context);
+        rec(incomplete_discrim, discrim_type, &mut next_type, &mut next_discrim_type, context);
 
-        (next_type.unwrap(), index, next_discrim_type.unwrap())
+        (next_type.unwrap(), next_discrim_type.unwrap())
     }
 
     // fills the hole in `incomplete_discrim` with `fill_with`
@@ -515,7 +575,9 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         state.clone(),
                         InexaustiveMatch { missing_pattern: complete_discrim_to_pattern(&incomplete_discrim) })]);
             } else {
-                let (fill_type, index, next_discrim_type) = next_type(&incomplete_discrim, &discrim_type, state.locals().clone());
+                let (fill_type, next_discrim_type) = next_type(&incomplete_discrim, &discrim_type, state.locals().clone());
+                let index = next_index(&incomplete_discrim, &discrim_type, state.locals().clone());
+                println!("I: {:?} D: {:?}", index, incomplete_discrim);
                 let case_tree =
                     match fill_type {
                         NextType::Record =>
@@ -758,7 +820,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             }
         };
     let case_tree = case_tree()?;
-    // println!("CASE_TREE\n{:#?}", case_tree);
+    println!("CASE_TREE\n{:#?}", case_tree);
     // let inner_discrim_type = discrim.r#type(Context::new()).as_indexed_type_intro().1.clone();
     let core_term = apply!(lower_to_core(case_tree, discrim_type), discrim);
     // println!("CORE_TERM\n{:#?}", core_term);
@@ -921,39 +983,7 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
                     Doub
                 };
 
-                let mut num_inhabitants = 0;
-                let mut curr_type = normalize(inner_type, state.locals().clone());
-                if let &VoidTypeIntro = &*curr_type.data {
-                    ()
-                } else if let &UnitTypeIntro = &*curr_type.data {
-                    num_inhabitants = 1;
-                } else {
-                    // TODO: might be bugs here
-                    num_inhabitants = 1;
-                    while let PairTypeIntro(fst_type, snd_type) = *curr_type.data {
-                        if let (DoubTypeIntro, DoubElim(discrim, branch1, branch2)) = (*fst_type.data.clone(), *snd_type.data.clone()) {
-                            if let (Var(Bound(0)), DoubTypeIntro, UnitTypeIntro) = (*discrim.data.clone(), *discrim.r#type(Context::new()).data, *branch1.data.clone()) {
-                                curr_type = branch2;
-                                num_inhabitants += 1;
-                            } else {/*
-                                println!("num_inhabitants {:?}", num_inhabitants);
-                                println!("discrim {:?}", discrim);
-                                println!("branch1 {:?}", branch1);
-                                panic!();*/
-                                return Err(vec![Error::new(term.range, state, ExpectedOfEnumType { giv_type: exp_type })]);
-                            }
-                        } else if let (DoubTypeIntro, UnitTypeIntro) = (*fst_type.data, &*snd_type.data) {
-                            curr_type = snd_type;
-                            num_inhabitants += 2;
-                        } else {/*
-                            println!("num_inhabitants {:?}", num_inhabitants);
-                            println!("fst_type {:?}", fst_type);
-                            println!("snd_type {:?}", snd_type);
-                            panic!();*/
-                            return Err(vec![Error::new(term.range, state, ExpectedOfEnumType { giv_type: exp_type })]);
-                        }
-                    }
-                }
+                let mut num_inhabitants = readback_as_enum_type(&inner_type);
 
                 if !(*inhabitant < num_inhabitants) {
                     return Err(vec![Error::new(term.range, state, EnumInhabitantTooLarge { inhabitant: *inhabitant, num_inhabitants })]);

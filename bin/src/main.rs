@@ -8,7 +8,8 @@ use lang::{
         lang::{
             Note,
             mark_lines,
-            is_terms_eq
+            is_terms_eq,
+            set_display_type
         },
         InnerVar::*
     },
@@ -79,8 +80,10 @@ fn run(options: String, source: String) -> Result<(), ()> {
             tmp
         };
 
+        if_opt!("ptypes", options, set_display_type(true));
+
         if_opt!("pcore", options, println!("CORE TERM\n{:?}", core_module));
-        if_opt!("ptype", options, println!("CORE TYPE\n{:?}", core_module.r#type(Context::new())));
+        // if_opt!("ptype", options, println!("CORE TYPE\n{:?}", core_module.r#type(Context::new())));
         if_opt!("dcoretc", options, {
             let core_module_type =
                 match core::typing::synth_type(&core_module, Context::new()) {
