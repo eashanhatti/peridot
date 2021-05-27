@@ -48,6 +48,8 @@ extern crate assoc_collections;
 use assoc_collections::*;
 extern crate macros;
 use macros::*;
+extern crate multizip;
+use multizip::{zip3, zip2};
 
 #[derive(Debug, Clone)]
 pub enum InnerError {
@@ -338,36 +340,51 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         }
 
         // TODO: fix index calculation of pattern bound variables
-        fn cons_branch_state(pattern: &Pattern, discrim_type: &core::Term, mut state: State) -> State {
-            fn rec(pattern: &Pattern, discrim_type: &core::Term, state: &mut State) {
-                if let (InnerPattern::Record(ref fields), core::InnerTerm::IndexedTypeIntro(_, inner_type))
-                     = (&*pattern.data, &*discrim_type.data)
-                {
-                    let readback = readback_as_record_type(inner_type);
-                    for (field, field_type) in fields.iter().zip(readback.into_iter()) {
-                        match &*field.data {
-                            InnerPattern::Binding(bound_name) =>
-                                *state = state.clone() // well, that's gotta be inefficient
-                                    .raw_inc_and_shift(2)
-                                    .raw_with_dec(bound_name.clone(), Bound(0), normalize(field_type.clone(), Context::new())),
-                            InnerPattern::Record(_) => rec(field, field_type, state),
-                            InnerPattern::Enum(_) => ()
+        fn cons_branch_state(discrim: &Discrim, pattern_fields: &Vec<Pattern>, discrim_type: &core::Term, mut state: State) -> State {
+            fn rec(field: &Discrim, field_type: &core::Term, pattern_fields: Option<&Vec<Pattern>>, mut state: State) -> State {
+                match field {
+                    Discrim::Record(ref fields) => {
+                        let readback = readback_as_record_type(field_type.as_indexed_type_intro().1);
+                        state = state.raw_inc_and_shift(1);
+                        if let Some(pattern_fields) = pattern_fields {
+                            assert!(readback.len() == pattern_fields.len());
+                            for (field_type, pattern_field) in zip2(readback.iter(), pattern_fields.iter()) {
+                                state = state.raw_inc_and_shift(2);
+                                match &*pattern_field.data {
+                                    InnerPattern::Binding(name) => state = state.raw_with_dec(name.clone(), Bound(0), (*field_type).clone()),
+                                    _ => ()
+                                }
+                            }
+                            for (field, field_type, pattern_field) in zip3(fields.iter(), readback.into_iter(), pattern_fields.iter()) {
+                                match &*pattern_field.data {
+                                    InnerPattern::Record(next_pattern_fields) => state = rec(field, field_type, Some(next_pattern_fields), state),
+                                    _ => state = rec(field, field_type, None, state)
+                                }
+                            }
+                            state
+                        } else {
+                            for (field, field_type) in zip2(fields.iter(), readback.into_iter()) {
+                                state = rec(field, field_type, None, state.raw_inc_and_shift(2));
+                            }
+                            state
                         }
-                    }
+                    },
+                    Discrim::Enum(inhab) => state.raw_inc_and_shift(1), // TODO: make this work for `Fin n where n > 1`
+                    Discrim::Whatever => state.raw_inc_and_shift(1)
                 }
             }
-
-            if let InnerPattern::Binding(ref name) = &*pattern.data {
-                state = state.with_dec(name.clone(), discrim_type.clone());
-            } else {
-                rec(pattern, discrim_type, &mut state);
-            }
-            state
+            
+            rec(discrim, discrim_type, Some(pattern_fields), state)
         }
 
         for (ref pattern, ref branch) in clauses {
-            if is_match(pattern, discrim) {
-                let branch_state = cons_branch_state(pattern, discrim_type, state.clone());
+            if is_match(pattern, discrim) && is_complete(discrim, discrim_type, state.locals().clone()) {
+                let branch_state =
+                    match &*pattern.data {
+                        InnerPattern::Record(pattern_fields) => cons_branch_state(discrim, &pattern_fields, discrim_type, state.clone()),
+                        InnerPattern::Binding(name) => state.clone().with_dec(name.clone(), discrim_type.clone()),
+                        _ => unreachable!()
+                    };
                 return Some(elab_term(branch, exp_type.clone(), branch_state));
             }
         }
@@ -410,8 +427,8 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
 
                 let readback = readback_as_record_type(discrim_type.as_indexed_type_intro().1);
                 match readback.len().partial_cmp(&fields.len()).unwrap() {
-                    Less | Equal => unreachable!(),
-                    Greater => {
+                    Less => unreachable!(),
+                    Equal | Greater => {
                         if fields.len() == 0 {
                             (readback.len() - 1) * 2
                         } else {

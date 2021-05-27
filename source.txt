@@ -12,6 +12,6 @@ end
 
 foo : Fin 1
 foo =
-	match record [ fst = fin 0, snd = record [ fst = fin 0, snd = fin 0 ] : import main.U ] : import main.T with
-		[x, y] => x
+	match record [ fst = fin 0, snd = fin 0 ] : import main.U with
+		[x, y] => y
 	end
