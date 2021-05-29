@@ -1340,15 +1340,16 @@ fn elab_module<'a>(module: &'a Module, module_name: QualifiedName, state: State)
                         let mut names_to_order = HashMap::new();
 
                         for (i, (field_name, field_type)) in fields.iter().enumerate() {
+                            fields_state = fields_state.raw_inc_and_shift(2);
                             let core_field_type =
-                                elab_term(
-                                    field_type,
-                                    infer_type(field_type, fields_state.clone().raw_inc_and_shift(2), None)?,
-                                    fields_state.clone().raw_inc_and_shift(2))?;
+                                normalize(
+                                    elab_term(
+                                        field_type,
+                                        infer_type(field_type, fields_state.clone(), None)?,
+                                        fields_state.clone())?,
+                                    fields_state.locals().clone());
                             core_field_types.push(core_field_type.clone());
-                            fields_state = fields_state
-                                .raw_inc_and_shift(2)
-                                .raw_with_dec(field_name.clone(), Bound(0), core_field_type);
+                            fields_state = fields_state.raw_with_dec(field_name.clone(), Bound(0), core_field_type);
                             names_to_order.insert(field_name.clone(), i);
                         }
 

@@ -1,22 +1,19 @@
-U : Type
-U = record where
-	fst : Fin 1
-	snd : Fin 1
+Maybe : Type -> Type
+Maybe = record A where
+	tag : Fin 2
+	data :
+		match tag with
+			fin 0 => Fin 1
+			fin 1 => A
+		end : Type
 end
 
-T : Type
-T = record where
-	fst : Fin 1
-	snd : import main.U
-end
-
-and : Fin 2 -> Fin 2 -> Fin 2
-and = fn x y =>
-	match x with
-		fin 0 => fin 0
-		fin 1 =>
-			match y with
-				fin 0 => fin 0
-				fin 1 => fin 1
-			end
+from_maybe : [A : Type] -> ((import main.Maybe)(A)) -> A -> A
+from_maybe = fn A m d =>
+	match m with
+		[fin 0, x] => d
+		[fin 1, data] = data
 	end
+
+main : Fin 1
+main = (import main.from_maybe)(Fin 1, record [ tag = fin 0, data = fin 0 ] : ((import main.Maybe)(Fin 1)), fin 0)
