@@ -339,7 +339,6 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             }
         }
 
-        // TODO: fix index calculation of pattern bound variables
         fn cons_branch_state(discrim: &Discrim, pattern_fields: &Vec<Pattern>, discrim_type: &core::Term, mut state: State) -> State {
             fn rec(field: &Discrim, field_type: &core::Term, pattern_fields: Option<&Vec<Pattern>>, mut state: State) -> State {
                 match field {
@@ -369,7 +368,12 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                             state
                         }
                     },
-                    Discrim::Enum(inhab) => state.raw_inc_and_shift(1), // TODO: make this work for `Fin n where n > 1`
+                    Discrim::Enum(inhab) =>
+                        state.raw_inc_and_shift(match readback_as_enum_type(field_type.as_indexed_type_intro().1) {
+                            1 => 1isize,
+                            0 => unreachable!(),
+                            _ => (inhab * 2) as isize + 1
+                        }),
                     Discrim::Whatever => state.raw_inc_and_shift(1)
                 }
             }
@@ -383,7 +387,11 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                     match &*pattern.data {
                         InnerPattern::Record(pattern_fields) => cons_branch_state(discrim, &pattern_fields, discrim_type, state.clone()),
                         InnerPattern::Binding(name) => state.clone().with_dec(name.clone(), discrim_type.clone()),
-                        _ => unreachable!()
+                        InnerPattern::Enum(inhab) => state.clone().raw_inc_and_shift(match readback_as_enum_type(discrim_type.as_indexed_type_intro().1) {
+                            1 => 1isize,
+                            0 => unreachable!(),
+                            _ => (inhab * 2) as isize + 1
+                        }),
                     };
                 return Some(elab_term(branch, exp_type.clone(), branch_state));
             }
@@ -416,7 +424,12 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                     }
                     index + fields.len() * 2
                 },
-                Discrim::Enum(inhab) => 1, // TODO: make this work for `Fin n where n > 1`
+                Discrim::Enum(inhab) =>
+                    match readback_as_enum_type(field_type.as_indexed_type_intro().1) {
+                        1 => 1,
+                        0 => unreachable!(),
+                        _ => inhab * 2 + 1
+                    }
                 Discrim::Whatever => 1
             }
         }
@@ -761,7 +774,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         ,: Univ!());
                     core_term =
                         split!(
-                            var!(Bound(0)),
+                            indexed_elim!(var!(Bound(0)) ,: discrim_type.as_indexed_type_intro().1.clone()),
                             in
                                 case!(
                                     var!(Bound(0)),

@@ -10,8 +10,13 @@ T = record where
 	snd : import main.U
 end
 
-foo : Fin 1
-foo =
-	match record [ fst = fin 0, snd = fin 0 ] : import main.U with
-		[x, y] => y
+and : Fin 2 -> Fin 2 -> Fin 2
+and = fn x y =>
+	match x with
+		fin 0 => fin 0
+		fin 1 =>
+			match y with
+				fin 0 => fin 0
+				fin 1 => fin 1
+			end
 	end
