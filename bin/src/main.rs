@@ -55,6 +55,7 @@ macro_rules! if_opt {
 }
 
 fn run(options: String, source: String) -> Result<(), ()> {
+    if_opt!("ptypes", options, set_display_type(true));
     if_opt!("ptext", options, println!("SOURCE\n{}", source));
     let surface_module = text_to_module(&source);
     if_opt!("past", options, println!("AST {:#?}", surface_module));
@@ -79,8 +80,6 @@ fn run(options: String, source: String) -> Result<(), ()> {
             mark_lines(&mut tmp);
             tmp
         };
-
-        if_opt!("ptypes", options, set_display_type(true));
 
         if_opt!("pcore", options, println!("CORE TERM\n{:?}", core_module));
         // if_opt!("ptype", options, println!("CORE TYPE\n{:?}", core_module.r#type(Context::new())));

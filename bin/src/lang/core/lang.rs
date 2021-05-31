@@ -279,6 +279,14 @@ impl Term {
             panic!("FAIL: `as_pair_type_intro`")
         }
     }
+
+    pub fn as_fun_elim(&self) -> (&Term, &Term) {
+        if let FunctionElim(ref abs, ref arg) = &*self.data {
+            (abs, arg)
+        } else {
+            panic!("FAIL: `as_fun_elim`")
+        }
+    }
 }
 
 #[derive(Debug)]

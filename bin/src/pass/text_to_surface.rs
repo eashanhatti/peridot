@@ -197,7 +197,7 @@ fn parse_module(mut pair: Pair<Rule>) -> Module {
 }
 
 pub fn text_to_module(input: &str) -> Result<Module, Error<Rule>> { // TODO: error reporting
-	let ast = LangParser::parse(Rule::item_list, input)?.next().unwrap();
+	let ast = LangParser::parse(Rule::toplevel, input)?.next().unwrap();
 	Ok(Module { items: parse_items(ast) })
 }
 

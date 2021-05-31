@@ -693,7 +693,8 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                 }
 
                 let inner_discrim_type = discrim_type.as_indexed_type_intro().1.clone();
-                let split_body = make(inner_discrim_type.as_pair_type_intro().1.clone(), lower_body(body));
+                let core_body = lower_body(body);
+                let split_body = make(inner_discrim_type.as_pair_type_intro().1.clone(), core_body);
                 // println!("SPLIT_BODY\n{:?}", split_body);
                 let split_body_type = split_body.r#type(Context::new());
                 let discrim = indexed_elim!(var!(Bound(0)) ,: inner_discrim_type.clone());
@@ -760,6 +761,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                     }
 
 
+                    let discrim = indexed_elim!(var!(Bound(0)) ,: discrim_type.as_indexed_type_intro().1.clone());
                     let case_type =
                         case!(
                             var!(Bound(0)),
@@ -768,13 +770,13 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         ,: Univ!());
                     let split_type =
                         split!(
-                            var!(Bound(1)),
+                            discrim.clone(),
                             in
                                 case_type.clone()
                         ,: Univ!());
                     core_term =
                         split!(
-                            indexed_elim!(var!(Bound(0)) ,: discrim_type.as_indexed_type_intro().1.clone()),
+                            discrim,
                             in
                                 case!(
                                     var!(Bound(0)),
@@ -859,12 +861,12 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
 
 // checks a surface term, and either returns the elaborated term or errors
 pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult {
-    {
+    /*{
         let type_ann = infer_type(term, state.clone(), Some(exp_type.clone()))?;
         if let False(specific) = is_terms_eq(&exp_type, &type_ann, state.locals().equivs()) {
             return Err(vec![Error::new(term.range, state, MismatchedTypes { exp_type, giv_type: type_ann, specific })]);
         }
-    }
+    }*/
     match &*term.data {
         Ann(ref annd_term, ref type_ann) => {
             let core_type_ann = normalize(elab_term(type_ann, infer_type(type_ann, state.clone(), None)?, state.clone())?, state.locals().clone());

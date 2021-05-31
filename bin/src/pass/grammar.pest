@@ -46,3 +46,4 @@ prec0 = _{ fun | type_type | var | fin | fin_type | import | record_val | match_
             record_pattern = { "[" ~ ws* ~ pattern ~ ( ( ws* ~ "," ~ ws* ~ pattern )* )? ~ ws* ~ "]" }
             fin_pattern = { "fin" ~ ws+ ~ num }
             binding_pattern = { name }
+toplevel = _{ SOI ~ item_list ~ EOI }
