@@ -7,8 +7,8 @@ full_name = { ( name ~ "." )+ ~ name }
 num = { ASCII_DIGIT+ }
 
 module = { "module" ~ ws+ ~ item_list ~ ws+ ~ "end" }
-item_list = { item ~ ((";" | NEWLINE) ~ ws* ~ item )* }
-item = _{ record_def | module_def | term_def | dec }
+item_list = { item ~ ((";" | NEWLINE) ~ ws* ~ item )* ~ ws* }
+item = _{ ws* ~ ( record_def | module_def | term_def | dec ) ~ s* }
     term_def = { name ~ ws* ~ "=" ~ ws* ~ term }
     record_def = { name ~ ws* ~ "=" ~ ws* ~ "record" ~ s+ ~ param_list ~ s* ~ "where" ~ ws* ~ field_list ~ ws* ~ "end" }
         field_list = { (field ~ (ws* ~ field)*)? }

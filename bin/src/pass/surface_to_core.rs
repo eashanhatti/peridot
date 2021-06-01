@@ -339,61 +339,73 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             }
         }
 
-        fn cons_branch_state(discrim: &Discrim, pattern_fields: &Vec<Pattern>, discrim_type: &core::Term, mut state: State) -> State {
-            fn rec(field: &Discrim, field_type: &core::Term, pattern_fields: Option<&Vec<Pattern>>, mut state: State) -> State {
+        fn cons_branch_state(discrim: &Discrim, pattern_fields: &Vec<Pattern>, discrim_type: &core::Term, mut state: State) -> (State, isize) {
+            fn rec(field: &Discrim, field_type: &core::Term, pattern_fields: Option<&Vec<Pattern>>, mut state: State, mut shift_amount: isize) -> (State, isize) {
                 match field {
                     Discrim::Record(ref fields) => {
                         let readback = readback_as_record_type(field_type.as_indexed_type_intro().1);
                         state = state.raw_inc_and_shift(1);
+                        shift_amount += 1;
                         if let Some(pattern_fields) = pattern_fields {
                             assert!(readback.len() == pattern_fields.len());
                             for (field_type, pattern_field) in zip2(readback.iter(), pattern_fields.iter()) {
                                 state = state.raw_inc_and_shift(2);
+                                shift_amount += 2;
                                 match &*pattern_field.data {
                                     InnerPattern::Binding(name) => state = state.raw_with_dec(name.clone(), Bound(0), (*field_type).clone()),
                                     _ => ()
                                 }
                             }
                             for (field, field_type, pattern_field) in zip3(fields.iter(), readback.into_iter(), pattern_fields.iter()) {
-                                match &*pattern_field.data {
-                                    InnerPattern::Record(next_pattern_fields) => state = rec(field, field_type, Some(next_pattern_fields), state),
-                                    _ => state = rec(field, field_type, None, state)
-                                }
+                                let (new_state, new_shift_amount) = match &*pattern_field.data {
+                                    InnerPattern::Record(next_pattern_fields) => rec(field, field_type, Some(next_pattern_fields), state, shift_amount),
+                                    _ => rec(field, field_type, None, state, shift_amount)
+                                };
+                                state = new_state;
+                                shift_amount = new_shift_amount;
                             }
-                            state
+                            (state, shift_amount)
                         } else {
                             for (field, field_type) in zip2(fields.iter(), readback.into_iter()) {
-                                state = rec(field, field_type, None, state.raw_inc_and_shift(2));
+                                let (new_state, new_shift_amount) = rec(field, field_type, None, state.raw_inc_and_shift(2), shift_amount);
+                                state = new_state;
+                                shift_amount = new_shift_amount;
                             }
-                            state
+                            (state, shift_amount)
                         }
                     },
                     Discrim::Enum(inhab) =>
-                        state.raw_inc_and_shift(match readback_as_enum_type(field_type.as_indexed_type_intro().1) {
-                            1 => 1isize,
+                        match readback_as_enum_type(field_type.as_indexed_type_intro().1) {
+                            1 => (state.raw_inc_and_shift(1), shift_amount + 1isize),
                             0 => unreachable!(),
-                            _ => (inhab * 2) as isize + 1
-                        }),
-                    Discrim::Whatever => state.raw_inc_and_shift(1)
+                            _ => {
+                                let amount = (inhab * 2) as isize + 1;
+                                (state.raw_inc_and_shift(amount), shift_amount + amount)
+                            }
+                        }
+                    Discrim::Whatever => (state.raw_inc_and_shift(1), shift_amount + 1)
                 }
             }
             
-            rec(discrim, discrim_type, Some(pattern_fields), state)
+            rec(discrim, discrim_type, Some(pattern_fields), state, 0)
         }
 
         for (ref pattern, ref branch) in clauses {
             if is_match(pattern, discrim) && is_complete(discrim, discrim_type, state.locals().clone()) {
-                let branch_state =
+                let (branch_state, shift_amount) =
                     match &*pattern.data {
                         InnerPattern::Record(pattern_fields) => cons_branch_state(discrim, &pattern_fields, discrim_type, state.clone()),
-                        InnerPattern::Binding(name) => state.clone().with_dec(name.clone(), discrim_type.clone()),
-                        InnerPattern::Enum(inhab) => state.clone().raw_inc_and_shift(match readback_as_enum_type(discrim_type.as_indexed_type_intro().1) {
-                            1 => 1isize,
+                        InnerPattern::Binding(name) => (state.clone().with_dec(name.clone(), discrim_type.clone()), 0),
+                        InnerPattern::Enum(inhab) => match readback_as_enum_type(discrim_type.as_indexed_type_intro().1) {
+                            1 => (state.clone().raw_inc_and_shift(1), 1isize),
                             0 => unreachable!(),
-                            _ => (inhab * 2) as isize + 1
-                        }),
+                            _ => {
+                                let amount = (inhab * 2) as isize + 1;
+                                (state.clone().raw_inc_and_shift(amount), amount)
+                            }
+                        },
                     };
-                return Some(elab_term(branch, exp_type.clone(), branch_state));
+                return Some(elab_term(branch, shift(exp_type.clone(), HashSet::new(), shift_amount), branch_state));
             }
         }
 

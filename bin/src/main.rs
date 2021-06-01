@@ -69,7 +69,7 @@ fn run(options: String, source: String) -> Result<(), ()> {
                         module
                     },
                     Err(errs) => {
-                        println!("SURFACE ERRORS");
+                        println!("{} SURFACE ERRORS", errs.len());
                         for err in errs {
                             println!("SOURCE\n{}", &source[err.range.0..err.range.1]);
                             println!("ERROR\n{:#?}", err);
