@@ -319,6 +319,6 @@ pub fn normalize(term: Term, context: Context) -> Term {
         },
         Postulate(_) => term
     };
-    new_term.note = term_note;
+    // new_term.note = term_note;
     new_term
 }

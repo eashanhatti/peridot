@@ -208,6 +208,20 @@ impl State {
         }
     }
 
+    pub fn raw_with_unnamed_dec(self, index: InnerVar, r#type: core::Term) -> Self {
+        Self {
+            locals: self.locals.with_dec(index, r#type),
+            ..self
+        }
+    }
+
+    pub fn raw_with_unnamed_def(self, index: InnerVar, value: core::Term) -> Self {
+        Self {
+            locals: self.locals.with_def(index, value),
+            ..self
+        }
+    }
+
     pub fn locals(&self) -> &Context {
         &self.locals
     }

@@ -244,10 +244,13 @@ impl Term {
                         let abs_type = abs.r#type(context.clone());
                         match &*abs_type.data {
                             FunctionTypeIntro(_, ref out_type) =>
-                                normalize(
-                                    out_type.clone(),
-                                    context.clone().inc_and_shift(1)
-                                        .with_def(Bound(0), normalize(arg.clone(), context))),
+                                shift(
+                                    normalize(
+                                        out_type.clone(),
+                                        context.clone().inc_and_shift(1)
+                                            .with_def(Bound(0), normalize(arg.clone(), context))),
+                                    HashSet::new(),
+                                    -1),
                             _ => panic!("(apply) all terms must be explicitly typed, this term is not:\n{:#?}", self)
                         } 
                     },

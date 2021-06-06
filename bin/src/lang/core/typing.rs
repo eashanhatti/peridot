@@ -216,6 +216,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 		Var(index) => 
 			match context.get_dec(index) {
 				Some(var_type) => {
+					let var_type = normalize(var_type, context.clone());
 					if let False(specific) = is_terms_eq(&var_type, &type_ann, context.equivs()) {
 						Err(vec![Error::new(term.loc(), context, MismatchedTypes { exp_type: var_type, giv_type: type_ann, specific })])
 					} else {
@@ -293,12 +294,15 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 					push_check(&mut errors, check(arg, in_type.clone(), context.clone()));
 					// normalize out_type with normalized `arg` as var 0
 					let normal_out_type =
-						normalize(
-							out_type,
-							context.clone()
-								.inc_and_shift(1)
-								.with_dec(Bound(0), in_type)
-								.with_def(Bound(0), normalize(arg.clone(), context.clone())));
+						shift(
+							normalize(
+								out_type,
+								context.clone()
+									.inc_and_shift(1)
+									.with_dec(Bound(0), in_type)
+									.with_def(Bound(0), normalize(arg.clone(), context.clone()))),
+							HashSet::new(),
+							-1);
 					push_check(
 						&mut errors,
 						if let False(specific) = is_terms_eq(&normal_out_type, &type_ann, context.equivs()) {
@@ -389,10 +393,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 							},
 							_ => context.clone()
 						};
-					let normal_type_ann =
-						/*substitute(*/
-							normalize(type_ann, type_ann_context)/*,
-							Context::new().with_def(Bound(0), sym_fst).with_def(Bound(1), sym_snd))*/;
+					let normal_type_ann = shift(normalize(type_ann, type_ann_context), HashSet::new(), 2);
 					push_check(&mut errors, check(body, normal_type_ann, body_context.with_equiv(Bound(0), Free(sym_fst_id)).with_equiv(Bound(1), Free(sym_snd_id))));
 				}
 				_ => errors.push(Error::new(discrim.loc(), context, ExpectedOfPairType { giv_type: discrim_type }))

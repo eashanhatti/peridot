@@ -330,8 +330,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             match (&*pattern.data, discrim) {
                 (InnerPattern::Record(pattern_fields), Discrim::Record(discrim_fields)) =>
                     pattern_fields.len() == discrim_fields.len() &&
-                    pattern_fields.iter().zip(discrim_fields.iter())
-                        .all(|(pf, df)| is_match(pf, df)),
+                    pattern_fields.iter().zip(discrim_fields.iter()).all(|(pf, df)| is_match(pf, df)),
                 (InnerPattern::Enum(pattern_inhab), Discrim::Enum(discrim_inhab)) =>
                     pattern_inhab == discrim_inhab,
                 (InnerPattern::Binding(_), _) => true,
@@ -347,13 +346,26 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         state = state.raw_inc_and_shift(1);
                         shift_amount += 1;
                         if let Some(pattern_fields) = pattern_fields {
-                            assert!(readback.len() == pattern_fields.len());
-                            for (field_type, pattern_field) in zip2(readback.iter(), pattern_fields.iter()) {
+                            assert!(readback.len() == pattern_fields.len() && readback.len() == fields.len());
+                            for (field, field_type, pattern_field) in zip3(fields.iter(), readback.iter(), pattern_fields.iter()) {
                                 state = state.raw_inc_and_shift(2);
                                 shift_amount += 2;
+                                let locals = state.locals().clone();
                                 match &*pattern_field.data {
-                                    InnerPattern::Binding(name) => state = state.raw_with_dec(name.clone(), Bound(0), (*field_type).clone()),
-                                    _ => ()
+                                    InnerPattern::Binding(name) => state = state
+                                        .raw_with_dec(name.clone(), Bound(0), normalize((*field_type).clone(), locals))
+                                        .with_def(name.clone(), readback_discrim_to_core(field, *field_type)),
+                                    _ => {
+                                        let value = readback_discrim_to_core(field, *field_type);
+                                        let value_type = value.r#type(locals.clone());
+                                        state = state
+                                            .raw_with_unnamed_dec(Bound(0), normalize((*field_type).clone(), locals))
+                                            .raw_with_unnamed_def(
+                                                Bound(0),
+                                                indexed!(
+                                                    value
+                                                ,: (*field_type).clone()));
+                                    }
                                 }
                             }
                             for (field, field_type, pattern_field) in zip3(fields.iter(), readback.into_iter(), pattern_fields.iter()) {
@@ -366,6 +378,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                             }
                             (state, shift_amount)
                         } else {
+                            assert!(readback.len() == fields.len());
                             for (field, field_type) in zip2(fields.iter(), readback.into_iter()) {
                                 let (new_state, new_shift_amount) = rec(field, field_type, None, state.raw_inc_and_shift(2), shift_amount);
                                 state = new_state;
@@ -378,10 +391,14 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         match readback_as_enum_type(field_type.as_indexed_type_intro().1) {
                             1 => (state.raw_inc_and_shift(1), shift_amount + 1isize),
                             0 => unreachable!(),
-                            _ => {
-                                let amount = (inhab * 2) as isize + 1;
-                                (state.raw_inc_and_shift(amount), shift_amount + amount)
-                            }
+                            num_inhabs =>
+                                if *inhab == num_inhabs - 1 {
+                                    let amount = ((inhab + 1 - 1) * 2) as isize + 1;
+                                    (state.raw_inc_and_shift(amount), shift_amount + amount)
+                                } else {
+                                    let amount = ((inhab + 1) * 2) as isize + 1;
+                                    (state.raw_inc_and_shift(amount), shift_amount + amount)
+                                }
                         }
                     Discrim::Whatever => (state.raw_inc_and_shift(1), shift_amount + 1)
                 }
@@ -399,12 +416,17 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         InnerPattern::Enum(inhab) => match readback_as_enum_type(discrim_type.as_indexed_type_intro().1) {
                             1 => (state.clone().raw_inc_and_shift(1), 1isize),
                             0 => unreachable!(),
-                            _ => {
-                                let amount = (inhab * 2) as isize + 1;
-                                (state.clone().raw_inc_and_shift(amount), amount)
-                            }
+                            num_inhabs =>
+                                if *inhab == num_inhabs - 1 {
+                                    let amount = ((inhab + 1 - 1) * 2) as isize + 1;
+                                    (state.clone().raw_inc_and_shift(amount), amount)
+                                } else {
+                                    let amount = ((inhab + 1) * 2) as isize + 1;
+                                    (state.clone().raw_inc_and_shift(amount), amount)
+                                }
                         },
                     };
+                // dbg!(branch_state.locals());
                 return Some(elab_term(branch, shift(exp_type.clone(), HashSet::new(), shift_amount), branch_state));
             }
         }
@@ -440,7 +462,12 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                     match readback_as_enum_type(field_type.as_indexed_type_intro().1) {
                         1 => 1,
                         0 => unreachable!(),
-                        _ => inhab * 2 + 1
+                        num_inhabs =>
+                            if *inhab == num_inhabs - 1 {
+                                (inhab - 1 + 1) * 2 + 1
+                            } else {
+                                (inhab + 1) * 2 + 1
+                            }
                     }
                 Discrim::Whatever => 1
             }
@@ -617,7 +644,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         state.clone(),
                         InexaustiveMatch { missing_pattern: complete_discrim_to_pattern(&incomplete_discrim) })]);
             } else {
-                let (fill_type, next_discrim_type) = next_type(&incomplete_discrim, &discrim_type, state.locals().clone());
+                let (fill_type, this_discrim_type) = next_type(&incomplete_discrim, &discrim_type, state.locals().clone());
                 let index = next_index(&incomplete_discrim, &discrim_type, state.locals().clone());
                 println!("I: {:?} D: {:?}", index, incomplete_discrim);
                 let case_tree =
@@ -665,7 +692,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                                     match_range,
                                     state)?)
                     };
-                Ok(CaseTreeBody::CaseTree(index, next_discrim_type, Box::new(case_tree)))
+                Ok(CaseTreeBody::CaseTree(index, this_discrim_type, Box::new(case_tree)))
             }
         }
     }
@@ -864,7 +891,6 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             }
         };
     let case_tree = case_tree()?;
-    println!("CASE_TREE\n{:#?}", case_tree);
     // let inner_discrim_type = discrim.r#type(Context::new()).as_indexed_type_intro().1.clone();
     let core_term = apply!(lower_to_core(case_tree, discrim_type), discrim);
     // println!("CORE_TERM\n{:#?}", core_term);
@@ -891,6 +917,7 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
         Var(ref name) => {
             match state.get_dec(name) {
                 Some((index, var_type)) => {
+                    // dbg!((name, index, &var_type));
                     let var_type = normalize(var_type, state.locals().clone());
                     let cmp = is_terms_eq(&var_type, &exp_type, state.locals().equivs());
                     if let False(specific) = cmp {
@@ -907,6 +934,8 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
             let mut errors = Vec::new();
             // println!("IN_TYPE_STATE {:?}", state);
             let core_in_type = elab_term(in_type, infer_type(in_type, state.clone(), None)?, state.clone())?;
+            // dbg!(&core_in_type);
+            // dbg!(normalize(core_in_type.clone(), state.locals().clone()));
             // println!("CORE_IN_TYPE {:?}", core_in_type);
             // println!("IN_TYPE\n{:?}", in_type);
             // println!("CORE_IN_TYPE\n{:?}", core_in_type);
@@ -939,10 +968,10 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
             let mut curr_state = state.clone();
             for param_name in param_names.iter() {
                 if let self::core::lang::InnerTerm::FunctionTypeIntro(mut in_type, out_type) = *curr_type.data {
-                    // println!("IN_TYPE {:?}", in_type);
                     in_type.note = Some(Note(format!("{:?} | {:?}", param_name, in_type.note)));
                     in_types.push(in_type.clone());
                     curr_type = out_type;
+                    // dbg!(&normal_in_type);
                     curr_state = curr_state.with_dec(param_name.clone(), in_type);
                 } else {
                     let giv_type = {
@@ -962,7 +991,8 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
 
             // println!("CURR_STATE\n{:?}", curr_state);
             // println!("CURR_TYPE {:?}", curr_type);
-            let mut body_acc = elab_term(body, curr_type, curr_state)?;
+            let mut body_acc = elab_term(body, curr_type, curr_state.clone())?;
+            dbg!(body_acc.r#type(curr_state.locals().clone()));
             for (i, in_type) in in_types.into_iter().enumerate().rev() {
                 let body_acc_type = body_acc.r#type(Context::new());
                 let Name(param_name) = param_names.get(i);
@@ -1192,7 +1222,12 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
         Match(discrim, clauses) => {
             let discrim_type = infer_type(discrim, state.clone(), None)?;
             let core_discrim = elab_term(discrim, discrim_type.clone(), state.clone())?;
-            elab_match(core_discrim, discrim_type, exp_type, clauses, &state, term.range)
+            let mut core_term = elab_match(core_discrim, discrim_type, exp_type.clone(), clauses, &state, term.range)?;
+            // core::lang::mark_lines(&mut core_term);
+            // dbg!(&core_term);
+            // dbg!(core_term.r#type(state.locals().clone()));
+            // println!("CHECK:\n{:#?}", core::typing::check(&core_term, exp_type, state.locals().clone()));
+            Ok(core_term)
         }
         _ => unimplemented!()
     }
