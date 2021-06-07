@@ -342,6 +342,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             fn rec(field: &Discrim, field_type: &core::Term, pattern_fields: Option<&Vec<Pattern>>, mut state: State, mut shift_amount: isize) -> (State, isize) {
                 match field {
                     Discrim::Record(ref fields) => {
+                        let field_type = shift(field_type.clone(), HashSet::new(), 1);
                         let readback = readback_as_record_type(field_type.as_indexed_type_intro().1);
                         state = state.raw_inc_and_shift(1);
                         shift_amount += 1;
@@ -528,26 +529,28 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             discrim_type: &core::Term,
             next_type: &mut Option<NextType>,
             next_discrim_type: &mut Option<core::Term>,
+            shift_amount: &mut isize,
             mut context: Context)
         {
             use std::cmp::Ordering::*;
 
             match incomplete_discrim {
                 Discrim::Record(fields) => {
+                    *shift_amount += 1;
                     let readback = readback_as_record_type(discrim_type.as_indexed_type_intro().1);
                     let comparison = readback.len().partial_cmp(&fields.len()).unwrap();
                     for (field, field_type) in fields.iter().zip(readback.iter()) {
                         context = context.inc_and_shift(2);
-                        rec(field, &normalize((*field_type).clone(), context.clone()), next_type, next_discrim_type, context.clone());
+                        rec(field, &normalize((*field_type).clone(), context.clone()), next_type, next_discrim_type, shift_amount, context.clone());
                         context = context.clone().with_def(Bound(0), normalize(readback_discrim_to_core(&field, field_type), context.clone()));
                     }
                     match comparison {
                         Less => unreachable!(),
                         Equal => (),
                         Greater => {
-                            let readback_next = readback[fields.len()].clone();
+                            let readback_next = normalize(readback[fields.len()].clone(), context);
                             *next_type = 
-                                if let core::InnerTerm::IndexedTypeIntro(i, ref inner_type) = *normalize(readback_next.clone(), context).data {
+                                if let core::InnerTerm::IndexedTypeIntro(i, ref inner_type) = *readback_next.data {
                                     if i == 0 {
                                         let num_inhabs = readback_as_enum_type(inner_type);
                                         if num_inhabs > 0 {
@@ -566,7 +569,18 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         }
                     }
                 },
-                _ => ()
+                Discrim::Enum(inhab) =>
+                    *shift_amount += match readback_as_enum_type(discrim_type.as_indexed_type_intro().1) {
+                        1 => 1isize,
+                        0 => unreachable!(),
+                        num_inhabs =>
+                            if *inhab == num_inhabs - 1 {
+                                (*inhab as isize - 1 + 1) * 2 + 1
+                            } else {
+                                (*inhab as isize + 1) * 2 + 1
+                            }
+                    },
+                Discrim::Whatever => *shift_amount += 1
             }
         }
 
@@ -578,9 +592,10 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
 
         let mut next_type = None;
         let mut next_discrim_type = None;
-        rec(incomplete_discrim, discrim_type, &mut next_type, &mut next_discrim_type, context);
+        let mut shift_amount = 0;
+        rec(incomplete_discrim, discrim_type, &mut next_type, &mut next_discrim_type, &mut shift_amount, context);
 
-        (next_type.unwrap(), next_discrim_type.unwrap())
+        (next_type.unwrap(), shift(next_discrim_type.unwrap(), HashSet::new(), shift_amount))
     }
 
     // fills the hole in `incomplete_discrim` with `fill_with`
@@ -736,7 +751,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                 let split_body = make(inner_discrim_type.as_pair_type_intro().1.clone(), core_body);
                 // println!("SPLIT_BODY\n{:?}", split_body);
                 let split_body_type = split_body.r#type(Context::new());
-                let discrim = indexed_elim!(var!(Bound(0)) ,: inner_discrim_type.clone());
+                let discrim = indexed_elim!(var!(Bound(0)) ,: shift(inner_discrim_type.clone(), HashSet::new(), 1));
                 fun!(
                     split!(
                         discrim.clone(),
@@ -991,8 +1006,8 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
 
             // println!("CURR_STATE\n{:?}", curr_state);
             // println!("CURR_TYPE {:?}", curr_type);
-            let mut body_acc = elab_term(body, curr_type, curr_state.clone())?;
-            dbg!(body_acc.r#type(curr_state.locals().clone()));
+            let mut body_acc = elab_term(body, curr_type.clone(), curr_state.clone())?;
+            // body_acc.type_ann = Some(Box::new(curr_type));
             for (i, in_type) in in_types.into_iter().enumerate().rev() {
                 let body_acc_type = body_acc.r#type(Context::new());
                 let Name(param_name) = param_names.get(i);
