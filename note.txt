@@ -1,0 +1,6 @@
+fix stack overflow
+fixes to core checking caused something with modules to break, fix that
+
+we're shifting the extracted bit of the discrim correctly I think
+need to shift the discrim before it gets to the part with `tag`
+does `discrim_type` itself need to be shifted? Tried that, reduced to one error, investigate more

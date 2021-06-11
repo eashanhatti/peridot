@@ -69,11 +69,12 @@ fn run(options: String, source: String) -> Result<(), ()> {
                         module
                     },
                     Err(errs) => {
-                        println!("{} SURFACE ERRORS", errs.len());
-                        for err in errs {
+                        println!("SURFACE ERRORS");
+                        for err in &errs {
                             println!("SOURCE\n{}", &source[err.range.0..err.range.1]);
                             println!("ERROR\n{:#?}", err);
                         }
+                        println!("{} errors", errs.len());
                         return Err(());
                     }
                 };
@@ -94,7 +95,9 @@ fn run(options: String, source: String) -> Result<(), ()> {
             match core::typing::check(&core_module, core_module_type, Context::new()) {
                 Ok(()) => println!("NO CORE ERRORS"),
                 Err(errs) => {
-                    println!("CORE ERRORS\n{:#?}", if_opt!("perrs", options, errs, Vec::new()));
+                    let tmp = Vec::new();
+                    println!("CORE ERRORS\n{:#?}", if_opt!("perrs", options, &errs, &tmp));
+                    println!("{} errors", errs.len());
                     return Err(())
                 }
             }
@@ -130,7 +133,11 @@ fn main() {
     let mut source = String::new();
     file.read_to_string(&mut source);
 
-    run(options, source);
+    let child = thread::Builder::new()
+        .stack_size(4 * 1024 * 1024)
+        .spawn(|| run(options, source))
+        .unwrap();
+    child.join().unwrap();
 }
 
 #[cfg(test)]

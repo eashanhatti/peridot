@@ -274,7 +274,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 			let mut errors = Vec::new();
 
 			match *type_ann.clone().data {
-				FunctionTypeIntro(in_type, out_type) => {
+				FunctionTypeIntro(in_type, out_type) => {=
 					let body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), shift(in_type.clone(), HashSet::new(), 1));
 					push_check(&mut errors, check(body, out_type, body_context));
 				},
