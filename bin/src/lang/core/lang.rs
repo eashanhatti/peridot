@@ -50,6 +50,16 @@ pub enum InnerVar {
     Bound(usize),
     Free(Symbol)
 }
+
+impl InnerVar {
+    pub fn as_bound(self) -> usize {
+        if let InnerVar::Bound(i) = self {
+            i
+        } else {
+            panic!()
+        }
+    }
+}
 use InnerVar::*;
 
 #[derive(Clone, PartialEq, Hash, Eq)]
@@ -496,7 +506,7 @@ pub fn get_free_vars(term: &Term, bounds: HashSet<InnerVar>) -> HashMap<InnerVar
                 IndexedIntro(ref inner_term) => inner(inner_term, bounds.clone()),
                 IndexedElim(ref discrim, ref body) =>
                     collapse(vec![
-                        inner(discrim, bounds),
+                        inner(discrim, bounds.clone()),
                         inner(body, with(inc(bounds), 0))
                     ]),
                 Postulate(_) => Map::new()

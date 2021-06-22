@@ -364,48 +364,71 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 			}
 		},
 		PairElim(ref discrim, ref body) => {
-			let mut errors = Vec::new();
-
 			let discrim_type = synth_type(discrim, context.clone())?;
 			// println!("CONTEXT {:?}\nDISCRIM_TYPE {:?}", context.clone(), discrim_type.clone());
-			push_check(&mut errors, check(discrim, discrim_type.clone(), context.clone()));
+			check(discrim, discrim_type.clone(), context.clone())?;
 
 			match *(discrim_type.clone()).data {
 				PairTypeIntro(fst_type, snd_type) => {
-					let sym_fst_id = Symbol(rand::random::<usize>());
-					let sym_fst =
-						Term::new(
-							Box::new(Var(Free(sym_fst_id))),
-							Some(Box::new(fst_type.clone())));
-					let sym_snd_id = Symbol(rand::random::<usize>());
-					let sym_snd =
-						Term::new(
-							Box::new(Var(Free(sym_snd_id))),
-							Some(Box::new(snd_type.clone())));
-					let body_context =
-						context.clone().inc_and_shift(2)
-							.with_dec(Bound(0), fst_type)
-							.with_dec(Bound(1), snd_type);
-					let type_ann_context =
-						match &*discrim.data {
-							Var(index) => {
-								let refined_discrim =
-									Term::new(
-										Box::new(PairIntro(
-											sym_fst.clone(),
-											sym_snd.clone())),
-										Some(Box::new(discrim_type.clone())));
-								context.update(*index, refined_discrim.clone()).with_def(*index, refined_discrim)
-							},
-							_ => context.clone()
-						};
-					let normal_type_ann = shift(normalize(type_ann, type_ann_context), HashSet::new(), 2);
-					push_check(&mut errors, check(body, normal_type_ann, body_context.with_equiv(Bound(0), Free(sym_fst_id)).with_equiv(Bound(1), Free(sym_snd_id))));
+					let mut body_context = context.clone().inc_and_shift(2)
+						.with_dec(Bound(0), fst_type.clone())
+						.with_dec(Bound(1), snd_type.clone());
+					let mut type_ann_context = context;
+					let mut subst_context = Context::new();
+					if let Var(index) = &*discrim.data {
+						let (fst_type_clone, snd_type_clone) = (fst_type.clone(), snd_type.clone()); // make this less weird later
+						let new_discrim = |f, s|
+							pair!(
+								f,
+								s
+							,:
+								Pair!(
+									fst_type_clone,
+									snd_type_clone
+								,: Univ!()));
+						let fst_var = Free(Symbol(rand::random::<usize>()));
+						let snd_var = Free(Symbol(rand::random::<usize>()));
+						subst_context = subst_context.with_def(fst_var, var!(Bound(0))).with_def(snd_var, var!(Bound(1)));
+						body_context = body_context.with_def(Bound(index.as_bound() + 2), new_discrim.clone()(var!(Bound(0)), var!(Bound(1))));
+						type_ann_context = type_ann_context.with_def(
+							*index,
+							new_discrim(
+								var!(fst_var),
+								var!(snd_var)));
+					}
+					check(body, substitute(shift(normalize(type_ann, type_ann_context), HashSet::new(), 2), subst_context), body_context)
+					// let sym_fst_id = Symbol(rand::random::<usize>());
+					// let sym_fst =
+					// 	Term::new(
+					// 		Box::new(Var(Free(sym_fst_id))),
+					// 		Some(Box::new(fst_type.clone())));
+					// let sym_snd_id = Symbol(rand::random::<usize>());
+					// let sym_snd =
+					// 	Term::new(
+					// 		Box::new(Var(Free(sym_snd_id))),
+					// 		Some(Box::new(snd_type.clone())));
+					// let body_context =
+					// 	context.clone().inc_and_shift(2)
+					// 		.with_dec(Bound(0), fst_type)
+					// 		.with_dec(Bound(1), snd_type);
+					// let type_ann_context =
+					// 	match &*discrim.data {
+					// 		Var(index) => {
+					// 			let refined_discrim =
+					// 				Term::new(
+					// 					Box::new(PairIntro(
+					// 						sym_fst.clone(),
+					// 						sym_snd.clone())),
+					// 					Some(Box::new(discrim_type.clone())));
+					// 			context.update(*index, refined_discrim.clone()).with_def(*index, refined_discrim)
+					// 		},
+					// 		_ => context.clone()
+					// 	};
+					// let normal_type_ann = shift(normalize(type_ann, type_ann_context), HashSet::new(), 2);
+					// push_check(&mut errors, check(body, normal_type_ann, body_context.with_equiv(Bound(0), Free(sym_fst_id)).with_equiv(Bound(1), Free(sym_snd_id))));
 				}
-				_ => errors.push(Error::new(discrim.loc(), context, ExpectedOfPairType { giv_type: discrim_type }))
+				_ => Err(vec![Error::new(discrim.loc(), context, ExpectedOfPairType { giv_type: discrim_type })])
 			}
-
-			wrap_checks(errors)
 		}
 		VoidTypeIntro =>
 			match *(type_ann.clone()).data {
@@ -501,35 +524,28 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 			},
 		IndexedElim(ref discrim, ref body) => {
 			let discrim_type = synth_type(discrim, context.clone())?;
-			check(discrim, discrim_type, context.clone())?;
+			check(discrim, discrim_type.clone(), context.clone())?;
 			match *discrim_type.data {
 				IndexedTypeIntro(type_index, inner_type) => {
 					let mut body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), inner_type.clone());
 					let mut type_ann_context = context;
-					let sym_id = Symbol(rand::random::<usize>());
+					let mut subst_context = Context::new();
+					let inner_type_clone = inner_type.clone(); // make this less weird later
 					if let Var(index) = &*discrim.data {
-						body_context = body_context
-							.with_def(
-								*index,
-								indexed!(
-									var!(Bound(0))
-								,:
-									Indexed!(
-										type_index,
-										inner_type
-									,: Univ!())));
-						type_ann_context = type_ann_context
-							.with_def(
-								*index,
-								indexed!(
-									var!(Free(sym_id))
-								,:
-									Indexed!(
-										type_index,
-										inner_type
-									,: Univ!())));
+						let new_discrim = |t|
+							indexed!(
+								t
+							,:
+								Indexed!(
+									type_index,
+									inner_type_clone
+								,: Univ!()));
+						let bound_var = Free(Symbol(rand::random::<usize>()));
+						subst_context = subst_context.with_def(bound_var, var!(Bound(0)));
+						body_context = body_context.with_def(Bound(index.as_bound() + 1), new_discrim.clone()(var!(Bound(0))));
+						type_ann_context = type_ann_context.with_def(*index, new_discrim(var!(bound_var)));
 					}
-					check(body, normalize(shift(type_ann, HashSet::new(), 1), type_ann_context), body_context)
+					check(body, substitute(shift(normalize(type_ann, type_ann_context), HashSet::new(), 1), subst_context), body_context)
 				},
 				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfIndexedType { giv_type: discrim_type })])
 			}

@@ -160,7 +160,7 @@ pub fn substitute(term: Term, context: Context) -> Term {
             FoldElim(inner_term) => FoldElim(substitute(inner_term, context)),
             IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, substitute(inner_type, context)),
             IndexedIntro(inner_term) => IndexedIntro(substitute(inner_term, context)),
-            IndexedElim(discrim, body) => IndexedElim(substitute(discrim, context), substitute(body, context.inc_and_shift(1))),
+            IndexedElim(discrim, body) => IndexedElim(substitute(discrim, context.clone()), substitute(body, context.inc_and_shift(1))),
             Postulate(sym) => Postulate(sym)
         };
     let mut new_term = Term::new(Box::new(term_inner), substd_type_ann);
