@@ -280,7 +280,8 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 			let mut errors = Vec::new();
 
 			match *type_ann.clone().data {
-				FunctionTypeIntro(in_type, out_type) => {
+				FunctionTypeIntro(mut in_type, out_type) => {
+					in_type.note = Some(Note(format!("{:?} / lam bound {:?}", in_type.note, term.note)));
 					let body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), shift(in_type.clone(), HashSet::new(), 1));
 					push_check(&mut errors, check(body, out_type, body_context));
 				},
@@ -524,7 +525,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 			},
 		IndexedElim(ref discrim, ref body) => {
 			let discrim_type = synth_type(discrim, context.clone())?;
-			check(discrim, discrim_type.clone(), context.clone())?;
+			check(discrim, discrim_type.clone(), /*dbg!(*/context.clone()/*)*/)?;
 			match *discrim_type.data {
 				IndexedTypeIntro(type_index, inner_type) => {
 					let mut body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), inner_type.clone());

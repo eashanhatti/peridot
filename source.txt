@@ -1,17 +1,10 @@
-Maybe : Type -> Type
-Maybe = record A where
-    tag : Fin 2
-    data :
-        match tag with
-            fin 0 => Fin 1
-            fin 1 => A
-        end : Type
+T : Type -> Type
+T = record A where
+    x : A
 end
 
-
-from_maybe : [T : Type] -> ((import main.Maybe)(T)) -> T -> T
-from_maybe = fn T m d =>
-    match m with
-        [fin 0, x] => d
-        [fin 1, data] => data
+foo : [U : Type] -> U -> ((import main.T)(U)) -> U
+foo = fn U y t =>
+    match t with
+        [x] => y
     end

@@ -732,19 +732,19 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         }
     }
 
-    fn lower_to_core(case_tree: CaseTree, discrim_type: core::Term) -> core::Term {
+    fn lower_to_core(case_tree: CaseTree, discrim_type: core::Term) -> Box<dyn FnOnce(core::Term) -> core::Term> {
         // println!("CASE_TREE\n{:#?}", case_tree);
         // println!("DISCRIM_TYPE\n{:?}", discrim_type);
         fn lower_body(case_tree_body: CaseTreeBody) -> core::Term {
             match case_tree_body {
                 CaseTreeBody::CaseTree(discrim, discrim_type, case_tree) =>
-                    apply!(lower_to_core(*case_tree, discrim_type), var!(Bound(discrim /*,: discrim_type*/))),
+                    lower_to_core(*case_tree, discrim_type)(var!(Bound(discrim))),
                 CaseTreeBody::Term(term) => term
             }
         }
 
         match case_tree {
-            CaseTree::Record(body) => { 
+            CaseTree::Record(body) => {
                 use self::core::InnerTerm::*;
 
                 fn make(r#type: core::Term, body: core::Term) -> core::Term {
@@ -771,42 +771,74 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                 let split_body = make(inner_discrim_type.as_pair_type_intro().1.clone(), core_body);
                 // println!("SPLIT_BODY\n{:?}", split_body);
                 let split_body_type = split_body.r#type(Context::new());
-                let discrim = indexed_elim!(var!(Bound(0)) ,: shift(inner_discrim_type.clone(), HashSet::new(), 1));
-                fun!(
-                    split!(
-                        discrim.clone(),
-                        in
-                            split_body
+                Box::new(|d: core::Term|
+                    indexed_elim!(
+                        d.clone(),
+                        split!(
+                            var!(Bound(0)),
+                            in
+                                split_body
+                        ,:
+                            split!(
+                                var!(Bound(0)),
+                                in
+                                    split_body_type.clone()
+                            ,: Univ!()))
                     ,:
-                        split!(
-                            discrim.clone(),
-                            in
-                                split_body_type.clone()
-                        ,: Univ!()))
-                ,:
-                    pi!(
-                        "match pi",
-                        discrim_type,
-                        split!(
-                            discrim,
-                            in
-                                split_body_type.clone()
-                        ,: Univ!())
-                    ,: Univ!()))
+                        indexed_elim!(
+                            d,
+                            split!(
+                                var!(Bound(0)),
+                                in
+                                    split_body_type
+                            ,: Univ!())
+                        ,: Univ!())))
+
+                // let discrim = indexed_elim!(var!(Bound(0)) ,: shift(inner_discrim_type.clone(), HashSet::new(), 1));
+                // fun!(
+                //     split!(
+                //         discrim.clone(),
+                //         in
+                //             split_body
+                //     ,:
+                //         split!(
+                //             discrim.clone(),
+                //             in
+                //                 split_body_type.clone()
+                //         ,: Univ!()))
+                // ,:
+                //     pi!(
+                //         "match pi",
+                //         discrim_type,
+                //         split!(
+                //             discrim,
+                //             in
+                //                 split_body_type.clone()
+                //         ,: Univ!())
+                //     ,: Univ!()))
             },
             CaseTree::Enum(branches) => {
                 let mut core_branches = branches.into_iter().map(|b| lower_body(b)).collect::<Vec<core::Term>>();
                 if core_branches.len() == 1 {
                     let core_branch = core_branches.remove(0);
                     let core_branch_type = core_branch.r#type(Context::new());
-                    fun!(
-                        core_branch
-                    ,:
-                        pi!(
-                            "match pi",
-                            discrim_type,
-                            core_branch_type
-                        ,: Univ!()))
+                    // fun!(
+                    //     core_branch
+                    // ,:
+                    //     pi!(
+                    //         "match pi",
+                    //         discrim_type,
+                    //         core_branch_type
+                    //     ,: Univ!()))
+                    Box::new(|d: core::Term|
+                        indexed_elim!(
+                            d.clone(),
+                            core_branch
+                        ,:
+                            indexed_elim!(
+                                d,
+                                core_branch_type
+                            ,: Univ!())))
                 } else {
                     let mut core_term = core_branches.remove(core_branches.len() - 1);
                     let first_branch = core_branches.remove(0);
@@ -837,7 +869,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                     }
 
 
-                    let discrim = indexed_elim!(var!(Bound(0)) ,: discrim_type.as_indexed_type_intro().1.clone());
+                    // let discrim = indexed_elim!(var!(Bound(0)) ,: discrim_type.as_indexed_type_intro().1.clone());
                     let case_type =
                         case!(
                             var!(Bound(0)),
@@ -846,13 +878,13 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         ,: Univ!());
                     let split_type =
                         split!(
-                            discrim.clone(),
+                            var!(Bound(0)),
                             in
                                 case_type.clone()
                         ,: Univ!());
                     core_term =
                         split!(
-                            discrim,
+                            var!(Bound(0)),
                             in
                                 case!(
                                     var!(Bound(0)),
@@ -862,27 +894,45 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                         ,: split_type);
 
                     let core_term_type = core_term.r#type(Context::new());
-                    fun!(
-                        core_term
-                    ,:
-                        pi!(
-                            "match pi",
-                            discrim_type,
-                            core_term_type
-                        ,: Univ!()))
+                    Box::new(|d: core::Term|
+                        indexed_elim!(
+                            d.clone(),
+                            core_term
+                        ,:
+                            indexed_elim!(
+                                d,
+                                core_term_type
+                            ,: Univ!())))
+                    // fun!(
+                    //     core_term
+                    // ,:
+                    //     pi!(
+                    //         "match pi",
+                    //         discrim_type,
+                    //         core_term_type
+                    //     ,: Univ!()))
                 }
             },
             CaseTree::DoNothing(body) => {
                 let core_body = lower_body(body);
                 let core_body_type = core_body.r#type(Context::new());
-                fun!(
-                    core_body
-                ,:
-                    pi!(
-                        "match pi",
-                        discrim_type,
-                        core_body_type
-                    ,: Univ!()))
+                // fun!(
+                //     core_body
+                // ,:
+                //     pi!(
+                //         "match pi",
+                //         discrim_type,
+                //         core_body_type
+                //     ,: Univ!()))
+                Box::new(|d: core::Term|
+                    indexed_elim!(
+                        d.clone(),
+                        core_body
+                    ,:
+                        indexed_elim!(
+                            d,
+                            core_body_type
+                        ,: Univ!())))
             }
         }
     }
@@ -931,7 +981,7 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
         };
     let case_tree = case_tree()?;
     // let inner_discrim_type = discrim.r#type(Context::new()).as_indexed_type_intro().1.clone();
-    let core_term = apply!(lower_to_core(case_tree, discrim_type), discrim);
+    let core_term = lower_to_core(case_tree, discrim_type)(discrim);
     // println!("CORE_TERM\n{:#?}", core_term);
     Ok(core_term)
 }
@@ -1007,7 +1057,7 @@ pub fn elab_term(term: &Term, exp_type: core::Term, state: State) -> ElabResult 
             let mut curr_state = state.clone();
             for param_name in param_names.iter() {
                 if let self::core::lang::InnerTerm::FunctionTypeIntro(mut in_type, out_type) = *curr_type.data {
-                    in_type.note = Some(Note(format!("{:?} | {:?}", param_name, in_type.note)));
+                    in_type.note = Some(Note(format!("{:?} / {:?}", param_name, in_type.note)));
                     in_types.push(in_type.clone());
                     curr_type = out_type;
                     // dbg!(&normal_in_type);

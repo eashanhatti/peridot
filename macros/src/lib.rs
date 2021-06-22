@@ -238,7 +238,7 @@ macro_rules! indexed {
 macro_rules! indexed_elim {
     ($discrim:expr, $body:expr,: $ann:expr) => {
         crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::IndexedElim($inner, $body)),
+            Box::new(crate::lang::core::lang::InnerTerm::IndexedElim($discrim, $body)),
             Some(Box::new($ann)))  
     };
 }
