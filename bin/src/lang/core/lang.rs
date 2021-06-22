@@ -75,7 +75,7 @@ pub enum InnerTerm {
     FoldElim(Term),
     IndexedTypeIntro(usize, Term),
     IndexedIntro(Term),
-    IndexedElim(Term),
+    IndexedElim(Term, Term),
     Postulate(Symbol)
 }
 use InnerTerm::*;
@@ -145,7 +145,7 @@ fn display_inner_term(term: &InnerTerm, indent: usize) -> String {
             FoldElim(ref inner) => format!("unfold\n{}", display_term(inner, indent + 1)),
             IndexedTypeIntro(index, ref inner) => format!("Indexed {}\n{}", index, display_term(inner, indent + 1)),
             IndexedIntro(ref inner) => format!("indexed\n{}", display_term(inner, indent + 1)),
-            IndexedElim(ref inner) => format!("indexedelim\n{}", display_term(inner, indent + 1)),
+            IndexedElim(ref discrim, ref body) => format!("indexedelim\n{}\n{}", display_term(discrim, indent + 1), display_term(body, indent + 1)),
             Postulate(sym) => format!("postulate {:?}", sym)
         };
     format!("{}{}\n", indent_to_string(indent), string)
@@ -389,8 +389,8 @@ pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: &HashSet<(InnerVar, Inner
                 comb(is_terms_eq(inner_type1, inner_type2, equivs), bool_to_tc(index1 == index2)),
             (IndexedIntro(ref inner_term1), IndexedIntro(ref inner_term2)) => 
                 is_terms_eq(inner_term1, inner_term2, equivs),
-            (IndexedElim(ref inner_term1), IndexedElim(ref inner_term2)) =>
-                is_terms_eq(inner_term1, inner_term2, equivs),
+            (IndexedElim(ref discrim1, ref body1), IndexedElim(ref discrim2, ref body2)) =>
+                comb(is_terms_eq(discrim1, discrim2, equivs), is_terms_eq(body1, body2, equivs)),
             (Postulate(sym1), Postulate(sym2)) => bool_to_tc(sym1 == sym2),
             _ => False(vec![(type1.clone(), type2.clone())])
         };
@@ -494,7 +494,11 @@ pub fn get_free_vars(term: &Term, bounds: HashSet<InnerVar>) -> HashMap<InnerVar
                 FoldElim(ref folded_term) => inner(folded_term, bounds),
                 IndexedTypeIntro(_, ref inner_type) => inner(inner_type, bounds.clone()),
                 IndexedIntro(ref inner_term) => inner(inner_term, bounds.clone()),
-                IndexedElim(ref folded_term) => inner(folded_term, bounds),
+                IndexedElim(ref discrim, ref body) =>
+                    collapse(vec![
+                        inner(discrim, bounds),
+                        inner(body, with(inc(bounds), 0))
+                    ]),
                 Postulate(_) => Map::new()
             },
             type_ann_free_vars])
@@ -543,11 +547,14 @@ pub fn mark_lines(term: &mut Term) {
                 mark_inner(branch2, loc);
             },
             FoldTypeIntro(ref mut inner_type) => mark_inner(inner_type, loc),
-            FoldIntro(ref mut inner) => mark_inner(inner, loc),
+            FoldIntro(ref mut inner_term) => mark_inner(inner_term, loc),
             FoldElim(ref mut folded_term) => mark_inner(folded_term, loc),
             IndexedTypeIntro(_, ref mut inner_type) => mark_inner(inner_type, loc),
             IndexedIntro(ref mut inner) => mark_inner(inner, loc),
-            IndexedElim(ref mut indexed_term) => mark_inner(indexed_term, loc),
+            IndexedElim(ref mut discrim, ref mut body) => {
+                mark_inner(discrim, loc);
+                mark_inner(body, loc);
+            },
             _ => ()
         }
 

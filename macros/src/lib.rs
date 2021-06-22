@@ -236,9 +236,9 @@ macro_rules! indexed {
 
 #[macro_export]
 macro_rules! indexed_elim {
-    ($inner:expr,: $ann:expr) => {
+    ($discrim:expr, $body:expr,: $ann:expr) => {
         crate::lang::core::lang::Term::new(
-            Box::new(crate::lang::core::lang::InnerTerm::IndexedElim($inner)),
+            Box::new(crate::lang::core::lang::InnerTerm::IndexedElim($inner, $body)),
             Some(Box::new($ann)))  
     };
 }

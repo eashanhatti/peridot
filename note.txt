@@ -4,3 +4,55 @@ fixes to core checking caused something with modules to break, fix that
 we're shifting the extracted bit of the discrim correctly I think
 need to shift the discrim before it gets to the part with `tag`
 does `discrim_type` itself need to be shifted? Tried that, reduced to one error, investigate more
+
+foo : [T : Type] -> T -> Fin 0 -> T
+foo = fn T y z =>
+	match fin 0 : Fin 3 with
+		fin 0 => y
+		fin 1 => y
+		fin 2 => y
+	end
+
+
+Maybe : Type -> Type
+Maybe = record A where
+	tag : Fin 2
+	data :
+		match tag with
+			fin 0 => Fin 1
+			fin 1 => A
+		end : Type
+end
+
+
+from_maybe : [T : Type] -> ((import main.Maybe)(T)) -> T -> T
+from_maybe = fn T m d =>
+	match m with
+		[fin 0, x] => d
+		[fin 1, data] => data
+	end
+
+
+T : Type -> Type
+T = record A where
+	x : A
+end
+
+foo : [U : Type] -> U -> ((import main.T)(U)) -> U
+foo = fn U y t =>
+	match t with
+		[x] => y
+	end
+
+
+T : Type -> Type
+T = record A where
+	x : Fin 1
+	y : A
+end
+
+foo : [U : Type] -> ((import main.T)(U)) -> U
+foo = fn U t =>
+	match t with
+		[x, y] => y
+	end

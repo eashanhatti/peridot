@@ -19,6 +19,11 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
             Some(r#type) => Some(Box::new(shift(*r#type, bounds.clone(), amount))),
             None => None
         };
+    fn inc_bounds(bounds: HashSet<usize>) -> HashSet<usize> {
+        let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 1).collect();
+        tmp.insert(0);
+        tmp
+    }
     let term_inner: InnerTerm =
         match *term.data {
             Var(index) =>
@@ -31,7 +36,7 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
                 } else {
                     Var(index)
                 },
-            Rec(inner_term) => Rec(shift(inner_term, bounds.into_iter().map(|i| i + 1).collect(), amount)),
+            Rec(inner_term) => Rec(shift(inner_term, inc_bounds(bounds), amount)),
             Let(bindings, body) => { // TODO: determine if this is correct
                 let len = bindings.len();
                 let mut new_bounds: HashSet<usize> = bounds.into_iter().map(|i| i + len).collect();
@@ -41,24 +46,11 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
                 Let(bindings.into_iter().map(|binding| shift(binding, new_bounds.clone(), amount)).collect(), shift(body, new_bounds, amount))
             }
             TypeTypeIntro => TypeTypeIntro,
-            FunctionTypeIntro(in_type, out_type) => {
-                let out_type_bounds = {
-                    let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 1).collect();
-                    tmp.insert(0);
-                    tmp
-                };
+            FunctionTypeIntro(in_type, out_type) =>
                 FunctionTypeIntro(
-                    shift(in_type, bounds, amount),
-                    shift(out_type, out_type_bounds, amount))
-            },
-            FunctionIntro(body) => {
-                let body_bounds = {
-                    let mut tmp: HashSet<usize> = bounds.into_iter().map(|i| i + 1).collect();
-                    tmp.insert(0);
-                    tmp
-                };
-                FunctionIntro(shift(body, body_bounds, amount))
-            },
+                    shift(in_type, bounds.clone(), amount),
+                    shift(out_type, inc_bounds(bounds), amount)),
+            FunctionIntro(body) => FunctionIntro(shift(body, inc_bounds(bounds), amount)),
             FunctionElim(abs, arg) => FunctionElim(shift(abs, bounds.clone(), amount), shift(arg, bounds, amount)),
             PairTypeIntro(fst_type, snd_type) => {
                 let fst_type_bounds = {
@@ -100,7 +92,7 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
             FoldElim(inner_term) => FoldElim(shift(inner_term, bounds, amount)),
             IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, shift(inner_type, bounds, amount)),
             IndexedIntro(inner_term) => IndexedIntro(shift(inner_term, bounds, amount)),
-            IndexedElim(inner_term) => IndexedElim(shift(inner_term, bounds, amount)),
+            IndexedElim(discrim, body) => IndexedElim(shift(discrim, bounds.clone(), amount), shift(body, inc_bounds(bounds), amount)),
             Postulate(sym) => Postulate(sym)
         };
     let mut new_term = Term::new(Box::new(term_inner), shifted_type_ann);
@@ -168,7 +160,7 @@ pub fn substitute(term: Term, context: Context) -> Term {
             FoldElim(inner_term) => FoldElim(substitute(inner_term, context)),
             IndexedTypeIntro(index, inner_type) => IndexedTypeIntro(index, substitute(inner_type, context)),
             IndexedIntro(inner_term) => IndexedIntro(substitute(inner_term, context)),
-            IndexedElim(inner_term) => IndexedElim(substitute(inner_term, context)),
+            IndexedElim(discrim, body) => IndexedElim(substitute(discrim, context), substitute(body, context.inc_and_shift(1))),
             Postulate(sym) => Postulate(sym)
         };
     let mut new_term = Term::new(Box::new(term_inner), substd_type_ann);
@@ -310,11 +302,14 @@ pub fn normalize(term: Term, context: Context) -> Term {
         },
         IndexedTypeIntro(index, inner_type) => Term::new(Box::new(IndexedTypeIntro(index, normalize(inner_type, context))), normal_type_ann),
         IndexedIntro(inner_term) => normalize(inner_term, context),
-        IndexedElim(indexed_term) => {
-            let normal_indexed_term = normalize(indexed_term, context);
-            match *normal_indexed_term.data {
-                IndexedIntro(inner_term) => inner_term,
-                _ => Term::new(Box::new(IndexedElim(normal_indexed_term)), normal_type_ann)
+        IndexedElim(discrim, body) => {
+            let normal_discrim = normalize(discrim, context.clone());
+            match *normal_discrim.data {
+                IndexedIntro(inner_term) => {
+                    let body_context = context.inc_and_shift(1).with_def(Bound(0), inner_term);
+                    normalize(body, body_context)
+                },
+                _ => Term::new(Box::new(IndexedElim(normal_discrim, normalize(body, context.inc_and_shift(1)))), normal_type_ann)
             }
         },
         Postulate(_) => term

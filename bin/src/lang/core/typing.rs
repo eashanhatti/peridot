@@ -27,6 +27,8 @@ use std::{
 	convert::TryInto
 };
 extern crate rand;
+extern crate macros;
+use macros::*;
 
 // for the `Expected...` errors, imagine a TypeType `U` for each error, the error
 // can then be thought of as `MismatchedTypes { exp_type: U, giv_type: ... }
@@ -162,7 +164,11 @@ pub fn count_uses(term: &Term, target_index: InnerVar) -> (usize, usize) {
 			FoldElim(ref folded_term) => count_uses(folded_term, target_index),
 			IndexedTypeIntro(_, ref inner_type) => count_uses(inner_type, target_index),
 			IndexedIntro(ref inner_term) => count_uses(inner_term, target_index),
-			IndexedElim(ref folded_term) => count_uses(folded_term, target_index),
+			IndexedElim(ref discrim, ref body) =>
+				sum(vec![
+					count_uses(discrim, target_index),
+					count_uses(body, inc_by(target_index, 1))
+				]),
 			Postulate(_) => singleton(0)
 		},
 		match &term.type_ann {
@@ -274,7 +280,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 			let mut errors = Vec::new();
 
 			match *type_ann.clone().data {
-				FunctionTypeIntro(in_type, out_type) => {=
+				FunctionTypeIntro(in_type, out_type) => {
 					let body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), shift(in_type.clone(), HashSet::new(), 1));
 					push_check(&mut errors, check(body, out_type, body_context));
 				},
@@ -381,7 +387,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 							.with_dec(Bound(0), fst_type)
 							.with_dec(Bound(1), snd_type);
 					let type_ann_context =
-						match *discrim.data {
+						match &*discrim.data {
 							Var(index) => {
 								let refined_discrim =
 									Term::new(
@@ -389,7 +395,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 											sym_fst.clone(),
 											sym_snd.clone())),
 										Some(Box::new(discrim_type.clone())));
-								context.update(index, refined_discrim.clone()).with_def(index, refined_discrim)
+								context.update(*index, refined_discrim.clone()).with_def(*index, refined_discrim)
 							},
 							_ => context.clone()
 						};
@@ -493,11 +499,39 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 				IndexedTypeIntro(_, inner_type) => check(inner_term, inner_type, context),
 				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfIndexedType { giv_type: type_ann.clone() })])
 			},
-		IndexedElim(ref indexed_term) => {
-			let indexed_term_type = synth_type(indexed_term, context.clone())?;
-			match &*indexed_term_type.data {
-				IndexedTypeIntro(_, inner_type) => check(indexed_term, indexed_term_type, context),
-				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfIndexedType { giv_type: indexed_term_type })])
+		IndexedElim(ref discrim, ref body) => {
+			let discrim_type = synth_type(discrim, context.clone())?;
+			check(discrim, discrim_type, context.clone())?;
+			match *discrim_type.data {
+				IndexedTypeIntro(type_index, inner_type) => {
+					let mut body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), inner_type.clone());
+					let mut type_ann_context = context;
+					let sym_id = Symbol(rand::random::<usize>());
+					if let Var(index) = &*discrim.data {
+						body_context = body_context
+							.with_def(
+								*index,
+								indexed!(
+									var!(Bound(0))
+								,:
+									Indexed!(
+										type_index,
+										inner_type
+									,: Univ!())));
+						type_ann_context = type_ann_context
+							.with_def(
+								*index,
+								indexed!(
+									var!(Free(sym_id))
+								,:
+									Indexed!(
+										type_index,
+										inner_type
+									,: Univ!())));
+					}
+					check(body, normalize(shift(type_ann, HashSet::new(), 1), type_ann_context), body_context)
+				},
+				_ => Err(vec![Error::new(term.loc(), context, ExpectedOfIndexedType { giv_type: discrim_type })])
 			}
 		}
 		Postulate(_) => Ok(())
