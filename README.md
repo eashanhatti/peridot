@@ -1,44 +1,6 @@
 # Clamn
-Clamn is intended to be a functional systems language. What I want it to be is a language that enables the abstractions used in functional programming while providing the performance and performance *guarantees* of systems languages. Idiomatic functional code should be able to be written without sacrificing performance.
+Clamn is intended to be a functional systems language. It's mostly an experiment in pure functional language design that focuses on performance. Most functional languages are not particularly known for their performance. A major reason for this is the relatively high amount of abstraction used in functional code. Performance problems *can* be fixed by an optimizing compiler, however, this tends to be more of a band-aid. Ideally, we'd like to be able to reason about and control the performance of functional languages the same way we can with systems languages.
 
-Most functional languages are not known for their performance. A major reason for this is the high amount of abstraction used in functional code. This abstraction can come in many flavors, but two of the most important ones are higher order functions and polymorphism. These problems *can* be fixed with an optimizing compiler. However, this is not an ideal solution for a systems language. Optimization is compiler-driven and thus can be unpredictable, requiring the programmer to have a more complex mental model of the program. The programmer has to keep in mind not only what the program does, but also how to write it in such a way that the compiler will optimize it the best. In any systems language, performance should be programmer-driven, which means that it needs to be visible and controllable in the semantics of the language.
+The main things I'm focusing on in Clamn are partial evaluation, data layout abstraction, and dependent types. Partial evaluation is compile time evaluation - everything that can be evaluated at compile time is. This concept eliminates some abstraction right off the bat by allowing us to express inlining. However, partial evaluation is very general and can also express more complicated concepts, such as removing the abstraction of an interpreter for a DSL by partially evaluating it on a statically known program (something that macros would typically be used for). Interacting with dependent types, it becomes even more useful. Monomorphization can be expressed as partially evaluating a function from types to values.
 
-To that end, the main two features I want to implement in Clamn are a staging system and dependent types. The essence of staging is that it allows one to specify *when* a computation takes place, which makes it a method for controlled partial evaluation. Partial evaluation even on its own is very useful. It allows us to easily eliminate the overhead of higher order functions. In addition, it can be used to eliminate the overhead of interpreted DSLs by partially evaluating the DSL's interpreter on a statically known program. Partial evaluation can however, be even more useful when combined with dependent types. Under dependent types, polymorphism can be expressed as a computation, meaning that partial evaluation can be applied to it. Partial evaluation can then be used to express monomorphization, allowing the overhead of polymorphism to be removed in most places. Staging combined with dependent types allows the overhead of the abstractions used in functional languages to be removed in a programmer-driven way.
-
-There are a few features I want to implement, but are less of a priority, namely (in no particular order):
-* **Algebraic Effects**. They seem like a good alternative to monads for effects, their ergonomics look nice.
-* **Layout Polymorphism**. Staging combined with dependent types does allow for some control over memory layout if types are treated as representations, but I'd like for it to be more fine-grained
-* **Multiple Memory Management Options**. I probably won't go with tracing GC, multiple memory management options are very nice to have in a systems language
-
-Current Roadmap:
-- [ ] Core language
-    - [ ] Language
-        - [x] Dependent functions
-        - [x] Dependent pairs
-        - [x] Opt-in lazy eval
-        - [ ] Staging
-        - [ ] Layout Polymorphism
-        - [ ] External interaction/effects
-            - [ ] `World`
-            - [ ] Basic FFI 
-    - [x] Typechecker
-    - [x] Evaluator
-    - [ ] Partial evaluation
-        - [ ] Totality checking
-- [ ] Surface language
-    - [ ] Elaborator
-    - [x] Modules
-        - [x] Definitions
-        - [x] Imports
-    - [ ] Typing
-        - [x] Dependent functions
-        - [x] Dependent records
-        - [ ] Staging
-        - [ ] Layout Polymorphism
-        - [ ] Basic type inference
-    - [ ] Pattern matching
-    - [ ] External interaction/effects
-        - [ ] `World`
-        - [ ] Basic FFI
-- [ ] Backend
-    - [ ] Simple codegen
+Dependent types are another extremely general feature, they allow us to express things like generics, tagged unions, and proofs. However, they also typically come with performance issues because they make the following question harder: What is the representation of some type at run time? For instance, what is the size of a value of type `if true then Int else String`? To alleviate this, we can allow for quantification and abstraction over data layouts - layouts are made a part of the type system. For instance, one way of doing this is to put the layout of a type on its kind. We can then add rules such as "a type may be given a kind with a layout greater than what it needs", reflecting the constraints that exist in reality. Data layout abstraction also interacts with partial evaluation - layouts must be able to be partially evaluated away.
