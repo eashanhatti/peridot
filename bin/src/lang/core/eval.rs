@@ -309,7 +309,15 @@ pub fn normalize(term: Term, context: Context) -> Term {
                     let body_context = context.inc_and_shift(1).with_def(Bound(0), inner_term);
                     normalize(body, body_context)
                 },
-                _ => Term::new(Box::new(IndexedElim(normal_discrim, normalize(body, context.inc_and_shift(1)))), normal_type_ann)
+                _ => {
+                    let body_context = context.clone().inc_and_shift(1);
+                    let pre_normal_body = normalize(body, body_context);
+                    if get_free_vars(&pre_normal_body, HashSet::new()).contains_key(&Bound(0)) {
+                        Term::new(Box::new(IndexedElim(normal_discrim, pre_normal_body)), normal_type_ann)   
+                    } else {
+                        shift(pre_normal_body, HashSet::new(), -1)
+                    }
+                }
             }
         },
         Postulate(_) => term
