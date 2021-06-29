@@ -24,7 +24,6 @@ Maybe = record A where
 		end : Type
 end
 
-
 from_maybe : [T : Type] -> ((import main.Maybe)(T)) -> T -> T
 from_maybe = fn T m d =>
 	match m with

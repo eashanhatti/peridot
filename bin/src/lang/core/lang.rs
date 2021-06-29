@@ -171,7 +171,7 @@ pub struct Term {
     pub data: Box<InnerTerm>,
     pub type_ann: Option<Box<Term>>,
     pub note: Option<Note>,
-    loc: Option<Location>
+    pub loc: Option<Location>
 }
 
 pub fn display_term(term: &Term, indent: usize) -> String {

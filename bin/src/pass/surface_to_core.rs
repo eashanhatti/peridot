@@ -916,23 +916,27 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
             CaseTree::DoNothing(body) => {
                 let core_body = lower_body(body);
                 let core_body_type = core_body.r#type(Context::new());
-                // fun!(
-                //     core_body
-                // ,:
-                //     pi!(
-                //         "match pi",
-                //         discrim_type,
-                //         core_body_type
-                //     ,: Univ!()))
                 Box::new(|d: core::Term|
-                    indexed_elim!(
-                        d.clone(),
-                        core_body
-                    ,:
-                        indexed_elim!(
-                            d,
-                            core_body_type
-                        ,: Univ!())))
+                    apply!(
+                        fun!(
+                            core_body
+                        ,:
+                            pi!(
+                                "match pi",
+                                discrim_type,
+                                core_body_type.clone()
+                            ,: Univ!())),
+                        d
+                    ,: shift(core_body_type, HashSet::new(), -1)))
+                // Box::new(|d: core::Term|
+                //     indexed_elim!(
+                //         d.clone(),
+                //         core_body
+                //     ,:
+                //         indexed_elim!(
+                //             d,
+                //             core_body_type
+                //         ,: Univ!())))
             }
         }
     }

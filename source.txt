@@ -1,10 +1,11 @@
 T : Type -> Type
 T = record A where
-    x : A
+    x : Fin 1
+    y : A
 end
 
-foo : [U : Type] -> U -> ((import main.T)(U)) -> U
-foo = fn U y t =>
+foo : [U : Type] -> ((import main.T)(U)) -> U
+foo = fn U t =>
     match t with
-        [x] => y
+        [x, y] => y
     end
