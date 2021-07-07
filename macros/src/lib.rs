@@ -30,6 +30,12 @@ macro_rules! var {
             Box::new(crate::lang::core::lang::InnerTerm::Var($index)),
             Some(Box::new($ann)))
     };
+    (note $note:expr, $index:expr) => {
+        crate::lang::core::lang::Term::new_with_note(
+            Note($note),
+            Box::new(crate::lang::core::lang::InnerTerm::Var($index)),
+            None)
+    };
 }
 
 #[macro_export]

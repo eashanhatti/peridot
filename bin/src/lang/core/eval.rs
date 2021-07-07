@@ -307,7 +307,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
             match *normal_discrim.data {
                 IndexedIntro(inner_term) => {
                     let body_context = context.inc_and_shift(1).with_def(Bound(0), inner_term);
-                    normalize(body, body_context)
+                    shift(normalize(body, body_context), HashSet::new(), -1)
                 },
                 _ => {
                     let body_context = context.clone().inc_and_shift(1);

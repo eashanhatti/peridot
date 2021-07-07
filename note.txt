@@ -55,3 +55,46 @@ foo = fn U t =>
 	match t with
 		[x, y] => y
 	end
+
+clamn::lang::core::typing::synth_type
+             at .\bin\src\lang\core\typing.rs:208
+clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:227
+   6: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:381
+   8: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:550
+  10: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:294
+  11: clamn::lang::core::typing::synth_type
+             at .\bin\src\lang\core\typing.rs:211
+  12: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:318
+  14: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:512
+  16: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:422
+  18: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:571
+  20: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:422
+  22: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:422
+  24: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:571
+  26: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:308
+  28: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:308
+  30: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:308
+  32: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:514
+  34: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:422
+  36: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:308
+  38: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:281
+  40: clamn::lang::core::typing::check
+             at .\bin\src\lang\core\typing.rs:281
