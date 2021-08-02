@@ -167,7 +167,7 @@ pub fn count_uses(term: &Term, target_index: InnerVar) -> (usize, usize) {
 			PairTypeIntro(ref fst_type, ref snd_type) =>
 				sum(vec![count_uses(fst_type, inc_by(target_index, 2)), count_uses(snd_type, inc_by(target_index, 2))]),
 			PairIntro(ref fst, ref snd) =>
-				sum(vec![count_uses(fst, target_index), count_uses(snd, target_index)]),
+				sum(vec![count_uses(fst, inc_by(target_index, 2)), count_uses(snd, inc_by(target_index, 2))]),
 			PairElim(ref discrim, ref body) =>
 				sum(vec![count_uses(discrim, target_index), count_uses(body, inc_by(target_index, 2))]),
 			VoidTypeIntro => singleton(0),
@@ -213,32 +213,67 @@ pub fn wrap_checks(errors: Vec<Error>) -> CheckResult<()> {
 // minor concern, is 'synth_type' the right name for this?
 pub fn synth_type(term: &Term, context: Context) -> CheckResult<Term> {
     use InnerTerm::*;
-
+    // println!("start {:?}", term);
     let r#type = normalize(term.r#type(context.clone()), context.clone());
     match &*r#type.data {
     	TypeTypeIntro => (),
     	_ => check(&r#type, synth_type(&r#type, context.clone())?, context)?
     }
+    // println!("end-------");
+    Ok(r#type)
+}
+static mut s_d: String = String::new();
+static mut n: usize = 0;
+
+pub fn synth_type_d(term: &Term, context: Context) -> CheckResult<Term> {
+    use InnerTerm::*;
+    let r#type = normalize(term.r#type(context.clone()), context.clone());
+    // println!("{}Start", unsafe{s_d.clone()});
+    // unsafe{s_d.push_str("----")}
+    match &*r#type.data {
+    	TypeTypeIntro => (),
+    	_ => check(&r#type, synth_type_d(&r#type, context.clone())?, context)?
+    }
+    // unsafe{s_d.pop();s_d.pop();s_d.pop();s_d.pop();}
+    // println!("{}End", unsafe{s_d.clone()});
     Ok(r#type)
 }
 
 static mut stack: Vec<usize> = Vec::new();
 pub fn check_d(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 	unsafe { stack.push(term.loc.unwrap_or(Location { line: 0 }).line) };
+	// println!("{}Start {}", unsafe{s_d.clone()}, unsafe{n}, /*term*/);
+	unsafe{n+=1;}
+    unsafe{s_d.push_str("-")}
 	let result = check(term, exp_type, context);
 	unsafe { stack.pop() };
+	unsafe{s_d.pop();}
+	unsafe{n-=1;}
+    // println!("{}End {}", unsafe{s_d.clone()}, unsafe{n});
 	result
+}
+
+macro_rules! set {
+    ($($elem:expr),*) => {
+        {
+            let mut s = HashSet::new();  // Create a mutable HashSet
+            $(s.insert($elem);)*
+            s // Return the populated HashSet
+        }
+    };
 }
 
 pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 	use InnerError::*;
-
+	// println!("start CHECK {:?}", term);
 	let type_ann = synth_type(term, context.clone())?;
+	// println!("end CHECK");
 	if let False(specific) = is_terms_eq(&type_ann, &exp_type, context.equivs()) {
 		// println!("NOT EQ\n{:?}\n{:?}", type_ann, exp_type);
 		return
-			Err(vec![Error::new_o(
+			Err(vec![Error::new_o_s(
 				unsafe { stack.clone() },
+				display_term(term, 0),
 				term.loc(),
 				context,
 				MismatchedTypes { exp_type: exp_type.clone(), giv_type: type_ann.clone(), specific })]);
@@ -255,12 +290,12 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 				Some(var_type) => {
 					let var_type = normalize(var_type, context.clone());
 					if let False(specific) = is_terms_eq(&var_type, &type_ann, context.equivs()) {
-						Err(vec![Error::new_o(unsafe { stack.clone() }, term.loc(), context, MismatchedTypes { exp_type: var_type, giv_type: type_ann, specific })])
+						Err(vec![Error::new_o_s(unsafe { stack.clone() }, display_term(term, 0), term.loc(), context, MismatchedTypes { exp_type: var_type, giv_type: type_ann, specific })])
 					} else {
 						Ok(())
 					}
 				}
-				None => Err(vec![Error::new_o(unsafe { stack.clone() }, term.loc(), context, NonexistentVar { index })])
+				None => Err(vec![Error::new_o_s(unsafe { stack.clone() }, display_term(term, 0), term.loc(), context, NonexistentVar { index })])
 			},
 		Rec(ref inner_term) => {
 			let mut errors = Vec::new();
@@ -374,11 +409,12 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 		PairIntro(ref fst, ref snd) => {
 			match *type_ann.data {
 				PairTypeIntro(fst_type, snd_type) => {
+					// println!("start");
 					let mut errors = Vec::new();
 
 					let fst_context = context.clone().inc_and_shift(2)
 						.with_dec(Bound(1), snd_type.clone())
-						.with_def(Bound(1), normalize(snd.clone(), context.clone().inc_and_shift(2)));
+						.with_def(Bound(1), dbg!(normalize(snd.clone(), context.clone().inc_and_shift(2))));
 					let snd_context = context.clone().inc_and_shift(2)
 						.with_dec(Bound(0), fst_type.clone())
 						.with_def(Bound(0), normalize(fst.clone(), context.clone().inc_and_shift(2)));
@@ -387,24 +423,32 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 					// println!("FST {:?}", fst);
 					// println!("FST_CONTEXT {:#?}", fst_context);
 
+					println!("FST\n{:?}", fst);
+					println!("SND\n{:?}", snd);
+					println!("GET\n{:#?}", snd_context.get(snd.as_var()));
 					push_check(&mut errors,check_d(fst, normal_fst_type, fst_context));
 					push_check(&mut errors,check_d(snd, normal_snd_type, snd_context));
-
+					// println!("end");
 					wrap_checks(errors)
 				},
 				_ => Err(vec![Error::new_o(unsafe { stack.clone() }, term.loc(), context, ExpectedOfPairType { giv_type: type_ann })])
 			}
 		},
 		PairElim(ref discrim, ref body) => {
-			let discrim_type = synth_type(discrim, context.clone())?;
+			let cloned = context.clone();
+			// println!("Start______\n{:?}", discrim);
+			let discrim_type = synth_type_d(discrim, cloned);
+			// println!("End________");
+			let discrim_type = discrim_type?;
 			// println!("CONTEXT {:?}\nDISCRIM_TYPE {:?}", context.clone(), discrim_type.clone());
 		check_d(discrim, discrim_type.clone(), context.clone())?;
-
 			match *(discrim_type.clone()).data {
 				PairTypeIntro(fst_type, snd_type) => {
+					// TODO: shift *_type
 					let mut body_context = context.clone().inc_and_shift(2)
-						.with_dec(Bound(0), fst_type.clone())
-						.with_dec(Bound(1), snd_type.clone());
+						.with_dec(Bound(0), shift(fst_type.clone(), set![0, 1], 2)) 
+						.with_dec(Bound(1), shift(snd_type.clone(), set![0, 1], 2));
+					println!("-----------------------------------------------------------------------------------------------------\n{:?}", snd_type);
 					let mut type_ann_context = context;
 					let mut subst_context = Context::new();
 					if let Var(index) = &*discrim.data {
@@ -423,12 +467,13 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 						subst_context = subst_context
 							.with_def(fst_var, var!(note format!("split bound 0 l{}", term.loc.unwrap_or(Location { line: 0 }).line), Bound(0)))
 							.with_def(snd_var, var!(note format!("split bound 1 l{}", term.loc.unwrap_or(Location { line: 0 }).line), Bound(1)));
-						let body_discrim =
+						let mut body_discrim =
 							new_discrim.clone()(
 								var!(note format!("split bound 0 l{}", term.loc.unwrap_or(Location { line: 0 }).line), Bound(2)),
 								var!(note format!("split bound 1 l{}", term.loc.unwrap_or(Location { line: 0 }).line), Bound(3)),
-								shift(fst_type.clone(), HashSet::new(), 2),
-								shift(snd_type.clone(), HashSet::new(), 2));
+								shift(fst_type.clone(), set![0, 1], 2),
+								shift(snd_type.clone(), set![0, 1], 2));
+						body_discrim.loc = term.loc;
 						body_context = body_context
 							.with_def(
 								Bound(index.as_bound() + 2),
@@ -436,12 +481,13 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 							.update(
 								Bound(index.as_bound() + 2),
 								body_discrim);
-						let type_ann_discrim =
+						let mut type_ann_discrim =
 							new_discrim(
 								var!(fst_var),
 								var!(snd_var),
 								fst_type,
 								snd_type);
+						type_ann_discrim.loc = /*dbg!(*/term.loc/*)*/;
 						type_ann_context = type_ann_context
 							.with_def(
 								*index,
@@ -577,7 +623,7 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 		IndexedElim(ref discrim, ref body) => {
 			let discrim_type = /*dbg!(*/synth_type(discrim, context.clone())/*)*/?;
 		check_d(discrim, discrim_type.clone(), /*dbg!(*/context.clone()/*)*/)?;
-			match *discrim_type.data {
+			let c = match *discrim_type.data {
 				IndexedTypeIntro(type_index, inner_type) => {
 					let mut body_context = context.clone().inc_and_shift(1).with_dec(Bound(0), shift(inner_type.clone(), HashSet::new(), 1));
 					let mut type_ann_context = context;
@@ -615,7 +661,9 @@ pub fn check(term: &Term, exp_type: Term, context: Context) -> CheckResult<()> {
 					println!("{}", display_term(discrim, 0));
 					Err(vec![Error::new_o(unsafe { stack.clone() }, term.loc(), context, ExpectedOfIndexedType { giv_type: discrim_type })])
 				}
-			}
+			};
+			println!("end");
+			c
 		}
 		Postulate(_) => Ok(())
 	}

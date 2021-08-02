@@ -90,7 +90,7 @@ fn run(options: String, source: String) -> Result<(), ()> {
                     Ok(r#type) => r#type,
                     Err(errs) => { println!("CORE TYPE ERROR\n{:#?}", errs); return Err(()); }
                 };
-            // println!("CORE TYPECHECK");
+            println!("CORE TYPECHECK");
             let now = std::time::Instant::now();
             match core::typing::check(&core_module, core_module_type, Context::new()) {
                 Ok(()) => println!("NO CORE ERRORS"),
@@ -101,7 +101,7 @@ fn run(options: String, source: String) -> Result<(), ()> {
                     return Err(())
                 }
             }
-            // println!("END CORE TYPECHECK, TIME {:?}", now.elapsed());
+            println!("END CORE TYPECHECK, TIME {:?}", now.elapsed());
         });
         Ok(())
     } else {

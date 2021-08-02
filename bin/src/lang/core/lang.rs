@@ -226,8 +226,9 @@ impl Term {
     pub fn r#type(&self, context: Context) -> Term {
         use InnerTerm::*;
         use InnerVar::*;
-
-        match &self.type_ann {
+        // println!("{}Start", unsafe{s_d.clone()});
+        // unsafe{s_d.push_str("----")}
+        let t = match &self.type_ann {
             Some(r#type) => normalize(*r#type.clone(), context),
             None =>
                 match *self.data {
@@ -266,7 +267,10 @@ impl Term {
                     },
                     _ => panic!("all terms must be explicitly typed, this term is not:\n{:#?}", self)
                 }
-        }
+        };
+        // unsafe{s_d.pop();s_d.pop();s_d.pop();s_d.pop();}
+        // println!("{}End", unsafe{s_d.clone()});
+        t
     }
 
     pub fn as_indexed_type_intro(&self) -> (usize, &Term) {
@@ -308,6 +312,14 @@ impl Term {
             panic!("FAIL: `as_fun_elim`")
         }
     }
+
+    pub fn as_var(&self) -> InnerVar {
+        if let Var(inner) = &*self.data {
+            *inner
+        } else {
+            Bound(642675723)
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -343,8 +355,12 @@ fn bool_to_tc(it: bool) -> TermComparison {
     }
 }
 
+static mut s_d: String = String::new();
+
 // checks if two terms are equal
 pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: &HashSet<(InnerVar, InnerVar)>) -> TermComparison {
+    // println!("{}Start", unsafe{s_d.clone()});
+    // unsafe{s_d.push_str("----")}
     use InnerTerm::*;/*
     let type_compare =
         match (&type1.type_ann, &type2.type_ann) {
@@ -404,6 +420,8 @@ pub fn is_terms_eq(type1: &Term, type2: &Term, equivs: &HashSet<(InnerVar, Inner
             (Postulate(sym1), Postulate(sym2)) => bool_to_tc(sym1 == sym2),
             _ => False(vec![(type1.clone(), type2.clone())])
         };
+    // unsafe{s_d.pop();s_d.pop();s_d.pop();s_d.pop();}
+    // println!("{}End", unsafe{s_d.clone()});
 
     /*comb(*/data_compare/*, type_compare)*/
 }
@@ -480,8 +498,8 @@ pub fn get_free_vars(term: &Term, bounds: HashSet<InnerVar>) -> HashMap<InnerVar
                     ]),
                 PairIntro(ref fst, ref snd) =>
                     collapse(vec![
-                        inner(fst, bounds.clone()),
-                        inner(snd, bounds)
+                        inner(fst, with(inc_by(bounds.clone(), 2), 1)),
+                        inner(snd, with(inc_by(bounds, 2), 0))
                     ]),
                 PairElim(ref discrim, ref body) =>
                     collapse(vec![

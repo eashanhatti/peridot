@@ -13,7 +13,9 @@ use std::{
     convert::TryInto
 };
 
+static mut n: usize = 0;
 pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
+    // println!("shift {}", unsafe{n+=1;n});
     let shifted_type_ann =
         match term.type_ann {
             Some(r#type) => Some(Box::new(shift(*r#type, bounds.clone(), amount))),
@@ -65,7 +67,19 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
                 };
                 PairTypeIntro(shift(fst_type, fst_type_bounds, amount), shift(snd_type, snd_type_bounds, amount))
             },
-            PairIntro(fst, snd) => PairIntro(shift(fst, bounds.clone(), amount), shift(snd, bounds, amount)),
+            PairIntro(fst, snd) => {
+                let fst_bounds = {
+                    let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 2).collect();
+                    tmp.insert(1);
+                    tmp
+                };
+                let snd_bounds = {
+                    let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 2).collect();
+                    tmp.insert(0);
+                    tmp
+                };
+                PairIntro(shift(fst, fst_bounds.clone(), amount), shift(snd, snd_bounds, amount))
+            },
             PairElim(discrim, body) => {
                 let body_bounds = {
                     let mut tmp: HashSet<usize> = bounds.clone().into_iter().map(|i| i + 2).collect();
@@ -95,12 +109,14 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
             IndexedElim(discrim, body) => IndexedElim(shift(discrim, bounds.clone(), amount), shift(body, inc_bounds(bounds), amount)),
             Postulate(sym) => Postulate(sym)
         };
+    // unsafe{n-=1;}
     let mut new_term = Term::new(Box::new(term_inner), shifted_type_ann);
     new_term.note = term.note;
     new_term
 }
 
 pub fn substitute(term: Term, context: Context) -> Term {
+    // println!("start");
     let substd_type_ann =
         match term.type_ann {
             Some(r#type) => Some(Box::new(substitute(*r#type, context.clone()))),
@@ -140,7 +156,10 @@ pub fn substitute(term: Term, context: Context) -> Term {
                 let snd_type_context = fst_type_context.clone();
                 PairTypeIntro(substitute(fst_type, fst_type_context), substitute(snd_type, snd_type_context))
             },
-            PairIntro(fst, snd) => PairIntro(substitute(fst, context.clone()), substitute(snd, context)),
+            PairIntro(fst, snd) =>
+                PairIntro(
+                    substitute(fst, context.clone().inc_and_shift(2)),
+                    substitute(snd, context.inc_and_shift(2))),
             PairElim(discrim, body) =>
                 PairElim(
                     substitute(discrim, context.clone()),
@@ -165,10 +184,12 @@ pub fn substitute(term: Term, context: Context) -> Term {
         };
     let mut new_term = Term::new(Box::new(term_inner), substd_type_ann);
     new_term.note = term.note;
+    // println!("end");
     new_term
 }
 
 pub fn normalize(term: Term, context: Context) -> Term {
+    // println!("start {}", unsafe{n+=1;n});
     let normal_type_ann =
         match term.type_ann.clone() {
             Some(r#type) => Some(Box::new(normalize(*r#type, context.clone()))),
@@ -225,7 +246,11 @@ pub fn normalize(term: Term, context: Context) -> Term {
                 Box::new(PairTypeIntro(normalize(fst_type, new_context.clone()), normalize(snd_type, new_context))),
                 normal_type_ann)
         },
-        PairIntro(fst, snd) => Term::new(Box::new(PairIntro(normalize(fst, context.clone()), normalize(snd, context))), normal_type_ann),
+        PairIntro(fst, snd) =>
+            Term::new(Box::new(PairIntro(
+                normalize(fst, context.clone().inc_and_shift(2)),
+                normalize(snd, context.inc_and_shift(2)))),
+                normal_type_ann),
         PairElim(discrim, body) => {
             let pre_normal_body = normalize(body, context.clone().inc_and_shift(2));
             let free_vars = get_free_vars(&pre_normal_body, HashSet::new());
@@ -292,7 +317,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
             }
         },
         FoldTypeIntro(inner_type) => Term::new(Box::new(FoldTypeIntro(substitute(inner_type, context))), normal_type_ann),
-        FoldIntro(inner_term) => normalize(inner_term, context),
+        FoldIntro(inner_term) => normalize(inner_term, context), // is this a bug?
         FoldElim(folded_term) => {
             let normal_folded_term = normalize(folded_term, context);
             match *normal_folded_term.data {
@@ -301,7 +326,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
             }
         },
         IndexedTypeIntro(index, inner_type) => Term::new(Box::new(IndexedTypeIntro(index, normalize(inner_type, context))), normal_type_ann),
-        IndexedIntro(inner_term) => normalize(inner_term, context),
+        IndexedIntro(inner_term) => Term::new(Box::new(IndexedIntro(normalize(inner_term, context))), normal_type_ann),
         IndexedElim(discrim, body) => {
             let normal_discrim = normalize(discrim, context.clone());
             match *normal_discrim.data {
@@ -323,5 +348,6 @@ pub fn normalize(term: Term, context: Context) -> Term {
         Postulate(_) => term
     };
     // new_term.note = term_note;
+    // println!("end {}", unsafe{let nn = n; n-=1; nn});
     new_term
 }

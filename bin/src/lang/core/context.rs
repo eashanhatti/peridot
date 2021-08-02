@@ -138,20 +138,20 @@ impl Context {
 
     pub fn update(self, index: InnerVar, val: Term) -> Self {
         Context(
-            self.0.into_iter().map(|(k, v)|
+            self.0.clone().into_iter().map(|(k, v)|
                 (k,
                 ContextEntry {
                     dec: match v.dec {
                         Some(dec) =>
                             Some(normalize(
                                 dec,
-                                Context::new()
+                                /*self.clone()*/Context::new()
                                     .with_def(
-                                        if let (Bound(k_bound), Bound(index_bound)) = (index, k) {
+                                        /*if let (Bound(k_bound), Bound(index_bound)) = (index, k) {
                                             Bound(k_bound + index_bound)
                                         } else {
                                             index
-                                        },
+                                        }*/index,
                                         val.clone()))),
                         None => None
                     },
@@ -159,13 +159,13 @@ impl Context {
                         Some(def) =>
                             Some(normalize(
                                 def,
-                                Context::new()
+                                /*self.clone()*/Context::new()
                                     .with_def(
-                                        if let (Bound(k_bound), Bound(index_bound)) = (index, k) {
+                                        /*if let (Bound(k_bound), Bound(index_bound)) = (index, k) {
                                             Bound(k_bound + index_bound)
                                         } else {
                                             index
-                                        },
+                                        }*/index,
                                         val.clone()))),
                         None => None
                     }})).collect(),
