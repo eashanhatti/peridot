@@ -23,7 +23,8 @@ extern crate assoc_collections;
 use assoc_collections::*;
 
 #[derive(pest_derive::Parser)]
-#[grammar = "C:\\Users\\Eashan\\dev\\clamn\\bin\\src\\pass\\grammar.pest"]
+// TODO: figure out how to get relative file paths to work
+#[grammar = "C:\\Users\\Eashan\\dev\\konna\\bin\\src\\pass\\grammar.pest"]
 struct LangParser;
 
 fn parse_items(mut pair: Pair<Rule>) -> AssocVec<(Name, ItemKind), Item> {
