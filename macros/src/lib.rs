@@ -259,3 +259,14 @@ macro_rules! let_bind {
             None)
     };
 }
+
+#[macro_export]
+macro_rules! set {
+    ($($elem:expr),*) => {
+        {
+            let mut s = HashSet::new();
+            $(s.insert($elem);)*
+            s
+        }
+    };
+}

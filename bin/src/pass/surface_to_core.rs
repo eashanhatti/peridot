@@ -793,43 +793,12 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                                     split_body_type
                             ,: Univ!())
                         ,: Univ!())))
-
-                // let discrim = indexed_elim!(var!(Bound(0)) ,: shift(inner_discrim_type.clone(), HashSet::new(), 1));
-                // fun!(
-                //     split!(
-                //         discrim.clone(),
-                //         in
-                //             split_body
-                //     ,:
-                //         split!(
-                //             discrim.clone(),
-                //             in
-                //                 split_body_type.clone()
-                //         ,: Univ!()))
-                // ,:
-                //     pi!(
-                //         "match pi",
-                //         discrim_type,
-                //         split!(
-                //             discrim,
-                //             in
-                //                 split_body_type.clone()
-                //         ,: Univ!())
-                //     ,: Univ!()))
             },
             CaseTree::Enum(branches) => {
                 let mut core_branches = branches.into_iter().map(|b| lower_body(b)).collect::<Vec<core::Term>>();
                 if core_branches.len() == 1 {
                     let core_branch = core_branches.remove(0);
                     let core_branch_type = core_branch.r#type(Context::new());
-                    // fun!(
-                    //     core_branch
-                    // ,:
-                    //     pi!(
-                    //         "match pi",
-                    //         discrim_type,
-                    //         core_branch_type
-                    //     ,: Univ!()))
                     Box::new(|d: core::Term|
                         indexed_elim!(
                             d.clone(),
@@ -903,14 +872,6 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                                 d,
                                 core_term_type
                             ,: Univ!())))
-                    // fun!(
-                    //     core_term
-                    // ,:
-                    //     pi!(
-                    //         "match pi",
-                    //         discrim_type,
-                    //         core_term_type
-                    //     ,: Univ!()))
                 }
             },
             CaseTree::DoNothing(body) => {
@@ -928,15 +889,6 @@ fn elab_match(discrim: core::Term, discrim_type: core::Term, exp_type: core::Ter
                             ,: Univ!())),
                         d
                     ,: shift(core_body_type, HashSet::new(), -1)))
-                // Box::new(|d: core::Term|
-                //     indexed_elim!(
-                //         d.clone(),
-                //         core_body
-                //     ,:
-                //         indexed_elim!(
-                //             d,
-                //             core_body_type
-                //         ,: Univ!())))
             }
         }
     }

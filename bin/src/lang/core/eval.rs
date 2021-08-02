@@ -13,9 +13,7 @@ use std::{
     convert::TryInto
 };
 
-static mut n: usize = 0;
 pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
-    // println!("shift {}", unsafe{n+=1;n});
     let shifted_type_ann =
         match term.type_ann {
             Some(r#type) => Some(Box::new(shift(*r#type, bounds.clone(), amount))),
@@ -109,14 +107,12 @@ pub fn shift(term: Term, bounds: HashSet<usize>, amount: isize) -> Term {
             IndexedElim(discrim, body) => IndexedElim(shift(discrim, bounds.clone(), amount), shift(body, inc_bounds(bounds), amount)),
             Postulate(sym) => Postulate(sym)
         };
-    // unsafe{n-=1;}
     let mut new_term = Term::new(Box::new(term_inner), shifted_type_ann);
     new_term.note = term.note;
     new_term
 }
 
 pub fn substitute(term: Term, context: Context) -> Term {
-    // println!("start");
     let substd_type_ann =
         match term.type_ann {
             Some(r#type) => Some(Box::new(substitute(*r#type, context.clone()))),
@@ -184,12 +180,10 @@ pub fn substitute(term: Term, context: Context) -> Term {
         };
     let mut new_term = Term::new(Box::new(term_inner), substd_type_ann);
     new_term.note = term.note;
-    // println!("end");
     new_term
 }
 
 pub fn normalize(term: Term, context: Context) -> Term {
-    // println!("start {}", unsafe{n+=1;n});
     let normal_type_ann =
         match term.type_ann.clone() {
             Some(r#type) => Some(Box::new(normalize(*r#type, context.clone()))),
@@ -197,7 +191,7 @@ pub fn normalize(term: Term, context: Context) -> Term {
         };
     let term_note = term.note.clone();
 
-    let mut new_term = match *term.data {
+    let new_term = match *term.data {
         Var(index) => context.get_def(index).unwrap_or(term),
         Rec(inner_term) => {
             let new_context = context.clone().inc_and_shift(1).with_def(Bound(0), Term::new(Box::new(Rec(inner_term.clone())), term.type_ann.clone())).shift(1);
@@ -348,6 +342,5 @@ pub fn normalize(term: Term, context: Context) -> Term {
         Postulate(_) => term
     };
     // new_term.note = term_note;
-    // println!("end {}", unsafe{let nn = n; n-=1; nn});
     new_term
 }
