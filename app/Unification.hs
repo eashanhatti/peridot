@@ -7,6 +7,7 @@ import Var
 
 -- FIXME
 data UnifyError = InvalidSpine | OccursCheck | EscapingVar | Mismatch
+  deriving Show
 
 type Unify a = Either UnifyError a
 
@@ -91,10 +92,12 @@ getVty metas lv val = case val of
 lams :: Level -> [C.Term] -> C.Term -> C.Term
 lams lv ttys trm = go (Level 0) ttys
   where
-    go lv' (tty:ttys) =
-      if lv == lv'
-      then trm
-      else C.FunIntro (go (Level $ unLevel lv' + 1) ttys) tty  
+    go lv' ttys = case ttys of
+      (tty:ttys) ->
+        if lv == lv'
+        then trm
+        else C.FunIntro (go (Level $ unLevel lv' + 1) ttys) tty  
+      [] | lv == lv' -> trm
 
 solve :: E.Metas -> Level -> Global -> E.Spine -> E.Value -> Unify E.Value
 solve metas gamma gl spine rhs = do
@@ -103,7 +106,12 @@ solve metas gamma gl spine rhs = do
   Right $ E.eval metas [] (lams (domain pren) (map (getTty metas (domain pren)) spine) rhs)
 
 unifySpines :: E.Metas -> Level -> E.Spine -> E.Spine -> Unify E.Metas
-unifySpines = undefined
+unifySpines metas lv spine spine' = case (spine, spine') of
+  (arg:spine, arg':spine') -> do
+    metas <- unifySpines metas lv spine spine'
+    unify metas lv arg arg'
+  ([], []) -> Right metas
+  _ -> Left Mismatch
 
 unify :: E.Metas -> Level -> E.Value -> E.Value -> Unify E.Metas
 unify metas lv val val' = case (E.force metas val, E.force metas val') of
