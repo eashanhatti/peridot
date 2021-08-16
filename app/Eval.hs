@@ -1,3 +1,6 @@
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE PatternGuards #-}
+
 module Eval where
 
 import Var
@@ -86,6 +89,6 @@ readback :: Metas -> Level -> Value -> C.Term
 readback metas lv val = case force metas val of
   StuckFlexVar vty gl spine -> readbackSpine metas lv (C.Meta gl (readback metas lv vty)) spine
   StuckRigidVar vty lv' spine -> readbackSpine metas lv (C.Var (lvToIx lv lv') (readback metas lv vty)) spine
-  FunIntro body vty@(FunType inTy _) -> C.FunIntro (readback metas (incLevel lv) (appClosure metas body (StuckRigidVar inTy lv []))) (readback metas lv vty)
-  FunType inTy outTy -> C.FunType (readback metas lv inTy) (readback metas (incLevel lv) (appClosure metas outTy (StuckRigidVar inTy lv [])))
+  FunIntro body vty@(FunType inTy _) -> C.FunIntro (readback metas (Level $ unLevel lv + 1) (appClosure metas body (StuckRigidVar inTy lv []))) (readback metas lv vty)
+  FunType inTy outTy -> C.FunType (readback metas lv inTy) (readback metas (Level $ unLevel lv + 1) (appClosure metas outTy (StuckRigidVar inTy lv [])))
   TypeType -> C.TypeType

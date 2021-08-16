@@ -18,3 +18,4 @@ data Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
   deriving Show
+  
