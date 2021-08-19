@@ -22,14 +22,3 @@ data Term
   | InsertedMeta [BinderInfo] Global Type
   | ElabError
   deriving Show
-
--- data TermPath
---   = Top
---   | FunIntroBody TermPath Type
---   | FunIntroType Term TermPath
---   | FunTypeIn TermPath Term
---   | FunTypeOut Term TermPath 
---   | FunElimLam TermPath Term
---   | FunElimArg Term TermPath
---   | LetDef TermPath Term
---   | LetBody Term TermPath

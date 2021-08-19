@@ -4,6 +4,7 @@ import qualified Core as C
 import qualified Eval as E
 import qualified Surface as S
 import qualified Elaboration as Elab
+import Parsing
 
 prog :: S.Term
 prog =
@@ -13,4 +14,10 @@ ty :: E.Value
 ty = E.FunType E.TypeType (E.Closure [] C.TypeType)
 
 main :: IO ()
-main = putStrLn $ show $ fst $ Elab.elab prog ty
+main = do
+  file <- readFile "source.kon"
+  case parseTerm file of
+    Right term -> do
+      -- putStrLn $ show term
+      putStrLn $ show $ Elab.elab term E.TypeType
+    Left err -> putStrLn $ show err

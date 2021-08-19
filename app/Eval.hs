@@ -56,6 +56,7 @@ vAppBis metas locals val bis = case (locals, bis) of
   (local:locals, C.Abstract:bis) -> vApp metas (vAppBis metas locals val bis) local
   (_:locals, C.Concrete:bis) -> vAppBis metas locals val bis
   ([], []) -> val
+  _ -> error ("impossible\n" ++ show locals ++ "\n" ++ show bis)
 
 vMeta :: Metas -> Global -> Type -> Value
 vMeta metas gl vty = case fromJust $ Map.lookup gl metas of
@@ -72,6 +73,7 @@ eval metas locals trm = case trm of
   C.Let def _ body -> eval metas ((eval metas locals def):locals) body
   C.Meta gl tty -> vMeta metas gl (eval metas locals tty)
   C.InsertedMeta bis gl tty -> vAppBis metas locals (vMeta metas gl (eval metas locals tty)) bis
+  C.ElabError -> ElabError
 
 force :: Metas -> Value -> Value
 force metas val = case val of
@@ -93,3 +95,4 @@ readback metas lv val = case force metas val of
   FunIntro body vty@(FunType inTy _) -> C.FunIntro (readback metas (Level $ unLevel lv + 1) (appClosure metas body (StuckRigidVar inTy lv []))) (readback metas lv vty)
   FunType inTy outTy -> C.FunType (readback metas lv inTy) (readback metas (Level $ unLevel lv + 1) (appClosure metas outTy (StuckRigidVar inTy lv [])))
   TypeType -> C.TypeType
+  ElabError -> C.ElabError

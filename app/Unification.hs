@@ -90,6 +90,7 @@ rename metas gl pren rhs = go pren rhs
         outTyTrm <- go (lift pren) (E.appClosure metas outTy (E.StuckRigidVar inTy (codomain pren) []))
         Right $ C.FunType inTyTrm outTyTrm
       E.TypeType -> Right C.TypeType
+      E.ElabError -> Right C.ElabError
 
 getTtySpine :: E.Metas -> Level -> E.Type -> E.Spine -> C.Term
 getTtySpine metas lv vty spine = case (vty, spine) of
