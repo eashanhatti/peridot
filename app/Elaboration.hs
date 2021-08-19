@@ -137,7 +137,7 @@ scope :: Elab a -> Elab a
 scope act = do
   state <- get
   let (a, s) = runState act state
-  put $ state { metas = metas s, errors = errors s }
+  put $ state { metas = metas s, errors = errors s, nextMeta = nextMeta s, nextName = nextName s }
   pure a
 
 setspan :: S.Span -> Elab ()

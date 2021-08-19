@@ -60,7 +60,7 @@ pApp = do
   args <- pPrec0 `sepBy1` ws
   pure $ app lam args
   where
-    app lam args = case args of
+    app lam args = case reverse args of
       (arg:args) -> App (app lam args) arg
       [] -> lam
 
