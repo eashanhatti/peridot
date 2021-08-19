@@ -26,6 +26,7 @@ data Value
   | FunIntro Closure Type
   | FunType Type Closure
   | TypeType
+  | ElabError
   deriving Show
 
 data Neutral
@@ -68,7 +69,7 @@ eval metas locals trm = case trm of
   C.FunIntro body tty -> FunIntro (Closure locals body) (eval metas locals tty)
   C.FunType inTy outTy -> FunType (eval metas locals inTy) (Closure locals outTy)
   C.FunElim lam arg -> vApp metas (eval metas locals lam) (eval metas locals arg)
-  C.Let def body -> eval metas ((eval metas locals def):locals) body
+  C.Let def _ body -> eval metas ((eval metas locals def):locals) body
   C.Meta gl tty -> vMeta metas gl (eval metas locals tty)
   C.InsertedMeta bis gl tty -> vAppBis metas locals (vMeta metas gl (eval metas locals tty)) bis
 

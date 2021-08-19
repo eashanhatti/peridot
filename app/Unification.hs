@@ -14,19 +14,17 @@ import Control.Monad.State(State, get, put)
 data Error = InvalidSpine | OccursCheck | EscapingVar | Mismatch
   deriving Show
 
-type UnsolvedProblem = (Level, Error, E.Value, E.Value)
-
-type Unify a = State (E.Metas, [UnsolvedProblem]) a
+type Unify a = State (E.Metas, [Error]) a
 
 putSolution :: Global -> E.Value -> Unify ()
 putSolution gl sol = do
   (metas, probs) <- get
   put (Map.insert gl (E.Solved sol) metas, probs)
 
-putProblem :: UnsolvedProblem -> Unify ()
-putProblem prob = do
-  (metas, probs) <- get
-  put (metas, prob:probs)
+putError :: Error -> Unify ()
+putError err = do
+  (metas, errors) <- get
+  put (metas, err:errors)
 
 force :: E.Value -> Unify E.Value
 force val = do
@@ -44,7 +42,10 @@ data PartialRenaming = PartialRenaming
   , ren :: Map.Map Level Level }
 
 lift :: PartialRenaming -> PartialRenaming
-lift pren = undefined
+lift pren = PartialRenaming
+  (Level $ unLevel (domain pren) + 1)
+  (Level $ unLevel (codomain pren) + 1)
+  (Map.insert (codomain pren) (domain pren) (ren pren))
 
 invert :: E.Metas -> Level -> E.Spine -> Either Error PartialRenaming
 invert metas gamma spine = do
@@ -126,8 +127,8 @@ lams lv ttys trm = go (Level 0) ttys
           let (tty, ttys) = fromJust $ uncons ttys
           in C.FunIntro (go (Level $ unLevel lv' + 1) ttys) tty
 
-solve :: Level -> Global -> E.Spine -> E.Value -> E.Value -> E.Value -> Unify ()
-solve gamma gl spine rhs val val' = do
+solve :: Level -> Global -> E.Spine -> E.Value -> Unify ()
+solve gamma gl spine rhs= do
   metas <- getMetas
   case invert metas gamma spine of
     Right pren ->
@@ -135,16 +136,16 @@ solve gamma gl spine rhs val val' = do
         Right rhs -> do
           let solution = E.eval metas [] (lams (domain pren) (map (getTty metas (domain pren)) spine) rhs)
           putSolution gl solution
-        Left err -> putProblem (gamma, err, val, val')
-    Left err -> putProblem (gamma, err, val, val')
+        Left err -> putError err
+    Left err -> putError err
 
-unifySpines :: Level -> E.Spine -> E.Spine -> E.Value -> E.Value -> Unify ()
-unifySpines lv spine spine' val val' = case (spine, spine') of
+unifySpines :: Level -> E.Spine -> E.Spine-> Unify ()
+unifySpines lv spine spine'= case (spine, spine') of
   (arg:spine, arg':spine') -> do
-    unifySpines lv spine spine' val val'
+    unifySpines lv spine spine'
     unify lv arg arg'
   ([], []) -> pure ()
-  _ -> putProblem (lv, InvalidSpine, val, val')
+  _ -> putError InvalidSpine
 
 unify :: Level -> E.Value -> E.Value -> Unify ()
 unify lv val val' = do
@@ -171,11 +172,13 @@ unify lv val val' = do
       unify (incLevel lv) (E.appClosure metas outTy (E.StuckRigidVar inTy lv [])) (E.appClosure metas outTy' (E.StuckRigidVar inTy' lv []))
     (E.StuckRigidVar vty rlv spine, E.StuckRigidVar vty' rlv' spine') | rlv == rlv' -> do
       unify lv vty vty'
-      unifySpines lv spine spine' val val'
+      unifySpines lv spine spine'
     (E.StuckFlexVar vty gl spine, E.StuckFlexVar vty' gl' spine') | gl == gl' -> do
       unify lv vty vty'
-      unifySpines lv spine spine' val val'
+      unifySpines lv spine spine
     -- FIXME? Unify types
-    (val, E.StuckFlexVar _ gl spine) -> solve lv gl spine val val val'
-    (E.StuckFlexVar _ gl spine, val') -> solve lv gl spine val' val val'
-    _ -> putProblem (lv, Mismatch, val, val')
+    (val, E.StuckFlexVar _ gl spine) -> solve lv gl spine val
+    (E.StuckFlexVar _ gl spine, val') -> solve lv gl spine val'
+    (E.ElabError, _) -> pure ()
+    (_, E.ElabError) -> pure ()
+    _ -> putError Mismatch

@@ -4,7 +4,7 @@ data Span = Span Int Int
   deriving Show
 
 data Name = Name String
-  deriving Show
+  deriving (Show, Eq, Ord)
 
 data Term
   = Spanned Term Span
