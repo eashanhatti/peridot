@@ -12,6 +12,7 @@ import qualified Core as C
 import Var
 import Control.Monad.State(State, get, put, runState)
 import Control.Monad(forM_)
+import Text.Parsec.Pos(newPos)
 
 data Error = UnboundName S.Name | UnifyError U.Error
   deriving Show
@@ -19,7 +20,7 @@ data Error = UnboundName S.Name | UnifyError U.Error
 data ElabState = ElabState
   { metas :: E.Metas
   , nextMeta :: Int
-  , errors :: [Error]
+  , errors :: [(S.Span, Error)]
   , locals :: E.Locals
   , ltypes :: Map.Map S.Name (E.Value, Index)
   , level :: Level
@@ -31,7 +32,7 @@ data ElabState = ElabState
 type Elab a = State ElabState a
 
 elab :: S.Term -> E.Value -> (C.Term, ElabState)
-elab term goal = runState (check term goal) (ElabState Map.empty 0 [] [] Map.empty (Level 0) (S.Span 0 0) [] 0)
+elab term goal = runState (check term goal) (ElabState Map.empty 0 [] [] Map.empty (Level 0) (S.Span (newPos "a" 0 0) (newPos "a" 0 0)) [] 0)
 
 check :: S.Term -> E.Value -> Elab C.Term
 check term goal = do
@@ -101,7 +102,8 @@ infer term = scope $ case term of
         unify lamTy (E.FunType vInTy vOutTy)
         pure (vInTy, vOutTy)
     cArg <- check arg inTy
-    retTy <- appClosure outTy inTy
+    vArg <- eval cArg
+    retTy <- evalClosure outTy vArg
     pure (C.FunElim cLam cArg, retTy)
   S.Universe -> pure (C.TypeType, E.TypeType)
   S.Pi name inTy outTy -> do
@@ -130,7 +132,7 @@ force val = do
   state <- get
   pure $ E.force (metas state) val
 
--- TODO: better name
+-- FIXME: better name
 scope :: Elab a -> Elab a
 scope act = do
   state <- get
@@ -170,6 +172,12 @@ appClosure :: E.Closure -> E.Value -> Elab E.Value
 appClosure closure ty = do
   state <- get
   pure $ E.appClosure (metas state) closure (E.StuckRigidVar ty (level state) [])
+
+-- FIXME: better name
+evalClosure :: E.Closure -> E.Value -> Elab E.Value
+evalClosure closure def = do
+  state <- get
+  pure $ E.appClosure (metas state) closure def
 
 closeValue :: E.Value -> Elab E.Closure
 closeValue value = do
@@ -212,7 +220,7 @@ unify val val' = do
 putError :: Error -> Elab ()
 putError err = do
   state <- get
-  put $ state { errors = err:(errors state) }
+  put $ state { errors = (sourceSpan state, err):(errors state) }
 
 freshName :: String -> Elab S.Name
 freshName base = do

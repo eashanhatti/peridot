@@ -6,7 +6,7 @@ import Surface
 type Parser = Parsec String ()
 
 parseTerm :: String -> Either ParseError Term
-parseTerm = parse (do { term <- pPrec2; eof; pure term }) "<error>"
+parseTerm = parse (do { term <- pPrec2; eof; pure term }) ""
 
 ws :: Parser ()
 ws = do
@@ -32,7 +32,11 @@ pName = do
   else pure $ Name name
 
 pPrec2 :: Parser Term
-pPrec2 = try pAnn <|> pPrec1
+pPrec2 = do
+  pos1 <- getPosition
+  term <- try pAnn <|> pPrec1
+  pos2 <- getPosition
+  pure $ Spanned term (Span pos1 pos2)
 
 pPrec1:: Parser Term
 pPrec1 = try pApp <|> pPrec0

@@ -19,5 +19,7 @@ main = do
   case parseTerm file of
     Right term -> do
       -- putStrLn $ show term
-      putStrLn $ show $ Elab.elab term E.TypeType
+      let (cTerm, state) = Elab.elab term E.TypeType
+      putStrLn $ show cTerm
+      putStrLn $ show state
     Left err -> putStrLn $ show err

@@ -1,2 +1,2 @@
 let id : (A : ?) -> (x : A) -> A
-	= \A => \x => x in id
+	= \A => \x => x in (id Type Type)

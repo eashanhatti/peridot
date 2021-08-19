@@ -11,7 +11,7 @@ import Data.Maybe(fromJust)
 import Control.Monad.State(State, get, put)
 
 -- FIXME
-data Error = InvalidSpine | OccursCheck | EscapingVar | Mismatch
+data Error = InvalidSpine | OccursCheck | EscapingVar | Mismatch E.Value E.Value
   deriving Show
 
 type Unify a = State (E.Metas, [Error]) a
@@ -182,4 +182,4 @@ unify lv val val' = do
     (E.StuckFlexVar _ gl spine, val') -> solve lv gl spine val'
     (E.ElabError, _) -> pure ()
     (_, E.ElabError) -> pure ()
-    _ -> putError Mismatch
+    _ -> putError $ Mismatch val val'
