@@ -44,6 +44,11 @@ check term goal = do
     (S.Spanned term' ssp, _) -> do
       setspan ssp
       check term' goal
+    (S.Ann term' ty, _) -> do
+      cTy <- check ty E.TypeType
+      vTy <- eval cTy
+      unify goal vTy
+      check term' vTy
     (S.Lam name body, (E.FunType inTy outTy)) -> do
       vOutTy <- appClosure outTy inTy
       bind name inTy
@@ -70,6 +75,11 @@ infer term = scope $ case term of
   S.Spanned term' ssp -> do
     setspan ssp
     infer term'
+  S.Ann term' ty -> do
+    cTy <- check ty E.TypeType
+    vTy <- eval cTy
+    cTerm' <- check term' vTy
+    pure (cTerm', vTy)
   S.Var name -> do
     entry <- localType name
     case entry of

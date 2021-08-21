@@ -18,6 +18,7 @@ ty = E.FunType E.TypeType (E.Closure [] C.TypeType)
 main :: IO ()
 main = do
   file <- readFile "source.kon"
+  putStrLn "Start parsing"
   let t = parseTerm file
   putStrLn "Done parsing"
   case t of
