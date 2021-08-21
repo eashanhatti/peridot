@@ -7,6 +7,7 @@ import Var
 import qualified Core as C
 import qualified Data.Map as Map
 import Data.Maybe(fromJust)
+import Debug.Trace
 
 data MetaEntry = Solved Value | Unsolved
   deriving Show
@@ -55,7 +56,7 @@ vAppBis :: Metas -> Locals -> Value -> [C.BinderInfo] -> Value
 vAppBis metas locals val bis = case (locals, bis) of
   (local:locals, C.Abstract:bis) -> vApp metas (vAppBis metas locals val bis) local
   (_:locals, C.Concrete:bis) -> vAppBis metas locals val bis
-  ([], []) -> val
+  (_, []) -> val
   _ -> error ("impossible\n" ++ show locals ++ "\n" ++ show bis)
 
 vMeta :: Metas -> Global -> Type -> Value
@@ -65,7 +66,7 @@ vMeta metas gl vty = case fromJust $ Map.lookup gl metas of
 
 eval :: Metas -> Locals -> C.Term -> Value
 eval metas locals trm = case trm of
-  C.Var ix _ -> locals !! unIndex ix
+  C.Var ix _ -> locals !! unIndex ix -- FIXME? should be `reverse locals`
   C.TypeType -> TypeType
   C.FunIntro body tty -> FunIntro (Closure locals body) (eval metas locals tty)
   C.FunType inTy outTy -> FunType (eval metas locals inTy) (Closure locals outTy)

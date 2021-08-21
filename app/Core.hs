@@ -40,7 +40,7 @@ showTerm showTys term = case term of
       "\\" ++ show body ++ ""
   FunType inTy outTy -> show inTy ++ " -> " ++ show outTy
   FunElim lam arg -> "(" ++ show lam ++ " " ++ show arg ++ ")"
-  Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in " ++ show body
+  Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in\n" ++ show body
   Meta gl ty ->
     if showTys then
       "(?" ++ show (unGlobal gl) ++ " : " ++ show ty ++ ")"

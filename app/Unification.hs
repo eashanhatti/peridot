@@ -129,7 +129,7 @@ lams lv ttys trm = go (Level 0) ttys
           in C.FunIntro (go (Level $ unLevel lv' + 1) ttys) tty
 
 solve :: Level -> Global -> E.Spine -> E.Value -> Unify ()
-solve gamma gl spine rhs= do
+solve gamma gl spine rhs = do
   metas <- getMetas
   case invert metas gamma spine of
     Right pren ->

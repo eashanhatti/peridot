@@ -1,0 +1,5 @@
+Add `Ann` to `check` and `infer`
+
+eval var: Levels vs indices?
+
+vAppBis: Is `(_, [])` correct?

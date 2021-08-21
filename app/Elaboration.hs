@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Elaboration where
 
@@ -13,6 +14,7 @@ import Var
 import Control.Monad.State(State, get, put, runState)
 import Control.Monad(forM_)
 import Text.Parsec.Pos(newPos)
+import Debug.Trace
 
 data Error = UnboundName S.Name | UnifyError U.Error
   deriving Show
@@ -43,7 +45,7 @@ check term goal = do
       setspan ssp
       check term' goal
     (S.Lam name body, (E.FunType inTy outTy)) -> do
-      vOutTy <- scope $ appClosure outTy inTy
+      vOutTy <- appClosure outTy inTy
       bind name inTy
       cBody <- check body vOutTy
       pure $ C.FunIntro cBody cGoal
@@ -81,30 +83,56 @@ infer term = scope $ case term of
     -- TODO: reduce `<-` clutter
     cMeta <- freshMeta C.TypeType
     vMeta <- eval cMeta
-    bind name vMeta
-    (cBody, vBodyTy) <- infer body
+    (cBody, vBodyTy) <- {-scope-} do
+      bind name vMeta
+      infer body
     closure <- closeValue vBodyTy
     cBodyTy <- readback vBodyTy
     let ty = E.FunType vMeta closure
     pure (C.FunIntro cBody (C.FunType cMeta cBodyTy), ty)
   S.App lam arg -> do
+    state <- get
     (cLam, lamTy) <- infer lam
     lamTy <- force lamTy
-    (inTy, outTy) <- case lamTy of
-      E.FunType inTy outTy -> pure (inTy, outTy)
-      _ -> scope $ do
+    (cArg, inTy, outTy) <- scope $ case lamTy of
+      E.FunType inTy outTy -> do
+        cArg <- check arg inTy
+        vArg <- eval cArg
+        outTy <- evalClosure outTy vArg
+        pure (cArg, inTy, outTy) 
+      _ -> do
         inTy <- freshMeta C.TypeType
         vInTy <- eval inTy
+        cArg <- check arg vInTy
+        vArg <- eval cArg
         name <- freshName "x"
-        bind name vInTy
-        outTy <- freshMeta C.TypeType
-        vOutTy <- closeTerm outTy
-        unify lamTy (E.FunType vInTy vOutTy)
-        pure (vInTy, vOutTy)
-    cArg <- check arg inTy
-    vArg <- eval cArg
-    retTy <- evalClosure outTy vArg
-    pure (C.FunElim cLam cArg, retTy)
+        -- define name vArg inTy
+        outTy <- scope $ do
+          bind name vInTy
+          freshMeta C.TypeType
+        vOutTyClo <- closeTerm outTy
+        unify lamTy (E.FunType vInTy vOutTyClo)
+        define name vArg vInTy
+        vOutTy <- eval outTy
+        pure (cArg, vInTy, vOutTy)
+    pure (C.FunElim cLam cArg, outTy)
+    -- (cLam, lamTy) <- infer lam
+    -- lamTy <- force lamTy
+    -- (inTy, outTy) <- case lamTy of
+    --   E.FunType inTy outTy -> pure (inTy, outTy)
+    --   _ -> do
+    --     inTy <- freshMeta C.TypeType
+    --     vInTy <- eval inTy
+    --     name <- freshName "x"
+    --     bind name vInTy
+    --     outTy <- freshMeta C.TypeType
+    --     vOutTy <- closeTerm outTy
+    --     unify lamTy (E.FunType vInTy vOutTy)
+    --     pure (vInTy, vOutTy)
+    -- cArg <- check arg inTy
+    -- vArg <- eval cArg
+    -- retTy <- evalClosure outTy vArg
+    -- pure (C.FunElim cLam cArg, retTy)
   S.Universe -> pure (C.TypeType, E.TypeType)
   S.Pi name inTy outTy -> do
     cInTy <- check inTy E.TypeType

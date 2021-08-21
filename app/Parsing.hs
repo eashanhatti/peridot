@@ -6,7 +6,7 @@ import Surface
 type Parser = Parsec String ()
 
 parseTerm :: String -> Either ParseError Term
-parseTerm = parse (do { term <- pPrec2; eof; pure term }) ""
+parseTerm = parse (do { term <- pPrec3; eof; pure term }) ""
 
 ws :: Parser ()
 ws = do
@@ -17,7 +17,7 @@ pParens :: Parser Term
 pParens = do
   char '('
   optional ws
-  term <- try pPrec2 <|> try pPrec1 <|> pPrec0
+  term <- try pPrec3 <|> try pPrec2 <|> try pPrec1 <|> pPrec0
   optional ws
   char ')'
   pure term
@@ -31,6 +31,13 @@ pName = do
   then unexpected "keyword"
   else pure $ Name name
 
+pPrec3 :: Parser Term
+pPrec3 = do
+  pos1 <- getPosition
+  term <- try pArrow <|> pPrec2
+  pos2 <- getPosition
+  pure $ Spanned term (Span pos1 pos2)
+
 pPrec2 :: Parser Term
 pPrec2 = do
   pos1 <- getPosition
@@ -39,10 +46,27 @@ pPrec2 = do
   pure $ Spanned term (Span pos1 pos2)
 
 pPrec1:: Parser Term
-pPrec1 = try pApp <|> pPrec0
+pPrec1 = do
+  pos1 <- getPosition
+  term <- try pApp <|> pPrec0
+  pos2 <- getPosition
+  pure $ Spanned term (Span pos1 pos2)
 
 pPrec0 :: Parser Term
-pPrec0 = try pVar <|> try pLam <|> try pPi <|> try pLet <|> try pUniverse <|> try pHole <|> pParens
+pPrec0 = do
+  pos1 <- getPosition
+  term <- try pVar <|> try pLam <|> try pPi <|> try pLet <|> try pUniverse <|> try pHole <|> pParens
+  pos2 <- getPosition
+  pure $ Spanned term (Span pos1 pos2)
+
+pArrow :: Parser Term
+pArrow = do
+  inTy <- pPrec2
+  optional ws
+  string "->"
+  optional ws
+  outTy <- pPrec3
+  pure $ Pi (Name "_") inTy outTy
 
 pAnn :: Parser Term
 pAnn = do
@@ -77,7 +101,7 @@ pLam = do
   optional ws
   string "=>"
   optional ws
-  body <- pPrec2
+  body <- pPrec3
   pure $ Lam name body
 
 pPi :: Parser Term
@@ -88,13 +112,13 @@ pPi = do
   optional ws
   char ':'
   optional ws
-  inTy <- pPrec2
+  inTy <- pPrec3
   optional ws
   char ')'
   optional ws
   string "->"
   optional ws
-  outTy <- pPrec2
+  outTy <- pPrec3
   pure $ Pi name inTy outTy
 
 pLet :: Parser Term
@@ -105,15 +129,15 @@ pLet = do
   ws
   char ':'
   ws
-  ty <- pPrec2
+  ty <- pPrec3
   ws
   char '='
   ws
-  def <- pPrec2
+  def <- pPrec3
   ws
   string "in"
   ws
-  body <- pPrec2
+  body <- pPrec3
   pure $ Let name def ty body
 
 pUniverse :: Parser Term
