@@ -13,7 +13,6 @@ import qualified Core as C
 import Var
 import Control.Monad.State(State, get, put, runState)
 import Control.Monad(forM_)
-import Text.Parsec.Pos(newPos)
 import Debug.Trace
 
 data Error = UnboundName S.Name | UnifyError U.Error
@@ -34,7 +33,7 @@ data ElabState = ElabState
 type Elab a = State ElabState a
 
 elab :: S.Term -> E.Value -> (C.Term, ElabState)
-elab term goal = runState (check term goal) (ElabState Map.empty 0 [] [] Map.empty (Level 0) (S.Span (newPos "a" 0 0) (newPos "a" 0 0)) [] 0)
+elab term goal = runState (check term goal) (ElabState Map.empty 0 [] [] Map.empty (Level 0) S.Span [] 0)
 
 check :: S.Term -> E.Value -> Elab C.Term
 check term goal = do

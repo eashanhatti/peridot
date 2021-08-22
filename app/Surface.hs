@@ -1,8 +1,6 @@
 module Surface where
 
-import Text.Parsec
-
-data Span = Span SourcePos SourcePos
+data Span = Span
   deriving Show
 
 data Name = Name String

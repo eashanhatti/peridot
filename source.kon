@@ -1,2 +1,5 @@
-let x : ? = \x => x in
-x Type
+let Bool : Type = (B : Type) -> B -> B -> B in
+let true : Bool = \B => \t => \f => t in
+let false : Bool = \B => \t => \f => f in
+let not : Bool -> Bool = \b => \B => \t => \f => b(B)(f)(t) in
+Type
