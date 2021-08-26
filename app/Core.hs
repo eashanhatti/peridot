@@ -11,12 +11,19 @@ type Type = Term
 data HoleName = HoleName Int
   deriving Show
 
+data Stage = R | C | T
+  deriving (Show, Eq)
+
 data Term
   = Var Index Type
   | TypeType
   | FunIntro Term Type
   | FunType Term Term
   | FunElim Term Term
+  -- Explicit `Stage` to make type inference unnecessary
+  | StagedIntro Term Type Stage
+  | StagedType Term Stage
+  | StagedElim Term Term Stage
   | Let Term Term Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
