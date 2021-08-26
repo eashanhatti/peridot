@@ -19,7 +19,7 @@ import Control.Monad(ap, liftM)
 data Error = InvalidSpine | OccursCheck | EscapingVar | Mismatch E.Value E.Value
   deriving Show
 
-newtype Unify a = Unify { runUnify :: State (E.Metas, [Error]) a }
+newtype Unify a = Unify (State (E.Metas, [Error]) a)
 
 instance Functor Unify where
   fmap = liftM
@@ -41,6 +41,9 @@ get = Unify $ state $ \s -> (s, s)
 
 put :: (E.Metas, [Error]) -> Unify ()
 put s = Unify $ state $ \_ -> ((), s)
+
+runUnify :: Unify a -> (E.Metas, [Error]) -> (a, (E.Metas, [Error]))
+runUnify (Unify act) s = runState act s
 
 runNorm :: E.Norm a -> Unify a
 runNorm act = do

@@ -13,6 +13,7 @@ import qualified Core as C
 import Var
 import Control.Monad.State(State, get, put, runState)
 import Control.Monad(forM_)
+import Control.Monad.Reader(runReader)
 import Debug.Trace
 
 data Error = UnboundName S.Name | UnifyError U.Error
@@ -164,15 +165,15 @@ infer term = scope $ case term of
     cTermMeta <- freshMeta cTypeMeta
     pure (cTermMeta, vTypeMeta)
 
-runNorm -> E.Norm a -> Elab a
+runNorm :: E.Norm a -> Elab a
 runNorm act = do
   state <- get
-  undefined
+  pure $ runReader act (metas state, C.T, locals state)
 
 force :: E.Value -> Elab E.Value
 force val = do
   state <- get
-  pure $ E.force (metas state) val
+  runNorm $ E.force val
 
 -- FIXME: better name
 scope :: Elab a -> Elab a
@@ -213,13 +214,13 @@ localType name = do
 appClosure :: E.Closure -> E.Value -> Elab E.Value
 appClosure closure ty = do
   state <- get
-  pure $ E.appClosure (metas state) closure (E.StuckRigidVar ty (level state) [])
+  runNorm $ E.appClosure closure (E.StuckRigidVar ty (level state) [])
 
 -- FIXME: better name
 evalClosure :: E.Closure -> E.Value -> Elab E.Value
 evalClosure closure def = do
   state <- get
-  pure $ E.appClosure (metas state) closure def
+  runNorm $ E.appClosure closure def
 
 closeValue :: E.Value -> Elab E.Closure
 closeValue value = do
@@ -235,12 +236,12 @@ closeTerm term = do
 readback :: E.Value -> Elab C.Term
 readback val = do
   state <- get
-  pure $ E.readback (metas state) (level state) val
+  runNorm $ E.readback (level state) val
 
 eval :: C.Term -> Elab E.Value
 eval term = do
   state <- get
-  pure $ E.eval (metas state) (locals state) term
+  runNorm $ E.eval term
 
 freshMeta :: C.Term -> Elab C.Term
 freshMeta ty = do
@@ -254,7 +255,7 @@ freshMeta ty = do
 unify :: E.Value -> E.Value -> Elab ()
 unify val val' = do
   state <- get
-  let ((), (newMetas, newErrors)) = runState (U.unify (level state) val val') (metas state, [])
+  let ((), (newMetas, newErrors)) = U.runUnify (U.unify (level state) val val') (metas state, [])
   case newErrors of
     [] -> put $ state { metas = newMetas }
     _ -> forM_ (map UnifyError newErrors) putError
