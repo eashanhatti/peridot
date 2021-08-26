@@ -35,7 +35,7 @@ Prec2
   | Prec1                                 { $1 }
 
 Prec1
-  : Prec1 '(' Prec3 ')'                   { App $1 $3 }
+  : Prec1 Prec0                           { App $1 $2 }
   | Prec0                                 { $1 }
 
 Prec0
