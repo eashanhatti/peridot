@@ -1,7 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE BangPatterns #-}
+-- {-# OPTIONS_GHC -fdefer-type-errors #-}
 
 module Elaboration where
 
@@ -163,6 +163,11 @@ infer term = scope $ case term of
     vTypeMeta <- eval cTypeMeta
     cTermMeta <- freshMeta cTypeMeta
     pure (cTermMeta, vTypeMeta)
+
+runNorm -> E.Norm a -> Elab a
+runNorm act = do
+  state <- get
+  undefined
 
 force :: E.Value -> Elab E.Value
 force val = do
