@@ -21,6 +21,7 @@ data Error = UnboundName S.Name | UnifyError U.Error
 
 data ElabState = ElabState
   { metas :: E.Metas
+  , stageMetas :: E.StageMetas
   , nextMeta :: Int
   , errors :: [(S.Span, Error)]
   , locals :: E.Locals
@@ -34,7 +35,7 @@ data ElabState = ElabState
 type Elab a = State ElabState a
 
 elab :: S.Term -> E.Value -> (C.Term, ElabState)
-elab term goal = runState (check term goal) (ElabState Map.empty 0 [] [] Map.empty (Level 0) S.Span [] 0)
+elab term goal = runState (check term goal) (ElabState Map.empty Map.empty 0 [] [] Map.empty (Level 0) S.Span [] 0)
 
 check :: S.Term -> E.Value -> Elab C.Term
 check term goal = do
@@ -63,6 +64,10 @@ check term goal = do
       define name vDef vDefTy
       cBody <- check body goal
       pure $ C.Let cDef cDefTy cBody
+    (S.Quote inner, E.StagedType innerTy stage) -> do
+      cInner <- check inner innerTy
+      cInnerTy <- readback innerTy
+      pure $ C.StagedIntro cInner cInnerTy stage
     (S.Hole, _) -> do
       freshMeta cGoal
     (_, _) -> do
@@ -126,23 +131,14 @@ infer term = scope $ case term of
         vOutTy <- eval outTy
         pure (cArg, vInTy, vOutTy)
     pure (C.FunElim cLam cArg, outTy)
-    -- (cLam, lamTy) <- infer lam
-    -- lamTy <- force lamTy
-    -- (inTy, outTy) <- case lamTy of
-    --   E.FunType inTy outTy -> pure (inTy, outTy)
-    --   _ -> do
-    --     inTy <- freshMeta C.TypeType
-    --     vInTy <- eval inTy
-    --     name <- freshName "x"
-    --     bind name vInTy
-    --     outTy <- freshMeta C.TypeType
-    --     vOutTy <- closeTerm outTy
-    --     unify lamTy (E.FunType vInTy vOutTy)
-    --     pure (vInTy, vOutTy)
-    -- cArg <- check arg inTy
-    -- vArg <- eval cArg
-    -- retTy <- evalClosure outTy vArg
-    -- pure (C.FunElim cLam cArg, retTy)
+  S.Quote inner -> do
+    stage <- freshStageMeta
+    (cInner, vInnerTy) <- infer inner
+    cInnerTy <- readback vInnerTy
+    pure $ (C.StagedIntro cInner cInnerTy stage, E.StagedType vInnerTy stage)
+  S.QuoteType innerTy stage -> do
+    cInnerTy <- check innerTy E.TypeType
+    pure (C.StagedType cInnerTy stage, E.TypeType)
   S.Universe -> pure (C.TypeType, E.TypeType)
   S.Pi name inTy outTy -> do
     cInTy <- check inTy E.TypeType
@@ -180,7 +176,7 @@ scope :: Elab a -> Elab a
 scope act = do
   state <- get
   let (a, s) = runState act state
-  put $ state { metas = metas s, errors = errors s, nextMeta = nextMeta s, nextName = nextName s }
+  put $ state { metas = metas s, stageMetas = stageMetas s, errors = errors s, nextMeta = nextMeta s, nextName = nextName s }
   pure a
 
 setspan :: S.Span -> Elab ()
@@ -252,12 +248,21 @@ freshMeta ty = do
     , nextMeta = (nextMeta state) + 1 }
   pure meta
 
+freshStageMeta :: Elab C.Stage
+freshStageMeta = do
+  state <- get
+  let meta = C.StageMeta (Global $ nextMeta state)
+  put $ state
+    { stageMetas = Map.insert (Global $ nextMeta state) E.Unsolved (stageMetas state)
+    , nextMeta = (nextMeta state) + 1 }
+  pure meta
+
 unify :: E.Value -> E.Value -> Elab ()
 unify val val' = do
   state <- get
-  let ((), (newMetas, newErrors)) = U.runUnify (U.unify (level state) val val') (metas state, [])
+  let ((), (newMetas, newStageMetas, newErrors)) = U.runUnify (U.unify (level state) val val') (metas state, stageMetas state, [])
   case newErrors of
-    [] -> put $ state { metas = newMetas }
+    [] -> put $ state { metas = newMetas, stageMetas = newStageMetas }
     _ -> forM_ (map UnifyError newErrors) putError
 
 putError :: Error -> Elab ()

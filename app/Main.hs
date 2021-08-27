@@ -26,8 +26,8 @@ main = do
   putStrLn $ show tokens
   let term = Parse.parseTerm tokens
   putStrLn "Done parsing"
-  -- putStrLn "Surface term:"
-  -- putStrLn $ show term
+  putStrLn "Surface term:"
+  putStrLn $ show term
   let (cTerm, state) = Elab.elab term E.TypeType
   putStrLn "Core term:"
   putStrLn $ show cTerm
@@ -35,3 +35,4 @@ main = do
   forM_ (Elab.errors state) (putStrLn . show)
   putStrLn "Metas:"
   forM_ (toList $ Elab.metas state) (putStrLn . show)
+  forM_ (toList $ Elab.stageMetas state) (putStrLn . show)

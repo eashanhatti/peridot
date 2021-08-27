@@ -12,10 +12,11 @@ import Data.Maybe(fromJust)
 import Debug.Trace
 import Control.Monad.Reader
 
-data MetaEntry = Solved Value | Unsolved
+data MetaEntry a = Solved a | Unsolved
   deriving Show
 
-type Metas = Map.Map Global MetaEntry
+type StageMetas = Map.Map Global (MetaEntry C.Stage)
+type Metas = Map.Map Global (MetaEntry Value)
 type Locals = [Value]
 
 type Spine = [Value]

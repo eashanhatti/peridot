@@ -11,8 +11,15 @@ type Type = Term
 data HoleName = HoleName Int
   deriving Show
 
-data Stage = R | C | T
-  deriving (Show, Eq)
+data Stage = R | C | T | StageMeta Global
+  deriving Eq
+
+instance Show Stage where
+  show s = case s of
+    R -> "rt"
+    C -> "ct"
+    T -> "tt"
+    StageMeta gl -> "?" ++ show (unGlobal gl)
 
 data Term
   = Var Index Type
@@ -47,6 +54,9 @@ showTerm showTys term = case term of
       "\\" ++ show body ++ ""
   FunType inTy outTy -> show inTy ++ " -> " ++ show outTy
   FunElim lam arg -> "(" ++ show lam ++ " " ++ show arg ++ ")"
+  StagedIntro inner innerTy stage -> "[" ++ show stage ++ "|" ++ show inner ++ "; : " ++ show innerTy ++ "]"
+  StagedType innerTy stage -> "Quote " ++ show stage ++ show innerTy
+  StagedElim scr body stage -> "splice " ++ show stage ++ "|" ++ show scr ++ " in " ++ show body
   Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in\n" ++ show body
   Meta gl ty ->
     if showTys then

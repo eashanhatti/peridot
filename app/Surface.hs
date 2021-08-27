@@ -1,5 +1,7 @@
 module Surface where
 
+import Core(Stage)
+
 data Span = Span
   deriving Show
 
@@ -13,6 +15,8 @@ data Term
   | App Term Term
   | Ann Term Term
   | Pi Name Term Term
+  | Quote Term
+  | QuoteType Term Stage
   | Let Name Term Term Term
   | Universe
   | Hole

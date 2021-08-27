@@ -16,10 +16,10 @@ import Control.Monad.Except(ExceptT, lift, throwError, liftEither, runExceptT)
 import Control.Monad(ap, liftM)
 
 -- FIXME
-data Error = InvalidSpine | OccursCheck | EscapingVar | Mismatch E.Value E.Value
+data Error = InvalidSpine | OccursCheck | EscapingVar | Mismatch E.Value E.Value | MismatchStages C.Stage C.Stage
   deriving Show
 
-newtype Unify a = Unify (State (E.Metas, [Error]) a)
+newtype Unify a = Unify (State (E.Metas, E.StageMetas, [Error]) a)
 
 instance Functor Unify where
   fmap = liftM
@@ -36,38 +36,43 @@ instance Monad Unify where
       (Unify act') = (k a)
     in runState act' s'
 
-get :: Unify (E.Metas, [Error])
+get :: Unify (E.Metas, E.StageMetas, [Error])
 get = Unify $ state $ \s -> (s, s)
 
-put :: (E.Metas, [Error]) -> Unify ()
+put :: (E.Metas, E.StageMetas, [Error]) -> Unify ()
 put s = Unify $ state $ \_ -> ((), s)
 
-runUnify :: Unify a -> (E.Metas, [Error]) -> (a, (E.Metas, [Error]))
+runUnify :: Unify a -> (E.Metas, E.StageMetas, [Error]) -> (a, (E.Metas, E.StageMetas, [Error]))
 runUnify (Unify act) s = runState act s
 
 runNorm :: E.Norm a -> Unify a
 runNorm act = do
-  (metas, _) <- get
+  (metas, _, _) <- get
   pure $ runReader act (metas, C.T, [])
 
 putSolution :: Global -> E.Value -> Unify ()
 putSolution gl sol = do
-  (metas, probs) <- get
-  put (Map.insert gl (E.Solved sol) metas, probs)
+  (metas, stageMetas, probs) <- get
+  put (Map.insert gl (E.Solved sol) metas, stageMetas, probs)
+
+putStageSolution :: Global -> C.Stage -> Unify ()
+putStageSolution gl sol = do
+  (metas, stageMetas, probs) <- get
+  put (metas, Map.insert gl (E.Solved sol) stageMetas, probs)
 
 putError :: Error -> Unify ()
 putError err = do
-  (metas, errors) <- get
-  put (metas, err:errors)
+  (metas, stageMetas, errors) <- get
+  put (metas, stageMetas, err:errors)
 
 force :: E.Value -> Unify E.Value
 force val = do
-  (metas, _) <- get
+  (metas, _, _) <- get
   runNorm $ E.force val
 
 getMetas :: Unify E.Metas
 getMetas = do
-  (metas, _) <- get
+  (metas, _, _) <- get
   pure metas
 
 data PartialRenaming = PartialRenaming
@@ -128,6 +133,17 @@ rename metas gl pren rhs = go pren rhs
           vOutTy <- lift $ runNorm $ E.appClosure outTy (E.StuckRigidVar inTy (codomain pren) [])
           outTyTrm <- go (inc pren) vOutTy
           liftEither $ Right $ C.FunType inTyTrm outTyTrm
+        E.StagedType innerTy stage -> do
+          innerTyTrm <- go pren innerTy
+          liftEither $ Right $ C.StagedType innerTyTrm stage
+        E.StagedIntro inner innerTy stage -> do
+          innerTrm <- go pren inner
+          innerTyTrm <- go pren innerTy
+          liftEither $ Right $ C.StagedIntro innerTrm innerTyTrm stage
+        E.StagedElim scr body stage -> do
+          scrTrm <- go pren scr
+          bodyTrm <- go (inc pren) body
+          liftEither $ Right $ C.StagedElim scrTrm bodyTrm stage
         E.TypeType -> liftEither $ Right C.TypeType
         E.ElabError -> liftEither $ Right C.ElabError
 
@@ -197,6 +213,14 @@ unifySpines lv spine spine'= case (spine, spine') of
   ([], []) -> pure ()
   _ -> putError InvalidSpine
 
+unifyStages :: C.Stage -> C.Stage -> Unify ()
+unifyStages s s' = case (s, s') of
+  (C.StageMeta gl, C.StageMeta gl') | gl == gl' -> pure ()
+  (C.StageMeta gl, s') -> putStageSolution gl s'
+  (s, C.StageMeta gl) -> putStageSolution gl s
+  (s, s') | s == s' -> pure ()
+  _ -> putError $ MismatchStages s s'
+
 unify :: Level -> E.Value -> E.Value -> Unify ()
 unify lv val val' = do
   val <- force val
@@ -218,6 +242,17 @@ unify lv val val' = do
       vBody <- runNorm $ E.appClosure body (E.StuckRigidVar inTy lv [])
       vAppVal <- runNorm $ E.vApp val (E.StuckRigidVar inTy' lv [])
       unify (incLevel lv) vBody vAppVal
+    (E.StagedType innerTy stage, E.StagedType innerTy' stage') -> do
+      unifyStages stage stage'
+      unify (incLevel lv) innerTy innerTy'
+    (E.StagedIntro inner innerTy stage, E.StagedIntro inner' innerTy' stage') -> do
+      unifyStages stage stage'
+      unify (incLevel lv) innerTy innerTy'
+      unify (incLevel lv) inner inner'
+    (E.StagedElim scr body stage, E.StagedElim scr' body' stage') -> do
+      unifyStages stage stage'
+      unify lv scr scr'
+      unify (incLevel lv) body body'
     (E.TypeType, E.TypeType) -> pure ()
     (E.FunType inTy outTy, E.FunType inTy' outTy') -> do
       unify lv inTy inTy'

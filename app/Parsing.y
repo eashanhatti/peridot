@@ -2,6 +2,7 @@
 module Parsing(parseTerm, lex) where
 
 import Surface
+import Core(Stage(..))
 import Prelude hiding (lex)
 import Data.Char(isAlphaNum)
 }
@@ -15,19 +16,25 @@ import Data.Char(isAlphaNum)
   in { TIn }
   ':' { TColon }
   '=' { TEquals }
-  type { TUniv }
+  kwuniv { TUniv }
+  kwquotety { TQuoteTy }
   '(' { TOpenParen }
   ')' { TCloseParen }
+  '[' { TOpenBracket }
+  ']' { TCloseBracket }
   '\\' { TBackslash }
   '?' { THole }
   '=>' { TFatArrow }
   '->' { TThinArrow }
+  kwtt { TTtStage }
+  kwct { TCtStage }
+  kwrt { TRtStage }
   name { TName $$ }
 
 %%
 
 Prec3
-  : Prec2 '->' Prec3                      { Pi (Name "_") $1 $3 }
+  : Prec2 '->' Prec3                      { Pi (Name "_") $1 $3 } {- FIXME: use machine generated name -}
   | Prec2                                 { $1 }
 
 Prec2
@@ -43,9 +50,16 @@ Prec0
   | '\\' name '=>' Prec3                  { Lam (Name $2) $4 }
   | '(' name ':' Prec3 ')' '->' Prec3     { Pi (Name $2) $4 $7 }
   | let name ':' Prec3 '=' Prec3 in Prec3 { Let (Name $2) $6 $4 $8 }
-  | type                                  { Universe }
+  | kwuniv                                { Universe }
   | '?'                                   { Hole }
+  | kwquotety Stage                       { Lam (Name "_") (QuoteType (Var $ Name "_") $2) } {- FIXME: use machine generated name -}
+  | '[' Prec3 ']'                         { Quote $2 }
   | Parens                                { $1 }
+
+Stage
+  : kwtt                                  { T }
+  | kwct                                  { C }
+  | kwrt                                  { R }
 
 Parens
   : '(' Prec3 ')'                         { $2 }
@@ -70,16 +84,28 @@ data Token
   | TFatArrow
   | TThinArrow
   | TName String
+  | TQuoteTy
+  | TOpenBracket
+  | TCloseBracket
+  | TTtStage
+  | TCtStage
+  | TRtStage
   deriving Show
 
 lex :: String -> [Token]
 lex s = case s of
+  't':'t':s -> TTtStage:(lex s)
+  'c':'t':s -> TCtStage:(lex s)
+  'r':'t':s -> TRtStage:(lex s)
   'l':'e':'t':s -> TLet:(lex s)
   'i':'n':s -> TIn:(lex s)
   ':':s -> TColon:(lex s)
   '=':'>':s -> TFatArrow:(lex s)
   '=':s -> TEquals:(lex s)
   'T':'y':'p':'e':s -> TUniv:(lex s)
+  'Q':'u':'o':'t':'e':s -> TQuoteTy:(lex s)
+  '[':s -> TOpenBracket:(lex s)
+  ']':s -> TCloseBracket:(lex s)
   '(':s -> TOpenParen:(lex s)
   ')':s -> TCloseParen:(lex s)
   '\\':s -> TBackslash:(lex s)
