@@ -102,7 +102,7 @@ lex s = case s of
   '=':'>':s -> TFatArrow:(lex s)
   '=':s -> TEquals:(lex s)
   'T':'y':'p':'e':s -> TUniv:(lex s)
-  'Q':'u':'o':'t':'e':s -> TQuoteTy:(lex s)
+  'S':s -> TQuoteTy:(lex s)
   '[':s -> TOpenBracket:(lex s)
   ']':s -> TCloseBracket:(lex s)
   '(':s -> TOpenParen:(lex s)

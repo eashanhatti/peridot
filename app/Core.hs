@@ -6,13 +6,14 @@ data BinderInfo = Abstract | Concrete
   deriving Show
 
 -- type annotation
-type Type = Term
+type Type = RawTerm Index
+type RawType a = RawTerm a
 
 data HoleName = HoleName Int
   deriving Show
 
 data Stage = R | C | T | StageMeta Global
-  deriving Eq
+  deriving (Eq, Ord)
 
 instance Show Stage where
   show s = case s of
@@ -21,31 +22,33 @@ instance Show Stage where
     T -> "tt"
     StageMeta gl -> "?" ++ show (unGlobal gl)
 
-data Term
-  = Var Index Type
+type Term = RawTerm Index
+
+data RawTerm a
+  = Var a Type
   | TypeType
-  | FunIntro Term Type
-  | FunType Term Term
-  | FunElim Term Term
+  | FunIntro (RawTerm a) Type
+  | FunType (RawTerm a) (RawTerm a)
+  | FunElim (RawTerm a) (RawTerm a)
   -- Explicit `Stage` to make type inference unnecessary
-  | StagedIntro Term Type Stage
-  | StagedType Term Stage
-  | StagedElim Term Term Stage
-  | Let Term Term Term
+  | StagedIntro (RawTerm a) Type Stage
+  | StagedType (RawTerm a) Stage
+  | StagedElim (RawTerm a) (RawTerm a) Stage
+  | Let (RawTerm a) (RawTerm a) (RawTerm a)
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
   | ElabError
 
-instance Show Term where
+instance Show a => Show (RawTerm a) where
   show = showTerm False
 
-showTerm :: Bool -> Term -> String
+showTerm :: Show a => Bool -> RawTerm a -> String
 showTerm showTys term = case term of
   Var ix ty ->
     if showTys then
-      "(v" ++ show (unIndex ix) ++ " : " ++ show ty ++ ")"
+      "(v" ++ show ix ++ " : " ++ show ty ++ ")"
     else
-      "v" ++ show (unIndex ix)
+      "v" ++ show ix
   TypeType -> "Type"
   FunIntro body ty ->
     if showTys then

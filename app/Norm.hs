@@ -3,7 +3,7 @@
 {-# LANGUAGE LambdaCase #-}
 -- {-# OPTIONS_GHC -fdefer-type-errors #-}
 
-module Eval where
+module Norm where
 
 import Var
 import qualified Core as C
@@ -11,6 +11,7 @@ import qualified Data.Map as Map
 import Data.Maybe(fromJust)
 import Debug.Trace
 import Control.Monad.Reader
+import qualified Data.Set as Set
 
 data MetaEntry a = Solved a | Unsolved
   deriving Show
@@ -42,7 +43,7 @@ data Neutral
   | RigidVar Type Level Spine
   deriving Show
 
-type Norm a = Reader (Metas, C.Stage, Locals) a
+type Norm a = Reader (Metas, Set.Set C.Stage, Locals) a
 
 withLocals :: Norm a -> Locals -> Norm a
 withLocals act locals = do
@@ -91,7 +92,7 @@ subst trm = undefined
 
 eval :: C.Term -> Norm Value
 eval trm = do
-  (_, stage, locals) <- ask
+  (_, stages, locals) <- ask
   case trm of
     C.Var ix _ -> pure $ locals !! unIndex ix
     C.TypeType -> pure TypeType
@@ -101,7 +102,7 @@ eval trm = do
       pure $ FunType vInTy (Closure locals outTy)
     C.FunElim lam arg -> eval lam >>= \lam -> vApp lam =<< eval arg
     C.StagedIntro inner ty s ->
-      if stage == s then
+      if Set.member s stages then
         eval inner
       else do
         vty <- eval ty
@@ -110,7 +111,7 @@ eval trm = do
     C.StagedType inner s -> (flip StagedType $ s) <$> eval inner
     C.StagedElim scr body s -> do
       vScr <- eval scr
-      if stage == s then
+      if Set.member s stages then
         eval body `withLocals` (vScr:locals)
       else do
         vBody <- subst body
