@@ -42,6 +42,10 @@ check term goal = do
   goal <- force goal
   cGoal <- readback goal
   scope $ case (term, goal) of
+    (term, E.StagedType innerTy stage) -> do
+      cTerm <- check term innerTy
+      cInnerTy <- readback innerTy
+      pure $ C.StagedIntro cTerm cInnerTy stage
     (S.Spanned term' ssp, _) -> do
       setspan ssp
       check term' goal
@@ -64,10 +68,6 @@ check term goal = do
       define name vDef vDefTy
       cBody <- check body goal
       pure $ C.Let cDef cDefTy cBody
-    (S.Quote inner, E.StagedType innerTy stage) -> do
-      cInner <- check inner innerTy
-      cInnerTy <- readback innerTy
-      pure $ C.StagedIntro cInner cInnerTy stage
     (S.Hole, _) -> do
       freshMeta cGoal
     (_, _) -> do
@@ -131,11 +131,6 @@ infer term = scope $ case term of
         vOutTy <- eval outTy
         pure (cArg, vInTy, vOutTy)
     pure (C.FunElim cLam cArg, outTy)
-  S.Quote inner -> do
-    stage <- freshStageMeta
-    (cInner, vInnerTy) <- infer inner
-    cInnerTy <- readback vInnerTy
-    pure $ (C.StagedIntro cInner cInnerTy stage, E.StagedType vInnerTy stage)
   S.QuoteType innerTy stage -> do
     cInnerTy <- check innerTy E.TypeType
     pure (C.StagedType cInnerTy stage, E.TypeType)

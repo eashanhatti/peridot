@@ -1,2 +1,1 @@
-let x : ? = [Quote tt Type -> Type]
-in Type
+Type : Quote tt Type

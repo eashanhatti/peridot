@@ -53,7 +53,6 @@ Prec0
   | kwuniv                                { Universe }
   | '?'                                   { Hole }
   | kwquotety Stage                       { Lam (Name "_") (QuoteType (Var $ Name "_") $2) } {- FIXME: use machine generated name -}
-  | '[' Prec3 ']'                         { Quote $2 }
   | Parens                                { $1 }
 
 Stage

@@ -15,7 +15,6 @@ data Term
   | App Term Term
   | Ann Term Term
   | Pi Name Term Term
-  | Quote Term
   | QuoteType Term Stage
   | Let Name Term Term Term
   | Universe
