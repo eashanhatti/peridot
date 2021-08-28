@@ -6,8 +6,7 @@ data BinderInfo = Abstract | Concrete
   deriving Show
 
 -- type annotation
-type Type = RawTerm Index
-type RawType a = RawTerm a
+type Type = Term
 
 data HoleName = HoleName Int
   deriving Show
@@ -24,25 +23,25 @@ instance Show Stage where
 
 type Term = RawTerm Index
 
-data RawTerm a
-  = Var a Type
+data Term
+  = Var Index Type
   | TypeType
-  | FunIntro (RawTerm a) Type
-  | FunType (RawTerm a) (RawTerm a)
-  | FunElim (RawTerm a) (RawTerm a)
+  | FunIntro Term Type
+  | FunType Term Term
+  | FunElim Term Term
   -- Explicit `Stage` to make type inference unnecessary
-  | StagedIntro (RawTerm a) Type Stage
-  | StagedType (RawTerm a) Stage
-  | StagedElim (RawTerm a) (RawTerm a) Stage
-  | Let (RawTerm a) (RawTerm a) (RawTerm a)
+  | StagedIntro Term Type Stage
+  | StagedType Term Stage
+  | StagedElim Term Term Stage
+  | Let Term Term Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
   | ElabError
 
-instance Show a => Show (RawTerm a) where
+instance Show Term where
   show = showTerm False
 
-showTerm :: Show a => Bool -> RawTerm a -> String
+showTerm :: Bool -> Term -> String
 showTerm showTys term = case term of
   Var ix ty ->
     if showTys then
