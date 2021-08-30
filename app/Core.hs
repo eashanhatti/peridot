@@ -1,6 +1,7 @@
 module Core where
 
 import Var
+import {-# SOURCE #-} Norm(Value)
 
 data BinderInfo = Abstract | Concrete
   deriving Show
@@ -21,8 +22,6 @@ instance Show Stage where
     T -> "tt"
     StageMeta gl -> "?" ++ show (unGlobal gl)
 
-type Term = RawTerm Index
-
 data Term
   = Var Index Type
   | TypeType
@@ -37,6 +36,7 @@ data Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
   | ElabError
+  | Value Value
 
 instance Show Term where
   show = showTerm False
@@ -45,9 +45,9 @@ showTerm :: Bool -> Term -> String
 showTerm showTys term = case term of
   Var ix ty ->
     if showTys then
-      "(v" ++ show ix ++ " : " ++ show ty ++ ")"
+      "(v" ++ show (unIndex ix) ++ " : " ++ show ty ++ ")"
     else
-      "v" ++ show ix
+      "v" ++ show (unIndex ix)
   TypeType -> "Type"
   FunIntro body ty ->
     if showTys then

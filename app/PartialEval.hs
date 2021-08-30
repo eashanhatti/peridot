@@ -8,5 +8,5 @@ import Var
 
 partialEval :: Term -> Term
 partialEval term =
-  let value = runReader (eval term) (mempty, fromList [T, C], mempty)
-  in runReader (readback (Level 0) value) (mempty, fromList [T, C], mempty)
+  let value = runReader (eval term) (Level 0, mempty, fromList [T, C], mempty)
+  in runReader (readback value) (Level 0, mempty, fromList [T, C], mempty)

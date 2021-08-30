@@ -160,7 +160,7 @@ infer term = scope $ case term of
 runNorm :: N.Norm a -> Elab a
 runNorm act = do
   state <- get
-  pure $ runReader act (metas state, singleton C.T, locals state)
+  pure $ runReader act (level state, metas state, singleton C.T, locals state)
 
 force :: N.Value -> Elab N.Value
 force val = do
@@ -228,7 +228,7 @@ closeTerm term = do
 readback :: N.Value -> Elab C.Term
 readback val = do
   state <- get
-  runNorm $ N.readback (level state) val
+  runNorm $ N.readback val
 
 eval :: C.Term -> Elab N.Value
 eval term = do

@@ -1,1 +1,2 @@
-Type : S rt Type
+let x : S rt Type = (let x : Type = Type in x)
+in x

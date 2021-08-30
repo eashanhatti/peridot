@@ -46,10 +46,10 @@ put s = Unify $ state $ \_ -> ((), s)
 runUnify :: Unify a -> (N.Metas, N.StageMetas, [Error]) -> (a, (N.Metas, N.StageMetas, [Error]))
 runUnify (Unify act) s = runState act s
 
-runNorm :: N.Norm a -> Unify a
-runNorm act = do
+runNorm :: Level -> N.Norm a -> Unify a
+runNorm lv act = do
   (metas, _, _) <- get
-  pure $ runReader act (metas, Set.singleton C.T, [])
+  pure $ runReader act (lv, metas, Set.singleton C.T, [])
 
 putSolution :: Global -> N.Value -> Unify ()
 putSolution gl sol = do
@@ -66,10 +66,10 @@ putError err = do
   (metas, stageMetas, errors) <- get
   put (metas, stageMetas, err:errors)
 
-force :: N.Value -> Unify N.Value
-force val = do
-  (metas, _, _) <- get
-  runNorm $ N.force val
+-- force :: N.Value -> Unify N.Value
+-- force val = do
+--   (metas, _, _) <- get
+--   runNorm $ N.force val
 
 getMetas :: Unify N.Metas
 getMetas = do
@@ -93,7 +93,7 @@ invert metas gamma spine = do
       go = \case
         (arg:spine) -> do
           (domain, ren) <- go spine
-          arg <- lift $ runNorm $ N.force arg
+          arg <- lift $ runNorm gamma $ N.force arg
           case arg of
             N.StuckRigidVar _ lv [] | Map.notMember lv ren -> liftEither $ Right (Level $ unLevel domain + 1, Map.insert lv domain ren)
             _ -> throwError InvalidSpine
@@ -109,9 +109,12 @@ rename metas gl pren rhs = go pren rhs
       (arg:spine) -> C.FunElim <$> goSpine pren val spine <*> go pren arg
       [] -> liftEither $ Right val
 
+    goTerm :: PartialRenaming -> C.Term -> ExceptT Error Unify C.Term
+    goTerm pren trm = undefined
+
     go :: PartialRenaming -> N.Value -> ExceptT Error Unify C.Term
     go pren val = do
-      val <- lift $ runNorm $ N.force val
+      val <- lift $ runNorm (domain pren) $ N.force val
       case val of
         N.StuckFlexVar vty gl' spine ->
           if gl == gl'
@@ -126,24 +129,24 @@ rename metas gl pren rhs = go pren rhs
           Nothing -> throwError EscapingVar
         N.FunIntro body vty@(N.FunType inTy _) -> do
           tty <- go pren vty
-          vBody <- lift $ runNorm $ N.appClosure body (N.StuckRigidVar inTy (codomain pren) [])
+          vBody <- lift $ runNorm (domain pren) $ N.appClosure body (N.StuckRigidVar inTy (codomain pren) [])
           bodyTrm <- go (inc pren) vBody
           liftEither $ Right $ C.FunIntro bodyTrm tty
         N.FunType inTy outTy -> do
           inTyTrm <- go pren inTy
-          vOutTy <- lift $ runNorm $ N.appClosure outTy (N.StuckRigidVar inTy (codomain pren) [])
+          vOutTy <- lift $ runNorm (domain pren) $ N.appClosure outTy (N.StuckRigidVar inTy (codomain pren) [])
           outTyTrm <- go (inc pren) vOutTy
           liftEither $ Right $ C.FunType inTyTrm outTyTrm
         N.StagedType innerTy stage -> do
           innerTyTrm <- go pren innerTy
           liftEither $ Right $ C.StagedType innerTyTrm stage
         N.StagedIntro inner innerTy stage -> do
-          innerTrm <- go pren inner
+          innerTrm <- goTerm pren inner
           innerTyTrm <- go pren innerTy
           liftEither $ Right $ C.StagedIntro innerTrm innerTyTrm stage
         N.StagedElim scr body stage -> do
           scrTrm <- go pren scr
-          bodyTrm <- go (inc pren) body
+          bodyTrm <- goTerm (inc pren) body
           liftEither $ Right $ C.StagedElim scrTrm bodyTrm stage
         N.TypeType -> liftEither $ Right C.TypeType
         N.ElabError -> liftEither $ Right C.ElabError
@@ -153,15 +156,15 @@ getTtySpine metas lv vty spine = case (vty, spine) of
   (N.FunType inTy outTy, _:spine) -> getTtySpine
     metas
     (incLevel lv)
-    (runReader (N.appClosure outTy (N.StuckRigidVar inTy lv [])) (metas, Set.singleton C.T, []))
+    (runReader (N.appClosure outTy (N.StuckRigidVar inTy lv [])) (lv, metas, Set.singleton C.T, []))
     spine
-  (_, []) -> runReader (N.readback lv vty) (metas, Set.singleton C.T, [])
+  (_, []) -> runReader (N.readback vty) (lv, metas, Set.singleton C.T, [])
 
 getTty :: N.Metas -> Level -> N.Value -> C.Term
 getTty metas lv val = case val of
   N.StuckFlexVar vty _ spine -> getTtySpine metas lv vty spine
   N.StuckRigidVar vty _ spine -> getTtySpine metas lv vty spine
-  N.FunIntro _ vty -> runReader (N.readback lv vty) (metas, Set.singleton C.T, [])
+  N.FunIntro _ vty -> runReader (N.readback vty) (lv, metas, Set.singleton C.T, [])
   N.FunType _ _ -> C.TypeType
   N.TypeType -> C.TypeType
 
@@ -170,7 +173,7 @@ getVtySpine metas lv vty spine = case (vty, spine) of
   (N.FunType inTy outTy, _:spine) -> getVtySpine
     metas
     (incLevel lv)
-    (runReader (N.appClosure outTy (N.StuckRigidVar inTy lv [])) (metas, Set.singleton C.T, []))
+    (runReader (N.appClosure outTy (N.StuckRigidVar inTy lv [])) (lv, metas, Set.singleton C.T, []))
     spine
   (_, []) -> vty
 
@@ -201,7 +204,7 @@ solve gamma gl spine rhs = do
       rhs <- runExceptT $ rename metas gl pren rhs
       case rhs of
         Right rhs -> do
-          solution <- runNorm $ N.eval (lams (domain pren) (map (getTty metas (domain pren)) spine) rhs)
+          solution <- runNorm gamma $ N.eval (lams (domain pren) (map (getTty metas (domain pren)) spine) rhs)
           putSolution gl solution
         Left err -> putError err
     Left err -> putError err
@@ -222,26 +225,29 @@ unifyStages s s' = case (s, s') of
   (s, s') | s == s' -> pure ()
   _ -> putError $ MismatchStages s s'
 
+unifyTerms :: Level -> C.Term -> C.Term -> Unify ()
+unifyTerms lv trm trm' = undefined
+
 unify :: Level -> N.Value -> N.Value -> Unify ()
 unify lv val val' = do
-  val <- force val
-  val' <- force val'
+  val <- runNorm lv $ N.force val
+  val' <- runNorm lv $ N.force val'
   metasForGetVty <- getMetas
   case (val, val') of
     (N.FunIntro body vty@(N.FunType inTy _), N.FunIntro body' vty'@(N.FunType inTy' _)) -> do
       unify lv vty vty'
-      vBody <- runNorm $ N.appClosure body (N.StuckRigidVar inTy lv [])
-      vBody' <- runNorm $ N.appClosure body' (N.StuckRigidVar inTy' lv [])
+      vBody <- runNorm (incLevel lv) $ N.appClosure body (N.StuckRigidVar inTy lv [])
+      vBody' <- runNorm (incLevel lv) $ N.appClosure body' (N.StuckRigidVar inTy' lv [])
       unify (incLevel lv) vBody vBody'
     (val, N.FunIntro body vty@(N.FunType inTy' _)) | valTy@(N.FunType inTy _) <- getVty metasForGetVty lv val -> do
       unify lv valTy vty
-      vAppVal <- runNorm $ N.vApp val (N.StuckRigidVar inTy lv [])
-      vBody <- runNorm $ N.appClosure body (N.StuckRigidVar inTy' lv [])
+      vAppVal <- runNorm lv $ N.vApp val (N.StuckRigidVar inTy lv [])
+      vBody <- runNorm (incLevel lv) $ N.appClosure body (N.StuckRigidVar inTy' lv [])
       unify (incLevel lv) vAppVal vBody
     (N.FunIntro body vty@(N.FunType inTy _), val') | valTy@(N.FunType inTy' _) <- getVty metasForGetVty lv val' -> do
       unify lv valTy vty
-      vBody <- runNorm $ N.appClosure body (N.StuckRigidVar inTy lv [])
-      vAppVal <- runNorm $ N.vApp val (N.StuckRigidVar inTy' lv [])
+      vBody <- runNorm (incLevel lv) $ N.appClosure body (N.StuckRigidVar inTy lv [])
+      vAppVal <- runNorm lv $ N.vApp val (N.StuckRigidVar inTy' lv [])
       unify (incLevel lv) vBody vAppVal
     (N.StagedType innerTy stage, N.StagedType innerTy' stage') -> do
       unifyStages stage stage'
@@ -249,16 +255,16 @@ unify lv val val' = do
     (N.StagedIntro inner innerTy stage, N.StagedIntro inner' innerTy' stage') -> do
       unifyStages stage stage'
       unify (incLevel lv) innerTy innerTy'
-      unify (incLevel lv) inner inner'
+      unifyTerms (incLevel lv) inner inner'
     (N.StagedElim scr body stage, N.StagedElim scr' body' stage') -> do
       unifyStages stage stage'
       unify lv scr scr'
-      unify (incLevel lv) body body'
+      unifyTerms (incLevel lv) body body'
     (N.TypeType, N.TypeType) -> pure ()
     (N.FunType inTy outTy, N.FunType inTy' outTy') -> do
       unify lv inTy inTy'
-      vOutTy <- runNorm $ N.appClosure outTy (N.StuckRigidVar inTy lv [])
-      vOutTy' <- runNorm $ N.appClosure outTy' (N.StuckRigidVar inTy' lv [])
+      vOutTy <- runNorm (incLevel lv) $ N.appClosure outTy (N.StuckRigidVar inTy lv [])
+      vOutTy' <- runNorm (incLevel lv) $ N.appClosure outTy' (N.StuckRigidVar inTy' lv [])
       unify (incLevel lv) vOutTy vOutTy'
     (N.StuckRigidVar vty rlv spine, N.StuckRigidVar vty' rlv' spine') | rlv == rlv' -> do
       unify lv vty vty'
