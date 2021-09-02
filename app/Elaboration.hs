@@ -110,12 +110,18 @@ infer term = scope $ case term of
     state <- get
     (cLam, lamTy) <- infer lam
     lamTy <- force lamTy
-    (cArg, inTy, outTy) <- scope $ case lamTy of
+    (cLam, cArg, inTy, outTy) <- scope $ case lamTy of
       N.FunType inTy outTy -> do
         cArg <- check arg inTy
         vArg <- eval cArg
         outTy <- evalClosure outTy vArg
-        pure (cArg, inTy, outTy) 
+        pure (cLam, cArg, inTy, outTy)
+      N.StagedType innerLamTy@(N.FunType inTy outTy) s -> do
+        cArg <- check arg inTy
+        vArg <- eval cArg
+        outTy <- evalClosure outTy vArg
+        cInnerLamTy <- readback innerLamTy
+        pure (C.StagedElim cLam (C.Var (Index 0) cInnerLamTy) s, cArg, inTy, outTy)
       _ -> do
         inTy <- freshMeta C.TypeType
         vInTy <- eval inTy
@@ -130,7 +136,7 @@ infer term = scope $ case term of
         unify lamTy (N.FunType vInTy vOutTyClo)
         define name vArg vInTy
         vOutTy <- eval outTy
-        pure (cArg, vInTy, vOutTy)
+        pure (cLam, cArg, vInTy, vOutTy)
     pure (C.FunElim cLam cArg, outTy)
   S.QuoteType innerTy stage -> do
     cInnerTy <- check innerTy N.TypeType

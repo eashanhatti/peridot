@@ -16,9 +16,15 @@ import Control.Monad.Except(ExceptT, lift, throwError, liftEither, runExceptT)
 import Control.Monad(ap, liftM)
 import qualified Data.Set as Set
 
--- FIXME
 data Error = InvalidSpine | OccursCheck | EscapingVar | Mismatch N.Value N.Value | MismatchStages C.Stage C.Stage
-  deriving Show
+
+instance Show Error where
+  show e = case e of
+    InvalidSpine -> "Invalid Spine"
+    OccursCheck -> "Failed Occurs Check"
+    EscapingVar -> "Escaping Var"
+    Mismatch val val' -> "Mismatched Types:\n  " ++ show val ++ "\n  " ++ show val'
+    MismatchStages s s' -> "Mismatched Stages: " ++ show s ++ ", " ++ show s'
 
 newtype Unify a = Unify (State (N.Metas, N.StageMetas, [Error]) a)
 
@@ -140,14 +146,14 @@ rename metas gl pren rhs = go pren rhs
         N.StagedType innerTy stage -> do
           innerTyTrm <- go pren innerTy
           liftEither $ Right $ C.StagedType innerTyTrm stage
-        N.StagedIntro inner innerTy stage -> do
+        N.StuckStagedIntro inner innerTy stage spine -> do
           innerTrm <- goTerm pren inner
           innerTyTrm <- go pren innerTy
-          liftEither $ Right $ C.StagedIntro innerTrm innerTyTrm stage
-        N.StagedElim scr body stage -> do
+          goSpine pren (C.StagedIntro innerTrm innerTyTrm stage) spine
+        N.StuckStagedElim scr body stage spine -> do
           scrTrm <- go pren scr
           bodyTrm <- goTerm (inc pren) body
-          liftEither $ Right $ C.StagedElim scrTrm bodyTrm stage
+          goSpine pren (C.StagedElim scrTrm bodyTrm stage) spine
         N.TypeType -> liftEither $ Right C.TypeType
         N.ElabError -> liftEither $ Right C.ElabError
 
@@ -209,7 +215,7 @@ solve gamma gl spine rhs = do
         Left err -> putError err
     Left err -> putError err
 
-unifySpines :: Level -> N.Spine -> N.Spine-> Unify ()
+unifySpines :: Level -> N.Spine -> N.Spine -> Unify ()
 unifySpines lv spine spine'= case (spine, spine') of
   (arg:spine, arg':spine') -> do
     unifySpines lv spine spine'
@@ -252,14 +258,16 @@ unify lv val val' = do
     (N.StagedType innerTy stage, N.StagedType innerTy' stage') -> do
       unifyStages stage stage'
       unify (incLevel lv) innerTy innerTy'
-    (N.StagedIntro inner innerTy stage, N.StagedIntro inner' innerTy' stage') -> do
+    (N.StuckStagedIntro inner innerTy stage spine, N.StuckStagedIntro inner' innerTy' stage' spine') -> do
       unifyStages stage stage'
       unify (incLevel lv) innerTy innerTy'
       unifyTerms (incLevel lv) inner inner'
-    (N.StagedElim scr body stage, N.StagedElim scr' body' stage') -> do
+      unifySpines lv spine spine'
+    (N.StuckStagedElim scr body stage spine, N.StuckStagedElim scr' body' stage' spine') -> do
       unifyStages stage stage'
       unify lv scr scr'
       unifyTerms (incLevel lv) body body'
+      unifySpines lv spine spine'
     (N.TypeType, N.TypeType) -> pure ()
     (N.FunType inTy outTy, N.FunType inTy' outTy') -> do
       unify lv inTy inTy'

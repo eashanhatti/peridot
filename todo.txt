@@ -1,3 +1,1 @@
-Add unification for stages - make stages values?
-
-Implement `infer` for `Quote` and `QuoteType`
+Bind fake var in `StagedIntro` inner so shifting isn't necessary

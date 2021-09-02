@@ -28,25 +28,20 @@ data Closure = Closure [Value] C.Term
 type Type = Value
 
 data Value
-  = Stuck Neutral
-  | FunIntro Closure Type
+  = FunIntro Closure Type
   | FunType Type Closure
   | StagedElim Value C.Term C.Stage
   | StagedIntro C.Term Type C.Stage
   | StagedType Value C.Stage
   | TypeType
+  | StuckFlexVar Type Global Spine
+  | StuckRigidVar Type Level Spine
+  | StuckStagedElim Value C.Term C.Stage Spine
+  | StuckStagedIntro C.Term Type C.Stage Spine
   | ElabError
   deriving Show
 
-data Neutral
-  = FlexVar Type Global Spine
-  | RigidVar Type Level Spine
-  deriving Show
-
 type Norm a = Reader (Level, Metas, Set.Set C.Stage, Locals) a
-
-pattern StuckFlexVar ty gl spine = Stuck (FlexVar ty gl spine)
-pattern StuckRigidVar ty lv spine = Stuck (RigidVar ty lv spine)
 
 appClosure :: Closure -> Value -> Norm Value
 appClosure (Closure locals body) val = define val $ eval body
@@ -56,6 +51,9 @@ vApp lam arg = case lam of
   FunIntro body vty -> appClosure body arg
   StuckFlexVar vty gl spine -> pure $ StuckFlexVar vty gl (arg:spine)
   StuckRigidVar vty lv spine -> pure $ StuckRigidVar vty lv (arg:spine)
+  StuckStagedElim scr body s spine -> pure $ StuckStagedElim scr body s (arg:spine)
+  StuckStagedIntro inner ty s spine -> pure $ StuckStagedIntro inner ty s (arg:spine)
+  _ -> error $ "Cannot `vApp` `" ++ show lam ++ "`"
 
 vAppSpine :: Value -> Spine -> Norm Value
 vAppSpine val spine = case spine of
@@ -144,7 +142,7 @@ eval trm = do
       else do
         vty <- eval ty
         inner <- subst inner
-        pure $ StagedIntro inner vty s
+        pure $ StuckStagedIntro inner vty s []
     C.StagedType inner s -> (flip StagedType $ s) <$> eval inner
     C.StagedElim scr body s -> do
       vScr <- eval scr
@@ -152,7 +150,7 @@ eval trm = do
         define vScr $ eval body
       else do
         body <- subst body
-        pure $ StagedElim vScr body s
+        pure $ StuckStagedElim vScr body s []
     C.Let def _ body -> do
       vDef <- eval def
       define vDef $ eval body
@@ -208,13 +206,19 @@ readback val = do
     FunIntro body vty@(FunType inTy _) -> do
       (lv, _, _, _) <- ask
       vBody <- appClosure body (StuckRigidVar inTy lv [])
-      C.FunIntro <$> readback vBody <*> readback vty
+      C.FunIntro <$> bind inTy (readback vBody) <*> readback vty
     FunType inTy outTy -> do
       (lv, _, _, _) <- ask
       vOutTy <- appClosure outTy (StuckRigidVar inTy lv [])
       C.FunType <$> readback inTy <*> bind inTy (readback vOutTy)
-    StagedIntro inner ty s -> C.StagedIntro <$> readbackTerm inner <*> readback ty <*> pure s
+    StuckStagedIntro inner ty s spine -> do
+      cInner <- readbackTerm inner
+      cTy <- readback ty
+      readbackSpine (C.StagedIntro cInner cTy s) spine
     StagedType inner s -> C.StagedType <$> readback inner <*> pure s
-    StagedElim scr body s -> C.StagedElim <$> readback scr <*> readbackTerm body <*> pure s
+    StuckStagedElim scr body s spine -> do
+      cScr <- readback scr
+      cBody <- readbackTerm body -- FIXME: add `bind` of `scr`'s type
+      readbackSpine (C.StagedElim cScr cBody s) spine
     TypeType -> pure C.TypeType
     ElabError -> pure C.ElabError
