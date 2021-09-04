@@ -1,3 +1,2 @@
 let id : (a : Type) -> S rt (a -> a) = \a => \x => x in
-let x : ? = id Type Type in
-Type
+id Type Type

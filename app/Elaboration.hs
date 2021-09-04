@@ -44,6 +44,8 @@ check term goal = do
   cGoal <- readback goal
   scope $ case (term, goal) of
     (term, N.StagedType innerTy stage) -> do
+      fn <- freshName "s"
+      bind fn N.ElabBlank
       cTerm <- check term innerTy
       cInnerTy <- readback innerTy
       pure $ C.StagedIntro cTerm cInnerTy stage

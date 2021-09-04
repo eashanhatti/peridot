@@ -147,8 +147,8 @@ rename metas gl pren rhs = go pren rhs
           innerTyTrm <- go pren innerTy
           liftEither $ Right $ C.StagedType innerTyTrm stage
         N.StuckStagedIntro inner innerTy stage spine -> do
-          innerTrm <- goTerm pren inner
-          innerTyTrm <- go pren innerTy
+          innerTrm <- goTerm (inc pren) inner
+          innerTyTrm <- go (inc pren) innerTy
           goSpine pren (C.StagedIntro innerTrm innerTyTrm stage) spine
         N.StuckStagedElim scr ty body stage spine -> do
           scrTrm <- go pren scr

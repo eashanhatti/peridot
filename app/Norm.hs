@@ -40,6 +40,7 @@ data Value
   | StuckStagedElim Value Type Value C.Stage Spine -- scr, scrTy, body
   | StuckStagedIntro C.Term Type C.Stage Spine
   | ElabError
+  | ElabBlank
   deriving Show
 
 type Norm a = Reader (Level, Metas, Set.Set C.Stage, Locals) a
@@ -94,7 +95,7 @@ define val act = do
 inc :: Norm a -> Norm a
 inc act = do
   (level, metas, stages, locals) <- ask
-  pure $ runReader act (incLevel level, metas, stages, locals)
+  pure $ runReader act (incLevel level, metas, stages, (StuckRigidVar ElabBlank level []):locals)
 
 subst :: HasCallStack => C.Term -> Norm C.Term
 subst trm = do
@@ -109,9 +110,9 @@ subst trm = do
     C.FunElim lam arg -> C.FunElim <$> subst lam <*> subst arg
     C.StagedIntro inner ty s ->
       if Set.member s stages then
-        C.Value <$> eval inner
+        C.Value <$> inc (eval inner)
       else
-        C.StagedIntro <$> subst inner <*> subst ty <*> pure s
+        C.StagedIntro <$> inc (subst inner) <*> inc (subst ty) <*> pure s
     C.StagedType inner s -> C.StagedType <$> subst inner <*> pure s
     C.StagedElim scr ty body s ->
       if Set.member s stages then do
@@ -131,16 +132,16 @@ eval :: HasCallStack => C.Term -> Norm Value
 eval trm = do
   (_, _, stages, locals) <- ask
   case trm of
-    C.Var ix _ -> pure $ locals `index` unIndex ix
+    C.Var ix ty -> pure $ locals `index` unIndex ix
       where
         index :: HasCallStack => Locals -> Int -> Value
-        index locals ix = case locals of
-          [] -> error "Nonexistent var"
+        index locals ix' = case locals of
+          [] -> error $ "Nonexistent var `" ++ show ix ++ " :" ++ show ty ++ "`" 
           x:xs ->
-            if ix == 0 then
+            if ix' == 0 then
               x
             else
-              xs `index` (ix - 1)
+              xs `index` (ix' - 1)
     C.TypeType -> pure TypeType
     C.FunIntro body tty -> FunIntro (Closure locals body) <$> eval tty
     C.FunType inTy outTy -> do
@@ -149,10 +150,10 @@ eval trm = do
     C.FunElim lam arg -> eval lam >>= \lam -> vApp lam =<< eval arg
     C.StagedIntro inner ty s ->
       if Set.member s stages then
-        eval inner
+        inc $ eval inner
       else do
-        vty <- eval ty
-        inner <- subst inner
+        vty <- inc $ eval ty
+        inner <- inc $ subst inner
         pure $ StuckStagedIntro inner vty s []
     C.StagedType inner s -> (flip StagedType $ s) <$> eval inner
     C.StagedElim scr ty body s -> do
@@ -161,7 +162,7 @@ eval trm = do
       if Set.member s stages then
         case vScr of
           StuckStagedIntro scrInner _ _ [] -> do
-            vScrInner <- eval scrInner
+            vScrInner <- inc $ eval scrInner -- FIXME? is the `inc` needed
             define vScrInner $ eval body
           _ -> error $ "Cannot `StagedElim` " ++ show vScr -- FIXME?
       else do
@@ -199,7 +200,7 @@ readbackTerm trm = case trm of
   C.FunIntro body ty@(C.FunType inTy _) -> C.FunIntro <$> inc (readbackTerm body) <*> readbackTerm ty
   C.FunType inTy outTy -> C.FunType <$> readbackTerm inTy <*> inc (readbackTerm outTy)
   C.FunElim lam arg -> C.FunElim <$> readbackTerm lam <*> readbackTerm arg
-  C.StagedIntro inner ty s -> C.StagedIntro <$> readbackTerm inner <*> readbackTerm ty <*> pure s
+  C.StagedIntro inner ty s -> C.StagedIntro <$> inc (readbackTerm inner) <*> inc (readbackTerm ty) <*> pure s
   C.StagedType inner s -> C.StagedType <$> readbackTerm inner <*> pure s
   C.StagedElim scr ty body s -> C.StagedElim <$> readbackTerm scr <*> readbackTerm ty <*> inc (readbackTerm body) <*> pure s
   C.Let def defTy body -> C.Let <$> readbackTerm def <*> readbackTerm defTy <*> inc (readbackTerm body)
@@ -228,8 +229,8 @@ readback val = do
       vOutTy <- appClosure outTy (StuckRigidVar inTy lv [])
       C.FunType <$> readback inTy <*> bind inTy (readback vOutTy)
     StuckStagedIntro inner ty s spine -> do
-      cInner <- readbackTerm inner
-      cTy <- readback ty
+      cInner <- inc $ readbackTerm inner
+      cTy <- inc $ readback ty
       readbackSpine (C.StagedIntro cInner cTy s) spine
     StagedType inner s -> C.StagedType <$> readback inner <*> pure s
     StuckStagedElim scr ty body s spine -> do
