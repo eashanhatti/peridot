@@ -12,6 +12,7 @@ import Data.Maybe(fromJust)
 import Debug.Trace
 import Control.Monad.Reader
 import qualified Data.Set as Set
+import GHC.Stack
 
 data MetaEntry a = Solved a | Unsolved
   deriving Show
@@ -30,39 +31,39 @@ type Type = Value
 data Value
   = FunIntro Closure Type
   | FunType Type Closure
-  | StagedElim Value C.Term C.Stage
-  | StagedIntro C.Term Type C.Stage
+  -- | StagedElim Value C.Term C.Stage
+  -- | StagedIntro C.Term Type C.Stage
   | StagedType Value C.Stage
   | TypeType
   | StuckFlexVar Type Global Spine
   | StuckRigidVar Type Level Spine
-  | StuckStagedElim Value C.Term C.Stage Spine
+  | StuckStagedElim Value Type Value C.Stage Spine -- scr, scrTy, body
   | StuckStagedIntro C.Term Type C.Stage Spine
   | ElabError
   deriving Show
 
 type Norm a = Reader (Level, Metas, Set.Set C.Stage, Locals) a
 
-appClosure :: Closure -> Value -> Norm Value
+appClosure :: HasCallStack => Closure -> Value -> Norm Value
 appClosure (Closure locals body) val = define val $ eval body
 
-vApp :: Value -> Value -> Norm Value
+vApp :: HasCallStack => Value -> Value -> Norm Value
 vApp lam arg = case lam of
   FunIntro body vty -> appClosure body arg
   StuckFlexVar vty gl spine -> pure $ StuckFlexVar vty gl (arg:spine)
   StuckRigidVar vty lv spine -> pure $ StuckRigidVar vty lv (arg:spine)
-  StuckStagedElim scr body s spine -> pure $ StuckStagedElim scr body s (arg:spine)
+  StuckStagedElim scr ty body s spine -> pure $ StuckStagedElim scr ty body s (arg:spine)
   StuckStagedIntro inner ty s spine -> pure $ StuckStagedIntro inner ty s (arg:spine)
   _ -> error $ "Cannot `vApp` `" ++ show lam ++ "`"
 
-vAppSpine :: Value -> Spine -> Norm Value
+vAppSpine :: HasCallStack => Value -> Spine -> Norm Value
 vAppSpine val spine = case spine of
   arg:spine -> do
     lam <- vAppSpine val spine
     vApp lam arg
   [] -> pure val
 
-vAppBis :: Value -> [C.BinderInfo] -> Norm Value
+vAppBis :: HasCallStack => Value -> [C.BinderInfo] -> Norm Value
 vAppBis val bis = do
   (_, _, _, locals) <- ask
   case (locals, bis) of
@@ -73,7 +74,7 @@ vAppBis val bis = do
     (_, []) -> pure val
     _ -> error ("impossible\n" ++ show locals ++ "\n" ++ show bis)
 
-vMeta :: Global -> Type -> Norm Value
+vMeta :: HasCallStack => Global -> Type -> Norm Value
 vMeta gl vty = do
   (_, metas, _, _) <- ask
   pure $ case fromJust $ Map.lookup gl metas of
@@ -95,7 +96,7 @@ inc act = do
   (level, metas, stages, locals) <- ask
   pure $ runReader act (incLevel level, metas, stages, locals)
 
-subst :: C.Term -> Norm C.Term
+subst :: HasCallStack => C.Term -> Norm C.Term
 subst trm = do
   (_, _, stages, locals) <- ask
   case trm of
@@ -112,12 +113,13 @@ subst trm = do
       else
         C.StagedIntro <$> subst inner <*> subst ty <*> pure s
     C.StagedType inner s -> C.StagedType <$> subst inner <*> pure s
-    C.StagedElim scr body s ->
+    C.StagedElim scr ty body s ->
       if Set.member s stages then do
         vScr <- eval scr
         C.Value <$> define vScr (eval body)
-      else
-        C.StagedElim <$> subst scr <*> subst body <*> pure s
+      else do
+        vTy <- eval ty
+        C.StagedElim <$> subst scr <*> subst ty <*> bind vTy (subst body) <*> pure s
     C.Let def defTy body -> do
       vDefTy <- eval defTy
       C.Let <$> subst def <*> subst defTy <*> bind vDefTy (subst body)
@@ -125,11 +127,20 @@ subst trm = do
     C.InsertedMeta bis gl tty -> C.InsertedMeta <$> pure bis <*> pure gl <*> subst tty
     _ -> pure trm
 
-eval :: C.Term -> Norm Value
+eval :: HasCallStack => C.Term -> Norm Value
 eval trm = do
   (_, _, stages, locals) <- ask
   case trm of
-    C.Var ix _ -> pure $ locals !! unIndex ix
+    C.Var ix _ -> pure $ locals `index` unIndex ix
+      where
+        index :: HasCallStack => Locals -> Int -> Value
+        index locals ix = case locals of
+          [] -> error "Nonexistent var"
+          x:xs ->
+            if ix == 0 then
+              x
+            else
+              xs `index` (ix - 1)
     C.TypeType -> pure TypeType
     C.FunIntro body tty -> FunIntro (Closure locals body) <$> eval tty
     C.FunType inTy outTy -> do
@@ -144,13 +155,18 @@ eval trm = do
         inner <- subst inner
         pure $ StuckStagedIntro inner vty s []
     C.StagedType inner s -> (flip StagedType $ s) <$> eval inner
-    C.StagedElim scr body s -> do
+    C.StagedElim scr ty body s -> do
       vScr <- eval scr
+      vTy <- eval ty
       if Set.member s stages then
-        define vScr $ eval body
+        case vScr of
+          StuckStagedIntro scrInner _ _ [] -> do
+            vScrInner <- eval scrInner
+            define vScrInner $ eval body
+          _ -> error $ "Cannot `StagedElim` " ++ show vScr -- FIXME?
       else do
-        body <- subst body
-        pure $ StuckStagedElim vScr body s []
+        vBody <- bind vTy $ eval body
+        pure $ StuckStagedElim vScr vTy vBody s []
     C.Let def _ body -> do
       vDef <- eval def
       define vDef $ eval body
@@ -185,7 +201,7 @@ readbackTerm trm = case trm of
   C.FunElim lam arg -> C.FunElim <$> readbackTerm lam <*> readbackTerm arg
   C.StagedIntro inner ty s -> C.StagedIntro <$> readbackTerm inner <*> readbackTerm ty <*> pure s
   C.StagedType inner s -> C.StagedType <$> readbackTerm inner <*> pure s
-  C.StagedElim scr body s -> C.StagedElim <$> readbackTerm scr <*> inc (readbackTerm body) <*> pure s
+  C.StagedElim scr ty body s -> C.StagedElim <$> readbackTerm scr <*> readbackTerm ty <*> inc (readbackTerm body) <*> pure s
   C.Let def defTy body -> C.Let <$> readbackTerm def <*> readbackTerm defTy <*> inc (readbackTerm body)
   C.Meta gl ty -> C.Meta <$> pure gl <*> readbackTerm ty
   C.InsertedMeta bis gl ty -> C.InsertedMeta <$> pure bis <*> pure gl <*> readbackTerm ty
@@ -216,9 +232,10 @@ readback val = do
       cTy <- readback ty
       readbackSpine (C.StagedIntro cInner cTy s) spine
     StagedType inner s -> C.StagedType <$> readback inner <*> pure s
-    StuckStagedElim scr body s spine -> do
+    StuckStagedElim scr ty body s spine -> do
       cScr <- readback scr
-      cBody <- readbackTerm body -- FIXME: add `bind` of `scr`'s type
-      readbackSpine (C.StagedElim cScr cBody s) spine
+      cTy <- readback ty
+      cBody <- bind ty $ readback body
+      readbackSpine (C.StagedElim cScr cTy cBody s) spine
     TypeType -> pure C.TypeType
     ElabError -> pure C.ElabError

@@ -150,10 +150,11 @@ rename metas gl pren rhs = go pren rhs
           innerTrm <- goTerm pren inner
           innerTyTrm <- go pren innerTy
           goSpine pren (C.StagedIntro innerTrm innerTyTrm stage) spine
-        N.StuckStagedElim scr body stage spine -> do
+        N.StuckStagedElim scr ty body stage spine -> do
           scrTrm <- go pren scr
-          bodyTrm <- goTerm (inc pren) body
-          goSpine pren (C.StagedElim scrTrm bodyTrm stage) spine
+          tyTrm <- go pren ty
+          bodyTrm <- go (inc pren) body
+          goSpine pren (C.StagedElim scrTrm tyTrm bodyTrm stage) spine
         N.TypeType -> liftEither $ Right C.TypeType
         N.ElabError -> liftEither $ Right C.ElabError
 
@@ -263,10 +264,11 @@ unify lv val val' = do
       unify (incLevel lv) innerTy innerTy'
       unifyTerms (incLevel lv) inner inner'
       unifySpines lv spine spine'
-    (N.StuckStagedElim scr body stage spine, N.StuckStagedElim scr' body' stage' spine') -> do
+    (N.StuckStagedElim scr ty body stage spine, N.StuckStagedElim scr' ty' body' stage' spine') -> do
       unifyStages stage stage'
+      unify lv ty ty'
       unify lv scr scr'
-      unifyTerms (incLevel lv) body body'
+      unify (incLevel lv) body body'
       unifySpines lv spine spine'
     (N.TypeType, N.TypeType) -> pure ()
     (N.FunType inTy outTy, N.FunType inTy' outTy') -> do

@@ -121,7 +121,7 @@ infer term = scope $ case term of
         vArg <- eval cArg
         outTy <- evalClosure outTy vArg
         cInnerLamTy <- readback innerLamTy
-        pure (C.StagedElim cLam (C.Var (Index 0) cInnerLamTy) s, cArg, inTy, outTy)
+        pure (C.StagedElim cLam cInnerLamTy (C.Var (Index 0) cInnerLamTy) s, cArg, inTy, outTy)
       _ -> do
         inTy <- freshMeta C.TypeType
         vInTy <- eval inTy

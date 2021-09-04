@@ -31,7 +31,7 @@ data Term
   -- Explicit `Stage` to make type inference unnecessary
   | StagedIntro Term Type Stage
   | StagedType Term Stage
-  | StagedElim Term Term Stage
+  | StagedElim Term Type Term Stage
   | Let Term Term Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
@@ -57,8 +57,8 @@ showTerm showTys term = case term of
   FunType inTy outTy -> show inTy ++ " -> " ++ show outTy
   FunElim lam arg -> "(" ++ show lam ++ " " ++ show arg ++ ")"
   StagedIntro inner innerTy stage -> "[" ++ show stage ++ "|" ++ show inner ++ "; : " ++ show innerTy ++ "]"
-  StagedType innerTy stage -> "Quote " ++ show stage ++ show innerTy
-  StagedElim scr body stage -> "splice " ++ show stage ++ "|" ++ show scr ++ " in " ++ show body
+  StagedType innerTy stage -> "Quote " ++ show stage ++ " " ++ show innerTy
+  StagedElim scr _ body stage -> "splice " ++ show stage ++ "|" ++ show scr ++ " in " ++ show body
   Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in\n" ++ show body
   Meta gl ty ->
     if showTys then
