@@ -97,10 +97,20 @@ inc act = do
   (level, metas, stages, locals) <- ask
   pure $ runReader act (incLevel level, metas, stages, (StuckRigidVar ElabBlank level []):locals)
 
+index :: HasCallStack => Locals -> Index -> C.Type -> Int -> Value
+index locals ix ty ix' = case locals of
+  [] -> error $ "Nonexistent var `" ++ show ix ++ " :" ++ show ty ++ "`" 
+  x:xs ->
+    if ix' == 0 then
+      x
+    else
+      index xs ix ty (ix' - 1)
+
 subst :: HasCallStack => C.Term -> Norm C.Term
 subst trm = do
   (_, _, stages, locals) <- ask
   case trm of
+    C.Var ix ty -> pure $ C.Value $ index locals ix ty (unIndex ix)
     C.FunIntro body ty@(C.FunType inTy _) -> do
       vInTy <- eval ty
       C.FunIntro <$> bind vInTy (subst body) <*> subst ty
@@ -132,16 +142,7 @@ eval :: HasCallStack => C.Term -> Norm Value
 eval trm = do
   (_, _, stages, locals) <- ask
   case trm of
-    C.Var ix ty -> pure $ locals `index` unIndex ix
-      where
-        index :: HasCallStack => Locals -> Int -> Value
-        index locals ix' = case locals of
-          [] -> error $ "Nonexistent var `" ++ show ix ++ " :" ++ show ty ++ "`" 
-          x:xs ->
-            if ix' == 0 then
-              x
-            else
-              xs `index` (ix' - 1)
+    C.Var ix ty -> pure $ index locals ix ty (unIndex ix)
     C.TypeType -> pure TypeType
     C.FunIntro body tty -> FunIntro (Closure locals body) <$> eval tty
     C.FunType inTy outTy -> do
