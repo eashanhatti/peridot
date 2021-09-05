@@ -1,0 +1,3 @@
+What to do about currying? Explicit currying would be preferred over implicit. E.g where `foo : a -> b -> c`, `foo x _` instead of `foo x`. That also makes choosing the right order of arguments when defining a function less important. The error messages when you forget an argument are also not very nice. Problem is this requires multiarg functions, which are less nice theory-wise.
+
+Maybe I can have multiarg functions in the surface language and elaborate them to single-arg functions?
