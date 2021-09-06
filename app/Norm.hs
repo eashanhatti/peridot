@@ -1,6 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BangPatterns #-}
 -- {-# OPTIONS_GHC -fdefer-type-errors #-}
 
 module Norm where
@@ -46,7 +47,7 @@ data Value
 instance Show Value where
   show = \case
     FunIntro (Closure _ body) ty -> "v{" ++ show body ++ "}"
-    FunType inTy (Closure _ outTy) -> show inTy ++ " v-> " ++ show outTy
+    FunType inTy (Closure env outTy) -> show inTy ++ " v-> " ++ show outTy ++ " " ++ show env
     StagedType innerTy s -> "vQuote " ++ show s ++ "| " ++ show innerTy
     TypeType -> "vType"
     StuckFlexVar _ gl spine -> "v~(?" ++ show (unGlobal gl) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
@@ -72,7 +73,9 @@ askLocals = do
   pure locals
 
 appClosure :: HasCallStack => Closure -> Value -> Norm Value
-appClosure (Closure locals body) val = define val $ eval body
+appClosure (Closure locals body) val = do
+  (level, metas, stages, _) <- ask -- FIXME? store level with closure
+  pure $ runReader (eval body) (level, metas, stages, val:locals)
 
 vApp :: HasCallStack => Value -> Value -> Norm Value
 vApp lam arg = case lam of
@@ -257,9 +260,12 @@ readback val = do
       lv <- askLv
       vBody <- appClosure body (StuckRigidVar inTy lv [])
       C.FunIntro <$> blank (readback vBody) <*> readback vty
-    FunType inTy outTy -> do
+    FunType inTy outTy@(Closure env tmp) -> do
+      -- let !() = trace ("      Env = " ++ show env) ()
       lv <- askLv
-      vOutTy <- appClosure outTy (StuckRigidVar inTy lv [])
+      vOutTy <- appClosure outTy (StuckRigidVar inTy lv []) 
+      -- let !() = trace ("      outTy = " ++ show outTy) ()
+      -- let !() = trace ("      vOutTy = " ++ show vOutTy) ()
       C.FunType <$> readback inTy <*> blank (readback vOutTy)
     StuckStagedIntro inner ty s spine -> do
       cInner <- readbackTerm inner

@@ -139,8 +139,12 @@ infer term = scope $ case term of
         cArg <- check arg inTy
         vArg <- eval cArg
         outTy <- evalClosure outTy vArg
+        locals <- locals <$> get
+        -- let !() = trace ("    Locals = " ++ show locals) ()
+        -- let !() = trace ("    Lam Type = " ++ show innerLamTy) ()
         cInnerLamTy <- readback innerLamTy
-        {-let cInnerLamTy' = runReader (C.shift mempty cInnerLamTy) 1-}
+        -- let !() = trace ("    CLam Type = " ++ show cInnerLamTy) ()
+        -- let cInnerLamTy' = runReader (C.shift mempty cInnerLamTy) 1
         pure (C.StagedElim cLam cInnerLamTy (C.Var (Index 0) cInnerLamTy{-'-}) s, cArg, inTy, outTy)
       _ -> do
         inTy <- freshMeta C.TypeType
