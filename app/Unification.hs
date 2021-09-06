@@ -15,6 +15,7 @@ import Control.Monad.Reader(runReader)
 import Control.Monad.Except(ExceptT, lift, throwError, liftEither, runExceptT)
 import Control.Monad(ap, liftM)
 import qualified Data.Set as Set
+import GHC.Stack
 
 data Error = InvalidSpine | OccursCheck | EscapingVar | Mismatch N.Value N.Value | MismatchStages C.Stage C.Stage
 
@@ -71,11 +72,6 @@ putError :: Error -> Unify ()
 putError err = do
   (metas, stageMetas, errors) <- get
   put (metas, stageMetas, err:errors)
-
--- force :: N.Value -> Unify N.Value
--- force val = do
---   (metas, _, _) <- get
---   runNorm $ N.force val
 
 getMetas :: Unify N.Metas
 getMetas = do
@@ -144,7 +140,7 @@ rename metas gl pren rhs = go pren rhs
           outTyTrm <- go (inc pren) vOutTy
           liftEither $ Right $ C.FunType inTyTrm outTyTrm
         N.StagedType innerTy stage -> do
-          innerTyTrm <- go pren innerTy
+          innerTyTrm <- go (inc pren) innerTy
           liftEither $ Right $ C.StagedType innerTyTrm stage
         N.StuckStagedIntro inner innerTy stage spine -> do
           innerTrm <- goTerm (inc pren) inner
@@ -235,7 +231,7 @@ unifyStages s s' = case (s, s') of
 unifyTerms :: Level -> C.Term -> C.Term -> Unify ()
 unifyTerms lv trm trm' = undefined
 
-unify :: Level -> N.Value -> N.Value -> Unify ()
+unify :: HasCallStack => Level -> N.Value -> N.Value -> Unify ()
 unify lv val val' = do
   val <- runNorm lv $ N.force val
   val' <- runNorm lv $ N.force val'

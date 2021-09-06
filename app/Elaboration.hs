@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE BangPatterns #-}
 -- {-# OPTIONS_GHC -fdefer-type-errors #-}
 
 module Elaboration where
@@ -16,15 +17,28 @@ import Control.Monad(forM_)
 import Control.Monad.Reader(runReader)
 import Debug.Trace
 import Data.Set(singleton)
+import Debug.Trace
+import GHC.Stack
 
-data Error = UnboundName S.Name | UnifyError U.Error
+data InnerError = UnboundName S.Name | UnifyError U.Error
   deriving Show
+
+data Error = Error S.Span N.Locals Level InnerError
+
+instance Show Error where
+  show (Error s ls lv e) = "Error\n" ++ show e ++ "\n" ++ indent "  " (show lv) ++ indent "  " stringLocals
+    where
+      indent :: String -> String -> String
+      indent i s = unlines $ map (i++) (lines s)
+
+      stringLocals :: String
+      stringLocals = concat $ map (\l -> show l ++ "\n") ls
 
 data ElabState = ElabState
   { metas :: N.Metas
   , stageMetas :: N.StageMetas
   , nextMeta :: Int
-  , errors :: [(S.Span, Error)]
+  , errors :: [Error]
   , locals :: N.Locals
   , ltypes :: Map.Map S.Name (N.Value, Index)
   , level :: Level
@@ -35,19 +49,21 @@ data ElabState = ElabState
 
 type Elab a = State ElabState a
 
-elab :: S.Term -> N.Value -> (C.Term, ElabState)
+elab :: HasCallStack => S.Term -> N.Value -> (C.Term, ElabState)
 elab term goal = runState (check term goal) (ElabState Map.empty Map.empty 0 [] [] Map.empty (Level 0) S.Span [] 0)
 
-check :: S.Term -> N.Value -> Elab C.Term
+check :: HasCallStack => S.Term -> N.Value -> Elab C.Term
 check term goal = do
+  -- let !() = trace ("Goal = " ++ show goal) ()
   goal <- force goal
+  -- let !() = trace ("Term = " ++ show term) ()
+  -- let !() = trace ("FGoal = " ++ show goal) ()
   cGoal <- readback goal
+  -- let !() = trace ("CGoal = " ++ show cGoal) ()
   scope $ case (term, goal) of
     (term, N.StagedType innerTy stage) -> do
-      fn <- freshName "s"
-      bind fn N.ElabBlank
-      cTerm <- check term innerTy
       cInnerTy <- readback innerTy
+      cTerm <- check term innerTy
       pure $ C.StagedIntro cTerm cInnerTy stage
     (S.Spanned term' ssp, _) -> do
       setspan ssp
@@ -78,7 +94,7 @@ check term goal = do
       unify goal ty
       pure cTerm
 
-infer :: S.Term -> Elab (C.Term, N.Value)
+infer :: HasCallStack => S.Term -> Elab (C.Term, N.Value)
 infer term = scope $ case term of
   S.Spanned term' ssp -> do
     setspan ssp
@@ -112,6 +128,7 @@ infer term = scope $ case term of
     state <- get
     (cLam, lamTy) <- infer lam
     lamTy <- force lamTy
+    -- let !() = trace ("Lam Type = " ++ show lamTy) ()
     (cLam, cArg, inTy, outTy) <- scope $ case lamTy of
       N.FunType inTy outTy -> do
         cArg <- check arg inTy
@@ -123,7 +140,8 @@ infer term = scope $ case term of
         vArg <- eval cArg
         outTy <- evalClosure outTy vArg
         cInnerLamTy <- readback innerLamTy
-        pure (C.StagedElim cLam cInnerLamTy (C.Var (Index 0) cInnerLamTy) s, cArg, inTy, outTy)
+        {-let cInnerLamTy' = runReader (C.shift mempty cInnerLamTy) 1-}
+        pure (C.StagedElim cLam cInnerLamTy (C.Var (Index 0) cInnerLamTy{-'-}) s, cArg, inTy, outTy)
       _ -> do
         inTy <- freshMeta C.TypeType
         vInTy <- eval inTy
@@ -165,7 +183,7 @@ infer term = scope $ case term of
     cTermMeta <- freshMeta cTypeMeta
     pure (cTermMeta, vTypeMeta)
 
-runNorm :: N.Norm a -> Elab a
+runNorm :: HasCallStack => N.Norm a -> Elab a
 runNorm act = do
   state <- get
   pure $ runReader act (level state, metas state, singleton C.T, locals state)
@@ -211,7 +229,7 @@ localType name = do
   state <- get
   pure $ Map.lookup name (ltypes state)
 
-appClosure :: N.Closure -> N.Value -> Elab N.Value
+appClosure :: HasCallStack => N.Closure -> N.Value -> Elab N.Value
 appClosure closure ty = do
   state <- get
   runNorm $ N.appClosure closure (N.StuckRigidVar ty (level state) [])
@@ -269,10 +287,10 @@ unify val val' = do
     [] -> put $ state { metas = newMetas, stageMetas = newStageMetas }
     _ -> forM_ (map UnifyError newErrors) putError
 
-putError :: Error -> Elab ()
+putError :: InnerError -> Elab ()
 putError err = do
   state <- get
-  put $ state { errors = (sourceSpan state, err):(errors state) }
+  put $ state { errors = (Error (sourceSpan state) (locals state) (level state) err):(errors state) }
 
 freshName :: String -> Elab S.Name
 freshName base = do

@@ -13,6 +13,7 @@ import Debug.Trace
 import Control.Monad.Reader
 import qualified Data.Set as Set
 import GHC.Stack
+import Data.List(intersperse)
 
 data MetaEntry a = Solved a | Unsolved
   deriving Show
@@ -41,9 +42,34 @@ data Value
   | StuckStagedIntro C.Term Type C.Stage Spine
   | ElabError
   | ElabBlank
-  deriving Show
+
+instance Show Value where
+  show = \case
+    FunIntro (Closure _ body) ty -> "v{" ++ show body ++ "}"
+    FunType inTy (Closure _ outTy) -> show inTy ++ " v-> " ++ show outTy
+    StagedType innerTy s -> "vQuote " ++ show s ++ "| " ++ show innerTy
+    TypeType -> "vType"
+    StuckFlexVar _ gl spine -> "v~(?" ++ show (unGlobal gl) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
+    StuckRigidVar _ lv spine -> "v~(" ++ show (unLevel lv) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
+    ElabError -> "v<error>"
+    ElabBlank -> "v<blank>"
 
 type Norm a = Reader (Level, Metas, Set.Set C.Stage, Locals) a
+
+askLv :: Norm Level
+askLv = do
+  (lv, _, _, _) <- ask
+  pure lv
+
+askMetas :: Norm Metas
+askMetas = do
+  (_, metas, _, _) <- ask
+  pure metas
+
+askLocals :: Norm Locals
+askLocals = do
+  (_, _, _, locals) <- ask
+  pure locals
 
 appClosure :: HasCallStack => Closure -> Value -> Norm Value
 appClosure (Closure locals body) val = define val $ eval body
@@ -66,7 +92,7 @@ vAppSpine val spine = case spine of
 
 vAppBis :: HasCallStack => Value -> [C.BinderInfo] -> Norm Value
 vAppBis val bis = do
-  (_, _, _, locals) <- ask
+  locals <- askLocals
   case (locals, bis) of
     (local:locals, C.Abstract:bis) -> do
       lam <- vAppBis val bis
@@ -77,29 +103,34 @@ vAppBis val bis = do
 
 vMeta :: HasCallStack => Global -> Type -> Norm Value
 vMeta gl vty = do
-  (_, metas, _, _) <- ask
+  metas <- askMetas
   pure $ case fromJust $ Map.lookup gl metas of
     Solved sol -> sol
     Unsolved -> StuckFlexVar vty gl []
 
-bind :: Value -> Norm a -> Norm a
+bind :: HasCallStack => Value -> Norm a -> Norm a
 bind ty act = do
   (level, metas, stages, locals) <- ask
   pure $ runReader act (incLevel level, metas, stages, (StuckRigidVar ty level []):locals)
 
-define :: Value -> Norm a -> Norm a
+define :: HasCallStack => Value -> Norm a -> Norm a
 define val act = do
   (level, metas, stages, locals) <- ask
   pure $ runReader act (incLevel level, metas, stages, val:locals)
 
-inc :: Norm a -> Norm a
-inc act = do
+blank :: HasCallStack => Norm a -> Norm a
+blank act = do
   (level, metas, stages, locals) <- ask
-  pure $ runReader act (incLevel level, metas, stages, (StuckRigidVar ElabBlank level []):locals)
+  pure $ runReader act (incLevel level, metas, stages, ElabBlank:locals)
+
+-- withLocals :: HasCallStack => Norm a -> Locals -> Norm a
+-- withLocals act locals = do
+--   (level, metas, stages, _) <- ask
+--   pure $ runReader act (level, metas, stages, locals)
 
 index :: HasCallStack => Locals -> Index -> C.Type -> Int -> Value
 index locals ix ty ix' = case locals of
-  [] -> error $ "Nonexistent var `" ++ show ix ++ " :" ++ show ty ++ "`" 
+  [] -> {-ElabError-} error $ "Nonexistent var `" ++ show ix ++ " :" ++ show ty ++ "`"
   x:xs ->
     if ix' == 0 then
       x
@@ -120,9 +151,9 @@ subst trm = do
     C.FunElim lam arg -> C.FunElim <$> subst lam <*> subst arg
     C.StagedIntro inner ty s ->
       if Set.member s stages then
-        C.Value <$> inc (eval inner)
+        C.Value <$> eval inner
       else
-        C.StagedIntro <$> inc (subst inner) <*> inc (subst ty) <*> pure s
+        C.StagedIntro <$> subst inner <*> subst ty <*> pure s
     C.StagedType inner s -> C.StagedType <$> subst inner <*> pure s
     C.StagedElim scr ty body s ->
       if Set.member s stages then do
@@ -142,7 +173,7 @@ eval :: HasCallStack => C.Term -> Norm Value
 eval trm = do
   (_, _, stages, locals) <- ask
   case trm of
-    C.Var ix ty -> pure $ index locals ix ty (unIndex ix)
+    C.Var ix ty -> pure $ let v = index locals ix ty (unIndex ix) in {-trace (("Var = "++) $ show v ++ show ix ++ show locals)-} v
     C.TypeType -> pure TypeType
     C.FunIntro body tty -> FunIntro (Closure locals body) <$> eval tty
     C.FunType inTy outTy -> do
@@ -151,10 +182,10 @@ eval trm = do
     C.FunElim lam arg -> eval lam >>= \lam -> vApp lam =<< eval arg
     C.StagedIntro inner ty s ->
       if Set.member s stages then
-        inc $ eval inner
+        eval inner
       else do
-        vty <- inc $ eval ty
-        inner <- inc $ subst inner
+        vty <- eval ty
+        inner <- subst inner
         pure $ StuckStagedIntro inner vty s []
     C.StagedType inner s -> (flip StagedType $ s) <$> eval inner
     C.StagedElim scr ty body s -> do
@@ -163,7 +194,7 @@ eval trm = do
       if Set.member s stages then
         case vScr of
           StuckStagedIntro scrInner _ _ [] -> do
-            vScrInner <- inc $ eval scrInner -- FIXME? is the `inc` needed
+            vScrInner <- eval scrInner
             define vScrInner $ eval body
           _ -> error $ "Cannot `StagedElim` " ++ show vScr -- FIXME?
       else do
@@ -176,9 +207,9 @@ eval trm = do
     C.InsertedMeta bis gl tty -> (vMeta gl =<< eval tty) >>= \meta -> vAppBis meta bis
     C.ElabError -> pure ElabError
 
-force :: Value -> Norm Value
+force :: HasCallStack => Value -> Norm Value
 force val = do
-  (_, metas, _, _) <- ask
+  metas <- askMetas
   case val of
     StuckFlexVar vty gl spine | Solved sol <- fromJust $ Map.lookup gl metas -> do
       sol <- vAppSpine sol spine
@@ -188,29 +219,30 @@ force val = do
 lvToIx :: Level -> Level -> Index
 lvToIx lv1 lv2 = Index (unLevel lv1 - unLevel lv2 - 1)
 
-readbackSpine :: C.Term -> Spine -> Norm C.Term
+readbackSpine :: HasCallStack => C.Term -> Spine -> Norm C.Term
 readbackSpine trm spine = do
-  (lv, _, _, _) <- ask
+  lv <- askLv
   case spine of
     arg:spine -> C.FunElim <$> readbackSpine trm spine <*> readback arg
     -- readbackSpine trm spine >>= \lam -> C.FunElim lam <$> readback lv arg
     [] -> pure trm
 
-readbackTerm :: C.Term -> Norm C.Term
+readbackTerm :: HasCallStack => C.Term -> Norm C.Term
 readbackTerm trm = case trm of
-  C.FunIntro body ty@(C.FunType inTy _) -> C.FunIntro <$> inc (readbackTerm body) <*> readbackTerm ty
-  C.FunType inTy outTy -> C.FunType <$> readbackTerm inTy <*> inc (readbackTerm outTy)
+  C.FunIntro body ty@(C.FunType inTy _) -> C.FunIntro <$> blank (readbackTerm body) <*> readbackTerm ty
+  C.FunType inTy outTy -> C.FunType <$> readbackTerm inTy <*> blank (readbackTerm outTy)
   C.FunElim lam arg -> C.FunElim <$> readbackTerm lam <*> readbackTerm arg
-  C.StagedIntro inner ty s -> C.StagedIntro <$> inc (readbackTerm inner) <*> inc (readbackTerm ty) <*> pure s
+  C.StagedIntro inner ty s -> C.StagedIntro <$> readbackTerm inner <*> readbackTerm ty <*> pure s
   C.StagedType inner s -> C.StagedType <$> readbackTerm inner <*> pure s
-  C.StagedElim scr ty body s -> C.StagedElim <$> readbackTerm scr <*> readbackTerm ty <*> inc (readbackTerm body) <*> pure s
-  C.Let def defTy body -> C.Let <$> readbackTerm def <*> readbackTerm defTy <*> inc (readbackTerm body)
+  C.StagedElim scr ty body s -> C.StagedElim <$> readbackTerm scr <*> readbackTerm ty <*> (blank $ readbackTerm body) <*> pure s
+  C.Let def defTy body -> C.Let <$> readbackTerm def <*> readbackTerm defTy <*> blank (readbackTerm body)
   C.Meta gl ty -> C.Meta <$> pure gl <*> readbackTerm ty
   C.InsertedMeta bis gl ty -> C.InsertedMeta <$> pure bis <*> pure gl <*> readbackTerm ty
   C.Value val -> readback val
   _ -> pure trm
 
-readback :: Value -> Norm C.Term
+-- TODO? replace `bind` with `blank`
+readback :: HasCallStack => Value -> Norm C.Term
 readback val = do
   val <- force val
   case val of
@@ -218,20 +250,20 @@ readback val = do
       meta <- C.Meta <$> pure gl <*> readback vty
       readbackSpine meta spine
     StuckRigidVar vty lv' spine -> do
-      (lv, _, _, _) <- ask
+      lv <- askLv
       var <- C.Var <$> pure (lvToIx lv lv') <*> readback vty
       readbackSpine var spine
     FunIntro body vty@(FunType inTy _) -> do
-      (lv, _, _, _) <- ask
+      lv <- askLv
       vBody <- appClosure body (StuckRigidVar inTy lv [])
-      C.FunIntro <$> bind inTy (readback vBody) <*> readback vty
+      C.FunIntro <$> blank (readback vBody) <*> readback vty
     FunType inTy outTy -> do
-      (lv, _, _, _) <- ask
+      lv <- askLv
       vOutTy <- appClosure outTy (StuckRigidVar inTy lv [])
-      C.FunType <$> readback inTy <*> bind inTy (readback vOutTy)
+      C.FunType <$> readback inTy <*> blank (readback vOutTy)
     StuckStagedIntro inner ty s spine -> do
-      cInner <- inc $ readbackTerm inner
-      cTy <- inc $ readback ty
+      cInner <- readbackTerm inner
+      cTy <- readback ty
       readbackSpine (C.StagedIntro cInner cTy s) spine
     StagedType inner s -> C.StagedType <$> readback inner <*> pure s
     StuckStagedElim scr ty body s spine -> do
@@ -241,3 +273,4 @@ readback val = do
       readbackSpine (C.StagedElim cScr cTy cBody s) spine
     TypeType -> pure C.TypeType
     ElabError -> pure C.ElabError
+    _ -> pure C.ElabError
