@@ -1,0 +1,53 @@
+let id : (a : Type) -> S rt (a -> a) = \a => \x => x in
+id Type Type
+
+
+
+(a : Type) -> S rt (a -> a)
+
+
+
+let Bool : Type = (B : ?) -> B -> B -> B in
+let true : Bool = \B => \t => \f => t in
+let false : Bool = \B => \t => \f => f in
+let not : Bool -> Bool = \b => \B => \t => \f => b B f t in
+Type
+
+
+
+let List : Type -> Type
+  = \A => (L : Type) -> (A -> L -> L) -> L -> L in
+
+let nil : (A : Type) -> List A
+  = \A => \L => \cons => \nil => nil in
+
+let cons : (A : Type) -> A -> List A -> List A
+  = \A => \x => \xs => \L => \cons => \nil => cons x (xs ? cons nil) in
+
+Type
+
+
+
+let Eq : (A : ?) -> A -> A -> Type
+  = \A => \x => \y => (P : A -> Type) -> P x -> P y in
+
+let refl : (A : ?) -> (x : A) -> Eq A x x
+  = \A => \x => \P => \px => px in
+
+let p : Eq Type Type Type = refl Type ((\x => x) Type) in
+
+Type
+
+
+
+let Nat  : Type = (N : Type) -> (N -> N) -> N -> N in
+let five : Nat = \N => \s => \z => s (s (s (s (s z)))) in
+let add  : Nat -> Nat -> Nat = \a => \b => \N => \s => \z => a N s (b N s z) in
+let mul  : Nat -> Nat -> Nat = \a => \b => \N => \s => \z => a N (b N s) z in
+
+let ten : Nat = add five five in
+let hundred : Nat = mul ten ten in
+let p : Eq hundred hundred = refl ? ? in
+let q : Eq hundred (mul ten ten) = refl ? ? in
+
+Type

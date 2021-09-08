@@ -32,14 +32,14 @@ main = do
   let (cTerm, state) = Elab.elab term N.TypeType
   putStrLn "Core term:"
   putStrLn $ show cTerm
-  putStrLn "After partial eval:"
-  let resiTerm = PE.partialEval cTerm
-  putStrLn $ show $ resiTerm
   putStrLn "Errors:"
   forM_ (Elab.errors state) (putStrLn . show)
   putStrLn "Metas:"
   forM_ (toList $ Elab.metas state) (putStrLn . show)
   forM_ (toList $ Elab.stageMetas state) (putStrLn . show)
-  -- if length (Elab.errors state) == 0 then do
-  -- else
-  --   pure ()
+  if length (Elab.errors state) == 0 then do
+    putStrLn "After partial eval:"
+    let resiTerm = PE.partialEval cTerm
+    putStrLn $ show $ resiTerm
+  else
+    pure ()

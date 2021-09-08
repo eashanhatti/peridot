@@ -47,13 +47,19 @@ Prec1
 
 Prec0
   : name                                  { Var (Name $1) }
+  | '\\' NameList '=>' Prec3              { foldr (\name body -> Lam (Name name) body) $4 $2 }
   | '\\' name '=>' Prec3                  { Lam (Name $2) $4 }
   | '(' name ':' Prec3 ')' '->' Prec3     { Pi (Name $2) $4 $7 }
+  | let name '=' Prec3 in Prec3           { Let (Name $2) $4 Hole $6 }
   | let name ':' Prec3 '=' Prec3 in Prec3 { Let (Name $2) $6 $4 $8 }
   | kwuniv                                { Universe }
   | '?'                                   { Hole }
   | kwquotety Stage                       { Lam (Name "_") (QuoteType (Var $ Name "_") $2) } {- FIXME: use machine generated name -}
   | Parens                                { $1 }
+
+NameList
+  : name                                  { [$1] }
+  | name NameList                         { [$1] ++ $2 }
 
 Stage
   : kwtt                                  { T }
@@ -121,7 +127,7 @@ lex s = case s of
 lexVar :: String -> String -> [Token]
 lexVar s a = case s of
   c:s ->
-    if isAlphaNum c then
+    if isAlphaNum c || c == '_' then
       lexVar s (c:a)
     else
       (TName $ reverse a):(lex (c:s))

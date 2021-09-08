@@ -1,10 +1,3 @@
-let List : Type -> Type
-  = \A => (L : Type) -> (A -> L -> L) -> L -> L in
-
-let nil : (A : Type) -> List A
-  = \A => \L => \cons => \nil => nil in
-
-let cons : (A : Type) -> A -> List A -> List A
-  = \A => \x => \xs => \L => \cons => \nil => cons x (xs ? cons nil) in
-
-Type
+let id : (a : ?) -> a -> a = \a x => x in
+let id_ = id ? id in
+id_ ? Type
