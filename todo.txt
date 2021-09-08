@@ -1,1 +1,1 @@
-Bind fake var in `StagedIntro` inner so shifting isn't necessary
+The Church lists example from the elabzoo-03-holes examples fails with an invalid spine error, fix that

@@ -14,3 +14,9 @@ Random unsorted syntax ideas
 ```haskell
 \x -> e
 ```
+Records
+```haskell
+record Pair a b of
+	x : a
+	y : b
+```

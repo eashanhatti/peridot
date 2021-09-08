@@ -93,16 +93,15 @@ vAppSpine val spine = case spine of
     vApp lam arg
   [] -> pure val
 
-vAppBis :: HasCallStack => Value -> [C.BinderInfo] -> Norm Value
-vAppBis val bis = do
-  locals <- askLocals
+vAppBis :: HasCallStack => Value -> Locals -> [C.BinderInfo] -> Norm Value
+vAppBis val locals bis = do
   case (locals, bis) of
     (local:locals, C.Abstract:bis) -> do
-      lam <- vAppBis val bis
+      lam <- vAppBis val locals bis
       vApp lam local
-    (_:locals, C.Concrete:bis) -> vAppBis val bis
-    (_, []) -> pure val
-    _ -> error ("impossible\n" ++ show locals ++ "\n" ++ show bis)
+    (_:locals, C.Concrete:bis) -> vAppBis val locals bis
+    ([], []) -> pure val
+    _ -> error ("impossible\n" ++ show locals ++ "\n" ++ show bis ++ "\n" ++ show val)
 
 vMeta :: HasCallStack => Global -> Type -> Norm Value
 vMeta gl vty = do
@@ -182,7 +181,10 @@ eval trm = do
     C.FunType inTy outTy -> do
       vInTy <- eval inTy
       pure $ FunType vInTy (Closure locals outTy)
-    C.FunElim lam arg -> eval lam >>= \lam -> vApp lam =<< eval arg
+    C.FunElim lam arg -> do
+      vLam <- eval lam
+      vArg <- eval arg
+      vApp vLam vArg
     C.StagedIntro inner ty s ->
       if Set.member s stages then
         eval inner
@@ -207,7 +209,7 @@ eval trm = do
       vDef <- eval def
       define vDef $ eval body
     C.Meta gl tty -> vMeta gl =<< eval tty
-    C.InsertedMeta bis gl tty -> (vMeta gl =<< eval tty) >>= \meta -> vAppBis meta bis
+    C.InsertedMeta bis gl tty -> (vMeta gl =<< eval tty) >>= \meta -> vAppBis meta locals bis
     C.ElabError -> pure ElabError
 
 force :: HasCallStack => Value -> Norm Value

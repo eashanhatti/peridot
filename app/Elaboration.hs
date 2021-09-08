@@ -132,6 +132,9 @@ infer term = scope $ case term of
     (cLam, cArg, inTy, outTy) <- scope $ case lamTy of
       N.FunType inTy outTy -> do
         cArg <- check arg inTy
+        -- bis <- binderInfos <$> get
+        -- let !() = trace ("BIs = " ++ show ) ()
+        -- let !() = trace ("    cArg = " ++ show cArg) ()
         vArg <- eval cArg
         outTy <- evalClosure outTy vArg
         pure (cLam, cArg, inTy, outTy)
@@ -260,7 +263,7 @@ readback val = do
   state <- get
   runNorm $ N.readback val
 
-eval :: C.Term -> Elab N.Value
+eval :: HasCallStack => C.Term -> Elab N.Value
 eval term = do
   state <- get
   runNorm $ N.eval term

@@ -1,4 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE BangPatterns #-}
 -- {-# OPTIONS_GHC -fdefer-type-errors #-}
 
 module Unification where
@@ -16,12 +17,19 @@ import Control.Monad.Except(ExceptT, lift, throwError, liftEither, runExceptT)
 import Control.Monad(ap, liftM)
 import qualified Data.Set as Set
 import GHC.Stack
+import Debug.Trace
 
-data Error = InvalidSpine | OccursCheck | EscapingVar | Mismatch N.Value N.Value | MismatchStages C.Stage C.Stage
+data Error
+  = InvalidSpine
+  | OccursCheck
+  | EscapingVar
+  | Mismatch N.Value N.Value
+  | MismatchStages C.Stage C.Stage
+  | MismatchSpines N.Spine N.Spine
 
 instance Show Error where
   show e = case e of
-    InvalidSpine -> "Invalid Spine"
+    InvalidSpine -> "Invalid Spine "
     OccursCheck -> "Failed Occurs Check"
     EscapingVar -> "Escaping Var"
     Mismatch val val' -> "Mismatched Types:\n  " ++ show val ++ "\n  " ++ show val'
@@ -90,17 +98,18 @@ inc pren = PartialRenaming
   (Map.insert (codomain pren) (domain pren) (ren pren))
 
 invert :: N.Metas -> Level -> N.Spine -> ExceptT Error Unify PartialRenaming
-invert metas gamma spine = do
+invert metas gamma spine' = do
   let go :: N.Spine -> ExceptT Error Unify (Level, Map.Map Level Level)
       go = \case
         (arg:spine) -> do
           (domain, ren) <- go spine
           arg <- lift $ runNorm gamma $ N.force arg
+          -- let !() = trace ("    Renaming = " ++ show ren ++ "  Arg = " ++ show arg ++ "  Spine = " ++ show spine') ()
           case arg of
             N.StuckRigidVar _ lv [] | Map.notMember lv ren -> liftEither $ Right (Level $ unLevel domain + 1, Map.insert lv domain ren)
             _ -> throwError InvalidSpine
         [] -> liftEither $ Right (Level 0, mempty)
-  (domain, ren) <- go spine
+  (domain, ren) <- go spine'
   liftEither $ Right $ PartialRenaming domain gamma ren
 
 rename :: N.Metas -> Global -> PartialRenaming -> N.Value -> ExceptT Error Unify C.Term
@@ -218,7 +227,7 @@ unifySpines lv spine spine'= case (spine, spine') of
     unifySpines lv spine spine'
     unify lv arg arg'
   ([], []) -> pure ()
-  _ -> putError InvalidSpine
+  _ -> putError $ MismatchSpines spine spine'
 
 unifyStages :: C.Stage -> C.Stage -> Unify ()
 unifyStages s s' = case (s, s') of
