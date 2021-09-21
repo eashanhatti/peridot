@@ -1,3 +1,6 @@
-let id : (a : ?) -> a -> a = \a x => x in
-let id_ = id ? id in
-id_ ? Type
+let Nat  : Type = (N : Type) -> (N -> N) -> N -> N in
+let five : Nat = \N s z => s (s (s (s (s z)))) in
+let add  : Nat -> Nat -> Nat = \a b N s z => a N s (b N s z) in
+let mul  : Nat -> Nat -> Nat = \a b N s z => a N (b N s) z in
+let x = mul five (add five five) in
+x
