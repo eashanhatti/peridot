@@ -36,7 +36,6 @@ instance Show Error where
 
 data ElabState = ElabState
   { metas :: N.Metas
-  , stageMetas :: N.StageMetas
   , nextMeta :: Int
   , errors :: [Error]
   , locals :: N.Locals
@@ -50,7 +49,7 @@ data ElabState = ElabState
 type Elab a = State ElabState a
 
 elab :: HasCallStack => S.Term -> N.Value -> (C.Term, ElabState)
-elab term goal = runState (check term goal) (ElabState Map.empty Map.empty 0 [] [] Map.empty (Level 0) S.Span [] 0)
+elab term goal = runState (check term goal) (ElabState Map.empty 0 [] [] Map.empty (Level 0) S.Span [] 0)
 
 check :: HasCallStack => S.Term -> N.Value -> Elab C.Term
 check term goal = do
@@ -61,10 +60,6 @@ check term goal = do
   cGoal <- readback goal
   -- let !() = trace ("CGoal = " ++ show cGoal) ()
   scope $ case (term, goal) of
-    (term, N.StagedType innerTy stage) -> do
-      cInnerTy <- readback innerTy
-      cTerm <- check term innerTy
-      pure $ C.StagedIntro cTerm cInnerTy stage
     (S.Spanned term' ssp, _) -> do
       setspan ssp
       check term' goal
@@ -138,17 +133,6 @@ infer term = scope $ case term of
         vArg <- eval cArg
         outTy <- evalClosure outTy vArg
         pure (cLam, cArg, inTy, outTy)
-      N.StagedType innerLamTy@(N.FunType inTy outTy) s -> do
-        cArg <- check arg inTy
-        vArg <- eval cArg
-        outTy <- evalClosure outTy vArg
-        locals <- locals <$> get
-        -- let !() = trace ("    Locals = " ++ show locals) ()
-        -- let !() = trace ("    Lam Type = " ++ show innerLamTy) ()
-        cInnerLamTy <- readback innerLamTy
-        -- let !() = trace ("    CLam Type = " ++ show cInnerLamTy) ()
-        -- let cInnerLamTy' = runReader (C.shift mempty cInnerLamTy) 1
-        pure (C.StagedElim cLam cInnerLamTy (C.Var (Index 0) cInnerLamTy{-'-}) s, cArg, inTy, outTy)
       _ -> do
         inTy <- freshMeta C.TypeType
         vInTy <- eval inTy
@@ -165,9 +149,6 @@ infer term = scope $ case term of
         vOutTy <- eval outTy
         pure (cLam, cArg, vInTy, vOutTy)
     pure (C.FunElim cLam cArg, outTy)
-  S.QuoteType innerTy stage -> do
-    cInnerTy <- check innerTy N.TypeType
-    pure (C.StagedType cInnerTy stage, N.TypeType)
   S.Universe -> pure (C.TypeType, N.TypeType)
   S.Pi name inTy outTy -> do
     cInTy <- check inTy N.TypeType
@@ -193,7 +174,7 @@ infer term = scope $ case term of
 runNorm :: HasCallStack => N.Norm a -> Elab a
 runNorm act = do
   state <- get
-  pure $ runReader act (level state, metas state, singleton C.T, locals state)
+  pure $ runReader act (level state, metas state, locals state)
 
 force :: N.Value -> Elab N.Value
 force val = do
@@ -205,7 +186,7 @@ scope :: Elab a -> Elab a
 scope act = do
   state <- get
   let (a, s) = runState act state
-  put $ state { metas = metas s, stageMetas = stageMetas s, errors = errors s, nextMeta = nextMeta s, nextName = nextName s }
+  put $ state { metas = metas s, errors = errors s, nextMeta = nextMeta s, nextName = nextName s }
   pure a
 
 setspan :: S.Span -> Elab ()
@@ -277,21 +258,12 @@ freshMeta ty = do
     , nextMeta = (nextMeta state) + 1 }
   pure meta
 
-freshStageMeta :: Elab C.Stage
-freshStageMeta = do
-  state <- get
-  let meta = C.StageMeta (Global $ nextMeta state)
-  put $ state
-    { stageMetas = Map.insert (Global $ nextMeta state) N.Unsolved (stageMetas state)
-    , nextMeta = (nextMeta state) + 1 }
-  pure meta
-
 unify :: N.Value -> N.Value -> Elab ()
 unify val val' = do
   state <- get
-  let ((), (newMetas, newStageMetas, newErrors)) = U.runUnify (U.unify (level state) val val') (metas state, stageMetas state, [])
+  let ((), (newMetas, newErrors)) = U.runUnify (U.unify (level state) val val') (metas state, [])
   case newErrors of
-    [] -> put $ state { metas = newMetas, stageMetas = newStageMetas }
+    [] -> put $ state { metas = newMetas }
     _ -> forM_ (map UnifyError newErrors) putError
 
 putError :: InnerError -> Elab ()

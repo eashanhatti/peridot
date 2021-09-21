@@ -7,7 +7,7 @@ import qualified Norm as N
 import qualified Surface as S
 import qualified Elaboration as Elab
 import qualified Parsing as Parse
-import qualified PartialEval as PE
+-- import qualified PartialEval as PE
 import Control.Monad(forM_)
 import Data.Map(toList)
 import Data.Either(fromRight)
@@ -36,10 +36,9 @@ main = do
   forM_ (Elab.errors state) (putStrLn . show)
   putStrLn "Metas:"
   forM_ (toList $ Elab.metas state) (putStrLn . show)
-  forM_ (toList $ Elab.stageMetas state) (putStrLn . show)
-  if length (Elab.errors state) == 0 then do
-    putStrLn "After partial eval:"
-    let resiTerm = PE.partialEval cTerm
-    putStrLn $ show $ resiTerm
-  else
-    pure ()
+  -- if length (Elab.errors state) == 0 then do
+  --   putStrLn "After partial eval:"
+  --   let resiTerm = PE.partialEval cTerm
+  --   putStrLn $ show $ resiTerm
+  -- else
+  --   pure ()

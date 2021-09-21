@@ -24,7 +24,6 @@ data Error
   | OccursCheck
   | EscapingVar
   | Mismatch N.Value N.Value
-  | MismatchStages C.Stage C.Stage
   | MismatchSpines N.Spine N.Spine
 
 instance Show Error where
@@ -33,9 +32,8 @@ instance Show Error where
     OccursCheck -> "Failed Occurs Check"
     EscapingVar -> "Escaping Var"
     Mismatch val val' -> "Mismatched Types:\n  " ++ show val ++ "\n  " ++ show val'
-    MismatchStages s s' -> "Mismatched Stages: " ++ show s ++ ", " ++ show s'
 
-newtype Unify a = Unify (State (N.Metas, N.StageMetas, [Error]) a)
+newtype Unify a = Unify (State (N.Metas, [Error]) a)
 
 instance Functor Unify where
   fmap = liftM
@@ -52,38 +50,33 @@ instance Monad Unify where
       (Unify act') = (k a)
     in runState act' s'
 
-get :: Unify (N.Metas, N.StageMetas, [Error])
+get :: Unify (N.Metas, [Error])
 get = Unify $ state $ \s -> (s, s)
 
-put :: (N.Metas, N.StageMetas, [Error]) -> Unify ()
+put :: (N.Metas, [Error]) -> Unify ()
 put s = Unify $ state $ \_ -> ((), s)
 
-runUnify :: Unify a -> (N.Metas, N.StageMetas, [Error]) -> (a, (N.Metas, N.StageMetas, [Error]))
+runUnify :: Unify a -> (N.Metas, [Error]) -> (a, (N.Metas, [Error]))
 runUnify (Unify act) s = runState act s
 
 runNorm :: Level -> N.Norm a -> Unify a
 runNorm lv act = do
-  (metas, _, _) <- get
-  pure $ runReader act (lv, metas, Set.singleton C.T, [])
+  (metas, _) <- get
+  pure $ runReader act (lv, metas, [])
 
 putSolution :: Global -> N.Value -> Unify ()
 putSolution gl sol = do
-  (metas, stageMetas, probs) <- get
-  put (Map.insert gl (N.Solved sol) metas, stageMetas, probs)
-
-putStageSolution :: Global -> C.Stage -> Unify ()
-putStageSolution gl sol = do
-  (metas, stageMetas, probs) <- get
-  put (metas, Map.insert gl (N.Solved sol) stageMetas, probs)
+  (metas, errors) <- get
+  put (Map.insert gl (N.Solved sol) metas, errors)
 
 putError :: Error -> Unify ()
 putError err = do
-  (metas, stageMetas, errors) <- get
-  put (metas, stageMetas, err:errors)
+  (metas, errors) <- get
+  put (metas, err:errors)
 
 getMetas :: Unify N.Metas
 getMetas = do
-  (metas, _, _) <- get
+  (metas, _) <- get
   pure metas
 
 data PartialRenaming = PartialRenaming
@@ -148,18 +141,6 @@ rename metas gl pren rhs = go pren rhs
           vOutTy <- lift $ runNorm (domain pren) $ N.appClosure outTy (N.StuckRigidVar inTy (codomain pren) [])
           outTyTrm <- go (inc pren) vOutTy
           liftEither $ Right $ C.FunType inTyTrm outTyTrm
-        N.StagedType innerTy stage -> do
-          innerTyTrm <- go (inc pren) innerTy
-          liftEither $ Right $ C.StagedType innerTyTrm stage
-        N.StuckStagedIntro inner innerTy stage spine -> do
-          innerTrm <- goTerm (inc pren) inner
-          innerTyTrm <- go (inc pren) innerTy
-          goSpine pren (C.StagedIntro innerTrm innerTyTrm stage) spine
-        N.StuckStagedElim scr ty body stage spine -> do
-          scrTrm <- go pren scr
-          tyTrm <- go pren ty
-          bodyTrm <- go (inc pren) body
-          goSpine pren (C.StagedElim scrTrm tyTrm bodyTrm stage) spine
         N.TypeType -> liftEither $ Right C.TypeType
         N.ElabError -> liftEither $ Right C.ElabError
 
@@ -168,15 +149,15 @@ getTtySpine metas lv vty spine = case (vty, spine) of
   (N.FunType inTy outTy, _:spine) -> getTtySpine
     metas
     (incLevel lv)
-    (runReader (N.appClosure outTy (N.StuckRigidVar inTy lv [])) (lv, metas, Set.singleton C.T, []))
+    (runReader (N.appClosure outTy (N.StuckRigidVar inTy lv [])) (lv, metas, []))
     spine
-  (_, []) -> runReader (N.readback vty) (lv, metas, Set.singleton C.T, [])
+  (_, []) -> runReader (N.readback vty) (lv, metas, [])
 
 getTty :: N.Metas -> Level -> N.Value -> C.Term
 getTty metas lv val = case val of
   N.StuckFlexVar vty _ spine -> getTtySpine metas lv vty spine
   N.StuckRigidVar vty _ spine -> getTtySpine metas lv vty spine
-  N.FunIntro _ vty -> runReader (N.readback vty) (lv, metas, Set.singleton C.T, [])
+  N.FunIntro _ vty -> runReader (N.readback vty) (lv, metas, [])
   N.FunType _ _ -> C.TypeType
   N.TypeType -> C.TypeType
 
@@ -185,7 +166,7 @@ getVtySpine metas lv vty spine = case (vty, spine) of
   (N.FunType inTy outTy, _:spine) -> getVtySpine
     metas
     (incLevel lv)
-    (runReader (N.appClosure outTy (N.StuckRigidVar inTy lv [])) (lv, metas, Set.singleton C.T, []))
+    (runReader (N.appClosure outTy (N.StuckRigidVar inTy lv [])) (lv, metas, []))
     spine
   (_, []) -> vty
 
@@ -229,17 +210,6 @@ unifySpines lv spine spine'= case (spine, spine') of
   ([], []) -> pure ()
   _ -> putError $ MismatchSpines spine spine'
 
-unifyStages :: C.Stage -> C.Stage -> Unify ()
-unifyStages s s' = case (s, s') of
-  (C.StageMeta gl, C.StageMeta gl') | gl == gl' -> pure ()
-  (C.StageMeta gl, s') -> putStageSolution gl s'
-  (s, C.StageMeta gl) -> putStageSolution gl s
-  (s, s') | s == s' -> pure ()
-  _ -> putError $ MismatchStages s s'
-
-unifyTerms :: Level -> C.Term -> C.Term -> Unify ()
-unifyTerms lv trm trm' = undefined
-
 unify :: HasCallStack => Level -> N.Value -> N.Value -> Unify ()
 unify lv val val' = do
   val <- runNorm lv $ N.force val
@@ -261,20 +231,6 @@ unify lv val val' = do
       vBody <- runNorm (incLevel lv) $ N.appClosure body (N.StuckRigidVar inTy lv [])
       vAppVal <- runNorm lv $ N.vApp val (N.StuckRigidVar inTy' lv [])
       unify (incLevel lv) vBody vAppVal
-    (N.StagedType innerTy stage, N.StagedType innerTy' stage') -> do
-      unifyStages stage stage'
-      unify (incLevel lv) innerTy innerTy'
-    (N.StuckStagedIntro inner innerTy stage spine, N.StuckStagedIntro inner' innerTy' stage' spine') -> do
-      unifyStages stage stage'
-      unify (incLevel lv) innerTy innerTy'
-      unifyTerms (incLevel lv) inner inner'
-      unifySpines lv spine spine'
-    (N.StuckStagedElim scr ty body stage spine, N.StuckStagedElim scr' ty' body' stage' spine') -> do
-      unifyStages stage stage'
-      unify lv ty ty'
-      unify lv scr scr'
-      unify (incLevel lv) body body'
-      unifySpines lv spine spine'
     (N.TypeType, N.TypeType) -> pure ()
     (N.FunType inTy outTy, N.FunType inTy' outTy') -> do
       unify lv inTy inTy'

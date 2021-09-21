@@ -2,7 +2,6 @@
 module Parsing(parseTerm, lex) where
 
 import Surface
-import Core(Stage(..))
 import Prelude hiding (lex)
 import Data.Char(isAlphaNum)
 }
@@ -17,7 +16,6 @@ import Data.Char(isAlphaNum)
   ':' { TColon }
   '=' { TEquals }
   kwuniv { TUniv }
-  kwquotety { TQuoteTy }
   '(' { TOpenParen }
   ')' { TCloseParen }
   '[' { TOpenBracket }
@@ -26,9 +24,6 @@ import Data.Char(isAlphaNum)
   '?' { THole }
   '=>' { TFatArrow }
   '->' { TThinArrow }
-  kwtt { TTtStage }
-  kwct { TCtStage }
-  kwrt { TRtStage }
   name { TName $$ }
 
 %%
@@ -54,17 +49,11 @@ Prec0
   | let name ':' Prec3 '=' Prec3 in Prec3 { Let (Name $2) $6 $4 $8 }
   | kwuniv                                { Universe }
   | '?'                                   { Hole }
-  | kwquotety Stage                       { Lam (Name "_") (QuoteType (Var $ Name "_") $2) } {- FIXME: use machine generated name -}
   | Parens                                { $1 }
 
 NameList
   : name                                  { [$1] }
   | name NameList                         { [$1] ++ $2 }
-
-Stage
-  : kwtt                                  { T }
-  | kwct                                  { C }
-  | kwrt                                  { R }
 
 Parens
   : '(' Prec3 ')'                         { $2 }
@@ -92,16 +81,10 @@ data Token
   | TQuoteTy
   | TOpenBracket
   | TCloseBracket
-  | TTtStage
-  | TCtStage
-  | TRtStage
   deriving Show
 
 lex :: String -> [Token]
 lex s = case s of
-  't':'t':s -> TTtStage:(lex s)
-  'c':'t':s -> TCtStage:(lex s)
-  'r':'t':s -> TRtStage:(lex s)
   'l':'e':'t':s -> TLet:(lex s)
   'i':'n':s -> TIn:(lex s)
   ':':s -> TColon:(lex s)

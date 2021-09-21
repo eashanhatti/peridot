@@ -25,7 +25,7 @@ executable konna2
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    other-modules: Var, Core, Norm, Surface, Unification, Elaboration, Parsing, PartialEval
+    other-modules: Var, Core, Norm, Surface, Unification, Elaboration, Parsing
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
