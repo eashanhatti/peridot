@@ -15,7 +15,8 @@ import Data.Char(isAlphaNum)
   in { TIn }
   ':' { TColon }
   '=' { TEquals }
-  kwuniv { TUniv }
+  kwuniv0 { TUniv0 }
+  kwuniv1 { TUniv1 }
   '(' { TOpenParen }
   ')' { TCloseParen }
   '[' { TOpenBracket }
@@ -47,7 +48,8 @@ Prec0
   | '(' name ':' Prec3 ')' '->' Prec3     { Pi (Name $2) $4 $7 }
   | let name '=' Prec3 in Prec3           { Let (Name $2) $4 Hole $6 }
   | let name ':' Prec3 '=' Prec3 in Prec3 { Let (Name $2) $6 $4 $8 }
-  | kwuniv                                { Universe }
+  | kwuniv0                               { U0 }
+  | kwuniv1                               { U1 }
   | '?'                                   { Hole }
   | Parens                                { $1 }
 
@@ -70,7 +72,8 @@ data Token
   | TIn
   | TColon
   | TEquals
-  | TUniv
+  | TUniv0
+  | TUniv1
   | TOpenParen
   | TCloseParen
   | TBackslash
@@ -90,7 +93,8 @@ lex s = case s of
   ':':s -> TColon:(lex s)
   '=':'>':s -> TFatArrow:(lex s)
   '=':s -> TEquals:(lex s)
-  'T':'y':'p':'e':s -> TUniv:(lex s)
+  'T':'y':'p':'e':'0':s -> TUniv0:(lex s)
+  'T':'y':'p':'e':'1':s -> TUniv1:(lex s)
   'S':s -> TQuoteTy:(lex s)
   '[':s -> TOpenBracket:(lex s)
   ']':s -> TCloseBracket:(lex s)

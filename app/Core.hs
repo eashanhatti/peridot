@@ -3,7 +3,7 @@
 module Core where
 
 import Var
-import {-# SOURCE #-} Norm(Value)
+import {-# SOURCE #-} qualified Norm as N
 import Control.Monad.Reader(Reader, ask)
 import Data.Set
 
@@ -18,7 +18,8 @@ data HoleName = HoleName Int
 
 data Term
   = Var Index Type
-  | TypeType
+  | TypeType0
+  | TypeType1
   | FunIntro Term Type
   | FunType Term Term
   | FunElim Term Term
@@ -26,7 +27,7 @@ data Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
   | ElabError
-  | Value Value
+  | Value N.Value
 
 -- shift :: Set Index -> Term -> Reader Int Term
 -- shift bounds = \case
@@ -59,7 +60,8 @@ showTerm showTys term = case term of
       "(i" ++ show (unIndex ix) ++ " : " ++ show ty ++ ")"
     else
       "i" ++ show (unIndex ix)
-  TypeType -> "Type"
+  TypeType0 -> "U0"
+  TypeType1 -> "U1"
   FunIntro body ty ->
     if showTys then
       "{" ++ show body ++ "; : " ++ show ty ++ "}"

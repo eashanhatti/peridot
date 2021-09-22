@@ -14,6 +14,7 @@ data Term
   | Ann Term Term
   | Pi Name Term Term
   | Let Name Term Term Term
-  | Universe
+  | U0
+  | U1
   | Hole
   deriving Show

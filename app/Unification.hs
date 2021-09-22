@@ -141,7 +141,8 @@ rename metas gl pren rhs = go pren rhs
           vOutTy <- lift $ runNorm (domain pren) $ N.appClosure outTy (N.StuckRigidVar inTy (codomain pren) [])
           outTyTrm <- go (inc pren) vOutTy
           liftEither $ Right $ C.FunType inTyTrm outTyTrm
-        N.TypeType -> liftEither $ Right C.TypeType
+        N.TypeType0 -> liftEither $ Right C.TypeType0
+        N.TypeType1 -> liftEither $ Right C.TypeType1
         N.ElabError -> liftEither $ Right C.ElabError
 
 getTtySpine :: N.Metas -> Level -> N.Type -> N.Spine -> C.Term
@@ -158,8 +159,9 @@ getTty metas lv val = case val of
   N.StuckFlexVar vty _ spine -> getTtySpine metas lv vty spine
   N.StuckRigidVar vty _ spine -> getTtySpine metas lv vty spine
   N.FunIntro _ vty -> runReader (N.readback vty) (lv, metas, [])
-  N.FunType _ _ -> C.TypeType
-  N.TypeType -> C.TypeType
+  N.FunType inTy _ -> getTty metas lv inTy -- NOTE: this assumes that inTy and outTy are of the same universe
+  N.TypeType0 -> C.TypeType0
+  N.TypeType1 -> C.TypeType1
 
 getVtySpine :: N.Metas -> Level -> N.Type -> N.Spine -> N.Value
 getVtySpine metas lv vty spine = case (vty, spine) of
@@ -175,8 +177,10 @@ getVty metas lv val = case val of
   N.StuckFlexVar vty _ spine -> getVtySpine metas lv vty spine
   N.StuckRigidVar vty _ spine -> getVtySpine metas lv vty spine
   N.FunIntro _ vty -> vty
-  N.FunType _ _ -> N.TypeType
-  N.TypeType -> N.TypeType
+  N.FunType inTy _ -> getVty metas lv inTy
+  N.TypeType0 -> N.TypeType0
+  N.TypeType1 -> N.TypeType1
+  _ -> error $ "`getVty`: " ++ show val
 
 lams :: Level -> [C.Term] -> C.Term -> C.Term
 lams lv ttys trm = go (Level 0) ttys
@@ -231,7 +235,8 @@ unify lv val val' = do
       vBody <- runNorm (incLevel lv) $ N.appClosure body (N.StuckRigidVar inTy lv [])
       vAppVal <- runNorm lv $ N.vApp val (N.StuckRigidVar inTy' lv [])
       unify (incLevel lv) vBody vAppVal
-    (N.TypeType, N.TypeType) -> pure ()
+    (N.TypeType0, N.TypeType0) -> pure ()
+    (N.TypeType1, N.TypeType1) -> pure ()
     (N.FunType inTy outTy, N.FunType inTy' outTy') -> do
       unify lv inTy inTy'
       vOutTy <- runNorm (incLevel lv) $ N.appClosure outTy (N.StuckRigidVar inTy lv [])

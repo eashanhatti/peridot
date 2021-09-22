@@ -32,7 +32,8 @@ type Type = Value
 data Value
   = FunIntro Closure Type
   | FunType Type Closure
-  | TypeType
+  | TypeType0
+  | TypeType1
   | StuckFlexVar Type Global Spine
   | StuckRigidVar Type Level Spine
   | ElabError
@@ -42,7 +43,8 @@ instance Show Value where
   show = \case
     FunIntro (Closure _ body) ty -> "v{" ++ show body ++ "}"
     FunType inTy (Closure env outTy) -> show inTy ++ " v-> " ++ show outTy ++ " " ++ show env
-    TypeType -> "vType"
+    TypeType0 -> "vU0"
+    TypeType1 -> "vU0"
     StuckFlexVar _ gl spine -> "v~(?" ++ show (unGlobal gl) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
     StuckRigidVar _ lv spine -> "v~(" ++ show (unLevel lv) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
     ElabError -> "v<error>"
@@ -154,7 +156,8 @@ eval trm = do
   (_, _, locals) <- ask
   case trm of
     C.Var ix ty -> pure $ let v = index locals ix ty (unIndex ix) in {-trace (("Var = "++) $ show v ++ show ix ++ show locals)-} v
-    C.TypeType -> pure TypeType
+    C.TypeType0 -> pure TypeType0
+    C.TypeType1 -> pure TypeType1
     C.FunIntro body tty -> FunIntro (Closure locals body) <$> eval tty
     C.FunType inTy outTy -> do
       vInTy <- eval inTy
@@ -224,6 +227,7 @@ readback val = do
       -- let !() = trace ("      outTy = " ++ show outTy) ()
       -- let !() = trace ("      vOutTy = " ++ show vOutTy) ()
       C.FunType <$> readback inTy <*> blank (readback vOutTy)
-    TypeType -> pure C.TypeType
+    TypeType0 -> pure C.TypeType0
+    TypeType1 -> pure C.TypeType1
     ElabError -> pure C.ElabError
     _ -> pure C.ElabError

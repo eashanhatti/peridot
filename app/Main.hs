@@ -12,13 +12,6 @@ import Control.Monad(forM_)
 import Data.Map(toList)
 import Data.Either(fromRight)
 
-prog :: S.Term
-prog =
-  S.Lam (S.Name "x") (S.Var $ S.Name "x")
-
-ty :: N.Value
-ty = N.FunType N.TypeType (N.Closure [] C.TypeType)
-
 main :: IO ()
 main = do
   file <- readFile "source.kon"
@@ -29,7 +22,7 @@ main = do
   putStrLn "Done parsing"
   putStrLn "Surface term:"
   putStrLn $ show term
-  let (cTerm, state) = Elab.elab term N.TypeType
+  let (cTerm, state) = Elab.elab term N.TypeType1
   putStrLn "Core term:"
   putStrLn $ show cTerm
   putStrLn "Errors:"
