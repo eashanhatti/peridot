@@ -23,11 +23,13 @@ data Term
   | FunIntro Term Type
   | FunType Term Term
   | FunElim Term Term
+  | QuoteType Term
+  | QuoteIntro Term Type
+  | QuoteElim Term
   | Let Term Term Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
   | ElabError
-  | Value N.Value
 
 -- shift :: Set Index -> Term -> Reader Int Term
 -- shift bounds = \case
@@ -69,6 +71,9 @@ showTerm showTys term = case term of
       "{" ++ show body ++ "}"
   FunType inTy outTy -> show inTy ++ " -> " ++ show outTy
   FunElim lam arg -> "(" ++ show lam ++ " @ " ++ show arg ++ ")"
+  QuoteType innerTy -> "Quote " ++ show innerTy
+  QuoteIntro inner _ -> "<" ++ show inner ++ ">"
+  QuoteElim quote -> "[" ++ show quote ++ "]"
   Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in\n" ++ show body
   Meta gl ty ->
     if showTys then
@@ -81,4 +86,3 @@ showTerm showTys term = case term of
     else
       "?" ++ show (unGlobal gl) ++ (show $ Prelude.map show bis) ++ ""
   ElabError -> "<error>"
-  Value v -> error "Bug?"

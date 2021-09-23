@@ -26,16 +26,25 @@ type Spine = [Value]
 data Closure = Closure [Value] C.Term
   deriving Show
 
--- type annotation
+-- Type annotation
 type Type = Value
 
 data Value
   = FunIntro Closure Type
   | FunType Type Closure
+  | QuoteIntro C.Term Type
+  | QuoteType Value
   | TypeType0
   | TypeType1
+  -- Blocked eliminations
   | StuckFlexVar Type Global Spine
   | StuckRigidVar Type Level Spine
+  | StuckSplice Value
+  -- Object-level terms, should only appear under quotes
+  | FunElim0 Value Value
+  | Var0 Index Value
+  | Let0 Value Value Value
+  -- Extras
   | ElabError
   | ElabBlank
 
@@ -43,10 +52,14 @@ instance Show Value where
   show = \case
     FunIntro (Closure _ body) ty -> "v{" ++ show body ++ "}"
     FunType inTy (Closure env outTy) -> show inTy ++ " v-> " ++ show outTy ++ " " ++ show env
+    QuoteIntro inner _ -> "v<" ++ show inner ++ ">"
+    QuoteType innerTy -> "vQuote " ++ show innerTy
     TypeType0 -> "vU0"
     TypeType1 -> "vU0"
     StuckFlexVar _ gl spine -> "v~(?" ++ show (unGlobal gl) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
     StuckRigidVar _ lv spine -> "v~(" ++ show (unLevel lv) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
+    FunElim0 lam arg -> "v(" ++ show lam ++ " @ " ++ show arg ++ ")"
+    StuckSplice quote -> "v[" ++ show quote ++ "]"
     ElabError -> "v<error>"
     ElabBlank -> "v<blank>"
 
@@ -78,6 +91,11 @@ vApp lam arg = case lam of
   StuckFlexVar vty gl spine -> pure $ StuckFlexVar vty gl (arg:spine)
   StuckRigidVar vty lv spine -> pure $ StuckRigidVar vty lv (arg:spine)
   _ -> error $ "Cannot `vApp` `" ++ show lam ++ "`"
+
+vSplice :: HasCallStack => Value -> Norm Value
+vSplice val = case val of
+  QuoteIntro inner _ -> evalUnderQuote inner
+  _ -> pure $ StuckSplice val
 
 vAppSpine :: HasCallStack => Value -> Spine -> Norm Value
 vAppSpine val spine = case spine of
@@ -132,30 +150,30 @@ index locals ix ty ix' = case locals of
     else
       index xs ix ty (ix' - 1)
 
--- subst :: HasCallStack => C.Term -> Norm C.Term
--- subst trm = do
---   (_, _, locals) <- ask
---   case trm of
---     C.Var ix ty -> pure $ C.Value $ index locals ix ty (unIndex ix)
---     C.FunIntro body ty@(C.FunType inTy _) -> do
---       vInTy <- eval ty
---       C.FunIntro <$> bind vInTy (subst body) <*> subst ty
---     C.FunType inTy outTy -> do
---       vInTy <- eval inTy
---       C.FunType <$> subst inTy <*> bind vInTy (subst outTy)
---     C.FunElim lam arg -> C.FunElim <$> subst lam <*> subst arg
---     C.Let def defTy body -> do
---       vDefTy <- eval defTy
---       C.Let <$> subst def <*> subst defTy <*> bind vDefTy (subst body)
---     C.Meta gl tty -> C.Meta <$> pure gl <*> subst tty
---     C.InsertedMeta bis gl tty -> C.InsertedMeta <$> pure bis <*> pure gl <*> subst tty
---     _ -> pure trm
+evalUnderQuote :: HasCallStack => C.Term -> Norm Value
+evalUnderQuote term = do
+  (_, _, locals) <- ask
+  case term of
+    C.Var ix ty -> Var0 ix <$> evalUnderQuote ty
+    C.TypeType0 -> pure TypeType0
+    C.FunIntro body tty -> FunIntro (Closure locals body) <$> evalUnderQuote tty
+    C.FunType inTy outTy -> do
+      vInTy <- evalUnderQuote inTy
+      pure $ FunType vInTy (Closure locals outTy)
+    C.FunElim lam arg -> FunElim0 <$> evalUnderQuote lam <*> evalUnderQuote arg
+    C.QuoteElim quote -> eval quote >>= vSplice
+    C.Let def defTy body -> do
+      vDef <- evalUnderQuote def
+      vDefTy <- evalUnderQuote defTy
+      vBody <- blank $ evalUnderQuote body
+      pure $ Let0 vDef vDefTy vBody
+    _ -> error "`evalUnderQuote`: Unreachable"
 
 eval :: HasCallStack => C.Term -> Norm Value
-eval trm = do
+eval term = do
   (_, _, locals) <- ask
-  case trm of
-    C.Var ix ty -> pure $ let v = index locals ix ty (unIndex ix) in {-trace (("Var = "++) $ show v ++ show ix ++ show locals)-} v
+  case term of
+    C.Var ix ty -> pure $ index locals ix ty (unIndex ix)
     C.TypeType0 -> pure TypeType0
     C.TypeType1 -> pure TypeType1
     C.FunIntro body tty -> FunIntro (Closure locals body) <$> eval tty
@@ -166,11 +184,14 @@ eval trm = do
       vLam <- eval lam
       vArg <- eval arg
       vApp vLam vArg
+    C.QuoteIntro inner ty -> QuoteIntro <$> pure inner <*> eval ty
+    C.QuoteType innerTy -> QuoteType <$> eval innerTy
+    C.QuoteElim quote -> eval quote >>= vSplice
     C.Let def _ body -> do
       vDef <- eval def
       define vDef $ eval body
-    C.Meta gl tty -> vMeta gl =<< eval tty
-    C.InsertedMeta bis gl tty -> (vMeta gl =<< eval tty) >>= \meta -> vAppBis meta locals bis
+    C.Meta gl tty -> eval tty >>= vMeta gl
+    C.InsertedMeta bis gl tty -> eval tty >>= vMeta gl >>= \meta -> vAppBis meta locals bis
     C.ElabError -> pure ElabError
 
 force :: HasCallStack => Value -> Norm Value
@@ -186,23 +207,20 @@ lvToIx :: Level -> Level -> Index
 lvToIx lv1 lv2 = Index (unLevel lv1 - unLevel lv2 - 1)
 
 readbackSpine :: HasCallStack => C.Term -> Spine -> Norm C.Term
-readbackSpine trm spine = do
+readbackSpine term spine = do
   lv <- askLv
   case spine of
-    arg:spine -> C.FunElim <$> readbackSpine trm spine <*> readback arg
-    -- readbackSpine trm spine >>= \lam -> C.FunElim lam <$> readback lv arg
-    [] -> pure trm
+    arg:spine -> C.FunElim <$> readbackSpine term spine <*> readback arg
+    -- readbackSpine term spine >>= \lam -> C.FunElim lam <$> readback lv arg
+    [] -> pure term
 
--- readbackTerm :: HasCallStack => C.Term -> Norm C.Term
--- readbackTerm trm = case trm of
---   C.FunIntro body ty@(C.FunType inTy _) -> C.FunIntro <$> blank (readbackTerm body) <*> readbackTerm ty
---   C.FunType inTy outTy -> C.FunType <$> readbackTerm inTy <*> blank (readbackTerm outTy)
---   C.FunElim lam arg -> C.FunElim <$> readbackTerm lam <*> readbackTerm arg
---   C.Let def defTy body -> C.Let <$> readbackTerm def <*> readbackTerm defTy <*> blank (readbackTerm body)
---   C.Meta gl ty -> C.Meta <$> pure gl <*> readbackTerm ty
---   C.InsertedMeta bis gl ty -> C.InsertedMeta <$> pure bis <*> pure gl <*> readbackTerm ty
---   C.Value val -> readback val
---   _ -> pure trm
+readbackUnderQuote :: HasCallStack => Value -> Norm C.Term
+readbackUnderQuote val = case val of
+  TypeType0 -> pure C.TypeType0
+  FunElim0 lam arg -> C.FunElim <$> readbackUnderQuote lam <*> readbackUnderQuote arg
+  Let0 def defTy body -> C.Let <$> readbackUnderQuote def <*> readbackUnderQuote defTy <*> blank (readbackUnderQuote body)
+  Var0 ix ty -> C.Var ix <$> readbackUnderQuote ty
+  StuckSplice quote -> C.QuoteElim <$> readback quote
 
 -- TODO? replace `bind` with `blank`
 readback :: HasCallStack => Value -> Norm C.Term
@@ -216,17 +234,17 @@ readback val = do
       lv <- askLv
       var <- C.Var <$> pure (lvToIx lv lv') <*> readback vty
       readbackSpine var spine
+    StuckSplice quote -> C.QuoteElim <$> readback quote
     FunIntro body vty@(FunType inTy _) -> do
       lv <- askLv
       vBody <- appClosure body (StuckRigidVar inTy lv [])
       C.FunIntro <$> blank (readback vBody) <*> readback vty
     FunType inTy outTy@(Closure env tmp) -> do
-      -- let !() = trace ("      Env = " ++ show env) ()
       lv <- askLv
-      vOutTy <- appClosure outTy (StuckRigidVar inTy lv []) 
-      -- let !() = trace ("      outTy = " ++ show outTy) ()
-      -- let !() = trace ("      vOutTy = " ++ show vOutTy) ()
+      vOutTy <- appClosure outTy (StuckRigidVar inTy lv [])
       C.FunType <$> readback inTy <*> blank (readback vOutTy)
+    QuoteIntro inner ty -> C.QuoteIntro <$> (evalUnderQuote inner >>= readback) <*> readback ty
+    QuoteType innerTy -> C.QuoteType <$> readback innerTy
     TypeType0 -> pure C.TypeType0
     TypeType1 -> pure C.TypeType1
     ElabError -> pure C.ElabError

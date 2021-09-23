@@ -180,7 +180,6 @@ getVty metas lv val = case val of
   N.FunType inTy _ -> getVty metas lv inTy
   N.TypeType0 -> N.TypeType0
   N.TypeType1 -> N.TypeType1
-  _ -> error $ "`getVty`: " ++ show val
 
 lams :: Level -> [C.Term] -> C.Term -> C.Term
 lams lv ttys trm = go (Level 0) ttys
