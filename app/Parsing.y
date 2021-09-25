@@ -13,6 +13,9 @@ import Data.Char(isAlphaNum)
 %token
   let { TLet }
   in { TIn }
+  "Code" { TQuoteTy }
+  splice { TSplice }
+  quote { TQuote }
   ':' { TColon }
   '=' { TEquals }
   kwuniv0 { TUniv0 }
@@ -23,14 +26,14 @@ import Data.Char(isAlphaNum)
   ']' { TCloseBracket }
   '\\' { TBackslash }
   '?' { THole }
-  '=>' { TFatArrow }
-  '->' { TThinArrow }
+  "=>" { TFatArrow }
+  "->" { TThinArrow }
   name { TName $$ }
 
 %%
 
 Prec3
-  : Prec2 '->' Prec3                      { Pi (Name "_") $1 $3 } {- FIXME: use machine generated name -}
+  : Prec2 "->" Prec3                      { Pi (Name "_") $1 $3 } {- FIXME: use machine generated name -}
   | Prec2                                 { $1 }
 
 Prec2
@@ -43,11 +46,14 @@ Prec1
 
 Prec0
   : name                                  { Var (Name $1) }
-  | '\\' NameList '=>' Prec3              { foldr (\name body -> Lam (Name name) body) $4 $2 }
-  | '\\' name '=>' Prec3                  { Lam (Name $2) $4 }
-  | '(' name ':' Prec3 ')' '->' Prec3     { Pi (Name $2) $4 $7 }
+  | '\\' NameList "->" Prec3              { foldr (\name body -> Lam (Name name) body) $4 $2 }
+  | '\\' name "->" Prec3                  { Lam (Name $2) $4 }
+  | '(' name ':' Prec3 ')' "->" Prec3     { Pi (Name $2) $4 $7 }
   | let name '=' Prec3 in Prec3           { Let (Name $2) $4 Hole $6 }
   | let name ':' Prec3 '=' Prec3 in Prec3 { Let (Name $2) $6 $4 $8 }
+  | "Code" Prec0                          { Code $2 }
+  | quote Prec3                           { Quote $2 }
+  | splice Prec3                          { Splice $2 }
   | kwuniv0                               { U0 }
   | kwuniv1                               { U1 }
   | '?'                                   { Hole }
@@ -82,6 +88,8 @@ data Token
   | TThinArrow
   | TName String
   | TQuoteTy
+  | TQuote
+  | TSplice
   | TOpenBracket
   | TCloseBracket
   deriving Show
@@ -90,11 +98,14 @@ lex :: String -> [Token]
 lex s = case s of
   'l':'e':'t':s -> TLet:(lex s)
   'i':'n':s -> TIn:(lex s)
+  'C':'o':'d':'e':s -> TQuoteTy:(lex s)
+  'q':'u':'o':'t':'e':s -> TQuote:(lex s)
+  's':'p':'l':'i':'c':'e':s -> TSplice:(lex s)
   ':':s -> TColon:(lex s)
   '=':'>':s -> TFatArrow:(lex s)
   '=':s -> TEquals:(lex s)
-  'T':'y':'p':'e':'0':s -> TUniv0:(lex s)
-  'T':'y':'p':'e':'1':s -> TUniv1:(lex s)
+  'T':'y':'0':s -> TUniv0:(lex s)
+  'T':'y':'1':s -> TUniv1:(lex s)
   'S':s -> TQuoteTy:(lex s)
   '[':s -> TOpenBracket:(lex s)
   ']':s -> TCloseBracket:(lex s)

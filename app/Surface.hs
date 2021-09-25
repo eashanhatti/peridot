@@ -16,5 +16,8 @@ data Term
   | Let Name Term Term Term
   | U0
   | U1
+  | Code Term
+  | Quote Term
+  | Splice Term
   | Hole
   deriving Show

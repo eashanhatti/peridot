@@ -2,6 +2,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE LambdaCase #-}
 -- {-# OPTIONS_GHC -fdefer-type-errors #-}
 
 module Elaboration where
@@ -37,6 +38,7 @@ instance Show Error where
 data ElabState = ElabState
   { metas :: N.Metas
   , nextMeta :: Int
+  , goalUniv :: N.Value
   , errors :: [Error]
   , locals :: N.Locals
   , ltypes :: Map.Map S.Name (N.Value, Index)
@@ -49,54 +51,72 @@ data ElabState = ElabState
 type Elab a = State ElabState a
 
 elab :: HasCallStack => S.Term -> N.Value -> (C.Term, ElabState)
-elab term goal = runState (check term goal (U.getVty mempty (Level 0) goal)) (ElabState mempty 0 [] [] mempty (Level 0) S.Span [] 0)
+elab term goal = runState (check term goal) (ElabState mempty 0 N.TypeType1 [] [] mempty (Level 0) S.Span [] 0)
 
-check :: HasCallStack => S.Term -> N.Value -> N.Value -> Elab C.Term
-check term goal univ = do
+check :: HasCallStack => S.Term -> N.Value -> Elab C.Term
+check term goal = do
   -- let !() = trace ("Goal = " ++ show goal) ()
   goal <- force goal
   -- let !() = trace ("Term = " ++ show term) ()
   -- let !() = trace ("FGoal = " ++ show goal) ()
   cGoal <- readback goal
+  univ <- getGoalUniv
   -- let !() = trace ("CGoal = " ++ show cGoal) ()
   scope $ case (term, goal) of
     (S.Spanned term' ssp, _) -> do
-      setspan ssp
-      check term' goal univ
+      putSpan ssp
+      check term' goal
     (S.Ann term' ty, _) -> do
-      cTy <- check ty univ univ
+      cTy <- check ty univ 
       vTy <- eval cTy
       unify goal vTy
-      check term' vTy univ
+      check term' vTy
     (S.Lam name body, (N.FunType inTy outTy)) -> do
       vOutTy <- appClosure outTy inTy
       bind name inTy
-      cBody <- check body vOutTy univ
+      cBody <- check body vOutTy
       pure $ C.FunIntro cBody cGoal
     (S.Let name def defTy body, _) -> do
       -- TODO: reduce `<-` clutter
-      cDefTy <- check defTy univ univ
+      cDefTy <- check defTy univ
       vDefTy <- eval cDefTy
-      cDef <- check def vDefTy univ
+      cDef <- check def vDefTy
       vDef <- eval cDef
       define name vDef vDefTy
-      cBody <- check body goal univ
+      cBody <- check body goal
       pure $ C.Let cDef cDefTy cBody
-    (S.Hole, _) -> do
-      freshMeta cGoal
+    (S.Hole, _) -> freshMeta cGoal
+    (S.Quote inner, N.QuoteType ty) -> do
+      unify univ N.TypeType1
+      putGoalUniv N.TypeType0
+      cInner <- check inner ty
+      cTy <- readback ty
+      pure $ C.QuoteIntro cInner cTy
+    (_, N.QuoteType ty) -> do
+      univMeta <- freshUnivMeta >>= eval
+      putGoalUniv univMeta
+      (cTerm, termTy) <- infer term
+      case termTy of
+        N.QuoteType ty' -> do
+          unify univMeta N.TypeType1
+          pure cTerm
+        _ -> do
+          unify univMeta N.TypeType0
+          cTermTy <- readback termTy
+          pure $ C.QuoteIntro cTerm cTermTy
     (_, _) -> do
-      (cTerm, ty) <- infer term univ
+      (cTerm, ty) <- infer term
       unify goal ty
       pure cTerm
 
-infer :: HasCallStack => S.Term -> N.Value -> Elab (C.Term, N.Value)
-infer term univ = scope $ case term of
+infer :: HasCallStack => S.Term -> Elab (C.Term, N.Value)
+infer term = getGoalUniv >>= \univ -> scope $ case term of
   S.Spanned term' ssp -> do
-    setspan ssp
-    infer term' univ
+    putSpan ssp
+    infer term'
   S.Ann term' ty -> do
-    vTy <- check ty univ univ >>= eval
-    cTerm' <- check term' vTy univ
+    vTy <- check ty univ >>= eval
+    cTerm' <- check term' vTy
     pure (cTerm', vTy)
   S.Var name -> do
     entry <- localType name
@@ -113,19 +133,19 @@ infer term univ = scope $ case term of
     vMeta <- eval cMeta
     (cBody, vBodyTy) <- {-scope-} do
       bind name vMeta
-      infer body univ
+      infer body
     closure <- closeValue vBodyTy
     cBodyTy <- readback vBodyTy
     let ty = N.FunType vMeta closure
     pure (C.FunIntro cBody (C.FunType cMeta cBodyTy), ty)
   S.App lam arg -> do
     state <- get
-    (cLam, lamTy) <- infer lam univ
+    (cLam, lamTy) <- infer lam
     lamTy <- force lamTy
     -- let !() = trace ("Lam Type = " ++ show lamTy) ()
     (cLam, cArg, inTy, outTy) <- scope $ case lamTy of
       N.FunType inTy outTy -> do
-        cArg <- check arg inTy univ
+        cArg <- check arg inTy
         -- bis <- binderInfos <$> get
         -- let !() = trace ("BIs = " ++ show ) ()
         -- let !() = trace ("    cArg = " ++ show cArg) ()
@@ -135,7 +155,7 @@ infer term univ = scope $ case term of
       _ -> do
         inTy <- readback univ >>= freshMeta
         vInTy <- eval inTy
-        cArg <- check arg vInTy univ
+        cArg <- check arg vInTy
         vArg <- eval cArg
         name <- freshName "x"
         -- define name vArg inTy
@@ -148,32 +168,48 @@ infer term univ = scope $ case term of
         vOutTy <- eval outTy
         pure (cLam, cArg, vInTy, vOutTy)
     pure (C.FunElim cLam cArg, outTy)
-  S.U0 -> do
-    unify N.TypeType0 univ
-    pure (C.TypeType0, N.TypeType0)
-  S.U1 -> do
-    unify N.TypeType1 univ
-    pure (C.TypeType1, N.TypeType1)
+  S.U0 -> pure (C.TypeType0, N.TypeType0)
+  S.U1 -> pure (C.TypeType1, N.TypeType1)
   S.Pi name inTy outTy -> do
-    cInTy <- check inTy univ univ
+    cInTy <- check inTy univ
     vInTy <- eval cInTy
     bind name vInTy
-    cOutTy <- check outTy univ univ
+    cOutTy <- check outTy univ
     pure (C.FunType cInTy cOutTy, univ)
+  S.Code ty -> do
+    unify univ N.TypeType1
+    putGoalUniv N.TypeType0
+    cTy <- check ty N.TypeType0
+    pure (C.QuoteType cTy, N.TypeType1)
+  S.Quote inner -> do
+    unify univ N.TypeType1
+    putGoalUniv N.TypeType0
+    (cInner, innerTy) <- infer inner
+    cInnerTy <- readback innerTy
+    pure (C.QuoteIntro cInner cInnerTy, N.QuoteType innerTy)
+  S.Splice quote -> do
+    unify univ N.TypeType0
+    putGoalUniv N.TypeType1
+    (cQuote, quoteTy) <- infer quote
+    quoteInnerTy <- case quoteTy of
+      N.QuoteType ty -> pure ty
+      _ -> freshMeta C.TypeType0 >>= eval
+    pure (C.QuoteElim cQuote, quoteInnerTy)
   S.Let name def defTy body -> do
     -- TODO: reduce `<-` clutter
-    cDefTy <- check defTy univ univ
+    cDefTy <- check defTy univ
     vDefTy <- eval cDefTy
-    cDef <- check def vDefTy univ
+    cDef <- check def vDefTy
     vDef <- eval cDef
     define name vDef vDefTy
-    (cBody, vBodyTy) <- infer body univ
+    (cBody, vBodyTy) <- infer body
     pure (C.Let cDef cDefTy cBody, vBodyTy)
   S.Hole -> do
     cTypeMeta <- readback univ >>= freshMeta
     vTypeMeta <- eval cTypeMeta
     cTermMeta <- freshMeta cTypeMeta
     pure (cTermMeta, vTypeMeta)
+  _ -> error $ "`infer`: " ++ show term
 
 runNorm :: HasCallStack => N.Norm a -> Elab a
 runNorm act = do
@@ -193,8 +229,8 @@ scope act = do
   put $ state { metas = metas s, errors = errors s, nextMeta = nextMeta s, nextName = nextName s }
   pure a
 
-setspan :: S.Span -> Elab ()
-setspan ssp = do
+putSpan :: S.Span -> Elab ()
+putSpan ssp = do
   state <- get
   put $ state { sourceSpan = ssp }
 
@@ -262,6 +298,15 @@ freshMeta ty = do
     , nextMeta = (nextMeta state) + 1 }
   pure meta
 
+freshUnivMeta :: Elab C.Term
+freshUnivMeta = do
+  state <- get
+  let meta = C.InsertedMeta (binderInfos state) (Global $ nextMeta state) meta
+  put $ state
+    { metas = Map.insert (Global $ nextMeta state) N.Unsolved (metas state)
+    , nextMeta = (nextMeta state) + 1 }
+  pure meta 
+
 unify :: N.Value -> N.Value -> Elab ()
 unify val val' = do
   state <- get
@@ -281,6 +326,16 @@ freshName base = do
   let n = nextName state
   put $ state { nextName = nextName state + 1 }
   pure $ S.Name (base ++ show n)
+
+putGoalUniv :: N.Value -> Elab ()
+putGoalUniv univ = do
+  state <- get
+  put $ state { goalUniv = univ }
+
+getGoalUniv :: Elab N.Value
+getGoalUniv = do
+  state <- get
+  pure $ goalUniv state
 
 typeOf :: N.Value -> Elab N.Value
 typeOf val = do

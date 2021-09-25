@@ -55,9 +55,9 @@ instance Show Value where
     QuoteIntro inner _ -> "v<" ++ show inner ++ ">"
     QuoteType innerTy -> "vQuote " ++ show innerTy
     TypeType0 -> "vU0"
-    TypeType1 -> "vU0"
+    TypeType1 -> "vU1"
     StuckFlexVar _ gl spine -> "v~(?" ++ show (unGlobal gl) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
-    StuckRigidVar _ lv spine -> "v~(" ++ show (unLevel lv) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
+    StuckRigidVar ty lv spine -> "v~(" ++ show (unLevel lv) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ "; : " ++ show ty ++ ")"
     FunElim0 lam arg -> "v(" ++ show lam ++ " @ " ++ show arg ++ ")"
     StuckSplice quote -> "v[" ++ show quote ++ "]"
     ElabError -> "v<error>"
@@ -167,7 +167,7 @@ evalUnderQuote term = do
       vDefTy <- evalUnderQuote defTy
       vBody <- blank $ evalUnderQuote body
       pure $ Let0 vDef vDefTy vBody
-    _ -> error "`evalUnderQuote`: Unreachable"
+    _ -> error $ "`evalUnderQuote` unreachable: " ++ show term
 
 eval :: HasCallStack => C.Term -> Norm Value
 eval term = do

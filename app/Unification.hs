@@ -114,7 +114,7 @@ rename metas gl pren rhs = go pren rhs
       [] -> liftEither $ Right val
 
     goTerm :: PartialRenaming -> C.Term -> ExceptT Error Unify C.Term
-    goTerm pren trm = undefined
+    goTerm pren term = undefined
 
     go :: PartialRenaming -> N.Value -> ExceptT Error Unify C.Term
     go pren val = do
@@ -134,13 +134,13 @@ rename metas gl pren rhs = go pren rhs
         N.FunIntro body vty@(N.FunType inTy _) -> do
           tty <- go pren vty
           vBody <- lift $ runNorm (domain pren) $ N.appClosure body (N.StuckRigidVar inTy (codomain pren) [])
-          bodyTrm <- go (inc pren) vBody
-          liftEither $ Right $ C.FunIntro bodyTrm tty
+          bodyTerm <- go (inc pren) vBody
+          liftEither $ Right $ C.FunIntro bodyTerm tty
         N.FunType inTy outTy -> do
-          inTyTrm <- go pren inTy
+          inTyTerm <- go pren inTy
           vOutTy <- lift $ runNorm (domain pren) $ N.appClosure outTy (N.StuckRigidVar inTy (codomain pren) [])
-          outTyTrm <- go (inc pren) vOutTy
-          liftEither $ Right $ C.FunType inTyTrm outTyTrm
+          outTyTerm <- go (inc pren) vOutTy
+          liftEither $ Right $ C.FunType inTyTerm outTyTerm
         N.TypeType0 -> liftEither $ Right C.TypeType0
         N.TypeType1 -> liftEither $ Right C.TypeType1
         N.ElabError -> liftEither $ Right C.ElabError
@@ -182,11 +182,11 @@ getVty metas lv val = case val of
   N.TypeType1 -> N.TypeType1
 
 lams :: Level -> [C.Term] -> C.Term -> C.Term
-lams lv ttys trm = go (Level 0) ttys
+lams lv ttys term = go (Level 0) ttys
   where
     go lv' ttys =
         if lv == lv'
-        then trm
+        then term
         else
           let (tty, ttys) = fromJust $ uncons ttys
           in C.FunIntro (go (Level $ unLevel lv' + 1) ttys) tty
@@ -241,6 +241,13 @@ unify lv val val' = do
       vOutTy <- runNorm (incLevel lv) $ N.appClosure outTy (N.StuckRigidVar inTy lv [])
       vOutTy' <- runNorm (incLevel lv) $ N.appClosure outTy' (N.StuckRigidVar inTy' lv [])
       unify (incLevel lv) vOutTy vOutTy'
+    (N.QuoteType ty, N.QuoteType ty') -> unify lv ty ty'
+    (N.QuoteIntro inner ty, N.QuoteIntro inner' ty') -> do
+      vInner <- runNorm lv $ N.eval inner
+      vInner' <- runNorm lv $ N.eval inner'
+      unify lv vInner vInner'
+      unify lv ty ty'
+    (N.StuckSplice quote, N.StuckSplice quote') -> unify lv quote quote'
     (N.StuckRigidVar vty rlv spine, N.StuckRigidVar vty' rlv' spine') | rlv == rlv' -> do
       unify lv vty vty'
       unifySpines lv spine spine'

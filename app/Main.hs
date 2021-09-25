@@ -22,7 +22,7 @@ main = do
   putStrLn "Done parsing"
   putStrLn "Surface term:"
   putStrLn $ show term
-  let (cTerm, state) = Elab.elab term N.TypeType1
+  let (cTerm, state) = Elab.elab term (N.QuoteType N.TypeType0)
   putStrLn "Core term:"
   putStrLn $ show cTerm
   putStrLn "Errors:"

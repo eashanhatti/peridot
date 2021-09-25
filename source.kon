@@ -1,6 +1,4 @@
-let Nat  : Type1 = (N : Type1) -> (N -> N) -> N -> N in
-let five : Nat = \N s z => s (s (s (s (s z)))) in
-let add  : Nat -> Nat -> Nat = \a b N s z => a N s (b N s z) in
-let mul  : Nat -> Nat -> Nat = \a b N s z => a N (b N s) z in
-let x = mul five (add five five) in
-Type1
+let id
+	: (a : Code Ty0) -> Code (splice a) -> Code (splice a)
+	= \a x -> x
+in id Ty0 Ty0
