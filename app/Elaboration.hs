@@ -168,8 +168,12 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
         vOutTy <- eval outTy
         pure (cLam, cArg, vInTy, vOutTy)
     pure (C.FunElim cLam cArg, outTy)
-  S.U0 -> pure (C.TypeType0, N.TypeType0)
-  S.U1 -> pure (C.TypeType1, N.TypeType1)
+  S.U0 -> do
+    unify univ N.TypeType0
+    pure (C.TypeType0, N.TypeType0)
+  S.U1 -> do
+    unify univ N.TypeType1
+    pure (C.TypeType1, N.TypeType1)
   S.Pi name inTy outTy -> do
     cInTy <- check inTy univ
     vInTy <- eval cInTy
@@ -325,7 +329,7 @@ freshName base = do
   state <- get
   let n = nextName state
   put $ state { nextName = nextName state + 1 }
-  pure $ S.Name (base ++ show n)
+  pure $ S.Name [(base ++ show n)]
 
 putGoalUniv :: N.Value -> Elab ()
 putGoalUniv univ = do

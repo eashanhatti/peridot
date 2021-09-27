@@ -11,7 +11,7 @@ Level 1 language:
 * Pure
 
 Level 0 language:
-* Simply typed
-* Monomorphic
+* Simply typed and monomorphic
+* No first class types
 * Types are layouts
 * Impure

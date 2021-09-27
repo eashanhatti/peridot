@@ -1,0 +1,1 @@
+Add a monomorphic U0 function type which doesn't allow type arguments, then restrict dependent function type to U1

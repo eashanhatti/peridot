@@ -150,3 +150,24 @@ Should there be an arbitrary number of stages or just U0/U1?
 #### 9/20/2021
 
 No, we can just have U0/U1
+
+#### 9/26/2021
+
+Hm, is monomorphization really guaranteed in all cases?
+```haskell
+assume ty : Unit -> U0
+
+id : (a : ^U0) -> ^[a] -> ^[a]
+id _ x = x
+
+_ = id <ty unit> <undefined>
+```
+Post-staging this is
+```haskell
+assume ty : Unit -> U0
+
+_ = <undefined> : ^(ty unit)
+```
+So no, it isn't. `ty unit` sticks around at runtime
+
+Aha, I just need to disallow first-class types in the object language.

@@ -1,9 +1,11 @@
 module Surface where
 
+import Data.Map(Map)
+
 data Span = Span
   deriving Show
 
-data Name = Name String
+data Name = Name [String]
   deriving (Show, Eq, Ord)
 
 data Term
@@ -19,5 +21,6 @@ data Term
   | Code Term
   | Quote Term
   | Splice Term
+  | Ind (Map Name Term)
   | Hole
   deriving Show

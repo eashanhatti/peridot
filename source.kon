@@ -1,4 +1,1 @@
-let id
-	: (a : Code Ty0) -> Code (splice a) -> Code (splice a)
-	= \a x -> x
-in id Ty0 Ty0
+ind x : a end
