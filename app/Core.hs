@@ -5,7 +5,8 @@ module Core where
 import Var
 import {-# SOURCE #-} qualified Norm as N
 import Control.Monad.Reader(Reader, ask)
-import Data.Set
+import Data.Map(Map)
+import Numeric.Natural
 
 data BinderInfo = Abstract | Concrete
   deriving Show
@@ -15,6 +16,10 @@ type Type = Term
 
 data HoleName = HoleName Int
   deriving Show
+
+data Id = Id Natural
+
+data Namespace = Namespace (Map Id (Term, Term))
 
 data Term
   = Var Index Type
@@ -26,6 +31,12 @@ data Term
   | QuoteType Term
   | QuoteIntro Term Type
   | QuoteElim Term
+  | FinType Natural
+  | FinIntro Natural Type
+  | FinElim Term [Term]
+  | PairType Term Term
+  | PairIntro Term Term Type
+  | PairElim Term Term
   | Let Term Term Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
@@ -74,6 +85,9 @@ showTerm showTys term = case term of
   QuoteType innerTy -> "Quote " ++ show innerTy
   QuoteIntro inner _ -> "<" ++ show inner ++ ">"
   QuoteElim quote -> "[" ++ show quote ++ "]"
+  FinType n -> "Fin" ++ show n
+  FinIntro n _ -> "fin" ++ show n
+  FinElim scr bs -> "case " ++ show scr ++ show (map show bs)
   Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in\n" ++ show body
   Meta gl ty ->
     if showTys then

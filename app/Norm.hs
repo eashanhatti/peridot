@@ -15,6 +15,7 @@ import Control.Monad.Reader
 import qualified Data.Set as Set
 import GHC.Stack
 import Data.List(intersperse)
+import Numeric.Natural
 
 data MetaEntry a = Solved a | Unsolved
   deriving Show
@@ -34,12 +35,18 @@ data Value
   | FunType Type Closure
   | QuoteIntro C.Term Type
   | QuoteType Value
+  | FinIntro Natural Type
+  | FinType Natural
+  | PairIntro Value Value Type
+  | PairType Value Value
   | TypeType0
   | TypeType1
   -- Blocked eliminations
   | StuckFlexVar Type Global Spine
   | StuckRigidVar Type Level Spine
   | StuckSplice Value
+  | StuckFinCase Value [Value]
+  | StuckSplit Value C.Term
   -- Object-level terms, should only appear under quotes
   | FunElim0 Value Value
   | Var0 Index Value
@@ -54,12 +61,18 @@ instance Show Value where
     FunType inTy (Closure env outTy) -> show inTy ++ " v-> " ++ show outTy ++ " " ++ show env
     QuoteIntro inner _ -> "v<" ++ show inner ++ ">"
     QuoteType innerTy -> "vQuote " ++ show innerTy
+    FinIntro n _ -> "vfin" ++ show n
+    FinType n -> "vFin" ++ show n
+    PairIntro proj0 proj1 _ -> "vpair " ++ show proj0 ++ " * " ++ show proj1
+    PairType pty0 pty1 -> "vPair " ++ show pty0 ++ " * " ++ show pty1
     TypeType0 -> "vU0"
     TypeType1 -> "vU1"
     StuckFlexVar _ gl spine -> "v~(?" ++ show (unGlobal gl) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
     StuckRigidVar ty lv spine -> "v~(" ++ show (unLevel lv) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ "; : " ++ show ty ++ ")"
     FunElim0 lam arg -> "v(" ++ show lam ++ " @ " ++ show arg ++ ")"
     StuckSplice quote -> "v[" ++ show quote ++ "]"
+    StuckFinCase scr bs -> "vcase " ++ show scr ++ show (map show bs)
+    StuckSplit scr body -> "vsplit " ++ show scr ++ " in " ++ show body
     ElabError -> "v<error>"
     ElabBlank -> "v<blank>"
 
@@ -96,6 +109,16 @@ vSplice :: HasCallStack => Value -> Norm Value
 vSplice val = case val of
   QuoteIntro inner _ -> evalUnderQuote inner
   _ -> pure $ StuckSplice val
+
+vFinCase :: HasCallStack => Value -> [Value] -> Norm Value
+vFinCase scr bs = case scr of
+  FinIntro n _ -> pure $ bs !! fromIntegral n
+  _ -> pure $ StuckFinCase scr bs
+
+vSplit :: HasCallStack => Value -> C.Term -> Norm Value
+vSplit scr body = case scr of
+  PairIntro proj0 proj1 _ -> define proj1 $ define proj0 $ eval body
+  _ -> pure $ StuckSplit scr body
 
 vAppSpine :: HasCallStack => Value -> Spine -> Norm Value
 vAppSpine val spine = case spine of
@@ -156,7 +179,7 @@ evalUnderQuote term = do
   case term of
     C.Var ix ty -> Var0 ix <$> evalUnderQuote ty
     C.TypeType0 -> pure TypeType0
-    C.FunIntro body tty -> FunIntro (Closure locals body) <$> evalUnderQuote tty
+    C.FunIntro body ty -> FunIntro (Closure locals body) <$> evalUnderQuote ty
     C.FunType inTy outTy -> do
       vInTy <- evalUnderQuote inTy
       pure $ FunType vInTy (Closure locals outTy)
@@ -176,7 +199,7 @@ eval term = do
     C.Var ix ty -> pure $ index locals ix ty (unIndex ix)
     C.TypeType0 -> pure TypeType0
     C.TypeType1 -> pure TypeType1
-    C.FunIntro body tty -> FunIntro (Closure locals body) <$> eval tty
+    C.FunIntro body ty -> FunIntro (Closure locals body) <$> eval ty
     C.FunType inTy outTy -> do
       vInTy <- eval inTy
       pure $ FunType vInTy (Closure locals outTy)
@@ -187,11 +210,27 @@ eval term = do
     C.QuoteIntro inner ty -> QuoteIntro <$> pure inner <*> eval ty
     C.QuoteType innerTy -> QuoteType <$> eval innerTy
     C.QuoteElim quote -> eval quote >>= vSplice
+    C.FinIntro n ty -> FinIntro n <$> eval ty
+    C.FinType n -> pure $ FinType n
+    C.FinElim scr bs -> do
+      vScr <- eval scr
+      vBs <- mapM eval bs
+      vFinCase vScr vBs
+    C.PairIntro proj0 proj1 ty -> do
+      vProj0 <- eval proj0
+      vProj1 <- define vProj0 $ eval proj1
+      vTy <- eval ty
+      pure $ PairIntro vProj0 vProj1 vTy
+    C.PairType pty0 pty1 -> do
+      vPty0 <- eval pty0
+      vPty1 <- bind vPty0 $ eval pty1
+      pure $ PairType vPty0 vPty1
+    C.PairElim scr body -> eval scr >>= \vScr -> vSplit vScr body 
     C.Let def _ body -> do
       vDef <- eval def
       define vDef $ eval body
-    C.Meta gl tty -> eval tty >>= vMeta gl
-    C.InsertedMeta bis gl tty -> eval tty >>= vMeta gl >>= \meta -> vAppBis meta locals bis
+    C.Meta gl ty -> eval ty >>= vMeta gl
+    C.InsertedMeta bis gl ty -> eval ty >>= vMeta gl >>= \meta -> vAppBis meta locals bis
     C.ElabError -> pure ElabError
 
 force :: HasCallStack => Value -> Norm Value
@@ -235,6 +274,8 @@ readback val = do
       var <- C.Var <$> pure (lvToIx lv lv') <*> readback vty
       readbackSpine var spine
     StuckSplice quote -> C.QuoteElim <$> readback quote
+    StuckFinCase scr bs -> C.FinElim <$> readback scr <*> mapM readback bs
+    StuckSplit scr body -> C.PairElim <$> readback scr <*> pure body
     FunIntro body vty@(FunType inTy _) -> do
       lv <- askLv
       vBody <- appClosure body (StuckRigidVar inTy lv [])
@@ -245,6 +286,10 @@ readback val = do
       C.FunType <$> readback inTy <*> blank (readback vOutTy)
     QuoteIntro inner ty -> C.QuoteIntro <$> (evalUnderQuote inner >>= readback) <*> readback ty
     QuoteType innerTy -> C.QuoteType <$> readback innerTy
+    PairIntro proj0 proj1 ty -> C.PairIntro <$> readback proj0 <*> blank (readback proj1) <*> readback ty
+    PairType pty0 pty1 -> C.PairType <$> readback pty0 <*> blank (readback pty1)
+    FinIntro n ty -> C.FinIntro n <$> readback ty
+    FinType n -> pure $ C.FinType n
     TypeType0 -> pure C.TypeType0
     TypeType1 -> pure C.TypeType1
     ElabError -> pure C.ElabError
