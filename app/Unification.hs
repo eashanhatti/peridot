@@ -327,7 +327,11 @@ unify lv val val' = do
       forM_ (zip bs bs') \(b, b') -> unify lv b b'
     (N.StuckSplit scr body, N.StuckSplit scr' body') -> do
       unify lv scr scr'
-      undefined -- TODO
+      let N.PairType pty0 pty1 = getVty metasForGetVty lv scr
+      let N.PairType pty0' pty1' = getVty metasForGetVty lv scr'
+      vBody <- runNorm lv $ N.bind pty0 $ N.bind pty1 $ N.eval body
+      vBody' <- runNorm lv $ N.bind pty0' $ N.bind pty1' $ N.eval body'
+      unify lv vBody vBody'
     (N.FunElim0 lam arg, N.FunElim0 lam' arg') -> do
       unify lv lam arg
       unify lv arg arg'
