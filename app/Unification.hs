@@ -1,5 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BlockArguments #-}
+{-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 -- {-# OPTIONS_GHC -fdefer-type-errors #-}
 
 module Unification where
@@ -14,7 +16,7 @@ import Data.Functor.Identity(Identity)
 import Control.Monad.State(State, state, runState)
 import Control.Monad.Reader(runReader)
 import Control.Monad.Except(ExceptT, lift, throwError, liftEither, runExceptT)
-import Control.Monad(ap, liftM)
+import Control.Monad(ap, liftM, forM_)
 import qualified Data.Set as Set
 import GHC.Stack
 import Debug.Trace
@@ -32,6 +34,7 @@ instance Show Error where
     OccursCheck -> "Failed Occurs Check"
     EscapingVar -> "Escaping Var"
     Mismatch val val' -> "Mismatched Types:\n  " ++ show val ++ "\n  " ++ show val'
+    MismatchSpines s s' -> "Mismatched Spines\n  " ++ show s ++ "\n  " ++ show s'
 
 newtype Unify a = Unify (State (N.Metas, [Error]) a)
 
@@ -131,6 +134,9 @@ rename metas gl pren rhs = go pren rhs
             tty <- go pren vty
             goSpine pren (C.Var (N.lvToIx (domain pren) lv') tty) spine
           Nothing -> throwError EscapingVar
+        N.StuckSplice quote -> C.QuoteElim <$> go pren quote
+        N.StuckFinCase scr bs -> C.FinElim <$> go pren scr <*> mapM (go pren) bs
+        N.StuckSplit scr body -> C.PairElim <$> go pren scr <*> pure body
         N.FunIntro body vty@(N.FunType inTy _) -> do
           tty <- go pren vty
           vBody <- lift $ runNorm (domain pren) $ N.appClosure body (N.StuckRigidVar inTy (codomain pren) [])
@@ -141,8 +147,28 @@ rename metas gl pren rhs = go pren rhs
           vOutTy <- lift $ runNorm (domain pren) $ N.appClosure outTy (N.StuckRigidVar inTy (codomain pren) [])
           outTyTerm <- go (inc pren) vOutTy
           liftEither $ Right $ C.FunType inTyTerm outTyTerm
+        N.QuoteIntro inner ty -> do
+          vInner <- lift $ runNorm (domain pren) $ N.eval inner
+          innerTerm <- go pren vInner
+          innerTy <- go pren ty
+          liftEither $ Right $ C.QuoteIntro innerTerm innerTy
+        N.QuoteType ty -> C.QuoteType <$> go pren ty
+        N.FinIntro n ty -> C.FinIntro n <$> go pren ty
+        N.FinType n -> pure $ C.FinType n
+        N.PairIntro proj0 proj1 ty -> do
+          proj0Term <- go pren proj0
+          proj1Term <- go (inc pren) proj1
+          tyTerm <- go pren ty
+          pure $ C.PairIntro proj0Term proj1Term tyTerm
+        N.PairType pty0 pty1 -> do
+          pty0Term <- go pren pty0
+          pty1Term <- go (inc pren) pty1
+          pure $ C.PairType pty0Term pty1Term
         N.TypeType0 -> liftEither $ Right C.TypeType0
         N.TypeType1 -> liftEither $ Right C.TypeType1
+        N.FunElim0 lam arg -> C.FunElim <$> go pren lam <*> go pren arg
+        N.Var0 ix ty -> C.Var <$> pure ix <*> go pren ty
+        N.Let0 def defTy body -> C.Let <$> go pren def <*> go pren defTy <*> go (inc pren) body
         N.ElabError -> liftEither $ Right C.ElabError
 
 getTtySpine :: N.Metas -> Level -> N.Type -> N.Spine -> C.Term
@@ -158,10 +184,23 @@ getTty :: N.Metas -> Level -> N.Value -> C.Term
 getTty metas lv val = case val of
   N.StuckFlexVar vty _ spine -> getTtySpine metas lv vty spine
   N.StuckRigidVar vty _ spine -> getTtySpine metas lv vty spine
+  N.StuckSplice _ -> C.TypeType1
+  N.StuckFinCase _ _ -> C.TypeType1
+  N.StuckSplit _ _ -> C.TypeType1
   N.FunIntro _ vty -> runReader (N.readback vty) (lv, metas, [])
-  N.FunType inTy _ -> getTty metas lv inTy -- NOTE: this assumes that inTy and outTy are of the same universe
+  N.FunType inTy _ -> getTty metas lv inTy
+  N.QuoteType _ -> C.TypeType1
+  N.QuoteIntro _ _ -> C.TypeType1
+  N.FinType _ -> C.TypeType1
+  N.FinIntro _ _ -> C.TypeType1
+  N.PairIntro _ _ _ -> C.TypeType1
+  N.PairType _ _ -> C.TypeType1
   N.TypeType0 -> C.TypeType0
   N.TypeType1 -> C.TypeType1
+  N.FunElim0 _ _ -> C.TypeType0
+  N.Var0 _ _ -> C.TypeType0
+  N.Let0 _ _ _ -> C.TypeType0
+  N.ElabError -> C.ElabError
 
 getVtySpine :: N.Metas -> Level -> N.Type -> N.Spine -> N.Value
 getVtySpine metas lv vty spine = case (vty, spine) of
@@ -176,10 +215,23 @@ getVty :: N.Metas -> Level -> N.Value -> N.Value
 getVty metas lv val = case val of
   N.StuckFlexVar vty _ spine -> getVtySpine metas lv vty spine
   N.StuckRigidVar vty _ spine -> getVtySpine metas lv vty spine
+  N.StuckSplice _ -> N.TypeType1
+  N.StuckFinCase _ _ -> N.TypeType1
+  N.StuckSplit _ _ -> N.TypeType1
   N.FunIntro _ vty -> vty
   N.FunType inTy _ -> getVty metas lv inTy
+  N.QuoteType _ -> N.TypeType1
+  N.QuoteIntro _ _ -> N.TypeType1
+  N.FinType _ -> N.TypeType1
+  N.FinIntro _ _ -> N.TypeType1
+  N.PairIntro _ _ _ -> N.TypeType1
+  N.PairType _ _ -> N.TypeType1
   N.TypeType0 -> N.TypeType0
   N.TypeType1 -> N.TypeType1
+  N.FunElim0 _ _ -> N.TypeType0
+  N.Var0 _ _ -> N.TypeType0
+  N.Let0 _ _ _ -> N.TypeType0
+  N.ElabError -> N.ElabError
 
 lams :: Level -> [C.Term] -> C.Term -> C.Term
 lams lv ttys term = go (Level 0) ttys
@@ -247,7 +299,19 @@ unify lv val val' = do
       vInner' <- runNorm lv $ N.eval inner'
       unify lv vInner vInner'
       unify lv ty ty'
-    (N.StuckSplice quote, N.StuckSplice quote') -> unify lv quote quote'
+    (N.FinType n, N.FinType n') ->
+      if n /= n' then
+        putError $ Mismatch val val'
+      else
+        pure ()
+    (N.FinIntro n ty, N.FinIntro n' ty') | n == n' -> unify lv ty ty'
+    (N.PairType pty0 pty1, N.PairType pty0' pty1') -> do
+      unify lv pty0 pty0'
+      unify (incLevel lv) pty1 pty1'
+    (N.PairIntro proj0 proj1 ty, N.PairIntro proj0' proj1' ty') -> do
+      unify lv proj0 proj0'
+      unify (incLevel lv) proj1 proj1'
+      unify lv ty ty'
     (N.StuckRigidVar vty rlv spine, N.StuckRigidVar vty' rlv' spine') | rlv == rlv' -> do
       unify lv vty vty'
       unifySpines lv spine spine'
@@ -257,6 +321,21 @@ unify lv val val' = do
     -- FIXME? Unify types
     (val, N.StuckFlexVar _ gl spine) -> solve lv gl spine val
     (N.StuckFlexVar _ gl spine, val') -> solve lv gl spine val'
+    (N.StuckSplice quote, N.StuckSplice quote') -> unify lv quote quote'
+    (N.StuckFinCase scr bs, N.StuckFinCase scr' bs') -> do
+      unify lv scr scr'
+      forM_ (zip bs bs') \(b, b') -> unify lv b b'
+    (N.StuckSplit scr body, N.StuckSplit scr' body') -> do
+      unify lv scr scr'
+      undefined -- TODO
+    (N.FunElim0 lam arg, N.FunElim0 lam' arg') -> do
+      unify lv lam arg
+      unify lv arg arg'
+    (N.Var0 ix ty, N.Var0 ix' ty') | ix == ix' -> unify lv ty ty'
+    (N.Let0 def defTy body, N.Let0 def' defTy' body') -> do
+      unify lv def def'
+      unify lv defTy defTy'
+      unify (incLevel lv) body body'
     (N.ElabError, _) -> pure ()
     (_, N.ElabError) -> pure ()
     _ -> putError $ Mismatch val val'
