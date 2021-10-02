@@ -50,13 +50,15 @@ data Value
   -- Object-level terms, should only appear under quotes
   | FunElim0 Value Value
   | Var0 Index Value
-  | Let0 Value Value Value
+  | Letrec0 [Value] Value
+  -- | Let0 Value Value Value
   -- Extras
+  | LetrecBound Closure
   | ElabError
   | ElabBlank
 
 instance Show Value where
-  show = \case
+  show v = case v of
     FunIntro (Closure _ body) ty -> "v{" ++ show body ++ "}"
     FunType inTy (Closure env outTy) -> show inTy ++ " v-> " ++ show outTy ++ " " ++ show env
     QuoteIntro inner _ -> "v<" ++ show inner ++ ">"
@@ -73,8 +75,10 @@ instance Show Value where
     StuckSplice quote -> "v[" ++ show quote ++ "]"
     StuckFinCase scr bs -> "vcase " ++ show scr ++ show (map show bs)
     StuckSplit scr body -> "vsplit " ++ show scr ++ " in " ++ show body
+    LetrecBound v -> "lrb(" ++ show v ++ ")"
     ElabError -> "v<error>"
     ElabBlank -> "v<blank>"
+    _ -> error $ show v
 
 type Norm a = Reader (Level, Metas, Locals) a
 
@@ -95,7 +99,7 @@ askLocals = do
 
 appClosure :: HasCallStack => Closure -> Value -> Norm Value
 appClosure (Closure locals body) val = do
-  (level, metas, _) <- ask -- FIXME? store level with closure
+  (level, metas, _) <- ask
   pure $ runReader (eval body) (level, metas, val:locals)
 
 vApp :: HasCallStack => Value -> Value -> Norm Value
@@ -107,7 +111,7 @@ vApp lam arg = case lam of
 
 vSplice :: HasCallStack => Value -> Norm Value
 vSplice val = case val of
-  QuoteIntro inner _ -> evalUnderQuote inner
+  QuoteIntro inner _ -> eval0 inner
   _ -> pure $ StuckSplice val
 
 vFinCase :: HasCallStack => Value -> [Value] -> Norm Value
@@ -159,44 +163,50 @@ blank act = do
   (level, metas, locals) <- ask
   pure $ runReader act (incLevel level, metas, ElabBlank:locals)
 
--- withLocals :: HasCallStack => Norm a -> Locals -> Norm a
--- withLocals act locals = do
---   (level, metas, stages, _) <- ask
---   pure $ runReader act (level, metas, stages, locals)
+blankN :: HasCallStack => Int -> Norm a -> Norm a
+blankN n act = case n of
+  0 -> act
+  n -> blank $ blankN (n - 1) act
 
-index :: HasCallStack => Locals -> Index -> C.Type -> Int -> Value
-index locals ix ty ix' = case locals of
-  [] -> {-ElabError-} error $ "Nonexistent var `" ++ show ix ++ " :" ++ show ty ++ "`"
+index :: HasCallStack => Metas -> Locals -> Index -> C.Type -> Int -> Value
+index metas locals ix ty ix' = case locals of
+  [] -> {-ElabError-} error $ "Nonexistent var `" ++ show ix ++ " : " ++ show ty ++ "`"
   x:xs ->
     if ix' == 0 then
-      x
+      case x of
+        LetrecBound (Closure locals' def) -> runReader (eval def) (Level 0, metas, locals')
+        _ -> x
     else
-      index xs ix ty (ix' - 1)
+      index metas xs ix ty (ix' - 1)
 
-evalUnderQuote :: HasCallStack => C.Term -> Norm Value
-evalUnderQuote term = do
+eval0 :: HasCallStack => C.Term -> Norm Value
+eval0 term = do
   (_, _, locals) <- ask
   case term of
-    C.Var ix ty -> Var0 ix <$> evalUnderQuote ty
+    C.Var ix ty -> Var0 ix <$> eval0 ty
     C.TypeType0 -> pure TypeType0
-    C.FunIntro body ty -> FunIntro (Closure locals body) <$> evalUnderQuote ty
+    C.FunIntro body ty -> FunIntro (Closure locals body) <$> eval0 ty
     C.FunType inTy outTy -> do
-      vInTy <- evalUnderQuote inTy
+      vInTy <- eval0 inTy
       pure $ FunType vInTy (Closure locals outTy)
-    C.FunElim lam arg -> FunElim0 <$> evalUnderQuote lam <*> evalUnderQuote arg
+    C.FunElim lam arg -> FunElim0 <$> eval0 lam <*> eval0 arg
     C.QuoteElim quote -> eval quote >>= vSplice
-    C.Let def defTy body -> do
-      vDef <- evalUnderQuote def
-      vDefTy <- evalUnderQuote defTy
-      vBody <- blank $ evalUnderQuote body
-      pure $ Let0 vDef vDefTy vBody
-    _ -> error $ "`evalUnderQuote` unreachable: " ++ show term
+    -- C.Let def defTy body -> do
+    --   vDef <- eval0 def
+    --   vDefTy <- eval0 defTy
+    --   vBody <- blank $ eval0 body
+    --   pure $ Let0 vDef vDefTy vBody
+    C.Letrec defs body -> do
+      vDefs <- mapM (\def -> blankN (length defs) $ eval0 def) defs
+      vBody <- blankN (length defs) $ eval0 body
+      pure $ Letrec0 vDefs vBody
+    _ -> error $ "`eval0` unreachable: " ++ show term
 
 eval :: HasCallStack => C.Term -> Norm Value
 eval term = do
-  (_, _, locals) <- ask
+  (_, metas, locals) <- ask
   case term of
-    C.Var ix ty -> pure $ index locals ix ty (unIndex ix)
+    C.Var ix ty -> pure $ index metas locals ix ty (unIndex ix)
     C.TypeType0 -> pure TypeType0
     C.TypeType1 -> pure TypeType1
     C.FunIntro body ty -> FunIntro (Closure locals body) <$> eval ty
@@ -226,9 +236,18 @@ eval term = do
       vPty1 <- bind vPty0 $ eval pty1
       pure $ PairType vPty0 vPty1
     C.PairElim scr body -> eval scr >>= \vScr -> vSplit vScr body 
-    C.Let def _ body -> do
-      vDef <- eval def
-      define vDef $ eval body
+    -- C.Let def _ body -> do
+    --   vDef <- eval def
+    --   define vDef $ eval body
+    C.Letrec defs body -> do
+      let withDefs :: Norm a -> Locals -> Norm a
+          withDefs act defs = do
+            (level, metas, locals) <- ask
+            pure $ runReader act (level, metas, defs ++ locals)
+      let vDefs = map (\def -> LetrecBound $ Closure (reverse vDefs ++ locals) def) defs
+      -- let !() = trace ("Enter") ()
+      -- let !() = traceShow vDefs ()
+      eval body `withDefs` (reverse vDefs)
     C.Meta gl ty -> eval ty >>= vMeta gl
     C.InsertedMeta bis gl ty -> eval ty >>= vMeta gl >>= \meta -> vAppBis meta locals bis
     C.ElabError -> pure ElabError
@@ -247,18 +266,19 @@ lvToIx lv1 lv2 = Index (unLevel lv1 - unLevel lv2 - 1)
 
 readbackSpine :: HasCallStack => C.Term -> Spine -> Norm C.Term
 readbackSpine term spine = do
-  lv <- askLv
   case spine of
     arg:spine -> C.FunElim <$> readbackSpine term spine <*> readback arg
-    -- readbackSpine term spine >>= \lam -> C.FunElim lam <$> readback lv arg
     [] -> pure term
 
-readbackUnderQuote :: HasCallStack => Value -> Norm C.Term
-readbackUnderQuote val = case val of
+readback0 :: HasCallStack => Value -> Norm C.Term
+readback0 val = case val of
   TypeType0 -> pure C.TypeType0
-  FunElim0 lam arg -> C.FunElim <$> readbackUnderQuote lam <*> readbackUnderQuote arg
-  Let0 def defTy body -> C.Let <$> readbackUnderQuote def <*> readbackUnderQuote defTy <*> blank (readbackUnderQuote body)
-  Var0 ix ty -> C.Var ix <$> readbackUnderQuote ty
+  FunElim0 lam arg -> C.FunElim <$> readback0 lam <*> readback0 arg
+  Letrec0 defs body -> do
+    cDefs <- mapM (\def -> blankN (length defs) $ readback0 def) defs
+    cBody <- blankN (length defs) $ readback0 body
+    pure $ C.Letrec cDefs cBody
+  Var0 ix ty -> C.Var ix <$> readback0 ty
   StuckSplice quote -> C.QuoteElim <$> readback quote
 
 -- TODO? replace `bind` with `blank`
@@ -284,7 +304,7 @@ readback val = do
       lv <- askLv
       vOutTy <- appClosure outTy (StuckRigidVar inTy lv [])
       C.FunType <$> readback inTy <*> blank (readback vOutTy)
-    QuoteIntro inner ty -> C.QuoteIntro <$> (evalUnderQuote inner >>= readback) <*> readback ty
+    QuoteIntro inner ty -> C.QuoteIntro <$> (eval0 inner >>= readback) <*> readback ty
     QuoteType innerTy -> C.QuoteType <$> readback innerTy
     PairIntro proj0 proj1 ty -> C.PairIntro <$> readback proj0 <*> blank (readback proj1) <*> readback ty
     PairType pty0 pty1 -> C.PairType <$> readback pty0 <*> blank (readback pty1)
@@ -293,4 +313,3 @@ readback val = do
     TypeType0 -> pure C.TypeType0
     TypeType1 -> pure C.TypeType1
     ElabError -> pure C.ElabError
-    _ -> pure C.ElabError

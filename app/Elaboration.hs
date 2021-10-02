@@ -76,15 +76,15 @@ check term goal = do
       bind name inTy
       cBody <- check body vOutTy
       pure $ C.FunIntro cBody cGoal
-    (S.Let name def defTy body, _) -> do
-      -- TODO: reduce `<-` clutter
-      cDefTy <- check defTy univ
-      vDefTy <- eval cDefTy
-      cDef <- check def vDefTy
-      vDef <- eval cDef
-      define name vDef vDefTy
-      cBody <- check body goal
-      pure $ C.Let cDef cDefTy cBody
+    -- (S.Let name def defTy body, _) -> do
+    --   -- TODO: reduce `<-` clutter
+    --   cDefTy <- check defTy univ
+    --   vDefTy <- eval cDefTy
+    --   cDef <- check def vDefTy
+    --   vDef <- eval cDef
+    --   define name vDef vDefTy
+    --   cBody <- check body goal
+    --   pure $ C.Let cDef cDefTy cBody
     (S.Hole, _) -> freshMeta cGoal
     (S.Quote inner, N.QuoteType ty) -> do
       unify univ N.TypeType1
@@ -199,15 +199,15 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
       N.QuoteType ty -> pure ty
       _ -> freshMeta C.TypeType0 >>= eval
     pure (C.QuoteElim cQuote, quoteInnerTy)
-  S.Let name def defTy body -> do
-    -- TODO: reduce `<-` clutter
-    cDefTy <- check defTy univ
-    vDefTy <- eval cDefTy
-    cDef <- check def vDefTy
-    vDef <- eval cDef
-    define name vDef vDefTy
-    (cBody, vBodyTy) <- infer body
-    pure (C.Let cDef cDefTy cBody, vBodyTy)
+  -- S.Let name def defTy body -> do
+  --   -- TODO: reduce `<-` clutter
+  --   cDefTy <- check defTy univ
+  --   vDefTy <- eval cDefTy
+  --   cDef <- check def vDefTy
+  --   vDef <- eval cDef
+  --   define name vDef vDefTy
+  --   (cBody, vBodyTy) <- infer body
+  --   pure (C.Let cDef cDefTy cBody, vBodyTy)
   S.Hole -> do
     cTypeMeta <- readback univ >>= freshMeta
     vTypeMeta <- eval cTypeMeta

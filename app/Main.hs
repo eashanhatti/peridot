@@ -1,16 +1,24 @@
-{-# LANGUAGE ScopedTypeVariables #-} 
-
 module Main where
 
 import qualified Core as C
 import qualified Norm as N
 import qualified Surface as S
+import Var
 import qualified Elaboration as Elab
 import qualified Parsing as Parse
 -- import qualified PartialEval as PE
 import Control.Monad(forM_)
+import Control.Monad.Reader(runReader)
 import Data.Map(toList)
 import Data.Either(fromRight)
+
+-- e = C.Letrec [C.Var (Index 0) C.TypeType0] (C.Var (Index 1) C.ElabError)
+-- e = C.Letrec [C.TypeType1] (C.Var (Index 0) C.ElabError)
+-- e = C.Letrec [] C.TypeType1
+
+-- main :: IO ()
+-- main = do
+--   putStrLn $ show $ runReader (N.eval e) (Level 0, mempty, [])
 
 main :: IO ()
 main = do

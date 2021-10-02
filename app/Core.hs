@@ -17,10 +17,6 @@ type Type = Term
 data HoleName = HoleName Int
   deriving Show
 
-data Id = Id Natural
-
-data Namespace = Namespace (Map Id (Term, Term))
-
 data Term
   = Var Index Type
   | TypeType0
@@ -37,7 +33,8 @@ data Term
   | PairType Term Term
   | PairIntro Term Term Type
   | PairElim Term Term
-  | Let Term Term Term
+  -- | Let Term Term Term
+  | Letrec [Term] Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
   | ElabError
@@ -88,7 +85,8 @@ showTerm showTys term = case term of
   FinType n -> "Fin" ++ show n
   FinIntro n _ -> "fin" ++ show n
   FinElim scr bs -> "case " ++ show scr ++ show (map show bs)
-  Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in\n" ++ show body
+  -- Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in\n" ++ show body
+  Letrec defs body -> "letrec " ++ show defs ++ " in " ++ show body
   Meta gl ty ->
     if showTys then
       "(?" ++ show (unGlobal gl) ++ " : " ++ show ty ++ ")"

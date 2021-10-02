@@ -168,7 +168,7 @@ rename metas gl pren rhs = go pren rhs
         N.TypeType1 -> liftEither $ Right C.TypeType1
         N.FunElim0 lam arg -> C.FunElim <$> go pren lam <*> go pren arg
         N.Var0 ix ty -> C.Var <$> pure ix <*> go pren ty
-        N.Let0 def defTy body -> C.Let <$> go pren def <*> go pren defTy <*> go (inc pren) body
+        -- N.Let0 def defTy body -> C.Let <$> go pren def <*> go pren defTy <*> go (inc pren) body
         N.ElabError -> liftEither $ Right C.ElabError
 
 getTtySpine :: N.Metas -> Level -> N.Type -> N.Spine -> C.Term
@@ -199,7 +199,7 @@ getTty metas lv val = case val of
   N.TypeType1 -> C.TypeType1
   N.FunElim0 _ _ -> C.TypeType0
   N.Var0 _ _ -> C.TypeType0
-  N.Let0 _ _ _ -> C.TypeType0
+  -- N.Let0 _ _ _ -> C.TypeType0
   N.ElabError -> C.ElabError
 
 getVtySpine :: N.Metas -> Level -> N.Type -> N.Spine -> N.Value
@@ -230,7 +230,7 @@ getVty metas lv val = case val of
   N.TypeType1 -> N.TypeType1
   N.FunElim0 _ _ -> N.TypeType0
   N.Var0 _ _ -> N.TypeType0
-  N.Let0 _ _ _ -> N.TypeType0
+  -- N.Let0 _ _ _ -> N.TypeType0
   N.ElabError -> N.ElabError
 
 lams :: Level -> [C.Term] -> C.Term -> C.Term
@@ -336,10 +336,10 @@ unify lv val val' = do
       unify lv lam arg
       unify lv arg arg'
     (N.Var0 ix ty, N.Var0 ix' ty') | ix == ix' -> unify lv ty ty'
-    (N.Let0 def defTy body, N.Let0 def' defTy' body') -> do
-      unify lv def def'
-      unify lv defTy defTy'
-      unify (incLevel lv) body body'
+    -- (N.Let0 def defTy body, N.Let0 def' defTy' body') -> do
+    --   unify lv def def'
+    --   unify lv defTy defTy'
+    --   unify (incLevel lv) body body'
     (N.ElabError, _) -> pure ()
     (_, N.ElabError) -> pure ()
     _ -> putError $ Mismatch val val'
