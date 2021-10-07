@@ -38,7 +38,7 @@ import Data.Map(fromList)
 %%
 
 Prec3
-  : Prec2 "->" Prec3                          { Pi (Name []) $1 $3 }
+  : Prec2 "->" Prec3                          { Pi (Name undefined) $1 $3 }
   | Prec2                                     { $1 }
 
 Prec2
@@ -50,13 +50,12 @@ Prec1
   | Prec0                                     { $1 }
 
 Prec0
-  : name                                      { Var (Name [$1]) }
-  | "ind" ConList                             { Ind (fromList $2) }
-  | "\\" NameList "->" Prec3                  { foldr (\name body -> Lam (Name [name]) body) $4 $2 }
-  | "\\" name "->" Prec3                      { Lam (Name [$2]) $4 }
-  | "(" name ":" Prec3 ")" "->" Prec3         { Pi (Name [$2]) $4 $7 }
-  | "let" name "=" Prec3 "in" Prec3           { Let (Name [$2]) $4 Hole $6 }
-  | "let" name ":" Prec3 "=" Prec3 "in" Prec3 { Let (Name [$2]) $6 $4 $8 }
+  : name                                      { Var (Name $1) }
+  | "\\" NameList "->" Prec3                  { foldr (\name body -> Lam (Name name) body) $4 $2 }
+  | "\\" name "->" Prec3                      { Lam (Name $2) $4 }
+  | "(" name ":" Prec3 ")" "->" Prec3         { Pi (Name $2) $4 $7 }
+  | "let" name "=" Prec3 "in" Prec3           { Let (Name $2) $4 Hole $6 }
+  | "let" name ":" Prec3 "=" Prec3 "in" Prec3 { Let (Name $2) $6 $4 $8 }
   | "Code" Prec0                              { Code $2 }
   | "quote" Prec3                             { Quote $2 }
   | "splice" Prec3                            { Splice $2 }
@@ -64,10 +63,6 @@ Prec0
   | "Ty1"                                     { U1 }
   | "?"                                       { Hole }
   | Parens                                    { $1 }
-
-ConList
-  : name ":" Prec3 "end"                          { [(Name [$1], $3)] }
-  | name ":" Prec3 "," ConList                    { [(Name [$1], $3)] ++ $5 }
 
 NameList
   : name                                      { [$1] }

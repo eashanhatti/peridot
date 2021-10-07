@@ -6,16 +6,27 @@ import Var
 import {-# SOURCE #-} qualified Norm as N
 import Control.Monad.Reader(Reader, ask)
 import Data.Map(Map)
+import Data.Set(Set)
 import Numeric.Natural
 
 data BinderInfo = Abstract | Concrete
-  deriving Show
+  deriving (Show, Eq)
 
 -- type annotation
 type Type = Term
 
 data HoleName = HoleName Int
-  deriving Show
+  deriving (Show, Eq)
+
+data Id = Id Int deriving (Show, Eq)
+
+-- data ItemAttrib = Opaque
+
+data Program = Program [Item]
+
+data Item
+  = TermDef Id Term
+  | IndDef Id Term [Term]
 
 data Term
   = Var Index Type
@@ -27,17 +38,14 @@ data Term
   | QuoteType Term
   | QuoteIntro Term Type
   | QuoteElim Term
-  | FinType Natural
-  | FinIntro Natural Type
-  | FinElim Term [Term]
-  | PairType Term Term
-  | PairIntro Term Term Type
-  | PairElim Term Term
+  | IndType Id
+  | IndIntro Id Natural [Term] Type
   -- | Let Term Term Term
   | Letrec [Term] Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
   | ElabError
+  deriving Eq
 
 -- shift :: Set Index -> Term -> Reader Int Term
 -- shift bounds = \case
@@ -82,9 +90,6 @@ showTerm showTys term = case term of
   QuoteType innerTy -> "Quote " ++ show innerTy
   QuoteIntro inner _ -> "<" ++ show inner ++ ">"
   QuoteElim quote -> "[" ++ show quote ++ "]"
-  FinType n -> "Fin" ++ show n
-  FinIntro n _ -> "fin" ++ show n
-  FinElim scr bs -> "case " ++ show scr ++ show (map show bs)
   -- Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in\n" ++ show body
   Letrec defs body -> "letrec " ++ show defs ++ " in " ++ show body
   Meta gl ty ->

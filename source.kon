@@ -1,1 +1,1 @@
-ind x : a end
+ind Ty1 of x : a end

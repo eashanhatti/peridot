@@ -25,7 +25,7 @@ type Locals = [Value]
 
 type Spine = [Value]
 data Closure = Closure [Value] C.Term
-  deriving Show
+  deriving (Show, Eq)
 
 -- Type annotation
 type Type = Value
@@ -35,18 +35,14 @@ data Value
   | FunType Type Closure
   | QuoteIntro C.Term Type
   | QuoteType Value
-  | FinIntro Natural Type
-  | FinType Natural
-  | PairIntro Value Value Type
-  | PairType Value Value
+  | IndType C.Id
+  | IndIntro C.Id Natural [Value] Type
   | TypeType0
   | TypeType1
   -- Blocked eliminations
   | StuckFlexVar Type Global Spine
   | StuckRigidVar Type Level Spine
   | StuckSplice Value
-  | StuckFinCase Value [Value]
-  | StuckSplit Value C.Term
   -- Object-level terms, should only appear under quotes
   | FunElim0 Value Value
   | Var0 Index Value
@@ -56,6 +52,7 @@ data Value
   | LetrecBound Closure
   | ElabError
   | ElabBlank
+  deriving Eq
 
 instance Show Value where
   show v = case v of
@@ -63,18 +60,12 @@ instance Show Value where
     FunType inTy (Closure env outTy) -> show inTy ++ " v-> " ++ show outTy ++ " " ++ show env
     QuoteIntro inner _ -> "v<" ++ show inner ++ ">"
     QuoteType innerTy -> "vQuote " ++ show innerTy
-    FinIntro n _ -> "vfin" ++ show n
-    FinType n -> "vFin" ++ show n
-    PairIntro proj0 proj1 _ -> "vpair " ++ show proj0 ++ " * " ++ show proj1
-    PairType pty0 pty1 -> "vPair " ++ show pty0 ++ " * " ++ show pty1
     TypeType0 -> "vU0"
     TypeType1 -> "vU1"
     StuckFlexVar _ gl spine -> "v~(?" ++ show (unGlobal gl) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
     StuckRigidVar ty lv spine -> "v~(" ++ show (unLevel lv) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ "; : " ++ show ty ++ ")"
     FunElim0 lam arg -> "v(" ++ show lam ++ " @ " ++ show arg ++ ")"
     StuckSplice quote -> "v[" ++ show quote ++ "]"
-    StuckFinCase scr bs -> "vcase " ++ show scr ++ show (map show bs)
-    StuckSplit scr body -> "vsplit " ++ show scr ++ " in " ++ show body
     LetrecBound v -> "lrb(" ++ show v ++ ")"
     ElabError -> "v<error>"
     ElabBlank -> "v<blank>"
@@ -113,16 +104,6 @@ vSplice :: HasCallStack => Value -> Norm Value
 vSplice val = case val of
   QuoteIntro inner _ -> eval0 inner
   _ -> pure $ StuckSplice val
-
-vFinCase :: HasCallStack => Value -> [Value] -> Norm Value
-vFinCase scr bs = case scr of
-  FinIntro n _ -> pure $ bs !! fromIntegral n
-  _ -> pure $ StuckFinCase scr bs
-
-vSplit :: HasCallStack => Value -> C.Term -> Norm Value
-vSplit scr body = case scr of
-  PairIntro proj0 proj1 _ -> define proj1 $ define proj0 $ eval body
-  _ -> pure $ StuckSplit scr body
 
 vAppSpine :: HasCallStack => Value -> Spine -> Norm Value
 vAppSpine val spine = case spine of
@@ -220,25 +201,8 @@ eval term = do
     C.QuoteIntro inner ty -> QuoteIntro <$> pure inner <*> eval ty
     C.QuoteType innerTy -> QuoteType <$> eval innerTy
     C.QuoteElim quote -> eval quote >>= vSplice
-    C.FinIntro n ty -> FinIntro n <$> eval ty
-    C.FinType n -> pure $ FinType n
-    C.FinElim scr bs -> do
-      vScr <- eval scr
-      vBs <- mapM eval bs
-      vFinCase vScr vBs
-    C.PairIntro proj0 proj1 ty -> do
-      vProj0 <- eval proj0
-      vProj1 <- define vProj0 $ eval proj1
-      vTy <- eval ty
-      pure $ PairIntro vProj0 vProj1 vTy
-    C.PairType pty0 pty1 -> do
-      vPty0 <- eval pty0
-      vPty1 <- bind vPty0 $ eval pty1
-      pure $ PairType vPty0 vPty1
-    C.PairElim scr body -> eval scr >>= \vScr -> vSplit vScr body 
-    -- C.Let def _ body -> do
-    --   vDef <- eval def
-    --   define vDef $ eval body
+    C.IndIntro nid cid cds ty -> IndIntro nid cid <$> mapM eval cds <*> eval ty
+    C.IndType nid -> pure $ IndType nid
     C.Letrec defs body -> do
       let withDefs :: Norm a -> Locals -> Norm a
           withDefs act defs = do
@@ -294,8 +258,6 @@ readback val = do
       var <- C.Var <$> pure (lvToIx lv lv') <*> readback vty
       readbackSpine var spine
     StuckSplice quote -> C.QuoteElim <$> readback quote
-    StuckFinCase scr bs -> C.FinElim <$> readback scr <*> mapM readback bs
-    StuckSplit scr body -> C.PairElim <$> readback scr <*> pure body
     FunIntro body vty@(FunType inTy _) -> do
       lv <- askLv
       vBody <- appClosure body (StuckRigidVar inTy lv [])
@@ -304,12 +266,10 @@ readback val = do
       lv <- askLv
       vOutTy <- appClosure outTy (StuckRigidVar inTy lv [])
       C.FunType <$> readback inTy <*> blank (readback vOutTy)
+    IndIntro nid cid cds ty -> C.IndIntro nid cid <$> mapM readback cds <*> readback ty
+    IndType nid -> pure $ C.IndType nid
     QuoteIntro inner ty -> C.QuoteIntro <$> (eval0 inner >>= readback) <*> readback ty
     QuoteType innerTy -> C.QuoteType <$> readback innerTy
-    PairIntro proj0 proj1 ty -> C.PairIntro <$> readback proj0 <*> blank (readback proj1) <*> readback ty
-    PairType pty0 pty1 -> C.PairType <$> readback pty0 <*> blank (readback pty1)
-    FinIntro n ty -> C.FinIntro n <$> readback ty
-    FinType n -> pure $ C.FinType n
     TypeType0 -> pure C.TypeType0
     TypeType1 -> pure C.TypeType1
     ElabError -> pure C.ElabError

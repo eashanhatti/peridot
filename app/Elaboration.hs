@@ -15,11 +15,15 @@ import qualified Core as C
 import Var
 import Control.Monad.State(State, get, put, runState)
 import Control.Monad(forM_)
-import Control.Monad.Reader(runReader)
+import Control.Monad.Reader(runReader, Reader, ask, local)
 import Debug.Trace
-import Data.Set(singleton)
+import qualified Data.Set as Set
+import Data.Set(singleton, Set)
+import qualified Data.Map as Map
+import Data.Map(Map)
 import Debug.Trace
 import GHC.Stack
+import Prelude hiding(Ordering)
 
 data InnerError = UnboundName S.Name | UnifyError U.Error
   deriving Show
@@ -45,13 +49,77 @@ data ElabState = ElabState
   , level :: Level
   , sourceSpan :: S.Span
   , binderInfos :: [C.BinderInfo]
-  , nextName :: Int }
+  , nextName :: Int
+  , reservedNames :: [S.Name] }
   deriving Show
 
 type Elab a = State ElabState a
 
-elab :: HasCallStack => S.Term -> N.Value -> (C.Term, ElabState)
-elab term goal = runState (check term goal) (ElabState mempty 0 N.TypeType1 [] [] mempty (Level 0) S.Span [] 0)
+data Item
+  = TermDef S.GName S.Term S.Term
+  | IndDef S.GName S.Term [(S.GName, S.Term)]
+
+elab :: HasCallStack => S.Item -> (C.Program, ElabState)
+elab item = runState (checkTl (flatten [] item)) (ElabState mempty 0 N.TypeType1 [] [] mempty (Level 0) S.Span [] 0 [])
+
+flatten :: [String] -> S.Item -> [Item]
+flatten gname item = case item of
+  S.NamespaceDef name items -> concat $ map (flatten ((S.unName name):gname)) items
+  S.TermDef name dec def -> [TermDef (S.GName $ (S.unName name):gname) dec def]
+  S.IndDef name dec cs -> [IndDef (S.GName $ (S.unName name):gname) dec (map (\(cn, ct) -> (S.GName $ (S.unName cn):(S.unName name):gname, ct)) cs)]
+
+type Graph = Map S.GName (Set S.GName)
+type Cycles = [(S.GName, [S.GName])]
+type Ordering = [Set S.GName]
+
+dependencies :: [Item] -> Graph
+dependencies (item:items) =
+  let
+    ds = case item of
+      TermDef name dec def -> Map.singleton name (searchTy dec `Set.union` search def)
+      IndDef name dec cs -> Map.singleton name (searchTy dec `Set.union` foldl Set.union mempty (map searchTy (map snd cs)))
+  in ds `Map.union` dependencies items 
+  where
+    search term = runReader (search' term) False
+    searchTy term = runReader (search' term) True
+
+    search' :: S.Term -> Reader Bool (Set S.GName)
+    search' term = case term of
+      S.Spanned term _ -> search' term
+      S.Var _ -> pure mempty
+      S.GVar name -> ask >>= \b -> pure $ if b then singleton name else mempty
+      S.Lam _ body -> search' body
+      S.App lam arg -> Set.union <$> search' lam <*> search' arg
+      S.Ann _ ty -> local (const True) $ search' ty
+      S.Pi _ inTy outTy -> Set.union <$> search' inTy <*> search' outTy
+      S.Let _ def defTy body -> Set.union <$> search' def <*> (Set.union <$> (local (const True) $ search' defTy) <*> search' body)
+      S.U0 -> pure mempty
+      S.U1 -> pure mempty
+      S.Code term -> search' term
+      S.Quote term -> search' term
+      S.Splice term -> search' term
+      S.Hole -> pure mempty
+
+cycles :: Graph -> Cycles
+cycles graph = []
+
+loop :: Graph -> Set S.GName -> Ordering
+loop graph available =
+  if available == Map.keysSet graph then
+    []
+  else
+    let nowAvailable = Map.keysSet $ Map.filter (\ds -> ds `Set.isSubsetOf` available) graph
+    in (nowAvailable `Set.difference` available):(loop graph (nowAvailable `Set.union` available))
+
+ordering :: Graph -> Either Cycles Ordering
+ordering graph = case cycles graph of
+  [] -> Right $ loop graph mempty
+  cs -> Left cs
+
+checkTl :: [Item] -> Elab C.Program
+checkTl items = case ordering (dependencies items) of
+  Right ord -> traceShow ord undefined
+  Left cs -> undefined
 
 check :: HasCallStack => S.Term -> N.Value -> Elab C.Term
 check term goal = do
@@ -85,6 +153,14 @@ check term goal = do
     --   define name vDef vDefTy
     --   cBody <- check body goal
     --   pure $ C.Let cDef cDefTy cBody
+    (S.Let name def defTy body, _) -> do
+      reserve [name]
+      vDefTy <- check defTy univ >>= eval
+      cDef <- check def vDefTy
+      vDef <- eval cDef
+      defineReserved name vDef vDefTy
+      cBody <- check body goal
+      pure $ C.Letrec [cDef] cBody
     (S.Hole, _) -> freshMeta cGoal
     (S.Quote inner, N.QuoteType ty) -> do
       unify univ N.TypeType1
@@ -92,7 +168,7 @@ check term goal = do
       cInner <- check inner ty
       cTy <- readback ty
       pure $ C.QuoteIntro cInner cTy
-    (_, N.QuoteType ty) -> do
+    (_, N.QuoteType ty) | univ /= N.TypeType1 -> do
       univMeta <- freshUnivMeta >>= eval
       putGoalUniv univMeta
       (cTerm, termTy) <- infer term
@@ -208,6 +284,14 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
   --   define name vDef vDefTy
   --   (cBody, vBodyTy) <- infer body
   --   pure (C.Let cDef cDefTy cBody, vBodyTy)
+  S.Let name def defTy body -> do
+    reserve [name]
+    vDefTy <- check defTy univ >>= eval
+    cDef <- check def vDefTy
+    vDef <- eval cDef
+    defineReserved name vDef vDefTy
+    (cBody, vBodyTy) <- infer body
+    pure (C.Letrec [cDef] cBody, vBodyTy)
   S.Hole -> do
     cTypeMeta <- readback univ >>= freshMeta
     vTypeMeta <- eval cTypeMeta
@@ -237,6 +321,24 @@ putSpan :: S.Span -> Elab ()
 putSpan ssp = do
   state <- get
   put $ state { sourceSpan = ssp }
+
+reserve :: [S.Name] -> Elab ()
+reserve names = do
+  state <- get
+  if reservedNames state == [] then pure () else error "`reserve`: `reservedNames` must be empty"
+  put $ state
+    { level = Level $ unLevel (level state) + (length names)
+    , reservedNames = names }
+
+defineReserved :: S.Name -> N.Value -> N.Value -> Elab ()
+defineReserved name def ty = do
+  state <- get
+  if reservedNames state !! 0 == name then pure () else error "`defineReserved`: `name` must be first in `reservedNames`"
+  put $ state
+    { locals = def:(locals state)
+    , ltypes = Map.insert name (ty, Index 0) $ Map.map (\(ty, ix) -> (ty, Index $ unIndex ix + 1)) (ltypes state)
+    , binderInfos = C.Concrete:(binderInfos state)
+    , reservedNames = tail (reservedNames state) }
 
 bind :: S.Name -> N.Value -> Elab ()
 bind name ty = do
@@ -329,7 +431,7 @@ freshName base = do
   state <- get
   let n = nextName state
   put $ state { nextName = nextName state + 1 }
-  pure $ S.Name [(base ++ show n)]
+  pure $ S.Name (base ++ show n)
 
 putGoalUniv :: N.Value -> Elab ()
 putGoalUniv univ = do
