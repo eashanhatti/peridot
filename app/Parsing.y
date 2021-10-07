@@ -7,35 +7,53 @@ import Data.Char(isAlphaNum)
 import Data.Map(fromList)
 }
 
-%name parseTerm Prec3
+%name parseTerm Item
 %tokentype { Token }
 %error { parseError }
 
 %token
-  "let"     { TLet }
-  "in"      { TIn }
-  "Code"    { TQuoteTy }
-  "ind"     { TInd }
-  "of"      { TOf }
-  "splice"  { TSplice }
-  "quote"   { TQuote }
-  ":"       { TColon }
-  "="       { TEquals }
-  "Ty0"     { TUniv0 }
-  "Ty1"     { TUniv1 }
-  "("       { TOpenParen }
-  ")"       { TCloseParen }
-  "["       { TOpenBracket }
-  "]"       { TCloseBracket }
-  "\\"      { TBackslash }
-  "?"       { THole }
-  "=>"      { TFatArrow }
-  "->"      { TThinArrow }
-  ","       { TComma }
-  "end"     { TEnd }
-  name      { TName $$ }
+  "namespace" { TNamespace }
+  "let"       { TLet }
+  "in"        { TIn }
+  "Code"      { TQuoteTy }
+  "def"       { TDef }
+  "ind"       { TInd }
+  "of"        { TOf }
+  "splice"    { TSplice }
+  "quote"     { TQuote }
+  ":"         { TColon }
+  "="         { TEquals }
+  "Ty0"       { TUniv0 }
+  "Ty1"       { TUniv1 }
+  "("         { TOpenParen }
+  ")"         { TCloseParen }
+  "["         { TOpenBracket }
+  "]"         { TCloseBracket }
+  "\\"        { TBackslash }
+  "?"         { THole }
+  "=>"        { TFatArrow }
+  "->"        { TThinArrow }
+  ","         { TComma }
+  "end"       { TEnd }
+  ";"         { TSemiColon }
+  "."         { TDot }
+  name        { TName $$ }
 
 %%
+
+Item
+  : "namespace" name "of" ItemList            { NamespaceDef (Name $2) $4 }
+  | "def" name ":" Prec3 "=" Prec3            { TermDef (Name $2) $4 $6 }
+  | "def" name "=" Prec3                      { TermDef (Name $2) Hole $4 }
+  | "ind" name ":" Prec3 "of" ConList         { IndDef (Name $2) $4 $6 }
+
+ConList
+  : name ":" Prec3 "," ConList                { (Name $1, $3):$5 }
+  | name ":" Prec3 "end"                      { [(Name $1, $3)] }
+
+ItemList
+  : Item ";" ItemList                         { $1:$3 }
+  | Item ";" "end"                            { [$1] }
 
 Prec3
   : Prec2 "->" Prec3                          { Pi (Name undefined) $1 $3 }
@@ -50,7 +68,8 @@ Prec1
   | Prec0                                     { $1 }
 
 Prec0
-  : name                                      { Var (Name $1) }
+  : GlobalName                                { GVar (GName $1) }
+  | name                                      { Var (Name $1) }
   | "\\" NameList "->" Prec3                  { foldr (\name body -> Lam (Name name) body) $4 $2 }
   | "\\" name "->" Prec3                      { Lam (Name $2) $4 }
   | "(" name ":" Prec3 ")" "->" Prec3         { Pi (Name $2) $4 $7 }
@@ -63,6 +82,10 @@ Prec0
   | "Ty1"                                     { U1 }
   | "?"                                       { Hole }
   | Parens                                    { $1 }
+
+GlobalName
+  : "." name GlobalName                       { $2:$3 }
+  | "." name                                  { [$2] }
 
 NameList
   : name                                      { [$1] }
@@ -101,10 +124,16 @@ data Token
   | TSplice
   | TOpenBracket
   | TCloseBracket
+  | TNamespace
+  | TSemiColon
+  | TDef
+  | TDot
   deriving Show
 
 lex :: String -> [Token]
 lex s = case s of
+  'n':'a':'m':'e':'s':'p':'a':'c':'e':s -> TNamespace:(lex s)
+  'd':'e':'f':s -> TDef:(lex s)
   'e':'n':'d':s -> TEnd:(lex s)
   'i':'n':'d':s -> TInd:(lex s)
   'o':'f':s -> TOf:(lex s)
@@ -113,6 +142,8 @@ lex s = case s of
   'C':'o':'d':'e':s -> TQuoteTy:(lex s)
   'q':'u':'o':'t':'e':s -> TQuote:(lex s)
   's':'p':'l':'i':'c':'e':s -> TSplice:(lex s)
+  '.':s -> TDot:(lex s)
+  ';':s -> TSemiColon:(lex s)
   ':':s -> TColon:(lex s)
   '=':'>':s -> TFatArrow:(lex s)
   '=':s -> TEquals:(lex s)

@@ -18,15 +18,18 @@ type Type = Term
 data HoleName = HoleName Int
   deriving (Show, Eq)
 
-data Id = Id Int deriving (Show, Eq)
+data Id = Id Int
+  deriving (Show, Eq)
 
 -- data ItemAttrib = Opaque
 
 data Program = Program [Item]
+  deriving Show
 
 data Item
   = TermDef Id Term
   | IndDef Id Term [Term]
+  deriving Show
 
 data Term
   = Var Index Type

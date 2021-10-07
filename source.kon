@@ -1,1 +1,6 @@
-ind Ty1 of x : a end
+namespace main of
+  def A = ?;
+  def B : .main.A = ?;
+  def c : .main.A = ?;
+  def d : .main.B = ?;
+end

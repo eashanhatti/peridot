@@ -24,6 +24,7 @@ import Data.Map(Map)
 import Debug.Trace
 import GHC.Stack
 import Prelude hiding(Ordering)
+import Debug.Pretty.Simple(pTraceShowId, pTrace)
 
 data InnerError = UnboundName S.Name | UnifyError U.Error
   deriving Show
@@ -73,12 +74,14 @@ type Cycles = [(S.GName, [S.GName])]
 type Ordering = [Set S.GName]
 
 dependencies :: [Item] -> Graph
-dependencies (item:items) =
-  let
-    ds = case item of
-      TermDef name dec def -> Map.singleton name (searchTy dec `Set.union` search def)
-      IndDef name dec cs -> Map.singleton name (searchTy dec `Set.union` foldl Set.union mempty (map searchTy (map snd cs)))
-  in ds `Map.union` dependencies items 
+dependencies items = case items of
+  item:items ->
+    let
+      ds = case item of
+        TermDef name dec def -> Map.singleton name (searchTy dec `Set.union` search def)
+        IndDef name dec cs -> Map.singleton name (searchTy dec `Set.union` foldl Set.union mempty (map searchTy (map snd cs)))
+    in ds `Map.union` dependencies items
+  [] -> mempty
   where
     search term = runReader (search' term) False
     searchTy term = runReader (search' term) True
@@ -87,7 +90,7 @@ dependencies (item:items) =
     search' term = case term of
       S.Spanned term _ -> search' term
       S.Var _ -> pure mempty
-      S.GVar name -> ask >>= \b -> pure $ if b then singleton name else mempty
+      S.GVar (S.GName name) -> ask >>= \b -> pure $ if b then singleton (S.GName $ reverse name) else mempty
       S.Lam _ body -> search' body
       S.App lam arg -> Set.union <$> search' lam <*> search' arg
       S.Ann _ ty -> local (const True) $ search' ty
@@ -104,7 +107,7 @@ cycles :: Graph -> Cycles
 cycles graph = []
 
 loop :: Graph -> Set S.GName -> Ordering
-loop graph available =
+loop graph available = -- traceShow available $
   if available == Map.keysSet graph then
     []
   else
@@ -117,8 +120,8 @@ ordering graph = case cycles graph of
   cs -> Left cs
 
 checkTl :: [Item] -> Elab C.Program
-checkTl items = case ordering (dependencies items) of
-  Right ord -> traceShow ord undefined
+checkTl items = case ordering (pTraceShowId $ dependencies items) of
+  Right ord -> pTrace ("Ordering = " ++ show ord) undefined
   Left cs -> undefined
 
 check :: HasCallStack => S.Term -> N.Value -> Elab C.Term

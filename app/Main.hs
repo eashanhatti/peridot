@@ -11,6 +11,8 @@ import Control.Monad(forM_)
 import Control.Monad.Reader(runReader)
 import Data.Map(toList)
 import Data.Either(fromRight)
+import Text.Pretty.Simple(pShow)
+import qualified Data.Text.Lazy.IO as Text
 
 -- e = C.Letrec [C.Var (Index 0) C.TypeType0] (C.Var (Index 1) C.ElabError)
 -- e = C.Letrec [C.TypeType1] (C.Var (Index 0) C.ElabError)
@@ -26,13 +28,13 @@ main = do
   putStrLn "Start parsing"
   let tokens = Parse.lex file
   putStrLn $ show tokens
-  let term = Parse.parseTerm tokens
+  let program = Parse.parseTerm tokens
   putStrLn "Done parsing"
   putStrLn "Surface term:"
-  putStrLn $ show term
-  let (cTerm, state) = Elab.elab term (N.QuoteType N.TypeType0)
-  putStrLn "Core term:"
-  putStrLn $ show cTerm
+  Text.putStrLn $ pShow program
+  let (cProgram, state) = Elab.elab program
+  putStrLn "Core program:"
+  Text.putStrLn $ pShow cProgram
   putStrLn "Errors:"
   forM_ (Elab.errors state) (putStrLn . show)
   putStrLn "Metas:"

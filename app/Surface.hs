@@ -17,7 +17,8 @@ data GName = GName { unGName :: [String] }
 data Item
   = NamespaceDef Name [Item]
   | TermDef Name Term Term -- name, dec, def
-  | IndDef Name Term [(Name, Term)]
+  | IndDef Name Term [(Name, Term)] -- name, dec, constructors
+  deriving Show
 
 data Term
   = Spanned Term Span
