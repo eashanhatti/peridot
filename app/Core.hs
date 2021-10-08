@@ -18,9 +18,6 @@ type Type = Term
 data HoleName = HoleName Int
   deriving (Show, Eq)
 
-data Id = Id Int
-  deriving (Show, Eq)
-
 -- data ItemAttrib = Opaque
 
 data Program = Program [Item]

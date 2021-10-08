@@ -1,6 +1,6 @@
 namespace main of
   def A = ?;
   def B : .main.A = ?;
-  def c : .main.A = ?;
+  def c : (.main.A) (.main.B) = ?;
   def d : .main.B = ?;
 end

@@ -35,8 +35,8 @@ data Value
   | FunType Type Closure
   | QuoteIntro C.Term Type
   | QuoteType Value
-  | IndType C.Id
-  | IndIntro C.Id Natural [Value] Type
+  | IndType Id
+  | IndIntro Id Natural [Value] Type
   | TypeType0
   | TypeType1
   -- Blocked eliminations
