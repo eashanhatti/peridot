@@ -1,0 +1,3 @@
+Add a monomorphic U0 function type which doesn't allow type arguments, then restrict dependent function type to U1
+
+Change evaluation to not use `level` in state, only readback needs it
