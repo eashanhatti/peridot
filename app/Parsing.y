@@ -42,18 +42,20 @@ import Data.Map(fromList)
 %%
 
 Item
-  : "namespace" name "of" ItemList            { NamespaceDef (Name $2) $4 }
+  : "namespace" name "of" ItemList "end"      { NamespaceDef (Name $2) $4 }
+  | "namespace" name "of" "end"               { NamespaceDef (Name $2) mempty }
   | "def" name ":" Prec3 "=" Prec3            { TermDef (Name $2) $4 $6 }
   | "def" name "=" Prec3                      { TermDef (Name $2) Hole $4 }
-  | "ind" name ":" Prec3 "of" ConList         { IndDef (Name $2) $4 $6 }
+  | "ind" name ":" Prec3 "of" ConList "end"   { IndDef (Name $2) $4 $6 }
+  | "ind" name ":" Prec3 "of" "end"           { IndDef (Name $2) $4 mempty }
 
 ConList
   : name ":" Prec3 "," ConList                { (Name $1, $3):$5 }
-  | name ":" Prec3 "end"                      { [(Name $1, $3)] }
+  | name ":" Prec3                            { [(Name $1, $3)] }
 
 ItemList
   : Item ";" ItemList                         { $1:$3 }
-  | Item ";" "end"                            { [$1] }
+  | Item ";"                                  { [$1] }
 
 Prec3
   : Prec2 "->" Prec3                          { Pi (Name undefined) $1 $3 }
@@ -84,7 +86,7 @@ Prec0
   | Parens                                    { $1 }
 
 GlobalName
-  : "." name GlobalName                       { $2:$3 }
+  : "." name GlobalName                       { $3 ++ [$2] }
   | "." name                                  { [$2] }
 
 NameList

@@ -25,7 +25,8 @@ data Program = Program [Item]
 
 data Item
   = TermDef Id Term
-  | IndDef Id Term [Term]
+  | IndDef Id Term
+  | ConDef Id Term
   deriving Show
 
 data Term

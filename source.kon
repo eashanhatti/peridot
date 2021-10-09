@@ -1,6 +1,9 @@
 namespace main of
-  def A = ?;
-  def B : .main.A = ?;
-  def c : (.main.A) (.main.B) = ?;
-  def d : .main.B = ?;
+  ind A : Ty1 of
+    a : .main.B
+  end;
+
+  ind B : Ty1 of
+    b : .main.A
+  end;
 end
