@@ -70,7 +70,8 @@ Prec1
   | Prec0                                     { $1 }
 
 Prec0
-  : GlobalName                                { GVar (GName $1) }
+  : Parens                                    { $1 }
+  | GlobalName                                { GVar (GName $1) }
   | name                                      { Var (Name $1) }
   | "\\" NameList "->" Prec3                  { foldr (\name body -> Lam (Name name) body) $4 $2 }
   | "\\" name "->" Prec3                      { Lam (Name $2) $4 }
@@ -83,7 +84,6 @@ Prec0
   | "Ty0"                                     { U0 }
   | "Ty1"                                     { U1 }
   | "?"                                       { Hole }
-  | Parens                                    { $1 }
 
 GlobalName
   : "." name GlobalName                       { $3 ++ [$2] }

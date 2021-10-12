@@ -1,5 +1,5 @@
 cabal-version:      2.4
-name:               konna2
+name:               konna
 version:            0.1.0.0
 
 -- A short (one-line) description of the package.
@@ -19,9 +19,8 @@ maintainer:         eashanhatti@gmail.com
 -- A copyright notice.
 -- copyright:
 -- category:
-extra-source-files: CHANGELOG.md
 
-executable konna2
+executable konna_compiler
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
@@ -29,6 +28,12 @@ executable konna2
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.15.0.0, containers^>=0.6.4.1, mtl, array, pretty-simple, text
-    hs-source-dirs:   app
+    build-depends:    base ^>=4.15.0.0, containers^>=0.6.4.1, mtl, array, pretty-simple, text, binary, bytestring
+    hs-source-dirs:   compiler
     default-language: Haskell2010
+
+executable konna_editor
+    main-is: Main.hs
+    other-modules:
+    build-depends: base ^>=4.15.0.0, text, text-show, mtl
+    hs-source-dirs: editor
