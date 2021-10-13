@@ -24,8 +24,8 @@ data Term
   = Spanned Term Span
   | Var Name
   | GVar GName
-  | Lam Name Term
-  | App Term Term
+  | Lam [Name] Term
+  | App Term [Term]
   | Ann Term Term
   | Pi Name Term Term
   | Let Name Term Term Term

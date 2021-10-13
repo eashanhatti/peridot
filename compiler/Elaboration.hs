@@ -15,6 +15,7 @@ import qualified Core as C
 import Var
 import Control.Monad.State(State, get, put, runState)
 import Control.Monad(forM_)
+import Data.Foldable(foldlM)
 import Control.Monad.Reader(runReader, Reader, ask, local)
 import Debug.Trace
 import qualified Data.Set as Set
@@ -30,6 +31,7 @@ import Data.Maybe(fromJust)
 data InnerError
   = UnboundName S.Name
   | UnifyError U.Error
+  | TooManyParams
   deriving Show
 
 data Error = Error S.Span N.Locals Level InnerError
@@ -106,7 +108,14 @@ dependencies items = case items of
       S.Var _ -> pure mempty
       S.GVar (S.GName name) -> ask >>= \b -> pure $ if b then singleton (S.GName $ name) else mempty
       S.Lam _ body -> search' body
-      S.App lam arg -> Set.union <$> search' lam <*> search' arg
+      S.App lam args -> Set.union <$> search' lam <*> go args where
+        go :: [S.Term] -> Reader Bool (Set S.GName)
+        go as = case as of
+          [a] -> search' a
+          a:as -> do
+            names <- search' a
+            names' <- go as
+            pure $ Set.union names names'
       S.Ann _ ty -> local (const True) $ search' ty
       S.Pi _ inTy outTy -> Set.union <$> search' inTy <*> search' outTy
       S.Let _ def defTy body -> Set.union <$> search' def <*> (Set.union <$> (local (const True) $ search' defTy) <*> search' body)
@@ -195,20 +204,25 @@ check term goal = do
       vTy <- eval cTy
       unify goal vTy
       check term' vTy
-    (S.Lam name body, (N.FunType inTy outTy)) -> do
-      vOutTy <- appClosure outTy inTy
-      bind name inTy
-      cBody <- check body vOutTy
-      pure $ C.FunIntro cBody cGoal
-    -- (S.Let name def defTy body, _) -> do
-    --   -- TODO: reduce `<-` clutter
-    --   cDefTy <- check defTy univ
-    --   vDefTy <- eval cDefTy
-    --   cDef <- check def vDefTy
-    --   vDef <- eval cDef
-    --   define name vDef vDefTy
-    --   cBody <- check body goal
-    --   pure $ C.Let cDef cDefTy cBody
+    (S.Lam names body, _) -> go names goal where
+      go :: [S.Name] -> N.Value -> Elab C.Term
+      go ns g = case (ns, g) of
+        ([], _) -> undefined
+        ([n], ty@(N.FunType inTy outTy)) -> do
+          cTy <- readback ty
+          vOutTy <- appClosure outTy inTy
+          bind n inTy
+          cBody <- check body vOutTy
+          pure $ C.FunIntro cBody cTy
+        (n:ns, ty@(N.FunType inTy outTy)) -> do
+          cTy <- readback ty
+          vOutTy <- appClosure outTy inTy
+          bind n inTy
+          cBody <- go ns vOutTy
+          pure $ C.FunIntro cBody cTy
+        (_, _) -> do
+          putError TooManyParams
+          pure C.ElabError
     (S.Let name def defTy body, _) -> do
       reserve [name]
       vDefTy <- check defTy univ >>= eval
@@ -264,47 +278,70 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
     -- entry <- globalType name
     -- case entry of
     --   Just ty -> pure
-  S.Lam name body -> do
-    -- TODO: reduce `<-` clutter
-    cMeta <- readback univ >>= freshMeta
-    vMeta <- eval cMeta
-    (cBody, vBodyTy) <- {-scope-} do
-      bind name vMeta
-      infer body
-    closure <- closeValue vBodyTy
-    cBodyTy <- readback vBodyTy
-    let ty = N.FunType vMeta closure
-    pure (C.FunIntro cBody (C.FunType cMeta cBodyTy), ty)
-  S.App lam arg -> do
-    state <- get
+  S.Lam names body -> go names where
+    go :: [S.Name] -> Elab (C.Term, N.Value)
+    go ns = case ns of
+      [n] -> do
+        cMeta <- readback univ >>= freshMeta
+        vMeta <- eval cMeta
+        bind n vMeta
+        (cBody, vBodyTy) <- infer body
+        closure <- closeValue vBodyTy
+        cBodyTy <- readback vBodyTy
+        let ty = N.FunType vMeta closure
+        pure (C.FunIntro cBody (C.FunType cMeta cBodyTy), ty)
+      n:ns -> do
+        cMeta <- readback univ >>= freshMeta
+        vMeta <- eval cMeta
+        bind n vMeta
+        (cBody, vBodyTy) <- go ns
+        closure <- closeValue vBodyTy
+        cBodyTy <- readback vBodyTy
+        let ty = N.FunType vMeta closure
+        pure (C.FunIntro cBody (C.FunType cMeta cBodyTy), ty)
+  S.App lam args -> do
     (cLam, lamTy) <- infer lam
-    lamTy <- force lamTy
-    -- let !() = trace ("Lam Type = " ++ show lamTy) ()
-    (cLam, cArg, inTy, outTy) <- scope $ case lamTy of
-      N.FunType inTy outTy -> do
-        cArg <- check arg inTy
-        -- bis <- binderInfos <$> get
-        -- let !() = trace ("BIs = " ++ show ) ()
-        -- let !() = trace ("    cArg = " ++ show cArg) ()
-        vArg <- eval cArg
-        outTy <- evalClosure outTy vArg
-        pure (cLam, cArg, inTy, outTy)
-      _ -> do
-        inTy <- readback univ >>= freshMeta
-        vInTy <- eval inTy
-        cArg <- check arg vInTy
-        vArg <- eval cArg
-        name <- freshName "x"
-        -- define name vArg inTy
-        outTy <- scope $ do
-          bind name vInTy
-          readback univ >>= freshMeta
-        vOutTyClo <- closeTerm outTy
-        unify lamTy (N.FunType vInTy vOutTyClo)
-        define name vArg vInTy
-        vOutTy <- eval outTy
-        pure (cLam, cArg, vInTy, vOutTy)
-    pure (C.FunElim cLam cArg, outTy)
+    go cLam (reverse args) lamTy
+    where
+      go :: C.Term -> [S.Term] -> N.Value -> Elab (C.Term, N.Value)
+      go cLam as lty = case (as, lty) of
+        ([], _) -> undefined
+        ([a], N.FunType inTy outTy) -> do
+          cArg <- check a inTy
+          vArg <- eval cArg
+          outTy <- evalClosure outTy vArg
+          pure (C.FunElim cLam cArg, outTy)
+        ([a], _) -> do
+          inTy <- readback univ >>= freshMeta
+          vInTy <- eval inTy
+          cArg <- check a vInTy
+          name <- freshName "p"
+          outTy <- scope $ do
+            bind name vInTy
+            readback univ >>= freshMeta
+          outTyClo <- closeTerm outTy
+          unify lty (N.FunType vInTy outTyClo)
+          vOutTy <- eval outTy
+          pure (C.FunElim cLam cArg, vOutTy)
+        (a:as, N.FunType inTy outTy) -> do
+          cArg <- check a inTy
+          vArg <- eval cArg
+          outTy <- evalClosure outTy vArg
+          (cLamInner, outTyInner) <- go cLam as outTy
+          pure (C.FunElim cLamInner cArg, outTyInner)
+        (a:as, _) -> do
+          inTy <- readback univ >>= freshMeta
+          vInTy <- eval inTy
+          cArg <- check a vInTy
+          name <- freshName "p"
+          outTy <- scope $ do
+            bind name vInTy
+            readback univ >>= freshMeta
+          outTyClo <- closeTerm outTy
+          unify lty (N.FunType vInTy outTyClo)
+          vOutTy <- eval outTy
+          (cLamInner, outTyInner) <- go cLam as vOutTy
+          pure (C.FunElim cLamInner cArg, outTyInner)
   S.U0 -> do
     unify univ N.TypeType0
     pure (C.TypeType0, N.TypeType0)
