@@ -1,4 +1,8 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
@@ -8,66 +12,92 @@ import Control.Monad.State
 -- import Prelude hiding(putStrLn)
 import TextShow
 import TextShow.TH
+import Surface
 
-data Ast
-  = Lam [Ast] Ast
-  | App Ast [Ast]
-  | Var String
-  | Name String
-  | Hole
-  deriving Show
--- $(deriveTextShow ''Ast)
+data Path a where
+  PTop          :: Path a
+  PLamParamList :: Path b -> [String] -> [String] -> Term -> Path String
+  PLamBody      :: Path b -> [String] -> Path Term
+  PLamAddParam  :: Path b -> [String] -> Term -> Path String
+  PApp          :: Path b -> [Term] -> [Term] -> Path Term
+deriving instance Show (Path a)
 
-data Context
-  = CTop
-  | CLam Context [Ast] [Ast] (Maybe Ast)
-  | CApp Context [Ast] [Ast]
-  deriving Show
--- $(deriveTextShow ''Context)
+data Focus a where
+  FName :: String -> Focus String
+  FTerm   :: Term -> Focus Term
+deriving instance Show (Focus a)
 
-data Cursor = Cursor { unFocus :: Ast, unContext :: Context }
-  deriving Show
--- $(deriveTextShow ''Cursor)
+unFName :: Focus String -> String
+unFName (FName s) = s
 
-data EditorState = EditorState { unCursor :: Cursor }
+data FocusType a where
+  FTName :: FocusType String
+  FTTerm   :: FocusType Term
 
-type Edit = State EditorState ()
+data Cursor a = Cursor { unFocus :: Focus a, unPath :: Path a }
+deriving instance Show (Cursor a)
 
-data Prompt = PLam | PApp | PVar | PUp | PRight | PLeft | PDown
+data EditorState a = EditorState { unCursor :: Cursor a, unFocusType :: FocusType a }
 
-putFocus :: Ast -> Edit
-putFocus focus = do
-  context <- unContext <$> unCursor <$> get
-  put $ EditorState (Cursor focus context)
+data Ex = forall a. Ex (EditorState a)
 
-putContext :: Context -> Edit
-putContext context = do
-  focus <- unFocus <$> unCursor <$> get
-  put $ EditorState (Cursor focus context)
+data Command a where
+  InsertLam :: Command Term
+  InsertApp :: Command Term
+  InsertVar :: Command Term
+  SetName   :: String -> Command String
+  MoveOut   :: Command a
+  MoveRight :: Command a
+  MoveLeft  :: Command a
+  MoveIn    :: Command a
+  Add       :: Command a
 
-putCursor :: Ast -> Context -> Edit
-putCursor focus context = putFocus focus >> putContext context
+run :: Command a -> EditorState a -> Ex
+run command state@(EditorState (Cursor focus path) _) = case command of
+  InsertLam -> Ex $ EditorState (Cursor (FName "") (PLamParamList path [] [] Hole)) FTName
+  SetName s -> EditorState (Cursor (FName s) path) FTName
+  MoveRight -> case path of
+    PTop -> Ex $ state
+    PLamParamList up ln (r:rn) body -> Ex $ EditorState (Cursor (FName r) (PLamParamList up ((unFName focus):ln) rn body)) FTName
+    PLamParamList up ln [] body -> Ex $ EditorState (Cursor (FName "") (PLamAddParam up ((unFName focus):ln) body)) FTName
+    PLamAddParam up ns body ->
+      if unFName focus == "" then
+        Ex $ EditorState (Cursor (FTerm body) (PLamBody up ns)) FTTerm
+      else
+        Ex $ EditorState (Cursor (FName "") (PLamAddParam up (ns ++ [unFName focus]) body)) FTName
 
-run :: Prompt -> Edit
-run prompt = do
-  (Cursor focus context) <- unCursor <$> get
-  case prompt of
-    PLam -> putFocus (Lam [] Hole)
-    PDown -> case focus of
-      Lam ns b -> putCursor b (CLam context [Name "_"] [] Nothing)
+render :: EditorState a -> String
+render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focus ++ "]") path where
+  renderFocus :: Focus a -> String
+  renderFocus focus = case focus of
+    FName s -> s
+    FTerm term -> renderTerm term
+  renderTerm :: Term -> String
+  renderTerm term = case term of
+    Lam names body -> "\\" ++ snames (map (\(Name n) -> n) names) ++ ". " ++ renderTerm body where
+    Hole -> "?"
+  renderPath :: String -> Path a -> String
+  renderPath focus path = case path of
+    PTop -> focus
+    PLamBody up names -> renderPath ("\\" ++ snames names ++ ". " ++ focus) up where
+    PLamParamList up ln rn body -> renderPath ("\\" ++ snames ln ++ focus ++ snames rn ++ ". " ++ renderTerm body) up
+    PLamAddParam up ns body -> renderPath ("\\" ++ snames ns ++ focus ++ ". " ++ renderTerm body) up
+  snames ns = case ns of
+    [] -> ""
+    n:ns -> n ++ " " ++ snames ns
 
-render :: EditorState -> String
-render (EditorState cursor) = show cursor
-
-loop :: EditorState -> IO ()
+loop :: EditorState a -> IO ()
 loop state = do
-  putStrLn $ render state
+  putStrLn (render state)
   s <- getLine
-  prompt <- pure $ case s of
-    "lam" -> PLam
-    "d" -> PDown
-  let state' = execState (run prompt) state
-  loop state'
+  state <- pure $ case (s, unFocusType state) of
+    ("\\right", _) -> run MoveRight state
+    ("lam", FTTerm) -> run InsertLam state
+    (_, FTName) -> run (SetName s) state
+  next state
+  where
+    next :: Ex -> IO ()
+    next (Ex state) = loop state
 
 main :: IO ()
-main = loop $ EditorState (Cursor Hole CTop)
+main = loop (EditorState (Cursor (FTerm Hole) PTop) FTTerm)

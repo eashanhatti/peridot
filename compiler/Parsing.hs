@@ -18,6 +18,13 @@ parseString = do
         cs <- loop $ n - 1
         pure $ c:cs
 
+parseStrings n = case n of
+  0 -> pure []
+  n -> do
+    s <- parseString
+    ss <- parseStrings $ n - 1
+    pure $ s:ss
+
 parseTerm :: Get Term 
 parseTerm = do
   tag <- getWord8
@@ -25,23 +32,25 @@ parseTerm = do
     0 -> parseString >>= pure . Var . Name
     1 -> do
       len <- getWord16
-      gname <- loop len
+      gname <- parseStrings len
       pure $ GVar (GName gname)
+    2 -> do
+      len <- getWord16
+      names <- parseStrings len
+      body <- parseTerm
+      pure $ Lam (map Name names) body
+    3 -> do
+      lam <- parseTerm
+      len <- getWord16
+      args <- loop len
+      pure $ App lam args
       where
         loop n = case n of
           0 -> pure []
           n -> do
-            s <- parseString
-            ss <- loop $ n - 1
-            pure $ s:ss
-    2 -> do
-      name <- parseString
-      body <- parseTerm
-      pure $ Lam (Name name) body
-    3 -> do
-      lam <- parseTerm
-      arg <- parseTerm
-      pure $ App lam arg
+            a <- parseTerm
+            as <- loop $ n - 1
+            pure $ a:as
     4 -> do
       term <- parseTerm
       ty <- parseTerm
