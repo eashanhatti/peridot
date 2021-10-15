@@ -14,9 +14,12 @@ import TextShow
 import TextShow.TH
 import Surface
 import System.Console.ANSI
+import Data.Binary
+import Data.Binary.Put(runPut)
+import qualified Data.ByteString.Lazy as B
 
 data Path a where
-  PTop          :: Path a
+  PTop          :: Path Term
   PLamParamList :: Path Term -> [String] -> [String] -> Term -> Path String
   PLamBody      :: Path Term -> [String] -> Path Term
   PLamAddParam  :: Path Term -> [String] -> Term -> Path String
@@ -74,21 +77,43 @@ run command state@(EditorState (Cursor focus path) _) = case command of
         Ex $ EditorState (Cursor (FTerm body) (PLamBody up ns)) FTTerm
       else
         Ex $ EditorState (Cursor (FName "") (PLamAddParam up (ns ++ [unFName focus]) body)) FTName
+    PLamBody up ns -> run MoveIn state
   MoveLeft -> case path of
     PTop -> Ex state
-    PLamParamList up (l:ln) rn body -> Ex $ EditorState (Cursor (FName l) (PLamParamList up ln ((unFName focus):rn) body)) FTName
     PLamParamList up [] rn body -> run MoveOut state
-    PLamAddParam up ns body -> Ex $ EditorState (Cursor (FName (last ns)) (PLamParamList up (init ns) [] body)) FTName
+    PLamParamList up ln rn body -> Ex $ EditorState (Cursor (FName (last ln)) (PLamParamList up (init ln) ((unFName focus):rn) body)) FTName
+    PLamAddParam up ns body ->
+      if unFName focus == "" then
+        Ex $ EditorState (Cursor (FName (last ns)) (PLamParamList up (init ns) [] body)) FTName
+      else
+        Ex $ EditorState (Cursor (FName (last ns)) (PLamParamList up (init ns) [(unFName focus)] body)) FTName
     PLamBody up ns -> Ex $ EditorState (Cursor (FName "") (PLamAddParam up ns (unFTerm focus))) FTName
   MoveOut -> case path of
     PTop -> Ex state
-    PLamParamList up ln rn body -> Ex $ EditorState (Cursor (FTerm (Lam (map Name ln ++ map Name rn) body)) up) FTTerm
+    PLamParamList up ln rn body -> Ex $ EditorState (Cursor (FTerm (Lam (map Name ln ++ [Name $ unFName focus] ++ map Name rn) body)) up) FTTerm
     PLamBody up ns -> Ex $ EditorState (Cursor (FTerm $ Lam (map Name ns) (unFTerm focus)) up) FTTerm
-    PLamAddParam up ns body -> Ex $ EditorState (Cursor (FTerm $ Lam (map Name ns) body) up) FTTerm
+    PLamAddParam up ns body -> Ex $ EditorState (Cursor (FTerm $ Lam (map Name ns ++ [Name $ unFName focus]) body) up) FTTerm
   MoveIn -> case focus of
     FTerm focus -> case focus of
       Lam ns body -> Ex $ EditorState (Cursor (FTerm body) (PLamBody path (map unName ns))) FTTerm
+      Var _ -> Ex state
     FName _ -> Ex state
+
+-- toBinary :: Term -> Put
+-- toBinary term = do
+
+-- export :: EditorState a -> String -> IO ()
+-- export (EditorState cursor _) fn = do
+--   let (FTerm program) = loop cursor
+--   let bs = runPut $ toBinary program
+--   B.writeFile fn bs
+--   where
+--     loop :: Cursor a -> Focus Term
+--     loop (Cursor focus path) = case path of
+--       PTop -> focus
+--       PLamParamList up ls rs body -> loop $ Cursor (FTerm $ Lam (map Name ls ++ [Name $ unFName focus] ++ map Name rs) body) up
+--       PLamBody up ns -> loop $ Cursor (FTerm $ Lam (map Name ns) (unFTerm focus)) up
+--       PLamAddParam up ns body -> loop $ Cursor (FTerm $ Lam (map Name ns) body) up
 
 render :: EditorState a -> String
 render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focus ++ "]") path where
@@ -98,15 +123,15 @@ render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focu
     FTerm term -> renderTerm term
   renderTerm :: Term -> String
   renderTerm term = case term of
-    Lam names body -> "fun " ++ snames (map unName names) ++ "-> " ++ renderTerm body
+    Lam names body -> "\\" ++ snames (map unName names) ++ ". " ++ renderTerm body
     Var (Name s) -> s
     Hole -> "?"
   renderPath :: String -> Path a -> String
   renderPath focus path = case path of
     PTop -> focus
-    PLamBody up names -> renderPath ("fun " ++ snames names ++ "-> " ++ focus) up where
-    PLamParamList up ln rn body -> renderPath ("fun " ++ snames ln ++ focus ++ snames rn ++ "-> " ++ renderTerm body) up
-    PLamAddParam up ns body -> renderPath ("fun " ++ snames ns ++ focus ++ "-> " ++ renderTerm body) up
+    PLamBody up names -> renderPath ("\\" ++ snames names ++ ". " ++ focus) up where
+    PLamParamList up ln rn body -> renderPath ("\\" ++ snames ln ++ focus ++ snames rn ++ ". " ++ renderTerm body) up
+    PLamAddParam up ns body -> renderPath ("\\" ++ snames ns ++ focus ++ ". " ++ renderTerm body) up
   snames ns = case ns of
     [] -> ""
     n:ns -> n ++ " " ++ snames ns
@@ -117,6 +142,10 @@ loop state = do
   putStrLn (render state)
   s <- getLine
   state <- case (s, unFocusType state) of
+    -- ("e", _) -> do
+    --   fn <- getLine
+    --   export state fn
+    --   pure $ Ex state
     ("r", _) -> pure $ run MoveRight state
     ("l", _) -> pure $ run MoveLeft state
     ("o", _) -> pure $ run MoveOut state

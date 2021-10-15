@@ -35,5 +35,5 @@ executable konna_compiler
 executable konna_editor
     main-is: Main.hs
     other-modules: Surface
-    build-depends: base ^>=4.15.0.0, text, text-show, mtl, containers, ansi-terminal
+    build-depends: base ^>=4.15.0.0, text, text-show, mtl, containers, ansi-terminal, binary, bytestring
     hs-source-dirs: editor, compiler
