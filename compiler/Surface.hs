@@ -4,7 +4,7 @@ import Data.Map(Map)
 import Data.Set(Set)
 
 data Span = Span
-  deriving Show
+  deriving (Show, Eq)
 
 data Name = Name { unName :: String }
   deriving (Show, Eq, Ord)
@@ -18,7 +18,7 @@ data Item
   = NamespaceDef Name [Item]
   | TermDef Name Term Term -- name, dec, def
   | IndDef Name Term [(Name, Term)] -- name, dec, constructors
-  deriving Show
+  deriving (Show, Eq)
 
 data Term
   = Spanned Term Span
@@ -35,4 +35,5 @@ data Term
   | Quote Term
   | Splice Term
   | Hole
-  deriving Show
+  | EditorBlank
+  deriving (Show, Eq)
