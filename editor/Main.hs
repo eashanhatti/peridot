@@ -91,15 +91,26 @@ run command state@(EditorState (Cursor focus path) _) = case command of
   InsertNamespaceDef -> Ex $ EditorState (Cursor (FName "_") (PNamespaceDefName path [])) FTName
   SetName s -> Ex $ EditorState (Cursor (FName s) path) FTName
   Add d -> case (path, d) of
-    (PLamParams up ln rn body, Left) -> Ex $ EditorState (Cursor (FName "") (PLamAddParam up ln (unFName focus : rn) body)) FTName
-    (PLamParams up ln rn body, Right) -> Ex $ EditorState (Cursor (FName "") (PLamAddParam up (ln ++ [unFName focus]) rn body)) FTName
-    (PAppTerms up le re, Left) -> Ex $ EditorState (Cursor (FTerm EditorBlank) (PAppAddTerm up le (unFTerm focus : re))) FTTerm
-    (PAppTerms up le re, Right) -> Ex $ EditorState (Cursor (FTerm EditorBlank) (PAppAddTerm up (le ++ [unFTerm focus]) re)) FTTerm
-    (PNamespaceDefItems up name li ri, Left) ->
-      Ex $ EditorState (Cursor (FItem EditorBlankDef) (PNamespaceDefAddItem up name li (unFItem focus : ri))) FTItem
-    (PNamespaceDefItems up name li ri, Right) ->
-      Ex $ EditorState (Cursor (FItem EditorBlankDef) (PNamespaceDefAddItem up name (li ++ [unFItem focus]) ri)) FTItem
+    (PLamParams up ln rn body, Left) -> goLamL up ln rn body focus
+    (PLamParams up ln rn body, Right) -> goLamR up ln rn body focus
+    (PLamAddParam up ln rn body, Left) -> goLamL up ln rn body focus
+    (PLamAddParam up ln rn body, Right) -> goLamR up ln rn body focus
+    (PAppTerms up le re, Left) -> goAppL up le re focus
+    (PAppTerms up le re, Right) -> goAppR up le re focus
+    (PAppAddTerm up le re, Left) -> goAppL up le re focus
+    (PAppAddTerm up le re, Right) -> goAppR up le re focus
+    (PNamespaceDefItems up name li ri, Left) -> goNamespaceL up name li ri focus
+    (PNamespaceDefItems up name li ri, Right) -> goNamespaceR up name li ri focus
+    (PNamespaceDefAddItem up name li ri, Left) -> goNamespaceL up name li ri focus
+    (PNamespaceDefAddItem up name li ri, Right) -> goNamespaceR up name li ri focus
     _ -> Ex state
+    where
+      goNamespaceR up name li ri focus = Ex $ EditorState (Cursor (FItem EditorBlankDef) (PNamespaceDefAddItem up name (li ++ [unFItem focus]) ri)) FTItem
+      goNamespaceL up name li ri focus =  Ex $ EditorState (Cursor (FItem EditorBlankDef) (PNamespaceDefAddItem up name li (unFItem focus : ri))) FTItem
+      goAppR up le re focus = Ex $ EditorState (Cursor (FTerm EditorBlank) (PAppAddTerm up (le ++ [unFTerm focus]) re)) FTTerm
+      goAppL up le re focus = Ex $ EditorState (Cursor (FTerm EditorBlank) (PAppAddTerm up le (unFTerm focus : re))) FTTerm
+      goLamR up ln rn body focus = Ex $ EditorState (Cursor (FName "") (PLamAddParam up (ln ++ [unFName focus]) rn body)) FTName
+      goLamL up ln rn body focus = Ex $ EditorState (Cursor (FName "") (PLamAddParam up ln (unFName focus : rn) body)) FTName
   MoveRight -> case path of
     PTop -> Ex state
     PLamParams up ln [] body -> Ex $ EditorState (Cursor (FTerm body) (PLamBody up (ln ++ [unFName focus]))) FTTerm
