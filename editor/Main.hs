@@ -283,6 +283,17 @@ putWord16 = put
 
 putItem :: Item -> Put
 putItem item = case item of
+  NamespaceDef (Name n) items -> do
+    putWord8 0
+    putString n
+    putWord16 $ fromIntegral (length items)
+    loop items
+    where
+      loop is = case is of
+        [] -> pure ()
+        i:is -> do
+          putItem i
+          loop is
   TermDef (Name n) ty body -> do
     putWord8 1
     putString n
@@ -312,15 +323,47 @@ putTerm term = case term of
   Var (Name name) -> do
     putWord8 0
     putString name
-  -- GVar (GName name) -> do
-  --   putWord8 1
-  --   put (fromIntegral (length s) :: Word16)
-  --   putStrings name
+  GVar (GName name) -> do
+    putWord8 1
+    putWord16 $ fromIntegral (length name)
+    putStrings name
   Lam names body -> do
     putWord8 2
     putWord16 $ fromIntegral (length names)
     putStrings (map unName names)
     putTerm body
+  App lam args -> do
+    putWord8 3
+    putWord16 $ fromIntegral (length args)
+    loop args
+    where
+      loop as = case as of
+        [] -> pure ()
+        a:as -> do
+          putTerm a
+          loop as
+  Pi (Name name) inTy outTy -> do
+    putWord8 5
+    putString name
+    putTerm inTy
+    putTerm outTy
+  Let (Name name) def defTy body -> do
+    putWord8 6
+    putString name
+    putTerm def
+    putTerm defTy
+    putTerm body
+  U1 -> putWord8 7
+  U0 -> putWord8 8
+  Code ty -> do
+    putWord8 9
+    putTerm ty
+  Quote e -> do
+    putWord8 10
+    putTerm e
+  Splice e -> do
+    putWord8 11
+    putTerm e
   Hole -> putWord8 12
 
 export :: EditorState a -> String -> IO ()
@@ -350,7 +393,7 @@ render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focu
       let se = if simple lam then renderTerm lam else "(" ++ renderTerm lam ++ ")"
       in se ++ space args ++ sterms args
     Var (Name s) -> s
-    GVar (GName ns) -> concat $ intersperse "." ns
+    GVar (GName ns) -> concat $ intersperse "." $ reverse ns
     Hole -> "?"
     Let (Name name) def defTy body -> "let " ++ name ++ " : " ++ renderTerm defTy ++ " = " ++ renderTerm def ++ "\nin " ++ renderTerm body
     Pi (Name "_") inTy outTy -> renderTerm inTy ++ " -> " ++ renderTerm outTy
@@ -472,7 +515,7 @@ loop state = do
     ("code", FTTerm) -> pure $ run InsertCode state
     ("quote", FTTerm) -> pure $ run InsertQuote state
     ("splice", FTTerm) -> pure $ run InsertSplice state
-    ('.':s, FTTerm) -> pure $ run (InsertGVar (split s "" '.')) state
+    ('.':s, FTTerm) -> pure $ run (InsertGVar (reverse $ split s "" '.')) state
     ("ns", FTItem) -> pure $ run InsertNamespaceDef state
     ("def", FTItem) -> pure $ run InsertTermDef state
     (_, FTTerm) -> pure $ run (InsertVar s) state
