@@ -16,9 +16,11 @@ import Surface
 import System.Console.ANSI
 import Data.Binary
 import Data.Binary.Put
+import Data.Binary.Get(runGet)
 import qualified Data.ByteString.Lazy as B
 import Data.List(intersperse)
 import Prelude hiding (Left, Right)
+import Parsing(getItem)
 
 data Path a where
   PTop                 :: Path Item
@@ -492,38 +494,46 @@ loop state = do
   putStrLn (show $ unCursor state)
   putStrLn (render state)
   s <- getLine
-  state <- case (s, unFocusType state) of
-    ("e", _) -> do
-      fn <- getLine
-      export state fn
-      pure $ Ex state
-    ("r", _) -> pure $ run MoveRight state
-    ("l", _) -> pure $ run MoveLeft state
-    ("o", _) -> pure $ run MoveOut state
-    ("i", _) -> pure $ run MoveIn state
-    (" l", _) -> pure $ run (Add Left) state
-    (" r", _) -> pure $ run (Add Right) state
-    ("d", FTTerm) -> pure $ run InsertHole state
-    ("lam", FTTerm) -> do
-      n <- getLine
-      pure $ if n /= "" then run (InsertLam $ words n) state else Ex state
-    ("let", FTTerm) -> pure $ run InsertLet state
-    ("app", FTTerm) -> pure $ run InsertApp state
-    ("pi", FTTerm) -> pure $ run InsertPi state
-    ("u0", FTTerm) -> pure $ run InsertU0 state
-    ("u1", FTTerm) -> pure $ run InsertU1 state
-    ("code", FTTerm) -> pure $ run InsertCode state
-    ("quote", FTTerm) -> pure $ run InsertQuote state
-    ("splice", FTTerm) -> pure $ run InsertSplice state
-    ('.':s, FTTerm) -> pure $ run (InsertGVar (reverse $ split s "" '.')) state
-    ("ns", FTItem) -> pure $ run InsertNamespaceDef state
-    ("def", FTItem) -> pure $ run InsertTermDef state
-    (_, FTTerm) -> pure $ run (InsertVar s) state
-    (_, FTName) -> pure $ if s == "" then Ex state else run (SetName s) state
-  next state
-  where
-    next :: Ex -> IO ()
-    next (Ex state) = loop state
+  if s == "q" then
+    pure ()
+  else do
+    state <- case (s, unFocusType state) of
+      ("ex", _) -> do
+        fn <- getLine
+        export state fn
+        pure $ Ex state
+      ("im", _) -> do
+        fn <- getLine
+        bs <- B.readFile fn
+        let program = runGet getItem bs
+        pure $ mkEx program PTop
+      ("r", _) -> pure $ run MoveRight state
+      ("l", _) -> pure $ run MoveLeft state
+      ("o", _) -> pure $ run MoveOut state
+      ("i", _) -> pure $ run MoveIn state
+      (" l", _) -> pure $ run (Add Left) state
+      (" r", _) -> pure $ run (Add Right) state
+      ("d", FTTerm) -> pure $ run InsertHole state
+      ("lam", FTTerm) -> do
+        n <- getLine
+        pure $ if n /= "" then run (InsertLam $ words n) state else Ex state
+      ("let", FTTerm) -> pure $ run InsertLet state
+      ("app", FTTerm) -> pure $ run InsertApp state
+      ("pi", FTTerm) -> pure $ run InsertPi state
+      ("u0", FTTerm) -> pure $ run InsertU0 state
+      ("u1", FTTerm) -> pure $ run InsertU1 state
+      ("code", FTTerm) -> pure $ run InsertCode state
+      ("quote", FTTerm) -> pure $ run InsertQuote state
+      ("splice", FTTerm) -> pure $ run InsertSplice state
+      ('.':s, FTTerm) -> pure $ run (InsertGVar (reverse $ split s "" '.')) state
+      ("ns", FTItem) -> pure $ run InsertNamespaceDef state
+      ("def", FTItem) -> pure $ run InsertTermDef state
+      (_, FTTerm) -> pure $ run (InsertVar s) state
+      (_, FTName) -> pure $ if s == "" then Ex state else run (SetName s) state
+    next state
+    where
+      next :: Ex -> IO ()
+      next (Ex state) = loop state
 
 main :: IO ()
 main = loop (EditorState (Cursor (FItem $ NamespaceDef (Name "main") []) PTop) FTItem)

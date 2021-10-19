@@ -6,8 +6,8 @@ import Data.Binary
 getWord16 = get :: Get Word16
 getCharacter = get :: Get Char
 
-parseString :: Get String
-parseString = do
+getString :: Get String
+getString = do
   len <- getWord16
   loop len
   where
@@ -18,29 +18,29 @@ parseString = do
         cs <- loop $ n - 1
         pure $ c:cs
 
-parseStrings n = case n of
+getStrings n = case n of
   0 -> pure []
   n -> do
-    s <- parseString
-    ss <- parseStrings $ n - 1
+    s <- getString
+    ss <- getStrings $ n - 1
     pure $ s:ss
 
-parseTerm :: Get Term 
-parseTerm = do
+getTerm :: Get Term 
+getTerm = do
   tag <- getWord8
   case tag of
-    0 -> parseString >>= pure . Var . Name
+    0 -> getString >>= pure . Var . Name
     1 -> do
       len <- getWord16
-      gname <- parseStrings len
+      gname <- getStrings len
       pure $ GVar (GName gname)
     2 -> do
       len <- getWord16
-      names <- parseStrings len
-      body <- parseTerm
+      names <- getStrings len
+      body <- getTerm
       pure $ Lam (map Name names) body
     3 -> do
-      lam <- parseTerm
+      lam <- getTerm
       len <- getWord16
       args <- loop len
       pure $ App lam args
@@ -48,37 +48,37 @@ parseTerm = do
         loop n = case n of
           0 -> pure []
           n -> do
-            a <- parseTerm
+            a <- getTerm
             as <- loop $ n - 1
             pure $ a:as
     4 -> do
-      term <- parseTerm
-      ty <- parseTerm
+      term <- getTerm
+      ty <- getTerm
       pure $ Ann term ty
     5 -> do
-      name <- parseString
-      inTy <- parseTerm
-      outTy <- parseTerm
+      name <- getString
+      inTy <- getTerm
+      outTy <- getTerm
       pure $ Pi (Name name) inTy outTy
     6 -> do
-      name <- parseString
-      def <- parseTerm
-      defTy <- parseTerm
-      body <- parseTerm
+      name <- getString
+      def <- getTerm
+      defTy <- getTerm
+      body <- getTerm
       pure $ Let (Name name) def defTy body
     7 -> pure U1
     8 -> pure U0
-    9 -> parseTerm >>= pure . Code
-    10 -> parseTerm >>= pure . Quote
-    11 -> parseTerm >>= pure . Splice
+    9 -> getTerm >>= pure . Code
+    10 -> getTerm >>= pure . Quote
+    11 -> getTerm >>= pure . Splice
     12 -> pure Hole
 
-parseItem :: Get Item
-parseItem = do
+getItem :: Get Item
+getItem = do
   tag <- getWord8
   case tag of
     0 -> do
-      name <- parseString
+      name <- getString
       len <- getWord16
       items <- loop len
       pure $ NamespaceDef (Name name) items
@@ -86,17 +86,17 @@ parseItem = do
         loop n = case n of
           0 -> pure []
           n -> do
-            i <- parseItem
+            i <- getItem
             is <- loop $ n - 1
             pure $ i:is
     1 -> do
-      name <- parseString
-      dec <- parseTerm
-      def <- parseTerm
+      name <- getString
+      dec <- getTerm
+      def <- getTerm
       pure $ TermDef (Name name) dec def
     2 -> do
-      name <- parseString
-      dec <- parseTerm
+      name <- getString
+      dec <- getTerm
       len <- getWord16
       cons <- loop len
       pure $ IndDef (Name name) dec cons
@@ -104,11 +104,11 @@ parseItem = do
         loop n = case n of
           0 -> pure []
           n -> do
-            name <- parseString
-            ty <- parseTerm
+            name <- getString
+            ty <- getTerm
             cs <- loop $ n - 1
             pure $ (Name name, ty):cs
 
 instance Binary Item where
-  get = parseItem
+  get = getItem
   put = undefined

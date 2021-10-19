@@ -29,7 +29,7 @@ main :: IO ()
 main = do
   file <- readFile "source.kon"
   putStrLn "Start parsing"
-  let program = runGet Parse.parseItem file
+  let program = runGet Parse.getItem file
   putStrLn "Done parsing"
   putStrLn "Surface term:"
   Text.putStrLn $ pShow program
