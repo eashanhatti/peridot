@@ -3,6 +3,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Main where
 
@@ -36,6 +37,9 @@ data Path a where
   PLetDefTy            :: Path Term -> String -> Term -> Term -> Path Term
   PLetDef              :: Path Term -> String -> Term -> Term -> Path Term
   PLetBody             :: Path Term -> String -> Term -> Term -> Path Term
+  -- PPiName              :: Path Term -> Term -> Term -> Path String
+  -- PPiIn                :: Path Term -> String -> Term -> Path Term
+  -- PPiOut               :: Path Term -> String -> Term -> Path Term
 deriving instance Show (Path a)
 
 data Focus a where
@@ -71,6 +75,7 @@ data Command a where
   InsertLet          :: Command Term
   InsertTermDef      :: Command Item
   InsertNamespaceDef :: Command Item
+  -- InsertPi           :: Command Term
   SetName            :: String -> Command String
   MoveOut            :: Command a
   MoveRight          :: Command a
@@ -80,16 +85,31 @@ data Command a where
 
 data Direction = Left | Right
 
+class MkFT a where focusType :: FocusType a
+instance MkFT Term where focusType = FTTerm
+instance MkFT String where focusType = FTName
+instance MkFT Item where focusType = FTItem
+
+class MkFocus a where focus :: a -> Focus a
+instance MkFocus Term where focus e = FTerm e
+instance MkFocus Item where focus i = FItem i
+instance MkFocus String where focus s = FName s
+
+mkEx :: (MkFT a, MkFocus a) => a -> Path a -> Ex
+mkEx f p = Ex $ EditorState (Cursor (focus f) p) focusType
+
 run :: Command a -> EditorState a -> Ex
 run command state@(EditorState (Cursor focus path) _) = case command of
-  InsertLam ns -> Ex $ EditorState (Cursor (FTerm Hole) (PLamBody path ns)) FTTerm
-  InsertApp -> Ex $ EditorState (Cursor (FTerm Hole) (PAppTerms path [] [Hole])) FTTerm
-  InsertVar s -> Ex $ EditorState (Cursor (FTerm $ Var (Name s)) path) FTTerm
-  InsertHole -> Ex $ EditorState (Cursor (FTerm Hole) path) FTTerm
-  InsertLet -> Ex $ EditorState (Cursor (FName "") (PLetName path Hole Hole Hole)) FTName
-  InsertTermDef -> Ex $ EditorState (Cursor (FName "_") (PTermDefName path Hole Hole)) FTName
-  InsertNamespaceDef -> Ex $ EditorState (Cursor (FName "_") (PNamespaceDefName path [])) FTName
-  SetName s -> Ex $ EditorState (Cursor (FName s) path) FTName
+  -- InsertLam ns -> Ex $ EditorState (Cursor (FTerm Hole) (PLamBody path ns)) FTTerm
+  InsertLam ns -> mkEx Hole (PLamBody path ns)
+  InsertApp -> mkEx Hole (PAppTerms path [] [Hole])
+  InsertVar s -> mkEx (Var (Name s)) path
+  InsertHole -> mkEx Hole path
+  InsertLet -> mkEx "_" (PLetName path Hole Hole Hole)
+  InsertTermDef -> mkEx "_" (PTermDefName path Hole Hole)
+  InsertNamespaceDef -> mkEx "_" (PNamespaceDefName path [])
+  -- InsertPi -> Ex $ EditorState (Cursor (FName "_") (PPiName path Hole Hole)) FTName
+  SetName s -> mkEx s path
   Add d -> case (path, d) of
     (PLamParams up ln rn body, Left) -> goLamL up ln rn body focus
     (PLamParams up ln rn body, Right) -> goLamR up ln rn body focus
@@ -105,117 +125,124 @@ run command state@(EditorState (Cursor focus path) _) = case command of
     (PNamespaceDefAddItem up name li ri, Right) -> goNamespaceR up name li ri focus
     _ -> Ex state
     where
-      goNamespaceR up name li ri focus = Ex $ EditorState (Cursor (FItem EditorBlankDef) (PNamespaceDefAddItem up name (li ++ [unFItem focus]) ri)) FTItem
-      goNamespaceL up name li ri focus =  Ex $ EditorState (Cursor (FItem EditorBlankDef) (PNamespaceDefAddItem up name li (unFItem focus : ri))) FTItem
-      goAppR up le re focus = Ex $ EditorState (Cursor (FTerm EditorBlank) (PAppAddTerm up (le ++ [unFTerm focus]) re)) FTTerm
-      goAppL up le re focus = Ex $ EditorState (Cursor (FTerm EditorBlank) (PAppAddTerm up le (unFTerm focus : re))) FTTerm
-      goLamR up ln rn body focus = Ex $ EditorState (Cursor (FName "") (PLamAddParam up (ln ++ [unFName focus]) rn body)) FTName
-      goLamL up ln rn body focus = Ex $ EditorState (Cursor (FName "") (PLamAddParam up ln (unFName focus : rn) body)) FTName
+      goNamespaceR up name li ri focus = mkEx EditorBlankDef (PNamespaceDefAddItem up name (li ++ [unFItem focus]) ri)
+      goNamespaceL up name li ri focus =  mkEx EditorBlankDef (PNamespaceDefAddItem up name li (unFItem focus : ri))
+      goAppR up le re focus = mkEx EditorBlank (PAppAddTerm up (le ++ [unFTerm focus]) re)
+      goAppL up le re focus = mkEx EditorBlank (PAppAddTerm up le (unFTerm focus : re))
+      goLamR up ln rn body focus = mkEx "" (PLamAddParam up (ln ++ [unFName focus]) rn body)
+      goLamL up ln rn body focus = mkEx "" (PLamAddParam up ln (unFName focus : rn) body)
   MoveRight -> case path of
     PTop -> Ex state
-    PLamParams up ln [] body -> Ex $ EditorState (Cursor (FTerm body) (PLamBody up (ln ++ [unFName focus]))) FTTerm
-    PLamParams up ln (n:rn) body -> Ex $ EditorState (Cursor (FName n) (PLamParams up (ln ++ [unFName focus]) rn body)) FTName
+    PLamParams up ln [] body -> mkEx body (PLamBody up (ln ++ [unFName focus]))
+    PLamParams up ln (n:rn) body -> mkEx n (PLamParams up (ln ++ [unFName focus]) rn body)
     PLamAddParam up ln rn body -> case (rn, unFName focus) of
-      ([], "") -> Ex $ EditorState (Cursor (FTerm body) (PLamBody up ln)) FTTerm
-      (n:rn, "") -> Ex $ EditorState (Cursor (FName n) (PLamParams up ln rn body)) FTName
-      ([], fn) -> Ex $ EditorState (Cursor (FTerm body) (PLamBody up (ln ++ [fn]))) FTTerm
-      (n:rn, fn) -> Ex $ EditorState (Cursor (FName n) (PLamParams up (ln ++ [fn]) rn body)) FTName
+      ([], "") -> mkEx body (PLamBody up ln)
+      (n:rn, "") -> mkEx n (PLamParams up ln rn body)
+      ([], fn) -> mkEx body (PLamBody up (ln ++ [fn]))
+      (n:rn, fn) -> mkEx n (PLamParams up (ln ++ [fn]) rn body)
     PLamBody up ns -> run MoveOut state
     PAppAddTerm up le re -> case (re, unFTerm focus) of
       ([], EditorBlank) -> run MoveOut state
-      (e:re, EditorBlank) -> Ex $ EditorState (Cursor (FTerm e) (PAppTerms up le re)) FTTerm
+      (e:re, EditorBlank) -> mkEx e (PAppTerms up le re)
       ([], fe) -> run MoveOut state
-      (e:re, fe) -> Ex $ EditorState (Cursor (FTerm e) (PAppTerms up (le ++ [fe]) re)) FTTerm
+      (e:re, fe) -> mkEx e (PAppTerms up (le ++ [fe]) re)
     PAppTerms up le [] -> run MoveOut state
-    PAppTerms up le (r:re) -> Ex $ EditorState (Cursor (FTerm r) (PAppTerms up (le ++ [unFTerm focus]) re)) FTTerm
-    PLetName up def defTy body -> Ex $ EditorState (Cursor (FTerm defTy) (PLetDefTy up (unFName focus) def body)) FTTerm
-    PLetDefTy up name def body -> Ex $ EditorState (Cursor (FTerm def) (PLetDef up name (unFTerm focus) body)) FTTerm
-    PLetDef up name defTy body -> Ex $ EditorState (Cursor (FTerm body) (PLetBody up name (unFTerm focus) defTy)) FTTerm
+    PAppTerms up le (r:re) -> mkEx r (PAppTerms up (le ++ [unFTerm focus]) re)
+    PLetName up def defTy body -> mkEx defTy (PLetDefTy up (unFName focus) def body)
+    PLetDefTy up name def body -> mkEx def (PLetDef up name (unFTerm focus) body)
+    PLetDef up name defTy body -> mkEx body (PLetBody up name (unFTerm focus) defTy)
     PLetBody _ _ _ _ -> run MoveOut state
-    PTermDefName up ty body -> Ex $ EditorState (Cursor (FTerm ty) (PTermDefTy up (unFName focus) body)) FTTerm
-    PTermDefTy up name body -> Ex $ EditorState (Cursor (FTerm body) (PTermDefBody up name (unFTerm focus))) FTTerm
+    PTermDefName up ty body -> mkEx ty (PTermDefTy up (unFName focus) body)
+    PTermDefTy up name body -> mkEx body (PTermDefBody up name (unFTerm focus))
     PTermDefBody _ _ _ -> run MoveOut state
-    PNamespaceDefName up [] -> Ex $ EditorState (Cursor (FItem EditorBlankDef) (PNamespaceDefAddItem up (unFName focus) [] [])) FTItem
-    PNamespaceDefName up (i:is) -> Ex $ EditorState (Cursor (FItem i) (PNamespaceDefItems up (unFName focus) [] is)) FTItem
+    PNamespaceDefName up [] -> mkEx EditorBlankDef (PNamespaceDefAddItem up (unFName focus) [] [])
+    PNamespaceDefName up (i:is) -> mkEx i (PNamespaceDefItems up (unFName focus) [] is)
     PNamespaceDefItems up name _ [] -> run MoveOut state
-    PNamespaceDefItems up name li (i:ri) -> Ex $ EditorState (Cursor (FItem i) (PNamespaceDefItems up name (li ++ [unFItem focus]) ri)) FTItem
+    PNamespaceDefItems up name li (i:ri) -> mkEx i (PNamespaceDefItems up name (li ++ [unFItem focus]) ri)
     PNamespaceDefAddItem up name li ri -> case (ri, unFItem focus) of
       ([], EditorBlankDef) -> run MoveOut state
-      (i:ri, EditorBlankDef) -> Ex $ EditorState (Cursor (FItem i) (PNamespaceDefItems up name li ri)) FTItem
+      (i:ri, EditorBlankDef) -> mkEx i (PNamespaceDefItems up name li ri)
       ([], fi) -> run MoveOut state
-      (i:ri, fi) -> Ex $ EditorState (Cursor (FItem i) (PNamespaceDefItems up name (li ++ [fi]) ri)) FTItem
+      (i:ri, fi) -> mkEx i (PNamespaceDefItems up name (li ++ [fi]) ri)
+    -- PPiName up inTy outTy -> Ex $ EditorState (Cursor (FTerm inTy) (PPiIn up (unFName focus) outTy)) FTTerm
+    -- PPiInTy up name outTy -> Ex $ EditorState (Cursor (FTerm outTy) (PPiOut up name (unFTerm focus))) FTTerm
+    -- PPiOut _ _ _ -> run MoveIn state
   MoveLeft -> case path of
     PTop -> Ex state
     PLamParams up [] rn body -> run MoveOut state
-    PLamParams up ln rn body -> Ex $ EditorState (Cursor (FName (last ln)) (PLamParams up (init ln) (unFName focus:rn) body)) FTName
+    PLamParams up ln rn body -> mkEx (last ln) (PLamParams up (init ln) (unFName focus:rn) body)
     PLamAddParam up ln rn body -> case (length ln, unFName focus) of
       (0, "") -> run MoveOut state
-      (_, "") -> Ex $ EditorState (Cursor (FName $ last ln) (PLamParams up (init ln) rn body)) FTName
-      (0, fn) -> Ex $ EditorState (Cursor (FName "") (PLamAddParam up [] (fn:rn) body)) FTName
-      (_, fn) -> Ex $ EditorState (Cursor (FName $ last ln) (PLamParams up (init ln) (fn:rn) body)) FTName
-    PLamBody up ns -> Ex $ EditorState (Cursor (FName $ last ns) (PLamParams up (init ns) [] (unFTerm focus))) FTName
+      (_, "") -> mkEx (last ln) (PLamParams up (init ln) rn body)
+      (0, fn) -> mkEx "" (PLamAddParam up [] (fn:rn) body)
+      (_, fn) -> mkEx (last ln) (PLamParams up (init ln) (fn:rn) body)
+    PLamBody up ns -> mkEx (last ns) (PLamParams up (init ns) [] (unFTerm focus))
     PAppTerms up [] re -> run MoveOut state
-    PAppTerms up le re -> Ex $ EditorState (Cursor (FTerm $ last le) (PAppTerms up (init le) (unFTerm focus:re))) FTTerm
+    PAppTerms up le re -> mkEx (last le) (PAppTerms up (init le) (unFTerm focus:re))
     PAppAddTerm up le re -> case (length le, unFTerm focus) of
       (0, EditorBlank) -> run MoveOut state
-      (_, EditorBlank) -> Ex $ EditorState (Cursor (FTerm $ last le) (PAppTerms up (init le) re)) FTTerm
-      (0, fn) -> Ex $ EditorState (Cursor (FTerm EditorBlank) (PAppAddTerm up [] (fn:re))) FTTerm
-      (_, fn) -> Ex $ EditorState (Cursor (FTerm $ last le) (PAppTerms up (init le) (fn:re))) FTTerm
+      (_, EditorBlank) -> mkEx (last le) (PAppTerms up (init le) re)
+      (0, fn) -> mkEx EditorBlank (PAppAddTerm up [] (fn:re))
+      (_, fn) -> mkEx (last le) (PAppTerms up (init le) (fn:re))
     PLetName _ _ _ _ -> run MoveOut state
-    PLetDefTy up name def body -> Ex $ EditorState (Cursor (FName name) (PLetName up def (unFTerm focus) body)) FTName
-    PLetDef up name defTy body -> Ex $ EditorState (Cursor (FTerm defTy) (PLetDefTy up name (unFTerm focus) body)) FTTerm
-    PLetBody up name def defTy -> Ex $ EditorState (Cursor (FTerm def) (PLetDef up name defTy (unFTerm focus))) FTTerm
+    PLetDefTy up name def body -> mkEx name (PLetName up def (unFTerm focus) body)
+    PLetDef up name defTy body -> mkEx defTy (PLetDefTy up name (unFTerm focus) body)
+    PLetBody up name def defTy -> mkEx def (PLetDef up name defTy (unFTerm focus))
     PTermDefName up ty body -> run MoveOut state
-    PTermDefTy up name body -> Ex $ EditorState (Cursor (FName name) (PTermDefName up (unFTerm focus) body)) FTName
-    PTermDefBody up name ty -> Ex $ EditorState (Cursor (FTerm ty) (PTermDefTy up name (unFTerm focus))) FTTerm
+    PTermDefTy up name body -> mkEx name (PTermDefName up (unFTerm focus) body)
+    PTermDefBody up name ty -> mkEx ty (PTermDefTy up name (unFTerm focus))
     PNamespaceDefName up _ -> run MoveOut state
-    PNamespaceDefItems up name [] ri -> Ex $ EditorState (Cursor (FName name) (PNamespaceDefName up ri)) FTName
-    PNamespaceDefItems up name li ri -> Ex $ EditorState (Cursor (FItem (last li)) (PNamespaceDefItems up name (init li) (unFItem focus : ri))) FTItem
+    PNamespaceDefItems up name [] ri -> mkEx name (PNamespaceDefName up ri)
+    PNamespaceDefItems up name li ri -> mkEx (last li) (PNamespaceDefItems up name (init li) (unFItem focus : ri))
     PNamespaceDefAddItem up name li ri -> case (length li, unFItem focus) of
-      (0, EditorBlankDef) -> Ex $ EditorState (Cursor (FName name) (PNamespaceDefName up ri)) FTName
-      (_, EditorBlankDef) -> Ex $ EditorState (Cursor (FItem $ last li) (PNamespaceDefItems up name (init li) ri)) FTItem
-      (0, fi) -> Ex $ EditorState (Cursor (FItem EditorBlankDef) (PNamespaceDefAddItem up name [] (fi:ri))) FTItem
-      (_, fi) -> Ex $ EditorState (Cursor (FItem $ last li) (PNamespaceDefItems up name (init li) (fi:ri))) FTItem
+      (0, EditorBlankDef) -> mkEx name (PNamespaceDefName up ri)
+      (_, EditorBlankDef) -> mkEx (last li) (PNamespaceDefItems up name (init li) ri)
+      (0, fi) -> mkEx EditorBlankDef (PNamespaceDefAddItem up name [] (fi:ri))
+      (_, fi) -> mkEx (last li) (PNamespaceDefItems up name (init li) (fi:ri))
+    -- PPiName _ _ _ -> run MoveOut state
+    -- PPiIn up name outTy -> Ex $ EditorState (Cursor (FName name) (PPiName up (unFTerm focus) outTy)) FTName
+    -- PPiOut up name inTy -> Ex $ EditorState (Cursor (FTerm inTy) (PPiIn up (unFName focus) outTy)) FTTerm
   MoveOut -> case path of
     PTop -> Ex state
-    PLamParams up ln rn body -> Ex $ EditorState (Cursor (FTerm (Lam (map Name ln ++ [Name $ unFName focus] ++ map Name rn) body)) up) FTTerm
-    PLamBody up ns -> Ex $ EditorState (Cursor (FTerm $ Lam (map Name ns) (unFTerm focus)) up) FTTerm
+    PLamParams up ln rn body -> mkEx (Lam (map Name ln ++ [Name $ unFName focus] ++ map Name rn) body) up
+    PLamBody up ns -> mkEx (Lam (map Name ns) (unFTerm focus)) up
     PLamAddParam up ln rn body ->
       if unFName focus == "" then
         go $ map Name rn
       else
         go $ (Name $ unFName focus) : map Name rn
       where
-        go rn = Ex $ EditorState (Cursor (FTerm $ Lam (map Name ln ++ rn) body) up) FTTerm
+        go rn = mkEx (Lam (map Name ln ++ rn) body) up
     PAppTerms up le re ->
       let es = le ++ [unFTerm focus] ++ re
-      in Ex $ EditorState (Cursor (FTerm $ App (head es) (tail es)) up) FTTerm
+      in mkEx (App (head es) (tail es)) up
     PAppAddTerm up le re ->
       let es = if unFTerm focus == EditorBlank then le ++ re else le ++ [unFTerm focus] ++ re
-      in Ex $ EditorState (Cursor (FTerm $ App (head es) (tail es)) up) FTTerm
-    PLetName up def defTy body -> Ex $ EditorState (Cursor (FTerm $ Let (Name $ unFName focus) def defTy body) up) FTTerm
-    PLetDefTy up name def body -> Ex $ EditorState (Cursor (FTerm $ Let (Name name) def (unFTerm focus) body) up) FTTerm
-    PLetDef up name defTy body -> Ex $ EditorState (Cursor (FTerm $ Let (Name name) (unFTerm focus) defTy body) up) FTTerm
-    PLetBody up name def defTy -> Ex $ EditorState (Cursor (FTerm $ Let (Name name) def defTy (unFTerm focus)) up) FTTerm
-    PTermDefName up ty body -> Ex $ EditorState (Cursor (FItem $ TermDef (Name $ unFName focus) ty body) up) FTItem
-    PTermDefTy up name body -> Ex $ EditorState (Cursor (FItem $ TermDef (Name name) (unFTerm focus) body) up) FTItem
-    PTermDefBody up name ty -> Ex $ EditorState (Cursor (FItem $ TermDef (Name name) ty (unFTerm focus)) up) FTItem
-    PNamespaceDefName up items -> Ex $ EditorState (Cursor (FItem $ NamespaceDef (Name $ unFName focus) items) up) FTItem
-    PNamespaceDefItems up name li ri -> Ex $ EditorState (Cursor (FItem $ NamespaceDef (Name name) (li ++ unFItem focus : ri)) up) FTItem
+      in mkEx (App (head es) (tail es)) up
+    PLetName up def defTy body -> mkEx (Let (Name $ unFName focus) def defTy body) up
+    PLetDefTy up name def body -> mkEx (Let (Name name) def (unFTerm focus) body) up
+    PLetDef up name defTy body -> mkEx (Let (Name name) (unFTerm focus) defTy body) up
+    PLetBody up name def defTy -> mkEx (Let (Name name) def defTy (unFTerm focus)) up
+    PTermDefName up ty body -> mkEx (TermDef (Name $ unFName focus) ty body) up
+    PTermDefTy up name body -> mkEx (TermDef (Name name) (unFTerm focus) body) up
+    PTermDefBody up name ty -> mkEx (TermDef (Name name) ty (unFTerm focus)) up
+    PNamespaceDefName up items -> mkEx (NamespaceDef (Name $ unFName focus) items) up
+    PNamespaceDefItems up name li ri -> mkEx (NamespaceDef (Name name) (li ++ unFItem focus : ri)) up
     PNamespaceDefAddItem up name li ri ->
       let is = if unFItem focus == EditorBlankDef then li ++ ri else li ++ [unFItem focus] ++ ri
-      in Ex $ EditorState (Cursor (FItem $ NamespaceDef (Name name) is) up) FTItem
+      in mkEx (NamespaceDef (Name name) is) up
+    -- PPiName ->
   MoveIn -> case focus of
     FTerm focus -> case focus of
-      Lam ns body -> Ex $ EditorState (Cursor (FTerm body) (PLamBody path (map unName ns))) FTTerm
+      Lam ns body -> mkEx body (PLamBody path (map unName ns))
       Var _ -> Ex state
-      App lam args -> Ex $ EditorState (Cursor (FTerm lam) (PAppTerms path [] args)) FTTerm
-      Let (Name name) def defTy body -> Ex $ EditorState (Cursor (FTerm body) (PLetBody path name def defTy)) FTTerm
+      App lam args -> mkEx lam (PAppTerms path [] args)
+      Let (Name name) def defTy body -> mkEx body (PLetBody path name def defTy)
     FItem focus -> case focus of
-      TermDef (Name n) ty body -> Ex $ EditorState (Cursor (FTerm body) (PTermDefBody path n ty)) FTTerm
+      TermDef (Name n) ty body -> mkEx body (PTermDefBody path n ty)
       NamespaceDef (Name n) items -> case items of
-        [] -> Ex $ EditorState (Cursor (FItem EditorBlankDef) (PNamespaceDefAddItem path n [] [])) FTItem
-        i:is -> Ex $ EditorState (Cursor (FItem i) (PNamespaceDefItems path n [] is)) FTItem
+        [] -> mkEx EditorBlankDef (PNamespaceDefAddItem path n [] [])
+        i:is -> mkEx i (PNamespaceDefItems path n [] is)
     FName _ -> Ex state
 
 putWord16 :: Word16 -> Put
