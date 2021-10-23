@@ -1,2 +1,0 @@
-main : Unit
-main = printLn "Hello World"
