@@ -29,7 +29,8 @@ import Debug.Pretty.Simple(pTraceShowId, pTrace)
 import Data.Maybe(fromJust)
 
 data InnerError
-  = UnboundName S.Name
+  = UnboundLocal S.Name
+  | UnboundGlobal S.GName
   | UnifyError U.Error
   | TooManyParams
   deriving Show
@@ -271,13 +272,17 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
         cTy <- readback ty
         pure (C.Var ix cTy, ty)
       Nothing -> do
-        putError $ UnboundName name
+        putError $ UnboundLocal name
         pure (C.ElabError, N.ElabError)
   S.GVar name -> do
-    pure (C.ElabError, N.ElabError)
-    -- entry <- globalType name
-    -- case entry of
-    --   Just ty -> pure
+    entry <- globalType name
+    case entry of
+      Just (ty, nid) -> do
+        cTy <- readback ty
+        pure (C.GVar nid cTy, ty)
+      Nothing -> do
+        putError $ UnboundGlobal name
+        pure (C.ElabError, N.ElabError)
   S.Lam names body -> go names where
     go :: [S.Name] -> Elab (C.Term, N.Value)
     go ns = case ns of
@@ -459,19 +464,26 @@ define name def ty = do
 defineGlobal :: S.GName -> C.Item -> N.Value -> Elab ()
 defineGlobal name item ty = do
   state <- get
-  put $ state { globals = Map.insert name item (globals state), gtypes = Map.insert name ty (gtypes state) }
+  put $ state
+    { globals = Map.insert name item (globals state)
+    , gtypes = Map.insert name (ty) (gtypes state) }
 
 localType :: S.Name -> Elab (Maybe (N.Value, Index))
 localType name = do
   state <- get
   pure $ Map.lookup name (ltypes state)
 
-globalType :: S.GName -> Elab (Maybe N.Value)
+globalType :: S.GName -> Elab (Maybe (N.Value, Id))
 globalType name = do
   state <- get
   case Map.lookup name (gtypes state) of
     Nothing -> pure Nothing
-    Just ty -> pure $ Just ty
+    Just ty -> do
+      let nid = case fromJust $ Map.lookup name (globals state) of
+                  C.TermDef nid _ -> nid
+                  C.IndDef nid _ -> nid
+                  C.ConDef nid _ -> nid
+      pure $ Just (ty, nid)
 
 appClosure :: HasCallStack => N.Closure -> N.Value -> Elab N.Value
 appClosure closure ty = do

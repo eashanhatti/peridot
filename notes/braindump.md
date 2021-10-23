@@ -1,3 +1,7 @@
+### Braindump
+
+This is a stream of conciousness. Definitely no guarantee about it making sense.
+
 #### No date
 
 What to do about currying? Explicit currying would be preferred over implicit. E.g where `foo : a -> b -> c`, `foo x _` instead of `foo x`. That also makes choosing the right order of arguments when defining a function less important. The error messages when you forget an argument are also not very nice. Problem is this requires multiarg functions, which are less nice theory-wise.
@@ -171,3 +175,14 @@ _ = <undefined> : ^(ty unit)
 So no, it isn't. `ty unit` sticks around at runtime
 
 Aha, I just need to disallow first-class types in the object language.
+
+#### 10/20/2021
+
+Note: `a ~> b` is the type of dynamic functions, `a -> b` is the type of static functions
+
+How does tail recursion fit into the current system? My first idea was to have a separate function type that guarantees TCO, but how does that work with inlining? Inlined functions take the form `^a -> ^b` - they're static functions. We could add another metafunction type that also guarantees TCO? Not sure what the semantics of that would be.
+
+Hm. What if "`^a -> ^b` is the type of inlined functions" is the wrong way of thinking about things?
+
+What if we put how much stack space a function's recursive calls will consume on its type? So we have two values, `bounded` and `unbounded`. Nonrecursive and tail recursive functions are of type `a ~bounded> b`, and everything else are of type `a ~unbounded> b` (Temporary syntax). The former can be inlined and TCOd. So "`^a -> ^b` is the type of inlined functions", *is* the wrong way of thinking, although it is accurate in a sense. It's more accurate however, to say that `^a -> ^b` is the type of a macro.
+

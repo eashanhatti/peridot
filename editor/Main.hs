@@ -22,6 +22,9 @@ import Data.List(intersperse)
 import Prelude hiding (Left, Right)
 import Parsing(getItem)
 
+data Con = Con String Term | EditorBlankCon
+  deriving Show
+
 data Path a where
   PTop                 :: Path Item
   PTermDefName         :: Path Item -> Term -> Term -> Path String
@@ -30,6 +33,12 @@ data Path a where
   PNamespaceDefName    :: Path Item -> [Item] -> Path String
   PNamespaceDefItems   :: Path Item -> String -> [Item] -> [Item] -> Path Item
   PNamespaceDefAddItem :: Path Item -> String -> [Item] -> [Item] -> Path Item
+  PIndDefName          :: Path Item -> Term -> [Con] -> Path String
+  PIndDefTy            :: Path Item -> String -> [Con] -> Path Term
+  PIndDefCons          :: Path Item -> String -> Term -> [Con] -> [Con] -> Path Con
+  PIndDefAddCon        :: Path Item -> String -> Term -> [Con] -> [Con] -> Path Con
+  PConName             :: Path Con  -> Term -> Path String
+  PConTy               :: Path Con  -> String -> Path Term
   PLamParams           :: Path Term -> [String] -> [String] -> Term -> Path String
   PLamAddParam         :: Path Term -> [String] -> [String] -> Term -> Path String
   PLamBody             :: Path Term -> [String] -> Path Term
@@ -51,6 +60,7 @@ data Focus a where
   FName :: String -> Focus String
   FTerm :: Term -> Focus Term
   FItem :: Item -> Focus Item
+  FCon  :: Con -> Focus Con
 deriving instance Show (Focus a)
 
 unFName :: Focus String -> String
@@ -59,11 +69,14 @@ unFTerm :: Focus Term -> Term
 unFTerm (FTerm e) = e
 unFItem :: Focus Item -> Item
 unFItem (FItem i) = i
+unFCon :: Focus Con -> Con
+unFCon  (FCon c)  = c
 
 data FocusType a where
   FTName :: FocusType String
   FTTerm :: FocusType Term
   FTItem :: FocusType Item
+  FTCon  :: FocusType Con
 
 data Cursor a = Cursor { unFocus :: Focus a, unPath :: Path a }
 deriving instance Show (Cursor a)
@@ -80,6 +93,7 @@ data Command a where
   InsertLet          :: Command Term
   InsertTermDef      :: Command Item
   InsertNamespaceDef :: Command Item
+  InsertIndDef       :: Command Item
   InsertPi           :: Command Term
   InsertU1           :: Command Term
   InsertU0           :: Command Term
@@ -87,6 +101,7 @@ data Command a where
   InsertQuote        :: Command Term
   InsertSplice       :: Command Term
   InsertGVar         :: [String] -> Command Term
+  InsertCon          :: String -> Command Con
   SetName            :: String -> Command String
   MoveOut            :: Command a
   MoveRight          :: Command a
@@ -97,14 +112,16 @@ data Command a where
 data Direction = Left | Right
 
 class MkFT a where focusType :: FocusType a
-instance MkFT Term where focusType = FTTerm
+instance MkFT Term where   focusType = FTTerm
 instance MkFT String where focusType = FTName
-instance MkFT Item where focusType = FTItem
+instance MkFT Item where   focusType = FTItem
+instance MkFT Con where    focusType = FTCon
 
 class MkFocus a where focus :: a -> Focus a
-instance MkFocus Term where focus e = FTerm e
-instance MkFocus Item where focus i = FItem i
-instance MkFocus String where focus s = FName s
+instance MkFocus Term where   focus = FTerm
+instance MkFocus Item where   focus = FItem
+instance MkFocus String where focus = FName
+instance MkFocus Con where    focus = FCon
 
 mkEx :: (MkFT a, MkFocus a) => a -> Path a -> Ex
 mkEx f p = Ex $ EditorState (Cursor (focus f) p) focusType
@@ -118,6 +135,7 @@ run command state@(EditorState (Cursor focus path) _) = case command of
   InsertLet -> mkEx "_" (PLetName path Hole Hole Hole)
   InsertTermDef -> mkEx "_" (PTermDefName path Hole Hole)
   InsertNamespaceDef -> mkEx "_" (PNamespaceDefName path [])
+  InsertIndDef -> mkEx "_" (PIndDefName path Hole [])
   InsertPi -> mkEx "_" (PPiName path Hole Hole)
   InsertU0 -> mkEx U0 path
   InsertU1 -> mkEx U1 path
@@ -125,6 +143,7 @@ run command state@(EditorState (Cursor focus path) _) = case command of
   InsertQuote -> mkEx Hole (PQuote path)
   InsertSplice -> mkEx Hole (PSplice path)
   InsertGVar ns -> mkEx (GVar $ GName ns) path
+  InsertCon n -> mkEx (Con n Hole) path
   SetName s -> mkEx s path
   Add d -> case (path, d) of
     (PLamParams up ln rn body, Left) -> goLamL up ln rn body focus
@@ -139,8 +158,11 @@ run command state@(EditorState (Cursor focus path) _) = case command of
     (PNamespaceDefItems up name li ri, Right) -> goNamespaceR up name li ri focus
     (PNamespaceDefAddItem up name li ri, Left) -> goNamespaceL up name li ri focus
     (PNamespaceDefAddItem up name li ri, Right) -> goNamespaceR up name li ri focus
+    (PIndDefCons up name ty lc rc, Right) -> goIndR up name ty lc rc focus
+    (PIndDefAddCon up name ty lc rc, Right) -> goIndR up name ty lc rc focus
     _ -> Ex state
     where
+      goIndR up name ty lc rc focus = mkEx EditorBlankCon (PIndDefAddCon up name ty (lc ++ [unFCon focus]) rc)
       goNamespaceR up name li ri focus = mkEx EditorBlankDef (PNamespaceDefAddItem up name (li ++ [unFItem focus]) ri)
       goNamespaceL up name li ri focus =  mkEx EditorBlankDef (PNamespaceDefAddItem up name li (unFItem focus : ri))
       goAppR up le re focus = mkEx EditorBlank (PAppAddTerm up (le ++ [unFTerm focus]) re)
@@ -186,6 +208,18 @@ run command state@(EditorState (Cursor focus path) _) = case command of
     PCode _ -> run MoveIn state
     PQuote _ -> run MoveIn state
     PSplice _ -> run MoveIn state
+    PIndDefName up ty cons -> mkEx ty (PIndDefTy up (unFName focus) cons)
+    PIndDefTy up name [] -> mkEx EditorBlankCon (PIndDefAddCon up name (unFTerm focus) [] []) 
+    PIndDefTy up name (c:cs) -> mkEx c (PIndDefCons up name (unFTerm focus) [] cs)
+    PIndDefCons up name ty lc [] -> run MoveOut state
+    PIndDefCons up name ty lc (c:rc) -> mkEx c (PIndDefCons up name ty (lc ++ [unFCon focus]) rc)
+    PIndDefAddCon up name ty lc rc -> case (rc, unFCon focus) of
+      ([], EditorBlankCon) -> run MoveOut state
+      (c:rc, EditorBlankCon) -> mkEx c (PIndDefCons up name ty lc rc)
+      ([], fc) -> run MoveOut state
+      (c:rc, fc) -> mkEx c (PIndDefCons up name ty (lc ++ [fc]) rc)
+    PConName up ty -> mkEx ty (PConTy up (unFName focus))
+    PConTy _ _ -> run MoveOut state
   MoveLeft -> case path of
     PTop -> Ex state
     PLamParams up [] rn body -> run MoveOut state
@@ -224,6 +258,17 @@ run command state@(EditorState (Cursor focus path) _) = case command of
     PCode _ -> run MoveOut state
     PQuote _ -> run MoveOut state
     PSplice _ -> run MoveOut state
+    PIndDefName _ _ _ -> run MoveOut state
+    PIndDefTy up name cons -> mkEx name (PIndDefName up (unFTerm focus) cons)
+    PIndDefCons up name ty [] rc -> mkEx ty (PIndDefTy up name rc)
+    PIndDefCons up name ty lc rc -> mkEx (last lc) (PIndDefCons up name ty (init lc) (unFCon focus : rc))
+    PIndDefAddCon up name ty lc rc -> case (length lc, unFCon focus) of
+      (0, EditorBlankCon) -> mkEx ty (PIndDefTy up name rc)
+      (_, EditorBlankCon) -> mkEx (last lc) (PIndDefCons up name ty (init lc) rc)
+      (0, fc) -> mkEx ty (PIndDefTy up name (fc:rc))
+      (_, fc) -> mkEx (last lc) (PIndDefCons up name ty (init lc) (fc:rc))
+    PConName _ _ -> run MoveOut state
+    PConTy up name -> mkEx name (PConName up (unFTerm focus))
   MoveOut -> case path of
     PTop -> Ex state
     PLamParams up ln rn body -> mkEx (Lam (map Name ln ++ [Name $ unFName focus] ++ map Name rn) body) up
@@ -259,6 +304,22 @@ run command state@(EditorState (Cursor focus path) _) = case command of
     PCode up -> mkEx (Code $ unFTerm focus) up
     PQuote up -> mkEx (Quote $ unFTerm focus) up
     PSplice up -> mkEx (Splice $ unFTerm focus) up
+    PIndDefName up ty cons -> mkEx (IndDef (Name $ unFName focus) ty (map (\(Con n t) -> (Name n, t)) cons)) up
+    PIndDefTy up name cons -> mkEx (IndDef (Name name) (unFTerm focus) (map (\(Con n t) -> (Name n, t)) cons)) up
+    PIndDefCons up name ty lc rc ->
+      let (Con n t) = unFCon focus
+      in mkEx (IndDef (Name name) ty (map (\(Con n t) -> (Name n, t)) lc ++ (Name n, t) : map (\(Con n t) -> (Name n, t)) rc)) up
+    PIndDefAddCon up name ty lc rc ->
+      let
+        clc = map (\(Con n t) -> (Name n, t)) lc
+        crc = map (\(Con n t) -> (Name n, t)) rc
+        cs =
+          case unFCon focus of
+            EditorBlankCon -> clc ++ crc
+            Con n t -> clc ++ (Name n, t):crc
+      in mkEx (IndDef (Name name) ty cs) up
+    PConName up ty -> mkEx (Con (unFName focus) ty) up
+    PConTy up name -> mkEx (Con name (unFTerm focus)) up
   MoveIn -> case focus of
     FTerm focus -> case focus of
       Lam ns body -> mkEx body (PLamBody path (map unName ns))
@@ -278,7 +339,11 @@ run command state@(EditorState (Cursor focus path) _) = case command of
       NamespaceDef (Name n) items -> case items of
         [] -> mkEx EditorBlankDef (PNamespaceDefAddItem path n [] [])
         i:is -> mkEx i (PNamespaceDefItems path n [] is)
+      IndDef (Name n) ty cons -> case cons of
+        [] -> mkEx EditorBlankCon (PIndDefAddCon path n ty [] [])
+        (Name cn, cty):cs -> mkEx (Con cn cty) (PIndDefCons path n ty [] (map (\(Name n, t) -> Con n t) cs))
     FName _ -> Ex state
+    FCon (Con name ty) -> mkEx name (PConName path ty)
 
 putWord16 :: Word16 -> Put
 putWord16 = put
@@ -301,6 +366,19 @@ putItem item = case item of
     putString n
     putTerm ty
     putTerm body
+  IndDef (Name n) ty cons -> do
+    putWord8 2
+    putString n
+    putTerm ty
+    putWord16 $ fromIntegral (length cons)
+    loop cons
+    where
+      loop cs = case cs of
+        [] -> pure ()
+        (Name n, t):cs -> do
+          putString n
+          putTerm t
+          loop cs
 
 putString :: String -> Put
 putString s = do
@@ -388,6 +466,8 @@ render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focu
     FName s -> s
     FTerm term -> renderTerm term
     FItem item -> renderItem item
+    FCon (Con name ty) -> name ++ " : " ++ renderTerm ty
+    FCon EditorBlankCon -> ""
   renderTerm :: Term -> String
   renderTerm term = case term of
     Lam names body -> "\\" ++ snames (map unName names) ++ ". " ++ renderTerm body
@@ -408,8 +488,9 @@ render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focu
     EditorBlank -> ""
   renderItem :: Item -> String
   renderItem item = case item of
-    TermDef (Name n) ty body -> "def " ++ n ++ " : " ++ renderTerm ty ++ " =\n" ++ (indent $ renderTerm body)
-    NamespaceDef (Name n) items -> "namespace " ++ n ++ newline items ++ indent (sitems items)
+    TermDef (Name n) ty body -> "\ESC[32;1mdef\ESC[0m " ++ n ++ " : " ++ renderTerm ty ++ " =\n" ++ (indent $ renderTerm body)
+    NamespaceDef (Name n) items -> "\ESC[32;1mnamespace\ESC[0m " ++ n ++ newline items ++ indent (sitems items)
+    IndDef (Name n) ty cons -> "\ESC[32;1minductive\ESC[0m " ++ n ++ " : " ++ renderTerm ty ++ newline cons ++ (indent $ scons (map (\(Name n, t) -> Con n t) cons))
     EditorBlankDef -> ""
   renderPath :: String -> Bool -> Path a -> String
   renderPath focus isSimple path = case path of
@@ -427,10 +508,10 @@ render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focu
       renderPath ("let " ++ name ++ " : " ++ focus ++ " = " ++ renderTerm def ++ "\nin " ++ renderTerm body) False up
     PLetBody up name def defTy ->
       renderPath ("let " ++ name ++ " : " ++ renderTerm defTy ++ " = " ++ renderTerm def ++ "\nin " ++ focus) False up
-    PTermDefName up ty body -> renderPath ("def " ++ focus ++ " : " ++ renderTerm ty ++ " =\n" ++ indent (renderTerm body)) False up
-    PTermDefTy up name body -> renderPath ("def " ++ name ++ " : " ++ focus ++ " =\n" ++ indent (renderTerm body)) False up
-    PTermDefBody up name ty -> renderPath ("def " ++ name ++ " : " ++ renderTerm ty ++ " =\n" ++ indent focus) False up
-    PNamespaceDefName up items -> renderPath ("namespace " ++ focus ++ "\n" ++ indent (sitems items)) False up
+    PTermDefName up ty body -> renderPath ("\ESC[32;1mdef\ESC[0m " ++ focus ++ " : " ++ renderTerm ty ++ " =\n" ++ indent (renderTerm body)) False up
+    PTermDefTy up name body -> renderPath ("\ESC[32;1mdef\ESC[0m " ++ name ++ " : " ++ focus ++ " =\n" ++ indent (renderTerm body)) False up
+    PTermDefBody up name ty -> renderPath ("\ESC[32;1mdef\ESC[0m " ++ name ++ " : " ++ renderTerm ty ++ " =\n" ++ indent focus) False up
+    PNamespaceDefName up items -> renderPath ("\ESC[32;1mnamespace\ESC[0m " ++ focus ++ "\n" ++ indent (sitems items)) False up
     PNamespaceDefItems up name li ri -> renderNamespace up name li ri focus
     PNamespaceDefAddItem up name li ri -> renderNamespace up name li ri focus
     PPiName up inTy outTy -> renderPath ("(" ++ focus ++ " : " ++ renderTerm inTy ++ ") -> " ++ renderTerm outTy) False up
@@ -439,11 +520,20 @@ render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focu
     PCode up -> renderPath ("Code " ++ parenFocus isSimple focus) False up
     PQuote up -> renderPath ("<" ++ focus ++ ">") True up
     PSplice up -> renderPath ("~" ++ parenFocus isSimple focus) False up
+    PIndDefName up ty cons -> renderPath ("\ESC[32;1minductive\ESC[0m " ++ focus ++ " : " ++ renderTerm ty ++ "\n" ++ (indent $ scons cons)) False up
+    PIndDefTy up name cons -> renderPath ("\ESC[32;1minductive\ESC[0m " ++ name ++ " : " ++ focus ++ "\n" ++ (indent $ scons cons)) False up
+    PIndDefCons up name ty lc rc -> renderCons up name ty lc rc focus
+    PIndDefAddCon up name ty lc rc -> renderCons up name ty lc rc focus
+    PConName up ty -> renderPath (focus ++ " : " ++ renderTerm ty) False up
+    PConTy up name -> renderPath (name ++ " : " ++ focus) False up
 
+  renderCons up name ty lc rc focus = renderPath ("\ESC[32;1minductive\ESC[0m " ++ name ++ " : " ++ renderTerm ty ++ "\n" ++ indent cons) False up
+    where
+      cons = scons lc ++ focus ++ newline rc ++ scons rc
   renderPi up name inTy outTy = (\s -> renderPath s False up) $ case name of
       "_" -> inTy ++ " -> " ++ outTy
       _ -> "(" ++ name ++ " : " ++ inTy ++ ") -> " ++ outTy
-  renderNamespace up name li ri focus = renderPath ("namespace " ++ name ++ "\n" ++ indent (sitems li ++ newline li ++ focus ++ newline ri ++ sitems ri)) False up
+  renderNamespace up name li ri focus = renderPath ("\ESC[32;1mnamespace\ESC[0m " ++ name ++ "\n" ++ indent (sitems li ++ newline li ++ focus ++ newline ri ++ sitems ri)) False up
   renderApp up le re isSimple focus = renderPath (sterms le ++ space le ++ parenFocus isSimple focus ++ space re ++ sterms re) False up
   parenFocus isSimple focus = if isSimple then focus else "(" ++ focus ++ ")"
   
@@ -459,6 +549,7 @@ render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focu
     U1 -> True
     GVar _ -> True
     Quote _ -> True
+    Splice e -> simple e
     _ -> False
   space xs = case xs of
     [] -> ""
@@ -477,6 +568,9 @@ render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focu
   sitems is = case is of
     [] -> ""
     i:is -> renderItem i ++ "\n" ++ sitems is
+  scons cs = case cs of
+    [] -> ""
+    (Con n ty):cs -> n ++ " : " ++ renderTerm ty ++ "\n" ++ scons cs
   indent s = concat $ intersperse "\n" $ map ("  "++) (lines s)
 
 split :: String -> String -> Char -> [String]
@@ -490,8 +584,8 @@ split s acc d = case s of
 
 loop :: EditorState a -> IO ()
 loop state = do
-  -- clearScreen
-  putStrLn (show $ unCursor state)
+  clearScreen
+  -- putStrLn (show $ unCursor state)
   putStrLn (render state)
   s <- getLine
   if s == "q" then
@@ -528,12 +622,17 @@ loop state = do
       ('.':s, FTTerm) -> pure $ run (InsertGVar (reverse $ split s "" '.')) state
       ("ns", FTItem) -> pure $ run InsertNamespaceDef state
       ("def", FTItem) -> pure $ run InsertTermDef state
+      ("ind", FTItem) -> pure $ run InsertIndDef state
+      (_, FTCon) -> pure $ run (InsertCon s) state
       (_, FTTerm) -> pure $ run (InsertVar s) state
       (_, FTName) -> pure $ if s == "" then Ex state else run (SetName s) state
+      _ -> pure $ Ex state
     next state
     where
       next :: Ex -> IO ()
       next (Ex state) = loop state
 
 main :: IO ()
-main = loop (EditorState (Cursor (FItem $ NamespaceDef (Name "main") []) PTop) FTItem)
+main = do
+  putStr "\ESC[0m"
+  loop (EditorState (Cursor (FItem $ NamespaceDef (Name "main") []) PTop) FTItem)

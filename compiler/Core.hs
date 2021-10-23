@@ -31,6 +31,7 @@ data Item
 
 data Term
   = Var Index Type
+  | GVar Id Type
   | TypeType0
   | TypeType1
   | FunIntro Term Type
@@ -103,4 +104,5 @@ showTerm showTys term = case term of
       "(?" ++ show (unGlobal gl) ++ " : " ++ show ty ++ ";" ++ (show $ Prelude.map show bis) ++ ")"
     else
       "?" ++ show (unGlobal gl) ++ (show $ Prelude.map show bis) ++ ""
+  GVar nid _ -> "g" ++ show (unId nid)
   ElabError -> "<error>"
