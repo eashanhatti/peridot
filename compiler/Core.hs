@@ -25,9 +25,15 @@ data Program = Program [Item]
 
 data Item
   = TermDef Id Term
-  | IndDef Id Term
-  | ConDef Id Term
+  | IndDef Id Type
+  | ConDef Id Type
+  | ElabBlankItem Id Type
   deriving Show
+
+itemId item = case item of
+  TermDef nid _ -> nid
+  IndDef nid _ -> nid
+  ConDef nid _ -> nid
 
 data Term
   = Var Index Type
@@ -41,7 +47,7 @@ data Term
   | QuoteIntro Term Type
   | QuoteElim Term
   | IndType Id
-  | IndIntro Id Natural [Term] Type
+  | IndIntro Id [Term] Type
   -- | Let Term Term Term
   | Letrec [Term] Term
   | Meta Global Type
@@ -95,14 +101,16 @@ showTerm showTys term = case term of
   -- Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in\n" ++ show body
   Letrec defs body -> "letrec " ++ show defs ++ " in " ++ show body
   Meta gl ty ->
-    if showTys then
+    -- if showTys then
       "(?" ++ show (unGlobal gl) ++ " : " ++ show ty ++ ")"
-    else
-      "?" ++ show (unGlobal gl)
+    -- else
+    --   "?" ++ show (unGlobal gl)
   InsertedMeta bis gl ty ->
-    if showTys then
+    -- if showTys then
       "(?" ++ show (unGlobal gl) ++ " : " ++ show ty ++ ";" ++ (show $ Prelude.map show bis) ++ ")"
-    else
-      "?" ++ show (unGlobal gl) ++ (show $ Prelude.map show bis) ++ ""
+    -- else
+    --   "?" ++ show (unGlobal gl) ++ (show $ Prelude.map show bis) ++ ""
   GVar nid _ -> "g" ++ show (unId nid)
+  IndIntro nid args _ -> "#" ++ show nid ++ (show $ Prelude.map show args)
+  IndType nid -> "T" ++ show nid
   ElabError -> "<error>"

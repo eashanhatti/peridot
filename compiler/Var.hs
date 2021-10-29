@@ -13,4 +13,4 @@ incLevelN n = case n of
 	0 -> id
 	n -> incLevel . (incLevelN (n - 1))
 
-data Id = Id { unId :: Int } deriving (Show, Eq)
+data Id = Id { unId :: Int } deriving (Show, Eq, Ord)

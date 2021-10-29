@@ -156,7 +156,7 @@ rename metas gl pren rhs = go pren rhs
           innerTy <- go pren ty
           liftEither $ Right $ C.QuoteIntro innerTerm innerTy
         N.QuoteType ty -> C.QuoteType <$> go pren ty
-        N.IndIntro nid cid cds ty -> C.IndIntro nid cid <$> mapM (go pren) cds <*> go pren ty
+        N.IndIntro nid cds ty -> C.IndIntro nid <$> mapM (go pren) cds <*> go pren ty
         N.IndType nid -> pure $ C.IndType nid
         N.TypeType0 -> liftEither $ Right C.TypeType0
         N.TypeType1 -> liftEither $ Right C.TypeType1
@@ -188,7 +188,7 @@ getTty metas lv val = case val of
   N.TypeType1 -> C.TypeType1
   N.FunElim0 _ _ -> C.TypeType0
   N.Var0 _ _ -> C.TypeType0
-  N.IndIntro _ _ _ ty -> runReader (N.readback ty) (lv, metas, [])
+  N.IndIntro _ _ ty -> runReader (N.readback ty) (lv, metas, [])
   N.IndType _ -> C.TypeType1
   -- N.Let0 _ _ _ -> C.TypeType0
   N.Letrec0 _ _ -> C.TypeType0
@@ -215,7 +215,7 @@ getVty metas lv val = case val of
   N.TypeType0 -> N.TypeType0
   N.TypeType1 -> N.TypeType1
   N.IndType _ -> N.TypeType1
-  N.IndIntro _ _ _ ty -> ty
+  N.IndIntro _ _ ty -> ty
   N.FunElim0 _ _ -> N.TypeType0
   N.Var0 _ _ -> N.TypeType0
   -- N.Let0 _ _ _ -> N.TypeType0
@@ -254,6 +254,7 @@ unifySpines lv spine spine'= case (spine, spine') of
   ([], []) -> pure ()
   _ -> putError $ MismatchSpines spine spine'
 
+-- .., goal, given
 unify :: HasCallStack => Level -> N.Value -> N.Value -> Unify ()
 unify lv val val' = do
   val <- runNorm lv $ N.force val
@@ -276,6 +277,7 @@ unify lv val val' = do
       vAppVal <- runNorm lv $ N.vApp val (N.StuckRigidVar inTy' lv [])
       unify (incLevel lv) vBody vAppVal
     (N.TypeType0, N.TypeType0) -> pure ()
+    (N.TypeType1, N.TypeType0) -> pure ()
     (N.TypeType1, N.TypeType1) -> pure ()
     (N.FunType inTy outTy, N.FunType inTy' outTy') -> do
       unify lv inTy inTy'
@@ -289,7 +291,7 @@ unify lv val val' = do
       unify lv vInner vInner'
       unify lv ty ty'
     (N.IndType nid, N.IndType nid') | nid == nid' -> pure ()
-    (N.IndIntro nid cid cds ty, N.IndIntro nid' cid' cds' ty') | nid == nid' && cid == cid' && length cds == length cds' -> do
+    (N.IndIntro nid cds ty, N.IndIntro nid' cds' ty') | nid == nid' && length cds == length cds' -> do
       mapM (uncurry $ unify lv) (zip cds cds')
       unify lv ty ty'
     (N.StuckRigidVar vty rlv spine, N.StuckRigidVar vty' rlv' spine') | rlv == rlv' -> do

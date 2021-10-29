@@ -21,6 +21,7 @@ import qualified Data.ByteString.Lazy as B
 import Data.List(intersperse)
 import Prelude hiding (Left, Right)
 import Parsing(getItem)
+import System.IO
 
 data Con = Con String Term | EditorBlankCon
   deriving Show
@@ -460,14 +461,21 @@ export state@(EditorState cursor _) fn = do
           _ -> loop ex
 
 render :: EditorState a -> String
-render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focus ++ "]") (simpleFocus focus) path where
+render (EditorState (Cursor focus path) _) =
+  let
+    sfocus = renderFocus focus
+  in renderPath
+    ("[" ++ sfocus ++ "]")
+    (simpleFocus focus)
+    path
+    ++ "\ESC[0m" where
   renderFocus :: Focus a -> String
   renderFocus focus = case focus of
     FName s -> s
     FTerm term -> renderTerm term
     FItem item -> renderItem item
     FCon (Con name ty) -> name ++ " : " ++ renderTerm ty
-    FCon EditorBlankCon -> ""
+    FCon EditorBlankCon -> "_"
   renderTerm :: Term -> String
   renderTerm term = case term of
     Lam names body -> "\\" ++ snames (map unName names) ++ ". " ++ renderTerm body
@@ -485,13 +493,13 @@ render (EditorState (Cursor focus path) _) = renderPath ("[" ++ renderFocus focu
     Code ty -> "Code " ++ parenFocus (simple ty) (renderTerm ty)
     Quote e -> "<" ++ renderTerm e ++ ">"
     Splice e -> "~" ++ parenFocus (simple e) (renderTerm e)
-    EditorBlank -> ""
+    EditorBlank -> "_"
   renderItem :: Item -> String
   renderItem item = case item of
     TermDef (Name n) ty body -> "\ESC[32;1mdef\ESC[0m " ++ n ++ " : " ++ renderTerm ty ++ " =\n" ++ (indent $ renderTerm body)
     NamespaceDef (Name n) items -> "\ESC[32;1mnamespace\ESC[0m " ++ n ++ newline items ++ indent (sitems items)
     IndDef (Name n) ty cons -> "\ESC[32;1minductive\ESC[0m " ++ n ++ " : " ++ renderTerm ty ++ newline cons ++ (indent $ scons (map (\(Name n, t) -> Con n t) cons))
-    EditorBlankDef -> ""
+    EditorBlankDef -> "_"
   renderPath :: String -> Bool -> Path a -> String
   renderPath focus isSimple path = case path of
     PTop -> focus

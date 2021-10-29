@@ -35,16 +35,16 @@ data InnerError
   | TooManyParams
   deriving Show
 
-data Error = Error S.Span N.Locals Level InnerError
+data Error = Error S.Span N.Locals (Map S.GName C.Item) Level InnerError
 
 instance Show Error where
-  show (Error s ls lv e) = "Error\n" ++ show e ++ "\n" ++ indent "  " (show lv) ++ indent "  " stringLocals
+  show (Error s ls gs lv e) = "Error\n" ++ show e ++ "\n" ++ indent "  " stringLocals ++ "\n" ++ indent "  " ("----\n" ++ stringGlobals)
     where
       indent :: String -> String -> String
       indent i s = unlines $ map (i++) (lines s)
 
-      stringLocals :: String
       stringLocals = concat $ map (\l -> show l ++ "\n") ls
+      stringGlobals = concat $ map (\(n, g) -> show n ++ " = " ++ show g ++ "\n") (Map.toList gs)      
 
 data ElabState = ElabState
   { metas :: N.Metas
@@ -59,7 +59,7 @@ data ElabState = ElabState
   , nextName :: Int
   , reservedNames :: [S.Name]
   , globals :: Map S.GName C.Item
-  , gtypes :: Map S.GName N.Value
+  , idsNames :: Map Id S.GName
   , nextId :: Int }
   deriving Show
 
@@ -77,13 +77,17 @@ elab :: HasCallStack => S.Item -> (C.Program, ElabState)
 elab item = runState (checkProgram (flatten [] item)) (ElabState mempty 0 N.TypeType1 [] [] mempty (Level 0) S.Span [] 0 [] mempty mempty 0)
 
 flatten :: [String] -> S.Item -> Program
-flatten gname item = case item of
-  S.NamespaceDef name items -> foldl Map.union mempty (map (flatten ((S.unName name):gname)) items)
-  S.TermDef name dec def -> Map.singleton (S.GName $ (S.unName name):gname) (TermDef dec def)
+flatten nameAcc item = case item of
+  S.NamespaceDef name items -> foldl Map.union mempty (map (flatten ((S.unName name):nameAcc)) items)
+  S.TermDef name dec def -> Map.singleton (S.GName $ (S.unName name):nameAcc) (TermDef dec def)
   S.IndDef name dec cs ->
     Map.union
-      (Map.singleton (S.GName $ (S.unName name):gname) (IndDef dec))
-      (Map.fromList $ map (\(cn, ct) -> (S.GName $ (S.unName cn):(S.unName name):gname, ConDef (S.GName $ (S.unName name):gname) ct)) cs)
+      (Map.singleton (S.GName $ (S.unName name):nameAcc) (IndDef dec))
+      (Map.fromList $ map
+        (\(cn, ct) ->
+          let gname = S.unName cn : S.unName name : nameAcc
+          in (S.GName gname, ConDef (S.GName $ tail gname) ct))
+        cs)
 
 type Graph = Map S.GName (Set S.GName)
 type Cycles = [(S.GName, [S.GName])]
@@ -155,10 +159,30 @@ checkProgram program = case pTraceShowId $ ordering $ dependencies (Map.toList p
     loop :: HasCallStack => Program -> Ordering -> Elab [C.Item]
     loop program ord = case ord of
       [] -> pure []
-      names:ord -> do
+      names:ord -> tr (show names) do
+        declareGlobals (Set.toList names) program
         cItems <- defineGlobals (Set.toList names) program
         cItems' <- loop program ord
         pure $ cItems ++ cItems'
+    declareGlobals :: HasCallStack => [S.GName] -> Program -> Elab ()
+    declareGlobals names program = case names of
+      [] -> pure ()
+      name:names -> do
+        let item = fromJust $ Map.lookup name program
+        ty <- case item of
+          TermDef ty _ -> do
+            meta <- freshUnivMeta >>= eval
+            check ty meta >>= eval
+          IndDef ty -> check ty N.TypeType1 >>= eval
+          ConDef _ ty -> check ty N.TypeType1 >>= eval
+        declareGlobal name ty
+        declareGlobals names program
+    declareGlobal :: HasCallStack => S.GName -> N.Value -> Elab ()
+    declareGlobal name ty = do
+      state <- get
+      nid <- freshId
+      cTy <- readback ty
+      put $ state { globals = Map.insert name (C.ElabBlankItem nid cTy) (globals state) }
     defineGlobals :: HasCallStack => [S.GName] -> Program -> Elab [C.Item]
     defineGlobals names program = case names of
       [] -> pure []
@@ -168,9 +192,16 @@ checkProgram program = case pTraceShowId $ ordering $ dependencies (Map.toList p
         defineGlobal name cItem itemTy
         cItems <- defineGlobals names program
         pure $ cItem:cItems
+    defineGlobal :: HasCallStack => S.GName -> C.Item -> N.Value -> Elab ()
+    defineGlobal name item ty = do
+      state <- get
+      put $ state
+        { globals = Map.insert name item (globals state)
+        , idsNames = Map.insert (C.itemId item) name (idsNames state) }
     checkItem :: HasCallStack => Item -> S.GName -> Elab (C.Item, N.Value)
     checkItem item name = do
-      nid <- freshId
+      gs <- globals <$> get
+      let nid = case Map.lookup name gs of Just (C.ElabBlankItem nid _) -> nid
       meta <- freshUnivMeta >>= eval
       case item of
         TermDef dec def -> do
@@ -178,12 +209,12 @@ checkProgram program = case pTraceShowId $ ordering $ dependencies (Map.toList p
           cDef <- check def vDec
           pure (C.TermDef nid cDef, vDec)
         IndDef dec -> do
-          cDec <- check dec meta
+          cDec <- check dec N.TypeType1
           pure (C.IndDef nid cDec, N.TypeType1)
-        ConDef name dec -> do
-          cDec <- check dec meta
-          vDec <- eval cDec
-          pure (C.ConDef nid cDec, vDec)
+        ConDef name ty -> do
+          cTy <- check ty N.TypeType1
+          vTy <- eval cTy
+          pure (C.ConDef nid cTy, vTy)
     validateCon :: S.GName -> C.Term -> Elab ()
     validateCon name ty = pure ()
 
@@ -240,17 +271,10 @@ check term goal = do
       cTy <- readback ty
       pure $ C.QuoteIntro cInner cTy
     (_, N.QuoteType ty) | univ /= N.TypeType1 -> do
-      univMeta <- freshUnivMeta >>= eval
-      putGoalUniv univMeta
+      putGoalUniv N.TypeType0
       (cTerm, termTy) <- infer term
-      case termTy of
-        N.QuoteType ty' -> do
-          unify univMeta N.TypeType1
-          pure cTerm
-        _ -> do
-          unify univMeta N.TypeType0
-          cTermTy <- readback termTy
-          pure $ C.QuoteIntro cTerm cTermTy
+      cTermTy <- readback termTy
+      pure $ C.QuoteIntro cTerm cTermTy
     (_, _) -> do
       (cTerm, ty) <- infer term
       unify goal ty
@@ -275,11 +299,19 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
         putError $ UnboundLocal name
         pure (C.ElabError, N.ElabError)
   S.GVar name -> do
-    entry <- globalType name
+    entry <- globalDef name
     case entry of
-      Just (ty, nid) -> do
-        cTy <- readback ty
-        pure (C.GVar nid cTy, ty)
+      Just def -> case def of
+        C.TermDef nid tdef -> do
+          ty <- typeofC tdef >>= eval
+          pure (tdef, ty)
+        C.IndDef nid _ -> pure $ (C.IndType nid, N.TypeType1)
+        C.ConDef nid ty@(C.IndType tid) -> go ty where
+          go :: C.Term -> Elab (C.Term, N.Value)
+          go ty = pure (C.IndIntro nid [] (C.IndType tid), N.IndType tid)
+        C.ElabBlankItem nid ty -> do
+          vTy <- eval ty
+          pure (C.GVar nid ty, vTy)
       Nothing -> do
         putError $ UnboundGlobal name
         pure (C.ElabError, N.ElabError)
@@ -354,6 +386,7 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
     unify univ N.TypeType1
     pure (C.TypeType1, N.TypeType1)
   S.Pi name inTy outTy -> do
+    unify univ N.TypeType1
     cInTy <- check inTy univ
     vInTy <- eval cInTy
     bind name vInTy
@@ -461,29 +494,30 @@ define name def ty = do
     , level = Level $ unLevel (level state) + 1
     , binderInfos = C.Concrete:(binderInfos state) }
 
-defineGlobal :: S.GName -> C.Item -> N.Value -> Elab ()
-defineGlobal name item ty = do
-  state <- get
-  put $ state
-    { globals = Map.insert name item (globals state)
-    , gtypes = Map.insert name (ty) (gtypes state) }
-
 localType :: S.Name -> Elab (Maybe (N.Value, Index))
 localType name = do
   state <- get
   pure $ Map.lookup name (ltypes state)
 
-globalType :: S.GName -> Elab (Maybe (N.Value, Id))
-globalType name = do
+globalType :: Id -> Elab (Maybe C.Term)
+globalType nid = do
   state <- get
-  case Map.lookup name (gtypes state) of
-    Nothing -> pure Nothing
-    Just ty -> do
-      let nid = case fromJust $ Map.lookup name (globals state) of
-                  C.TermDef nid _ -> nid
-                  C.IndDef nid _ -> nid
-                  C.ConDef nid _ -> nid
-      pure $ Just (ty, nid)
+  let name = fromJust $ Map.lookup nid (idsNames state)
+  pure $ fmap
+    (\case
+      C.IndDef _ ty -> ty
+      C.ConDef _ ty -> ty)
+    (Map.lookup name (globals state))
+
+globalId :: S.GName -> Elab (Maybe Id)
+globalId name = do
+  state <- get
+  pure $ fmap C.itemId (Map.lookup name (globals state))
+
+globalDef :: S.GName -> Elab (Maybe C.Item)
+globalDef name = do
+  state <- get
+  pure $ Map.lookup name (globals state)
 
 appClosure :: HasCallStack => N.Closure -> N.Value -> Elab N.Value
 appClosure closure ty = do
@@ -546,7 +580,7 @@ unify val val' = do
 putError :: InnerError -> Elab ()
 putError err = do
   state <- get
-  put $ state { errors = (Error (sourceSpan state) (locals state) (level state) err):(errors state) }
+  put $ state { errors = (Error (sourceSpan state) (locals state) (globals state) (level state) err):(errors state) }
 
 freshName :: String -> Elab S.Name
 freshName base = do
@@ -569,6 +603,11 @@ typeof :: N.Value -> Elab N.Value
 typeof val = do
   state <- get
   pure $ U.getVty (metas state) (level state) val
+
+typeofC :: C.Term -> Elab C.Term
+typeofC term = do
+  state <- get
+  U.getTty (metas state) (level state) <$> eval term
 
 freshId :: Elab Id
 freshId = do

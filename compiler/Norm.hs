@@ -36,7 +36,7 @@ data Value
   | QuoteIntro C.Term Type
   | QuoteType Value
   | IndType Id
-  | IndIntro Id Natural [Value] Type
+  | IndIntro Id [Value] Type
   | TypeType0
   | TypeType1
   -- Blocked eliminations
@@ -201,7 +201,7 @@ eval term = do
     C.QuoteIntro inner ty -> QuoteIntro <$> pure inner <*> eval ty
     C.QuoteType innerTy -> QuoteType <$> eval innerTy
     C.QuoteElim quote -> eval quote >>= vSplice
-    C.IndIntro nid cid cds ty -> IndIntro nid cid <$> mapM eval cds <*> eval ty
+    C.IndIntro cid cds ty -> IndIntro cid <$> mapM eval cds <*> eval ty
     C.IndType nid -> pure $ IndType nid
     C.Letrec defs body -> do
       let withDefs :: Norm a -> Locals -> Norm a
@@ -266,7 +266,7 @@ readback val = do
       lv <- askLv
       vOutTy <- appClosure outTy (StuckRigidVar inTy lv [])
       C.FunType <$> readback inTy <*> blank (readback vOutTy)
-    IndIntro nid cid cds ty -> C.IndIntro nid cid <$> mapM readback cds <*> readback ty
+    IndIntro nid cds ty -> C.IndIntro nid <$> mapM readback cds <*> readback ty
     IndType nid -> pure $ C.IndType nid
     QuoteIntro inner ty -> C.QuoteIntro <$> (eval0 inner >>= readback) <*> readback ty
     QuoteType innerTy -> C.QuoteType <$> readback innerTy
