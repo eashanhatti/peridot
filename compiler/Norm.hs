@@ -39,6 +39,7 @@ data Value
   | IndIntro Id [Value] Type
   | TypeType0
   | TypeType1
+  | GVar Id Type
   -- Blocked eliminations
   | StuckFlexVar Type Global Spine
   | StuckRigidVar Type Level Spine
@@ -214,7 +215,9 @@ eval term = do
       eval body `withDefs` (reverse vDefs)
     C.Meta gl ty -> eval ty >>= vMeta gl
     C.InsertedMeta bis gl ty -> eval ty >>= vMeta gl >>= \meta -> vAppBis meta locals bis
+    C.GVar nid ty -> eval ty >>= pure . GVar nid
     C.ElabError -> pure ElabError
+    _ -> error $ show term
 
 force :: HasCallStack => Value -> Norm Value
 force val = do
@@ -272,4 +275,5 @@ readback val = do
     QuoteType innerTy -> C.QuoteType <$> readback innerTy
     TypeType0 -> pure C.TypeType0
     TypeType1 -> pure C.TypeType1
+    GVar nid ty -> readback ty >>= pure . C.GVar nid
     ElabError -> pure C.ElabError

@@ -150,19 +150,25 @@ ordering graph = case cycles graph of
 tr s f = trace s () `seq` f
 
 checkProgram :: HasCallStack => Program -> Elab C.Program
-checkProgram program = case pTraceShowId $ ordering $ dependencies (Map.toList program) of
+checkProgram program = case pTraceShowId $ ordering $ pTraceShowId $ dependencies (Map.toList program) of
   Right ord -> do
-    program <- loop program ord
+    loopDeclare program ord
+    program <- loopDefine program ord
     pure $ C.Program program
   Left cs -> undefined
   where
-    loop :: HasCallStack => Program -> Ordering -> Elab [C.Item]
-    loop program ord = case ord of
-      [] -> pure []
-      names:ord -> tr (show names) do
+    loopDeclare :: HasCallStack => Program -> Ordering -> Elab ()
+    loopDeclare program ord = case ord of
+      [] -> pure ()
+      names:ord -> do
         declareGlobals (Set.toList names) program
+        loopDeclare program ord
+    loopDefine :: HasCallStack => Program -> Ordering -> Elab [C.Item]
+    loopDefine program ord = case ord of
+      [] -> pure []
+      names:ord -> do
         cItems <- defineGlobals (Set.toList names) program
-        cItems' <- loop program ord
+        cItems' <- loopDefine program ord
         pure $ cItems ++ cItems'
     declareGlobals :: HasCallStack => [S.GName] -> Program -> Elab ()
     declareGlobals names program = case names of
@@ -179,9 +185,9 @@ checkProgram program = case pTraceShowId $ ordering $ dependencies (Map.toList p
         declareGlobals names program
     declareGlobal :: HasCallStack => S.GName -> N.Value -> Elab ()
     declareGlobal name ty = do
-      state <- get
       nid <- freshId
       cTy <- readback ty
+      state <- get
       put $ state { globals = Map.insert name (C.ElabBlankItem nid cTy) (globals state) }
     defineGlobals :: HasCallStack => [S.GName] -> Program -> Elab [C.Item]
     defineGlobals names program = case names of
@@ -314,7 +320,8 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
           pure (C.GVar nid ty, vTy)
       Nothing -> do
         putError $ UnboundGlobal name
-        pure (C.ElabError, N.ElabError)
+        error ""
+        -- pure (C.ElabError, N.ElabError)
   S.Lam names body -> go names where
     go :: [S.Name] -> Elab (C.Term, N.Value)
     go ns = case ns of
@@ -452,7 +459,7 @@ scope :: Elab a -> Elab a
 scope act = do
   state <- get
   let (a, s) = runState act state
-  put $ state { metas = metas s, errors = errors s, nextMeta = nextMeta s, nextName = nextName s }
+  put $ state { metas = metas s, errors = errors s, nextMeta = nextMeta s, nextName = nextName s, nextId = nextId s }
   pure a
 
 putSpan :: S.Span -> Elab ()
@@ -614,5 +621,6 @@ typeofC term = do
 freshId :: Elab Id
 freshId = do
   state <- get
-  put $ state { nextId = nextId state + 1 }
-  pure $ Id (nextId state)
+  let nid = nextId state
+  put $ state { nextId = nid + 1 }
+  pure $ Id nid

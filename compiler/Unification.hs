@@ -161,6 +161,7 @@ rename metas gl pren rhs = go pren rhs
         N.Var0 ix ty -> C.Var <$> pure ix <*> go pren ty
         -- N.Let0 def defTy body -> C.Let <$> go pren def <*> go pren defTy <*> go (inc pren) body
         N.Letrec0 defs body -> C.Letrec <$> mapM (go (incN (length defs) pren)) defs <*> go (incN (length defs) pren) body
+        N.GVar nid ty -> go pren ty >>= pure . C.GVar nid
         N.ElabError -> liftEither $ Right C.ElabError
 
 getTtySpine :: N.Metas -> Level -> N.Type -> N.Spine -> C.Term
