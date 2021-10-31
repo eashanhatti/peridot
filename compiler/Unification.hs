@@ -113,18 +113,15 @@ invert metas gamma spine' = do
   (domain, ren) <- go spine'
   liftEither $ Right $ PartialRenaming domain gamma ren
 
-rename :: N.Metas -> Global -> PartialRenaming -> N.Value -> ExceptT Error Unify C.Term
+rename :: HasCallStack => N.Metas -> Global -> PartialRenaming -> N.Value -> ExceptT Error Unify C.Term
 rename metas gl pren rhs = go pren rhs
   where
-    goSpine :: PartialRenaming -> C.Term -> N.Spine -> ExceptT Error Unify C.Term
+    goSpine :: HasCallStack => PartialRenaming -> C.Term -> N.Spine -> ExceptT Error Unify C.Term
     goSpine pren val spine = case spine of
       (arg:spine) -> C.FunElim <$> goSpine pren val spine <*> go pren arg
       [] -> liftEither $ Right val
 
-    goTerm :: PartialRenaming -> C.Term -> ExceptT Error Unify C.Term
-    goTerm pren term = undefined
-
-    go :: PartialRenaming -> N.Value -> ExceptT Error Unify C.Term
+    go :: HasCallStack => PartialRenaming -> N.Value -> ExceptT Error Unify C.Term
     go pren val = do
       val <- lift $ runNorm (domain pren) $ N.force val
       case val of
@@ -232,7 +229,7 @@ lams lv ttys term = go (Level 0) ttys
           let (tty, ttys) = fromJust $ uncons ttys
           in C.FunIntro (go (Level $ unLevel lv' + 1) ttys) tty
 
-solve :: Level -> Global -> N.Spine -> N.Value -> Unify ()
+solve :: HasCallStack => Level -> Global -> N.Spine -> N.Value -> Unify ()
 solve gamma gl spine rhs = do
   metas <- getMetas
   pren <- runExceptT $ invert metas gamma spine
@@ -246,7 +243,7 @@ solve gamma gl spine rhs = do
         Left err -> putError err
     Left err -> putError err
 
-unifySpines :: Level -> N.Spine -> N.Spine -> Unify ()
+unifySpines :: HasCallStack => Level -> N.Spine -> N.Spine -> Unify ()
 unifySpines lv spine spine'= case (spine, spine') of
   (arg:spine, arg':spine') -> do
     unifySpines lv spine spine'
@@ -254,7 +251,7 @@ unifySpines lv spine spine'= case (spine, spine') of
   ([], []) -> pure ()
   _ -> putError $ MismatchSpines spine spine'
 
--- .., goal, given
+-- level, goal, given
 unify :: HasCallStack => Level -> N.Value -> N.Value -> Unify ()
 unify lv val val' = do
   val <- runNorm lv $ N.force val

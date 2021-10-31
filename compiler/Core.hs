@@ -28,7 +28,13 @@ data Item
   | IndDef Id Type
   | ConDef Id Type
   | ElabBlankItem Id Type
-  deriving Show
+
+instance Show Item where
+  show item = case item of
+    TermDef nid body -> "def " ++ show nid ++ " = " ++ show body
+    IndDef nid ty -> "ind " ++ show nid ++ " : " ++ show ty
+    ConDef nid ty -> "con " ++ show nid ++ " : " ++ show ty
+    ElabBlankItem nid _ -> "blank " ++ show nid
 
 itemId item = case item of
   TermDef nid _ -> nid
@@ -106,10 +112,12 @@ showTerm showTys term = case term of
     -- else
     --   "?" ++ show (unGlobal gl)
   InsertedMeta bis gl ty ->
-    -- if showTys then
-      "(?" ++ show (unGlobal gl) ++ " : " ++ show ty ++ ";" ++ (show $ Prelude.map show bis) ++ ")"
-    -- else
-    --   "?" ++ show (unGlobal gl) ++ (show $ Prelude.map show bis) ++ ""
+    let
+      sty = "_"
+        -- case ty of
+        --   InsertedMeta _ gl' _ | gl == gl' -> "_"
+        --   _ -> show ty
+    in "(?" ++ show (unGlobal gl) ++ " : " ++ sty ++ ";" ++ (show $ Prelude.map show bis) ++ ")"
   GVar nid _ -> "g" ++ show (unId nid)
   IndIntro nid args _ -> "#" ++ show nid ++ (show $ Prelude.map show args)
   IndType nid -> "T" ++ show nid

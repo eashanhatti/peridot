@@ -353,12 +353,13 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
           vInTy <- eval inTy
           cArg <- check a vInTy
           name <- freshName "p"
-          outTy <- scope $ do
+          (outTy, vOutTy) <- scope do
             bind name vInTy
-            readback univ >>= freshMeta
+            outTy <- readback univ >>= freshMeta
+            vOutTy <- eval outTy
+            pure (outTy, vOutTy)
           outTyClo <- closeTerm outTy
           unify lty (N.FunType vInTy outTyClo)
-          vOutTy <- eval outTy
           pure (C.FunElim cLam cArg, vOutTy)
         (a:as, N.FunType inTy outTy) -> do
           cArg <- check a inTy
@@ -371,12 +372,13 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
           vInTy <- eval inTy
           cArg <- check a vInTy
           name <- freshName "p"
-          outTy <- scope $ do
+          (outTy, vOutTy) <- scope do
             bind name vInTy
-            readback univ >>= freshMeta
+            outTy <- readback univ >>= freshMeta
+            vOutTy <- eval outTy
+            pure (outTy, vOutTy)
           outTyClo <- closeTerm outTy
           unify lty (N.FunType vInTy outTyClo)
-          vOutTy <- eval outTy
           (cLamInner, outTyInner) <- go cLam as vOutTy
           pure (C.FunElim cLamInner cArg, outTyInner)
   S.U0 -> do
@@ -569,7 +571,7 @@ freshUnivMeta = do
     , nextMeta = (nextMeta state) + 1 }
   pure meta 
 
-unify :: N.Value -> N.Value -> Elab ()
+unify :: HasCallStack => N.Value -> N.Value -> Elab ()
 unify val val' = do
   state <- get
   let ((), (newMetas, newErrors)) = U.runUnify (U.unify (level state) val val') (metas state, [])

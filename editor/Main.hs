@@ -144,7 +144,7 @@ run command state@(EditorState (Cursor focus path) _) = case command of
   InsertQuote -> mkEx Hole (PQuote path)
   InsertSplice -> mkEx Hole (PSplice path)
   InsertGVar ns -> mkEx (GVar $ GName ns) path
-  InsertCon n -> mkEx (Con n Hole) path
+  InsertCon n -> mkEx Hole (PConTy path n)
   SetName s -> mkEx s path
   Add d -> case (path, d) of
     (PLamParams up ln rn body, Left) -> goLamL up ln rn body focus
@@ -415,6 +415,7 @@ putTerm term = case term of
     putTerm body
   App lam args -> do
     putWord8 3
+    putTerm lam
     putWord16 $ fromIntegral (length args)
     loop args
     where
