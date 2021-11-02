@@ -40,6 +40,7 @@ itemId item = case item of
   TermDef nid _ -> nid
   IndDef nid _ -> nid
   ConDef nid _ -> nid
+  ElabBlankItem nid _ -> nid
 
 data Term
   = Var Index Type
@@ -118,7 +119,7 @@ showTerm showTys term = case term of
         --   InsertedMeta _ gl' _ | gl == gl' -> "_"
         --   _ -> show ty
     in "(?" ++ show (unGlobal gl) ++ " : " ++ sty ++ ";" ++ (show $ Prelude.map show bis) ++ ")"
-  GVar nid _ -> "g" ++ show (unId nid)
+  GVar nid ty -> "(g" ++ show (unId nid) ++ ":" ++ show ty ++ ")"
   IndIntro nid args _ -> "#" ++ show nid ++ (show $ Prelude.map show args)
   IndType nid -> "T" ++ show nid
   ElabError -> "<error>"

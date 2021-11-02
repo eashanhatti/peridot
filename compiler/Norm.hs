@@ -39,9 +39,9 @@ data Value
   | IndIntro Id [Value] Type
   | TypeType0
   | TypeType1
-  | GVar Id Type
   -- Blocked eliminations
   | StuckFlexVar Type Global Spine
+  | StuckGVar Id Type
   | StuckRigidVar Type Level Spine
   | StuckSplice Value
   -- Object-level terms, should only appear under quotes
@@ -64,35 +64,37 @@ instance Show Value where
     TypeType0 -> "vU0"
     TypeType1 -> "vU1"
     StuckFlexVar _ gl spine -> "v~(?" ++ show (unGlobal gl) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ ")"
-    StuckRigidVar ty lv spine -> "v~(" ++ show (unLevel lv) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ "; : " ++ show ty ++ ")"
+    StuckRigidVar ty lv spine -> "v~(" ++ show (unLevel lv) ++ " " ++ (concat $ intersperse " " (map show spine)) ++ "; : " {-++ show ty-} ++ ")"
     FunElim0 lam arg -> "v(" ++ show lam ++ " @ " ++ show arg ++ ")"
     StuckSplice quote -> "v[" ++ show quote ++ "]"
     LetrecBound v -> "lrb(" ++ show v ++ ")"
     ElabError -> "v<error>"
     ElabBlank -> "v<blank>"
-    _ -> error $ show v
+    StuckGVar nid ty -> "(vg" ++ show nid ++ " : " ++ show ty ++ ")"
+    IndType nid -> "vT" ++ show nid
+    IndIntro nid args _ -> "v#" ++ show nid ++ show args
 
-type Norm a = Reader (Level, Metas, Locals) a
+type Norm a = Reader (Level, Metas, Locals, Map.Map Id C.Item) a
 
 askLv :: Norm Level
 askLv = do
-  (lv, _, _) <- ask
+  (lv, _, _, _) <- ask
   pure lv
 
 askMetas :: Norm Metas
 askMetas = do
-  (_, metas, _) <- ask
+  (_, metas, _, _) <- ask
   pure metas
 
 askLocals :: Norm Locals
 askLocals = do
-  (_, _, locals) <- ask
+  (_, _, locals, _) <- ask
   pure locals
 
 appClosure :: HasCallStack => Closure -> Value -> Norm Value
 appClosure (Closure locals body) val = do
-  (level, metas, _) <- ask
-  pure $ runReader (eval body) (level, metas, val:locals)
+  (level, metas, _, globals) <- ask
+  pure $ runReader (eval body) (level, metas, val:locals, globals)
 
 vApp :: HasCallStack => Value -> Value -> Norm Value
 vApp lam arg = case lam of
@@ -132,38 +134,38 @@ vMeta gl vty = do
 
 bind :: HasCallStack => Value -> Norm a -> Norm a
 bind ty act = do
-  (level, metas, locals) <- ask
-  pure $ runReader act (incLevel level, metas, (StuckRigidVar ty level []):locals)
+  (level, metas, locals, globals) <- ask
+  pure $ runReader act (incLevel level, metas, (StuckRigidVar ty level []):locals, globals)
 
 define :: HasCallStack => Value -> Norm a -> Norm a
 define val act = do
-  (level, metas, locals) <- ask
-  pure $ runReader act (incLevel level, metas, val:locals)
+  (level, metas, locals, globals) <- ask
+  pure $ runReader act (incLevel level, metas, val:locals, globals)
 
 blank :: HasCallStack => Norm a -> Norm a
 blank act = do
-  (level, metas, locals) <- ask
-  pure $ runReader act (incLevel level, metas, ElabBlank:locals)
+  (level, metas, locals, globals) <- ask
+  pure $ runReader act (incLevel level, metas, ElabBlank:locals, globals)
 
 blankN :: HasCallStack => Int -> Norm a -> Norm a
 blankN n act = case n of
   0 -> act
   n -> blank $ blankN (n - 1) act
 
-index :: HasCallStack => Metas -> Locals -> Index -> C.Type -> Int -> Value
-index metas locals ix ty ix' = case locals of
+index :: HasCallStack => Metas -> Locals -> Map.Map Id C.Item -> Index -> C.Type -> Int -> Value
+index metas locals globals ix ty ix' = case locals of
   [] -> {-ElabError-} error $ "Nonexistent var `" ++ show ix ++ " : " ++ show ty ++ "`"
   x:xs ->
     if ix' == 0 then
       case x of
-        LetrecBound (Closure locals' def) -> runReader (eval def) (Level 0, metas, locals')
+        LetrecBound (Closure locals' def) -> runReader (eval def) (Level 0, metas, locals', globals)
         _ -> x
     else
-      index metas xs ix ty (ix' - 1)
+      index metas xs globals ix ty (ix' - 1)
 
 eval0 :: HasCallStack => C.Term -> Norm Value
 eval0 term = do
-  (_, _, locals) <- ask
+  (_, _, locals, _) <- ask
   case term of
     C.Var ix ty -> Var0 ix <$> eval0 ty
     C.TypeType0 -> pure TypeType0
@@ -186,9 +188,9 @@ eval0 term = do
 
 eval :: HasCallStack => C.Term -> Norm Value
 eval term = do
-  (_, metas, locals) <- ask
+  (_, metas, locals, globals) <- ask
   case term of
-    C.Var ix ty -> pure $ index metas locals ix ty (unIndex ix)
+    C.Var ix ty -> pure $ index metas locals globals ix ty (unIndex ix)
     C.TypeType0 -> pure TypeType0
     C.TypeType1 -> pure TypeType1
     C.FunIntro body ty -> FunIntro (Closure locals body) <$> eval ty
@@ -207,15 +209,19 @@ eval term = do
     C.Letrec defs body -> do
       let withDefs :: Norm a -> Locals -> Norm a
           withDefs act defs = do
-            (level, metas, locals) <- ask
-            pure $ runReader act (level, metas, defs ++ locals)
+            (level, metas, locals, globals) <- ask
+            pure $ runReader act (level, metas, defs ++ locals, globals)
       let vDefs = map (\def -> LetrecBound $ Closure (reverse vDefs ++ locals) def) defs
       -- let !() = trace ("Enter") ()
       -- let !() = traceShow vDefs ()
       eval body `withDefs` (reverse vDefs)
     C.Meta gl ty -> eval ty >>= vMeta gl
     C.InsertedMeta bis gl ty -> eval ty >>= vMeta gl >>= \meta -> vAppBis meta locals bis
-    C.GVar nid ty -> eval ty >>= pure . GVar nid
+    C.GVar nid ty -> case fromJust $ Map.lookup nid globals of
+      C.TermDef _ def -> eval def
+      C.IndDef nid _ -> pure $ IndType nid
+      C.ConDef nid ty -> eval ty >>= pure . IndIntro nid [] -- TODO: constructor arguments
+      C.ElabBlankItem nid ty -> eval ty >>= pure . StuckGVar nid
     C.ElabError -> pure ElabError
     _ -> error $ show term
 
@@ -275,5 +281,5 @@ readback val = do
     QuoteType innerTy -> C.QuoteType <$> readback innerTy
     TypeType0 -> pure C.TypeType0
     TypeType1 -> pure C.TypeType1
-    GVar nid ty -> readback ty >>= pure . C.GVar nid
+    StuckGVar nid ty -> readback ty >>= pure . C.GVar nid
     ElabError -> pure C.ElabError

@@ -150,7 +150,7 @@ ordering graph = case cycles graph of
 tr s f = trace s () `seq` f
 
 checkProgram :: HasCallStack => Program -> Elab C.Program
-checkProgram program = case pTraceShowId $ ordering $ pTraceShowId $ dependencies (Map.toList program) of
+checkProgram program = case pTraceShowId $ ordering {-$ pTraceShowId-} $ dependencies (Map.toList program) of
   Right ord -> do
     loopDeclare program ord
     program <- loopDefine program ord
@@ -307,17 +307,14 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
   S.GVar name -> do
     entry <- globalDef name
     case entry of
-      Just def -> case def of
-        C.TermDef nid tdef -> do
-          ty <- typeofC tdef >>= eval
-          pure (tdef, ty)
-        C.IndDef nid _ -> pure $ (C.IndType nid, N.TypeType1)
-        C.ConDef nid ty@(C.IndType tid) -> go ty where
-          go :: C.Term -> Elab (C.Term, N.Value)
-          go ty = pure (C.IndIntro nid [] (C.IndType tid), N.IndType tid)
-        C.ElabBlankItem nid ty -> do
-          vTy <- eval ty
-          pure (C.GVar nid ty, vTy)
+      Just def -> do
+        ty <- case def of
+          C.TermDef nid tdef -> typeofC tdef
+          C.IndDef nid ty -> pure ty
+          C.ConDef nid ty -> pure ty
+          C.ElabBlankItem nid ty -> pure ty
+        vTy <- eval ty
+        pure (C.GVar (C.itemId def) ty, vTy)
       Nothing -> do
         putError $ UnboundGlobal name
         error ""
@@ -444,10 +441,13 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
     pure (cTermMeta, vTypeMeta)
   _ -> error $ "`infer`: " ++ show term
 
+gnameMapToIdMap :: Map.Map S.GName C.Item -> Map.Map Id C.Item
+gnameMapToIdMap globals = Map.fromList $ map (\(_, g) -> (C.itemId g, g)) (Map.toList globals)
+
 runNorm :: HasCallStack => N.Norm a -> Elab a
 runNorm act = do
   state <- get
-  pure $ runReader act (level state, metas state, locals state)
+  pure $ runReader act (level state, metas state, locals state, gnameMapToIdMap (globals state))
 
 force :: N.Value -> Elab N.Value
 force val = do
@@ -581,7 +581,7 @@ freshUnivMeta = do
 unify :: HasCallStack => N.Value -> N.Value -> Elab ()
 unify val val' = do
   state <- get
-  let ((), (newMetas, newErrors)) = U.runUnify (U.unify (level state) val val') (metas state, [])
+  let ((), (newMetas, newErrors, _)) = U.runUnify (U.unify (level state) val val') (metas state, [], gnameMapToIdMap (globals state))
   case newErrors of
     [] -> put $ state { metas = newMetas }
     _ -> forM_ (map UnifyError newErrors) putError
