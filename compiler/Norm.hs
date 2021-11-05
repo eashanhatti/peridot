@@ -101,6 +101,7 @@ vApp lam arg = case lam of
   FunIntro body vty -> appClosure body arg
   StuckFlexVar vty gl spine -> pure $ StuckFlexVar vty gl (arg:spine)
   StuckRigidVar vty lv spine -> pure $ StuckRigidVar vty lv (arg:spine)
+  ElabError -> pure ElabError
   _ -> error $ "Cannot `vApp` `" ++ show lam ++ "`"
 
 vSplice :: HasCallStack => Value -> Norm Value

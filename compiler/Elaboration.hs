@@ -550,7 +550,7 @@ closeTerm term = do
   state <- get
   pure $ N.Closure (locals state) term
 
-readback :: N.Value -> Elab C.Term
+readback :: HasCallStack => N.Value -> Elab C.Term
 readback val = do
   state <- get
   runNorm $ N.readback val
