@@ -23,6 +23,7 @@ import Data.List(intersperse)
 import Prelude hiding (Left, Right)
 import Parsing(getItem)
 import System.IO
+import GHC.IO.Encoding
 
 data Con = Con String Term | EditorBlankCon
   deriving Show
@@ -482,58 +483,54 @@ render (EditorState (Cursor focus path) _) =
     FCon EditorBlankCon -> "_"
   renderTerm :: Term -> String
   renderTerm term = case term of
-    Lam names body -> "\\" ++ snames (map unName names) ++ ". " ++ renderTerm body
+    Lam names body -> "λ" ++ snames (map unName names) ++ ". " ++ renderTerm body
     App lam args ->
       let se = if simple lam then renderTerm lam else "(" ++ renderTerm lam ++ ")"
       in se ++ space args ++ sterms args
     Var (Name s) -> s
-    GVar (GName ns) -> concat $ intersperse "." $ reverse ns
+    GVar (GName ns) -> concat $ intersperse "/" $ reverse ns
     Hole -> "?"
-    Let (Name name) def defTy body -> "let " ++ name ++ " : " ++ renderTerm defTy ++ " = " ++ renderTerm def ++ "\nin " ++ renderTerm body
-    Pi (Name "_") inTy outTy -> renderTerm inTy ++ " -> " ++ renderTerm outTy
-    Pi (Name name) inTy outTy -> "(" ++ name ++ " : " ++ renderTerm inTy ++ ") -> " ++ renderTerm outTy
+    Let (Name name) def defTy body -> renderLet name (renderTerm defTy) (renderTerm def) (renderTerm body)
+    Pi (Name "_") inTy outTy -> renderTerm inTy ++ " → " ++ renderTerm outTy
+    Pi (Name name) inTy outTy -> "Π" ++ name ++ " : " ++ renderTerm inTy ++ ". " ++ renderTerm outTy
     U0 -> "U0"
     U1 -> "U1"
     Code ty -> "Code " ++ parenFocus (simple ty) (renderTerm ty)
-    Quote e -> "<" ++ renderTerm e ++ ">"
+    Quote e -> "‹" ++ renderTerm e ++ "›"
     Splice e -> "~" ++ parenFocus (simple e) (renderTerm e)
     EditorBlank -> "_"
   renderItem :: Item -> String
   renderItem item = case item of
-    TermDef (Name n) ty body -> "\ESC[32;1mdef\ESC[0m " ++ n ++ " : " ++ renderTerm ty ++ " =\n" ++ (indent $ renderTerm body)
-    NamespaceDef (Name n) items -> "\ESC[32;1mnamespace\ESC[0m " ++ n ++ newline items ++ indent (sitems items)
-    IndDef (Name n) ty cons -> "\ESC[32;1minductive\ESC[0m " ++ n ++ " : " ++ renderTerm ty ++ newline cons ++ (indent $ scons (map (\(Name n, t) -> Con n t) cons))
+    TermDef (Name n) ty body -> "\ESC[32;1mdef\ESC[0m " ++ n ++ " : " ++ renderTerm ty ++ " ≡ " ++ (indent $ renderTerm body)
+    NamespaceDef (Name n) items -> "\ESC[32;1mnamespace\ESC[0m " ++ n ++ " " ++ indent (sitems items)
+    IndDef (Name n) ty cons -> "\ESC[32;1minductive\ESC[0m " ++ n ++ " : " ++ renderTerm ty ++ " " ++ (indent $ scons (map (\(Name n, t) -> Con n t) cons))
     EditorBlankDef -> "_"
   renderPath :: String -> Bool -> Path a -> String
   renderPath focus isSimple path = case path of
     PTop -> focus
-    PLamBody up names -> renderPath ("\\" ++ snames names ++ ". " ++ focus) False up
-    PLamParams up ln rn body -> renderPath ("\\" ++ snames ln ++ focus ++ snames rn ++ ". " ++ renderTerm body) False up
-    PLamAddParam up ln rn body -> renderPath ("\\" ++ snames ln ++ focus ++ snames rn ++ ". " ++ renderTerm body) False up
+    PLamBody up names -> renderPath ("λ" ++ snames names ++ ". " ++ focus) False up
+    PLamParams up ln rn body -> renderPath ("λ" ++ snames ln ++ focus ++ snames rn ++ ". " ++ renderTerm body) False up
+    PLamAddParam up ln rn body -> renderPath ("λ" ++ snames ln ++ focus ++ snames rn ++ ". " ++ renderTerm body) False up
     PAppTerms up le re -> renderApp up le re isSimple focus
     PAppAddTerm up le re -> renderApp up le re isSimple focus
-    PLetName up def defTy body ->
-      renderPath ("let " ++ focus ++ " : " ++ renderTerm defTy ++ " = " ++ renderTerm def ++ "\nin " ++ renderTerm body) False up
-    PLetDef up name defTy body ->
-      renderPath ("let " ++ name ++ " : " ++ renderTerm defTy ++ " = " ++ focus ++ "\nin " ++ renderTerm body) False up
-    PLetDefTy up name def body ->
-      renderPath ("let " ++ name ++ " : " ++ focus ++ " = " ++ renderTerm def ++ "\nin " ++ renderTerm body) False up
-    PLetBody up name def defTy ->
-      renderPath ("let " ++ name ++ " : " ++ renderTerm defTy ++ " = " ++ renderTerm def ++ "\nin " ++ focus) False up
-    PTermDefName up ty body -> renderPath ("\ESC[32;1mdef\ESC[0m " ++ focus ++ " : " ++ renderTerm ty ++ " =\n" ++ indent (renderTerm body)) False up
-    PTermDefTy up name body -> renderPath ("\ESC[32;1mdef\ESC[0m " ++ name ++ " : " ++ focus ++ " =\n" ++ indent (renderTerm body)) False up
-    PTermDefBody up name ty -> renderPath ("\ESC[32;1mdef\ESC[0m " ++ name ++ " : " ++ renderTerm ty ++ " =\n" ++ indent focus) False up
-    PNamespaceDefName up items -> renderPath ("\ESC[32;1mnamespace\ESC[0m " ++ focus ++ "\n" ++ indent (sitems items)) False up
+    PLetName up def defTy body -> renderPath (renderLet focus (renderTerm defTy) (renderTerm def) (renderTerm body)) False up
+    PLetDef up name defTy body -> renderPath (renderLet name (renderTerm defTy) focus (renderTerm body)) False up
+    PLetDefTy up name def body -> renderPath (renderLet name focus (renderTerm def) (renderTerm body)) False up
+    PLetBody up name def defTy -> renderPath (renderLet name (renderTerm defTy) (renderTerm def) focus) False up
+    PTermDefName up ty body -> renderPath ("\ESC[32;1mdef\ESC[0m " ++ focus ++ " : " ++ renderTerm ty ++ " ≡ " ++ indent (renderTerm body)) False up
+    PTermDefTy up name body -> renderPath ("\ESC[32;1mdef\ESC[0m " ++ name ++ " : " ++ focus ++ " ≡ " ++ indent (renderTerm body)) False up
+    PTermDefBody up name ty -> renderPath ("\ESC[32;1mdef\ESC[0m " ++ name ++ " : " ++ renderTerm ty ++ " ≡ " ++ indent focus) False up
+    PNamespaceDefName up items -> renderPath ("\ESC[32;1mnamespace\ESC[0m " ++ focus ++ " " ++ indent (sitems items)) False up
     PNamespaceDefItems up name li ri -> renderNamespace up name li ri focus
     PNamespaceDefAddItem up name li ri -> renderNamespace up name li ri focus
-    PPiName up inTy outTy -> renderPath ("(" ++ focus ++ " : " ++ renderTerm inTy ++ ") -> " ++ renderTerm outTy) False up
+    PPiName up inTy outTy -> renderPath ("Π" ++ focus ++ " : " ++ renderTerm inTy ++ ". " ++ renderTerm outTy) False up
     PPiIn up name outTy -> renderPi up name focus (renderTerm outTy)
     PPiOut up name inTy -> renderPi up name (renderTerm inTy) focus
     PCode up -> renderPath ("Code " ++ parenFocus isSimple focus) False up
-    PQuote up -> renderPath ("<" ++ focus ++ ">") True up
+    PQuote up -> renderPath ("‹" ++ focus ++ "›") True up
     PSplice up -> renderPath ("~" ++ parenFocus isSimple focus) False up
-    PIndDefName up ty cons -> renderPath ("\ESC[32;1minductive\ESC[0m " ++ focus ++ " : " ++ renderTerm ty ++ "\n" ++ (indent $ scons cons)) False up
-    PIndDefTy up name cons -> renderPath ("\ESC[32;1minductive\ESC[0m " ++ name ++ " : " ++ focus ++ "\n" ++ (indent $ scons cons)) False up
+    PIndDefName up ty cons -> renderPath ("\ESC[32;1minductive\ESC[0m " ++ focus ++ " : " ++ renderTerm ty ++ " " ++ (indent $ scons cons)) False up
+    PIndDefTy up name cons -> renderPath ("\ESC[32;1minductive\ESC[0m " ++ name ++ " : " ++ focus ++ " " ++ (indent $ scons cons)) False up
     PIndDefCons up name ty lc rc -> renderCons up name ty lc rc focus
     PIndDefAddCon up name ty lc rc -> renderCons up name ty lc rc focus
     PConName up ty -> renderPath (focus ++ " : " ++ renderTerm ty) False up
@@ -543,9 +540,21 @@ render (EditorState (Cursor focus path) _) =
     where
       cons = scons lc ++ focus ++ newline rc ++ scons rc
   renderPi up name inTy outTy = (\s -> renderPath s False up) $ case name of
-      "_" -> inTy ++ " -> " ++ outTy
-      _ -> "(" ++ name ++ " : " ++ inTy ++ ") -> " ++ outTy
-  renderNamespace up name li ri focus = renderPath ("\ESC[32;1mnamespace\ESC[0m " ++ name ++ "\n" ++ indent (sitems li ++ newline li ++ focus ++ newline ri ++ sitems ri)) False up
+      "_" -> inTy ++ " → " ++ outTy
+      _ -> "Π" ++ name ++ " : " ++ inTy ++ ". " ++ outTy
+  renderNamespace up name li ri focus = renderPath ("\ESC[32;1mnamespace\ESC[0m " ++ name ++ " " ++ indent (sitems li ++ newline li ++ focus ++ newline ri ++ sitems ri)) False up
+  renderLet name ty def body = "\ESC[32;1mlet\ESC[0m " ++ name ++ case (multiline ty, multiline def, multiline body) of
+    (False, False, False) -> " : " ++ ty ++ " ≡ " ++ def ++ inStringSpace ++ body
+    (False, False, True) -> " : " ++ ty ++ " ≡ " ++ def ++ inString ++ indent body
+    (False, True, False) -> " : " ++ ty ++ "\n  ≡" ++ indent2 def ++ inStringSpace ++ body
+    (False, True, True) -> " : " ++ ty ++ "\n  ≡" ++ indent2 def ++ inString ++ indent body
+    (True, False, False) -> "\n  :" ++ indent2 ty ++ "\n  ≡ " ++ def ++ inStringSpace ++ body
+    (True, False, True) -> "\n  :" ++ indent2 ty ++ "\n  ≡ " ++ def ++ inString ++ indent body
+    (True, True, False) -> "\n  :" ++ indent2 ty ++ "\n  ≡" ++ indent2 def ++ inStringSpace ++ body
+    (True, True, True) -> "\n  :" ++ indent2 ty ++ "\n  ≡" ++ indent2 def ++ inString ++ indent body
+    where
+      inString = "\n\ESC[32;1min\ESC[0m"
+      inStringSpace = inString ++ " "
   renderApp up le re isSimple focus = renderPath (sterms le ++ space le ++ parenFocus isSimple focus ++ space re ++ sterms re) False up
   parenFocus isSimple focus = if isSimple then focus else "(" ++ focus ++ ")"
   
@@ -563,6 +572,7 @@ render (EditorState (Cursor focus path) _) =
     Quote _ -> True
     Splice e -> simple e
     _ -> False
+  multiline s = length (lines s) /= 1
   space xs = case xs of
     [] -> ""
     _ -> " "
@@ -579,20 +589,26 @@ render (EditorState (Cursor focus path) _) =
     n:ns -> n ++ " " ++ snames ns
   sitems is = case is of
     [] -> ""
+    [i] -> renderItem i
     i:is -> renderItem i ++ "\n" ++ sitems is
   scons cs = case cs of
     [] -> ""
     (Con n ty):cs -> n ++ " : " ++ renderTerm ty ++ "\n" ++ scons cs
-  indent s = concat $ intersperse "\n" $ map ("  "++) (lines s)
-
-split :: String -> String -> Char -> [String]
-split s acc d = case s of
-  [] -> [acc]
-  c:cs ->
-    if c == d then
-      acc : split cs "" d
+  indent s =
+    if not (multiline s) then
+      s
     else
-      split cs (acc ++ [c]) d
+      "\n" ++ indentBase s
+  indent2 s =
+    if not (multiline s) then
+      s
+    else
+      "\n" ++ (indentBase . indentBase) s
+  indentBase s =
+    if not (multiline s) then
+      s
+    else
+      (concat $ intersperse "\n" $ map ("  "++) (lines s))
 
 loop :: EditorState a -> IO ()
 loop state = do
@@ -634,7 +650,9 @@ loop state = do
       ("code", FTTerm) -> pure $ run InsertCode state
       ("quote", FTTerm) -> pure $ run InsertQuote state
       ("splice", FTTerm) -> pure $ run InsertSplice state
-      ('.':s, FTTerm) -> pure $ run (InsertGVar (reverse $ split s "" '.')) state
+      ("glo", FTTerm) -> do
+        n <- getLine
+        pure $ run (InsertGVar (reverse $ words n)) state
       ("ns", FTItem) -> pure $ run InsertNamespaceDef state
       ("def", FTItem) -> pure $ run InsertTermDef state
       ("ind", FTItem) -> pure $ run InsertIndDef state
@@ -649,5 +667,6 @@ loop state = do
 
 main :: IO ()
 main = do
+  setLocaleEncoding utf8
   putStr "\ESC[0m"
   loop (EditorState (Cursor (FItem $ NamespaceDef (Name "main") []) PTop) FTItem)
