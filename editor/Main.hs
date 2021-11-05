@@ -4,6 +4,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Main where
 
@@ -452,7 +453,9 @@ export :: EditorState a -> String -> IO ()
 export state@(EditorState cursor _) fn = do
   let program = loop (Ex state) 
   let bs = runPut $ putItem program
-  B.writeFile fn bs
+  handle <- openFile fn WriteMode
+  B.hPut handle bs
+  hClose handle
   where
     loop :: Ex -> Item
     loop (Ex state) =
@@ -607,8 +610,11 @@ loop state = do
         pure $ Ex state
       ("im", _) -> do
         fn <- getLine
-        bs <- B.readFile fn
+        handle <- openFile fn ReadMode
+        bs' <- B.hGetContents handle
+        let !bs = bs'
         let program = runGet getItem bs
+        hClose handle
         pure $ mkEx program PTop
       ("r", _) -> pure $ run MoveRight state
       ("l", _) -> pure $ run MoveLeft state
