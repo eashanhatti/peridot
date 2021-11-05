@@ -7,6 +7,7 @@ import {-# SOURCE #-} qualified Norm as N
 import Control.Monad.Reader(Reader, ask)
 import Data.Map(Map)
 import Data.Set(Set)
+import Data.List(intersperse)
 import Numeric.Natural
 
 data BinderInfo = Abstract | Concrete
@@ -53,9 +54,8 @@ data Term
   | QuoteType Term
   | QuoteIntro Term Type
   | QuoteElim Term
-  | IndType Id
+  | IndType Id [Term]
   | IndIntro Id [Term] Type
-  -- | Let Term Term Term
   | Letrec [Term] Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
@@ -105,7 +105,6 @@ showTerm showTys term = case term of
   QuoteType innerTy -> "Quote " ++ show innerTy
   QuoteIntro inner _ -> "<" ++ show inner ++ ">"
   QuoteElim quote -> "[" ++ show quote ++ "]"
-  -- Let def defTy body -> "let " ++ show def ++ " : " ++ show defTy ++ " in\n" ++ show body
   Letrec defs body -> "letrec " ++ show defs ++ " in " ++ show body
   Meta gl ty ->
     -- if showTys then
@@ -114,12 +113,12 @@ showTerm showTys term = case term of
     --   "?" ++ show (unGlobal gl)
   InsertedMeta bis gl ty ->
     let
-      sty = "_"
+      sty = show ty
         -- case ty of
         --   InsertedMeta _ gl' _ | gl == gl' -> "_"
         --   _ -> show ty
     in "(?" ++ show (unGlobal gl) ++ " : " ++ sty ++ ";" ++ (show $ Prelude.map show bis) ++ ")"
   GVar nid ty -> "(g" ++ show (unId nid) ++ ":" ++ show ty ++ ")"
-  IndIntro nid args _ -> "#" ++ show nid ++ (show $ Prelude.map show args)
-  IndType nid -> "T" ++ show nid
+  IndIntro nid args ty -> "#" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show args) ++ "]" ++ ":" ++ show ty
+  IndType nid indices -> "T" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
   ElabError -> "<error>"

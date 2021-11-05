@@ -154,7 +154,7 @@ rename metas gl pren rhs = go pren rhs
           liftEither $ Right $ C.QuoteIntro innerTerm innerTy
         N.QuoteType ty -> C.QuoteType <$> go pren ty
         N.IndIntro nid cds ty -> C.IndIntro nid <$> mapM (go pren) cds <*> go pren ty
-        N.IndType nid -> pure $ C.IndType nid
+        N.IndType nid indices -> mapM (go pren) indices >>= pure . C.IndType nid
         N.TypeType0 -> liftEither $ Right C.TypeType0
         N.TypeType1 -> liftEither $ Right C.TypeType1
         N.FunElim0 lam arg -> C.FunElim <$> go pren lam <*> go pren arg
@@ -187,7 +187,7 @@ getTty metas lv val = case val of
   N.FunElim0 _ _ -> C.TypeType0
   N.Var0 _ _ -> C.TypeType0
   N.IndIntro _ _ ty -> runReader (N.readback ty) (lv, metas, [], mempty)
-  N.IndType _ -> C.TypeType1
+  N.IndType _ _ -> C.TypeType1
   -- N.Let0 _ _ _ -> C.TypeType0
   N.Letrec0 _ _ -> C.TypeType0
   N.ElabError -> C.ElabError
@@ -212,7 +212,7 @@ getVty metas lv val = case val of
   N.QuoteIntro _ _ -> N.TypeType1
   N.TypeType0 -> N.TypeType0
   N.TypeType1 -> N.TypeType1
-  N.IndType _ -> N.TypeType1
+  N.IndType _ _ -> N.TypeType1
   N.IndIntro _ _ ty -> ty
   N.FunElim0 _ _ -> N.TypeType0
   N.Var0 _ _ -> N.TypeType0
@@ -288,7 +288,8 @@ unify lv val val' = do
       vInner' <- runNorm lv $ N.eval inner'
       unify lv vInner vInner'
       unify lv ty ty'
-    (N.IndType nid, N.IndType nid') | nid == nid' -> pure ()
+    (N.IndType nid indices, N.IndType nid' indices') | nid == nid' ->
+      mapM_ (uncurry $ unify lv) (zip indices indices')
     (N.IndIntro nid cds ty, N.IndIntro nid' cds' ty') | nid == nid' && length cds == length cds' -> do
       mapM (uncurry $ unify lv) (zip cds cds')
       unify lv ty ty'

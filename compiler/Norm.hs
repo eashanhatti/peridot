@@ -35,7 +35,7 @@ data Value
   | FunType Type Closure
   | QuoteIntro C.Term Type
   | QuoteType Value
-  | IndType Id
+  | IndType Id [Value]
   | IndIntro Id [Value] Type
   | TypeType0
   | TypeType1
@@ -71,7 +71,7 @@ instance Show Value where
     ElabError -> "v<error>"
     ElabBlank -> "v<blank>"
     StuckGVar nid ty -> "(vg" ++ show nid ++ " : " ++ show ty ++ ")"
-    IndType nid -> "vT" ++ show nid
+    IndType nid indices -> "vT" ++ show nid ++ "[" ++ (concat $ intersperse " " (map show indices)) ++ "]"
     IndIntro nid args _ -> "v#" ++ show nid ++ show args
 
 type Norm a = Reader (Level, Metas, Locals, Map.Map Id C.Item) a
@@ -205,7 +205,7 @@ eval term = do
     C.QuoteType innerTy -> QuoteType <$> eval innerTy
     C.QuoteElim quote -> eval quote >>= vSplice
     C.IndIntro cid cds ty -> IndIntro cid <$> mapM eval cds <*> eval ty
-    C.IndType nid -> pure $ IndType nid
+    C.IndType nid indices -> mapM eval indices >>= pure . IndType nid
     C.Letrec defs body -> do
       let withDefs :: Norm a -> Locals -> Norm a
           withDefs act defs = do
@@ -219,8 +219,22 @@ eval term = do
     C.InsertedMeta bis gl ty -> eval ty >>= vMeta gl >>= \meta -> vAppBis meta locals bis
     C.GVar nid ty -> case fromJust $ Map.lookup nid globals of
       C.TermDef _ def -> eval def
-      C.IndDef nid _ -> pure $ IndType nid
-      C.ConDef nid ty -> eval ty >>= pure . IndIntro nid [] -- TODO: constructor arguments
+      C.IndDef nid ty -> do
+        nTy <- eval ty >>= readback
+        eval $ go nTy []
+        where
+          go :: C.Term -> [C.Term] -> C.Term
+          go ty acc = case ty of
+            C.FunType inTy outTy -> C.FunIntro (go outTy (C.Var (Index $ length acc) inTy : acc)) ty
+            C.TypeType1 -> C.IndType nid acc
+      C.ConDef nid ty -> do
+        nTy <- eval ty >>= readback
+        eval $ go nTy []
+        where
+          go :: C.Term -> [C.Term] -> C.Term
+          go ty acc = case ty of
+            C.FunType inTy outTy -> C.FunIntro (go outTy (C.Var (Index $ length acc) inTy : acc)) ty
+            C.IndType tid indices -> C.IndIntro nid acc (C.IndType tid indices)
       C.ElabBlankItem nid ty -> eval ty >>= pure . StuckGVar nid
     C.ElabError -> pure ElabError
     _ -> error $ show term
@@ -276,7 +290,7 @@ readback val = do
       vOutTy <- appClosure outTy (StuckRigidVar inTy lv [])
       C.FunType <$> readback inTy <*> blank (readback vOutTy)
     IndIntro nid cds ty -> C.IndIntro nid <$> mapM readback cds <*> readback ty
-    IndType nid -> pure $ C.IndType nid
+    IndType nid indices -> mapM readback indices >>= pure . C.IndType nid
     QuoteIntro inner ty -> C.QuoteIntro <$> (eval0 inner >>= readback) <*> readback ty
     QuoteType innerTy -> C.QuoteType <$> readback innerTy
     TypeType0 -> pure C.TypeType0
