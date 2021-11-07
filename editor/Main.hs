@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE ForeignFunctionInterface #-}
 
 module Main where
 
@@ -24,6 +25,8 @@ import Prelude hiding (Left, Right)
 import Parsing(getItem)
 import System.IO
 import GHC.IO.Encoding
+import Data.Char
+import Foreign.C.Types
 
 data Con = Con String Term | EditorBlankCon
   deriving (Show, Eq)
@@ -83,6 +86,7 @@ data FocusType a where
   FTItem :: FocusType Item
   FTCon  :: FocusType Con
 deriving instance Eq (FocusType a)
+deriving instance Show (FocusType a)
 
 data Cursor a = Cursor { unFocus :: Focus a, unPath :: Path a }
 deriving instance Show (Cursor a)
@@ -93,6 +97,7 @@ deriving instance Eq (EditorState String)
 deriving instance Eq (EditorState Term)
 deriving instance Eq (EditorState Item)
 deriving instance Eq (EditorState Con)
+deriving instance Show (EditorState a)
 
 statesEq :: EditorState a -> EditorState b -> Bool
 statesEq st st' = case (unFocusType st, unFocusType st') of
@@ -130,7 +135,7 @@ data Command a where
   Add                :: Direction -> Command a
 
 data Direction = Left | Right
-  deriving Eq
+  deriving (Eq, Show)
 
 class MkFT a where focusType :: FocusType a
 instance MkFT Term where   focusType = FTTerm
@@ -266,7 +271,7 @@ run command state@(EditorState (Cursor focus path) _ side) = case command of
     PTermDefTy up name body -> mkEx name (PTermDefName up (unFTerm focus) body) Left
     PTermDefBody up name ty -> mkEx ty (PTermDefTy up name (unFTerm focus)) Right
     PNamespaceDefName up _ -> sideLeft
-    PNamespaceDefItems up name [] ri -> mkEx name (PNamespaceDefName up ri) Left
+    PNamespaceDefItems up name [] ri -> mkEx name (PNamespaceDefName up (unFItem focus : ri)) Left
     PNamespaceDefItems up name li ri -> mkEx (last li) (PNamespaceDefItems up name (init li) (unFItem focus : ri)) Right
     PNamespaceDefAddItem up name li ri -> case (length li, unFItem focus) of
       (0, EditorBlankDef) -> mkEx name (PNamespaceDefName up ri) Left
@@ -363,8 +368,10 @@ run command state@(EditorState (Cursor focus path) _ side) = case command of
       TermDef (Name n) ty body -> mkEx n (PTermDefName path ty body) Left
       NamespaceDef (Name n) items -> mkEx n (PNamespaceDefName path items) Left
       IndDef (Name n) ty cons -> mkEx n (PIndDefName path ty (map (\(Name n, t) -> Con n t) cons)) Left
-    FName _ -> Ex state
-    FCon (Con name ty) -> mkEx name (PConName path ty) Left
+    FCon focus -> case focus of
+      Con n t -> mkEx n (PConName path t) Left
+      EditorBlankCon -> sideLeft
+    FName _ -> sideLeft
   MoveInRight -> case focus of
     FTerm focus -> case focus of
       Lam ns body -> mkEx body (PLamBody path (map unName ns)) Right
@@ -382,8 +389,14 @@ run command state@(EditorState (Cursor focus path) _ side) = case command of
       EditorBlank -> Ex state
     FItem focus -> case focus of
       TermDef (Name n) ty body -> mkEx body (PTermDefBody path n ty) Right
+      NamespaceDef (Name n) [] -> mkEx EditorBlankDef (PNamespaceDefItems path n [] []) Right
       NamespaceDef (Name n) items -> mkEx (last items) (PNamespaceDefItems path n (init items) []) Right
+      IndDef (Name n) ty [] -> mkEx EditorBlankCon (PIndDefAddCon path n ty [] []) Right
       IndDef (Name n) ty cons -> mkEx ((\(Name n, t) -> Con n t) $ last cons) (PIndDefCons path n ty (map (\(Name n, t) -> Con n t) $ init cons) []) Right
+    FCon focus -> case focus of
+      Con n t -> mkEx t (PConTy path n) Right
+      EditorBlankCon -> sideRight
+    FName _ -> sideRight
   where
     sideRight = case side of
       Left -> Ex $ state { unSide = Right }
@@ -441,7 +454,9 @@ atomic focus = case focus of
   FItem item -> case item of
     EditorBlankDef -> True
     _ -> False
-  FCon _ -> False
+  FCon con -> case con of
+    EditorBlankCon -> True
+    _ -> False
   FName _ -> True
 
 putWord16 :: Word16 -> Put
@@ -669,6 +684,7 @@ render (EditorState (Cursor focus path) _ side) =
     GVar _ -> True
     Quote _ -> True
     Splice e -> simple e
+    EditorBlank -> True
     _ -> False
   multiline s = length (lines s) /= 1
   space xs = case xs of
@@ -706,15 +722,33 @@ render (EditorState (Cursor focus path) _ side) =
     if not (multiline s) then
       s
     else
-      indentForced s
-  indentForced s = "\n" ++ (concat $ intersperse "\n" $ map ("  "++) (lines s))
+      (concat $ intersperse "\n" $ map ("  "++) (lines s))
+  indentForced s = (if s == "" then "" else "\n") ++ (concat $ intersperse "\n" $ map ("  "++) (lines s))
+
+-- Lol just Ctrl+C + Ctrl+V from StackOverflow. `hSetBuffering stdin NoBuffering` doesn't work on Windows.
+getHiddenChar = fmap (chr.fromEnum) c_getch
+foreign import ccall unsafe "conio.h getch"
+  c_getch :: IO CInt
+
+getCommand :: String -> IO String
+getCommand acc = do
+  putStr "\ESC[2K"
+  putStr "\ESC[1000D"
+  putStr acc
+  hFlush stdout
+  c <- getHiddenChar
+  case c of
+    ' ' -> pure acc
+    '\n' -> getCommand acc
+    '\b' -> getCommand (init acc)
+    _ -> getCommand (acc ++ [c])
 
 loop :: EditorState a -> IO ()
 loop state = do
   clearScreen
-  -- putStrLn (show $ unCursor state)
+  putStrLn (show state)
   putStrLn (render state)
-  s <- getLine
+  s <- getCommand ""
   if s == "q" then
     pure ()
   else do
@@ -762,8 +796,8 @@ loop state = do
         -- else
         --   run MoveInRight state
       ("movein", _) -> pure $ run MoveInLeft state -- Debug: For when it gets stuck
-      (" l", _) -> pure $ run (Add Left) state
-      (" r", _) -> pure $ run (Add Right) state
+      ("al", _) -> pure $ run (Add Left) state
+      ("ar", _) -> pure $ run (Add Right) state
       ("d", FTTerm) -> pure $ run InsertHole state
       ("lam", FTTerm) -> do
         n <- getLine
