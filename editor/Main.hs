@@ -113,20 +113,14 @@ statesEq st st' = case (unFocusType st, unFocusType st') of
 data Ex = forall a. Ex { unEx :: EditorState a }
 
 data Command a where
-  InsertLam          :: Command Term
-  InsertApp          :: Command Term
+  InsertTerm         :: TermInsertionType -> Command Term
   InsertVar          :: String -> Command Term
   InsertHole         :: Command Term
-  InsertLet          :: Command Term
+  InsertU0           :: Command Term
+  InsertU1           :: Command Term
   InsertTermDef      :: Command Item
   InsertNamespaceDef :: Command Item
   InsertIndDef       :: Command Item
-  InsertPi           :: Command Term
-  InsertU1           :: Command Term
-  InsertU0           :: Command Term
-  InsertCode         :: Command Term
-  InsertQuote        :: Command Term
-  InsertSplice       :: Command Term
   InsertGVar         :: [String] -> Command Term
   InsertCon          :: Command Con
   SetName            :: String -> Command String
@@ -165,20 +159,30 @@ blankFocus focus = case focus of
 
 run :: Command a -> EditorState a -> Ex
 run command state@(EditorState (Cursor focus path) _ side) = case command of
-  InsertLam -> mkEx (Lam [Name "_"] Hole) path Left
-  InsertApp -> mkEx (App Hole [Hole]) path Left
+  InsertTerm ti -> case ti of
+    TILam -> mkEx (Lam [Name "_"] termFocus) path Left
+    TIApp -> mkEx (App termFocus [Hole]) path Left
+    TILet -> mkEx (Let (Name "_") Hole Hole termFocus) path Left
+    TIPi -> mkEx (Pi (Name "_") termFocus Hole) path Left
+    TICode -> mkEx (Code termFocus) path Left
+    TIQuote -> mkEx (Quote termFocus) path Left
+    TISplice -> mkEx (Splice termFocus) path Left
+    where
+      termFocus = unFTerm focus
+  -- InsertLam -> mkEx (Lam [Name "_"] Hole) path Left
+  -- InsertApp -> mkEx (App Hole [Hole]) path Left
   InsertVar s -> mkEx (Var (Name s)) path Left
   InsertHole -> mkEx Hole path Left
-  InsertLet -> mkEx (Let (Name "_") Hole Hole Hole) path Left
+  -- InsertLet -> mkEx (Let (Name "_") Hole Hole Hole) path Left
   InsertTermDef -> mkEx (TermDef (Name "_") Hole Hole) path Left
   InsertNamespaceDef -> mkEx (NamespaceDef (Name "_") []) path Left
   InsertIndDef -> mkEx (IndDef (Name "_") Hole []) path Left
-  InsertPi -> mkEx (Pi (Name "_") Hole Hole) path Left
+  -- InsertPi -> mkEx (Pi (Name "_") Hole Hole) path Left
   InsertU0 -> mkEx U0 path Left
   InsertU1 -> mkEx U1 path Left
-  InsertCode -> mkEx (Code Hole) path Left
-  InsertQuote -> mkEx (Quote Hole) path Left
-  InsertSplice -> mkEx (Splice Hole) path Left
+  -- InsertCode -> mkEx (Code Hole) path Left
+  -- InsertQuote -> mkEx (Quote Hole) path Left
+  -- InsertSplice -> mkEx (Splice Hole) path Left
   InsertGVar ns -> mkEx (GVar $ GName ns) path Left
   InsertCon -> mkEx (Con "_" Hole) path Left
   SetName s -> mkEx s path Left
@@ -735,25 +739,36 @@ getHiddenChar = fmap (chr.fromEnum) c_getch
 foreign import ccall unsafe "conio.h getch"
   c_getch :: IO CInt
 
+data TermInsertionType
+  = TILam
+  | TILet
+  | TIApp
+  | TIPi
+  | TICode
+  | TIQuote
+  | TISplice
+  deriving Eq
+
 data Input
   = IQuit
   | IExportFile
   | ILoadFile
+  | IThenMoveHardRight (Maybe Input)
   | IThenMoveRight (Maybe Input)
   | IThenMoveLeft (Maybe Input)
   | IInsertTermDef
   | IInsertIndDef
   | IInsertNamespaceDef
-  | IInsertLam
-  | IInsertLet
-  | IInsertApp
-  | IInsertPi
-  | IInsertCode
-  | IInsertQuote
-  | IInsertSplice
+  | IInsertTerm TermInsertionType
+  -- | IInsertLam
+  -- | IInsertLet
+  -- | IInsertApp
+  -- | IInsertPi
+  -- | IInsertCode
+  -- | IInsertQuote
+  -- | IInsertSplice
   | IInsertU0
   | IInsertU1
-  | IInsert
   | IAdd
   | IInsertCon
   | ISetName String
@@ -788,18 +803,18 @@ parseCommand s = case s of
   "[" -> Just $ IThenMoveLeft Nothing
   "mi;" -> Just $ ILoadFile
   "xe;" -> Just $ IExportFile
-  "." -> Just $ IThenMoveRight $ Just IInsertApp
-  ">-" -> Just $ IThenMoveRight $ Just $ IThenMoveRight $ Just IInsertPi
-  " llarof" -> Just $ IThenMoveRight $ Just IInsertPi
-  " fed" -> Just $ IThenMoveRight $ Just IInsertTermDef
-  " tel" -> Just $ IThenMoveRight $ Just IInsertLet
+  "." -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TIApp
+  " >-" -> Just $ IThenMoveHardRight $ Just $ IThenMoveRight $ Just $ IThenMoveRight $ Just $ IInsertTerm $ TIPi
+  " llarof" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TIPi
+  " fed" -> Just $ IThenMoveRight $ Just $ IInsertTermDef
+  " tel" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TILet
   " 0u" -> Just $ IThenMoveRight $ Just IInsertU0
   " 1u" -> Just $ IThenMoveRight $ Just IInsertU1
-  "\\" -> Just $ IThenMoveRight $ Just IInsertLam
+  "\\" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TILam
   " " -> Just $ IThenMoveRight $ Just IAdd
-  " edoc" -> Just $ IThenMoveRight $ Just IInsertCode
-  "<" -> Just $ IThenMoveRight $ Just IInsertQuote
-  "~" -> Just $ IThenMoveRight $ Just IInsertSplice
+  " edoc" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TICode
+  "<" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TIQuote
+  "~" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TISplice
   " dni" -> Just $ IThenMoveRight $ Just IInsertIndDef
   " sn" -> Just $ IThenMoveRight $ Just IInsertNamespaceDef
   "#" -> Just $ IThenMoveRight $ Just IInsertCon
@@ -840,10 +855,15 @@ handleInput state input = case (input, unFocusType state) of
     let program = runGet getItem bs
     hClose handle
     pure $ mkEx program PTop Left
+  (IThenMoveHardRight input', _) -> do
+    (Ex state') <- case input' of
+      Just input' -> handleInput state input'
+      Nothing -> pure $ Ex state
+    pure $ run MoveRight state'
   (IThenMoveRight input', _) -> do
     (Ex state') <- case input' of
-        Just input' -> handleInput state input'
-        Nothing -> pure $ Ex state
+      Just input' -> handleInput state input'
+      Nothing -> pure $ Ex state
     pure $ moveRight state'
   (IThenMoveLeft input', _) -> do
     (Ex state') <- case input' of
@@ -853,15 +873,9 @@ handleInput state input = case (input, unFocusType state) of
   -- ("al", _) -> pure $ run (Add Left) state
   (IAdd, _) -> pure $ run Add state
   -- ("d", FTTerm) -> pure $ run InsertHole state
-  (IInsertLam, FTTerm) -> pure $ run InsertLam state
-  (IInsertLet, FTTerm) -> pure $ run InsertLet state
-  (IInsertApp, FTTerm) -> pure $ run InsertApp state
-  (IInsertPi, FTTerm) -> pure $ run InsertPi state
+  (IInsertTerm ti, FTTerm) -> pure $ run (InsertTerm ti) state
   (IInsertU0, FTTerm) -> pure $ run InsertU0 state
   (IInsertU1, FTTerm) -> pure $ run InsertU1 state
-  (IInsertCode, FTTerm) -> pure $ run InsertCode state
-  (IInsertQuote, FTTerm) -> pure $ run InsertQuote state
-  (IInsertSplice, FTTerm) -> pure $ run InsertSplice state
   (IInsertNamespaceDef, FTItem) -> pure $ run InsertNamespaceDef state
   (IInsertTermDef, FTItem) -> pure $ run InsertTermDef state
   (IInsertIndDef, FTItem) -> pure $ run InsertIndDef state
@@ -875,7 +889,7 @@ handleInput state input = case (input, unFocusType state) of
 loop :: EditorState a -> IO ()
 loop state = do
   clearScreen
-  -- putStrLn (show state)
+  putStrLn (show state)
   TIO.putStrLn (render state)
   input <- getCommand ""
   if input == IQuit then
