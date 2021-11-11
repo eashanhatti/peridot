@@ -18,6 +18,7 @@ data Item
   = NamespaceDef Name [Item]
   | TermDef Name Term Term -- name, dec, def
   | IndDef Name Term [(Name, Term)] -- name, dec, constructors
+  | ProdDef Name Term [Term]
   | EditorBlankDef
   deriving (Show, Eq)
 
