@@ -36,6 +36,7 @@ data Con = Con String Term | EditorBlankCon
   deriving (Show, Eq)
 
 unCon (Con n t) = (n, t)
+conPair (n, t) = Con n t
 
 data Path a where
   PTop                 :: Path Item
@@ -289,11 +290,11 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     PCode up -> mkEx (Code $ unFTerm focus) up d
     PQuote up -> mkEx (Quote $ unFTerm focus) up d
     PSplice up -> mkEx (Splice $ unFTerm focus) up d
-    PIndDefName up ty cons -> mkEx (IndDef (Name $ unFName focus) ty (map (\(Con n t) -> (Name n, t)) cons)) up d
+    PIndDefName up ty cons -> mkEx (IndDef (Name $ unFName focus) ty (map (first Name . unCon) cons)) up d
     PIndDefCons up name ty lc [] ->
       let (Con n t) = unFCon focus
-      in mkEx (IndDef (Name name) ty (map (\(Con n t) -> (Name n, t)) lc ++ [(Name n, t)])) up d
-    PIndDefTy up name cons -> mkEx (IndDef (Name name) (unFTerm focus) (map (\(Con n t) -> (Name n, t)) cons)) up d
+      in mkEx (IndDef (Name name) ty (map (first Name . unCon) lc ++ [(Name n, t)])) up d
+    PIndDefTy up name cons -> mkEx (IndDef (Name name) (unFTerm focus) (map (first Name . unCon) cons)) up d
     PIndDefCons up name ty lc rc -> mkEx (IndDef (Name name) ty (map (first Name . unCon) $ lc ++ insertFocusL focus rc)) up d
     PConName up ty -> mkEx (Con (unFName focus) ty) up d
     PConTy up name -> mkEx (Con name (unFTerm focus)) up d
@@ -315,7 +316,7 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     FItem focus -> case focus of
       TermDef (Name n) ty body -> mkEx n (PTermDefName path ty body) Left
       NamespaceDef (Name n) items -> mkEx n (PNamespaceDefName path items) Left
-      IndDef (Name n) ty cons -> mkEx n (PIndDefName path ty (map (\(Name n, t) -> Con n t) cons)) Left
+      IndDef (Name n) ty cons -> mkEx n (PIndDefName path ty (map (conPair . first unName) cons)) Left
     FCon focus -> case focus of
       Con n t -> mkEx n (PConName path t) Left
       EditorBlankCon -> sideLeft
@@ -340,7 +341,7 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
       NamespaceDef (Name n) [] -> mkEx EditorBlankDef (PNamespaceDefItems path n [] []) Right
       NamespaceDef (Name n) items -> mkEx (last items) (PNamespaceDefItems path n (init items) []) Right
       IndDef (Name n) ty [] -> mkEx EditorBlankCon (PIndDefCons path n ty [] []) Right
-      IndDef (Name n) ty cons -> mkEx ((\(Name n, t) -> Con n t) $ last cons) (PIndDefCons path n ty (map (\(Name n, t) -> Con n t) $ init cons) []) Right
+      IndDef (Name n) ty cons -> mkEx ((\(Name n, t) -> Con n t) $ last cons) (PIndDefCons path n ty (map (conPair . first unName) $ init cons) []) Right
     FCon focus -> case focus of
       Con n t -> mkEx t (PConTy path n) Right
       EditorBlankCon -> sideRight
