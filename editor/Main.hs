@@ -174,20 +174,13 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     TISplice -> mkEx (Splice termFocus) path Left
     where
       termFocus = unFTerm focus
-  -- InsertLam -> mkEx (Lam [Name "_"] Hole) path Left
-  -- InsertApp -> mkEx (App Hole [Hole]) path Left
   InsertVar s -> mkEx (Var (Name s)) path Left
   InsertHole -> mkEx Hole path Left
-  -- InsertLet -> mkEx (Let (Name "_") Hole Hole Hole) path Left
   InsertTermDef -> mkEx (TermDef (Name "_") Hole Hole) path Left
   InsertNamespaceDef -> mkEx (NamespaceDef (Name "_") []) path Left
   InsertIndDef -> mkEx (IndDef (Name "_") Hole []) path Left
-  -- InsertPi -> mkEx (Pi (Name "_") Hole Hole) path Left
   InsertU0 -> mkEx U0 path Left
   InsertU1 -> mkEx U1 path Left
-  -- InsertCode -> mkEx (Code Hole) path Left
-  -- InsertQuote -> mkEx (Quote Hole) path Left
-  -- InsertSplice -> mkEx (Splice Hole) path Left
   InsertGVar ns -> mkEx (GVar $ GName ns) path Left
   InsertCon s -> mkEx Hole (PConTy path s) Left
   -- InsertProd -> mkEx (ProdDef "_" Hole []) Left
@@ -241,10 +234,10 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     PConTy _ _ -> sideRight
   MoveLeft -> case path of
     PTop -> sideLeft
-    PLamParams up [] rn body -> mkEx "" (PLamParams up [] (insertFocusL focus rn) body) Left
+    PLamParams up [] rn body -> orSideLeft $ mkEx "" (PLamParams up [] (insertFocusL focus rn) body) Left
     PLamParams up ln rn body -> mkEx (last ln) (PLamParams up (init ln) (insertFocusL focus rn) body) Left
     PLamBody up ns -> mkEx (last ns) (PLamParams up (init ns) [] (unFTerm focus)) Left
-    PAppTerms up [] re -> mkEx EditorBlank (PAppTerms up [] (insertFocusL focus re)) Right
+    PAppTerms up [] re -> orSideLeft $ mkEx EditorBlank (PAppTerms up [] (insertFocusL focus re)) Right
     PAppTerms up le re -> mkEx (last le) (PAppTerms up (init le) (insertFocusL focus re)) Right
     PLetName _ _ _ _ -> sideLeft
     PLetDefTy up name def body -> mkEx name (PLetName up def (unFTerm focus) body) Left
@@ -254,7 +247,7 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     PTermDefTy up name body -> mkEx name (PTermDefName up (unFTerm focus) body) Left
     PTermDefBody up name ty -> mkEx ty (PTermDefTy up name (unFTerm focus)) Right
     PNamespaceDefName up _ -> sideLeft
-    PNamespaceDefItems up name [] ri -> mkEx EditorBlankDef (PNamespaceDefItems up name [] (insertFocusL focus ri)) Right
+    PNamespaceDefItems up name [] ri -> orSideLeft $ mkEx EditorBlankDef (PNamespaceDefItems up name [] (insertFocusL focus ri)) Right
     PNamespaceDefItems up name li ri -> mkEx (last li) (PNamespaceDefItems up name (init li) (insertFocusL focus ri)) Right
     PPiName _ _ _ -> sideLeft
     PPiIn up name outTy -> mkEx name (PPiName up (unFTerm focus) outTy) Left
@@ -264,10 +257,16 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     PSplice _ -> sideLeft
     PIndDefName _ _ _ -> sideLeft
     PIndDefTy up name cons -> mkEx name (PIndDefName up (unFTerm focus) cons) Left
-    PIndDefCons up name ty [] rc -> mkEx EditorBlankCon (PIndDefCons up name ty [] (insertFocusL focus rc)) Right
+    PIndDefCons up name ty [] rc -> orSideLeft $ mkEx EditorBlankCon (PIndDefCons up name ty [] (insertFocusL focus rc)) Right
     PIndDefCons up name ty lc rc -> mkEx (last lc) (PIndDefCons up name ty (init lc) (insertFocusL focus rc)) Right
     PConName _ _ -> sideLeft
     PConTy up name -> mkEx name (PConName up (unFTerm focus)) Left
+    where
+      orSideLeft ex =
+        if blankFocus focus then
+          sideLeft
+        else
+          ex
   MoveOut d -> case path of
     PTop -> Ex state
     PLamParams up ln rn body -> mkEx (Lam (map Name ln ++ (map Name $ insertFocusL focus rn)) body) up d
@@ -354,10 +353,10 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     PLamParams up [] [] body -> Ex state
     PLamParams up [] (n:rn) body -> mkEx n (PLamParams up [] rn body) Left
     PLamParams up ln rn body -> mkEx (last ln) (PLamParams up (init ln) rn body) Right
-    PAppTerms up [] [] -> mkEx Hole path Left
-    PAppTerms up [] [e] -> mkEx e path Left
-    PAppTerms up [] (e:re) -> mkEx e (PAppTerms up [] re) Left
-    PAppTerms up le re -> mkEx (last le) (PAppTerms up (init le) re) Right
+    PAppTerms up le re -> case le ++ re of
+      [] -> mkEx Hole path Right
+      [e] -> mkEx e path Right
+      _ -> mkEx (last le) (PAppTerms up (init le) re) Right
     _ -> case focusType of
       FTTerm -> mkEx Hole path Left
       _ -> Ex state
@@ -396,6 +395,7 @@ edge d p = case d of
     PTop -> True
     PTermDefName _ _ _ -> True
     PNamespaceDefName _ _ -> True
+    PAppTerms _ [] _ -> True
     PIndDefName _ _ _ -> True
     PConName _ _ -> True
     PLetName _ _ _ _ -> True
