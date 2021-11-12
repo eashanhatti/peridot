@@ -1,7 +1,10 @@
+{-# LANGUAGE BlockArguments #-}
+
 module Parsing where
 
 import Surface
 import Data.Binary
+import Control.Monad(replicateM)
 
 getWord16 = get :: Get Word16
 getCharacter = get :: Get Char
@@ -18,12 +21,7 @@ getString = do
         cs <- loop $ n - 1
         pure $ c:cs
 
-getStrings n = case n of
-  0 -> pure []
-  n -> do
-    s <- getString
-    ss <- getStrings $ n - 1
-    pure $ s:ss
+getStrings n = replicateM n getString
 
 getTerm :: Get Term 
 getTerm = do
@@ -32,25 +30,18 @@ getTerm = do
     0 -> getString >>= pure . Var . Name
     1 -> do
       len <- getWord16
-      gname <- getStrings len
+      gname <- getStrings (fromIntegral len)
       pure $ GVar (GName gname)
     2 -> do
       len <- getWord16
-      names <- getStrings len
+      names <- getStrings (fromIntegral len)
       body <- getTerm
       pure $ Lam (map Name names) body
     3 -> do
       lam <- getTerm
       len <- getWord16
-      args <- loop len
+      args <- replicateM (fromIntegral len) getTerm
       pure $ App lam args
-      where
-        loop n = case n of
-          0 -> pure []
-          n -> do
-            a <- getTerm
-            as <- loop $ n - 1
-            pure $ a:as
     4 -> do
       term <- getTerm
       ty <- getTerm
@@ -80,15 +71,8 @@ getItem = do
     0 -> do
       name <- getString
       len <- getWord16
-      items <- loop len
+      items <- replicateM (fromIntegral len) getItem
       pure $ NamespaceDef (Name name) items
-      where
-        loop n = case n of
-          0 -> pure []
-          n -> do
-            i <- getItem
-            is <- loop $ n - 1
-            pure $ i:is
     1 -> do
       name <- getString
       dec <- getTerm
@@ -98,16 +82,17 @@ getItem = do
       name <- getString
       dec <- getTerm
       len <- getWord16
-      cons <- loop len
+      cons <- replicateM (fromIntegral len) do
+        name <- getString
+        ty <- getTerm
+        pure $ (Name name, ty)
       pure $ IndDef (Name name) dec cons
-      where
-        loop n = case n of
-          0 -> pure []
-          n -> do
-            name <- getString
-            ty <- getTerm
-            cs <- loop $ n - 1
-            pure $ (Name name, ty):cs
+    3 -> do
+      name <- getString
+      dec <- getTerm
+      len <- getWord16
+      fields <- replicateM (fromIntegral len) getTerm
+      pure $ ProdDef (Name name) dec fields
 
 instance Binary Item where
   get = getItem

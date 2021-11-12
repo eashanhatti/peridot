@@ -1,6 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE DerivingVia #-}
 -- {-# OPTIONS_GHC -fwarn-incomplete-patterns #-}
 -- {-# OPTIONS_GHC -fdefer-type-errors #-}
 
@@ -36,30 +37,16 @@ instance Show Error where
     Mismatch val val' -> "Mismatched Types:\n  " ++ show val ++ "\n  " ++ show val'
     MismatchSpines s s' -> "Mismatched Spines\n  " ++ show s ++ "\n  " ++ show s'
 
-newtype Unify a = Unify (State (N.Metas, [Error], Map.Map Id C.Item) a)
+newtype Unify a = Unify (State (N.Metas, [Error], N.Globals) a)
+  deriving (Functor, Applicative, Monad) via (State (N.Metas, [Error], N.Globals))
 
-instance Functor Unify where
-  fmap = liftM
-
-instance Applicative Unify where
-  pure a = Unify $ state $ \s -> (a, s)
-  (<*>) = ap
-
-instance Monad Unify where
-  return a = Unify $ state $ \s -> (a, s)
-  (Unify act) >>= k = Unify $ state $ \s ->
-    let
-      (a, s') = runState act s
-      (Unify act') = (k a)
-    in runState act' s'
-
-get :: Unify (N.Metas, [Error], Map.Map Id C.Item)
+get :: Unify (N.Metas, [Error], N.Globals)
 get = Unify $ state $ \s -> (s, s)
 
-put :: (N.Metas, [Error], Map.Map Id C.Item) -> Unify ()
+put :: (N.Metas, [Error], N.Globals) -> Unify ()
 put s = Unify $ state $ \_ -> ((), s)
 
-runUnify :: Unify a -> (N.Metas, [Error], Map.Map Id C.Item) -> (a, (N.Metas, [Error], Map.Map Id C.Item))
+runUnify :: Unify a -> (N.Metas, [Error], N.Globals) -> (a, (N.Metas, [Error], N.Globals))
 runUnify (Unify act) s = runState act s
 
 runNorm :: Level -> N.Norm a -> Unify a

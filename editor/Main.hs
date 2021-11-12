@@ -7,6 +7,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE BlockArguments #-}
 
 module Main where
 
@@ -31,6 +32,7 @@ import GHC.IO.Encoding
 import Data.Char
 import Foreign.C.Types
 import Data.Bifunctor
+import Control.Monad(forM_)
 
 data Con = Con String Term | EditorBlankCon
   deriving (Show, Eq)
@@ -465,13 +467,7 @@ putItem item = case item of
     putWord8 0
     putString n
     putWord16 $ fromIntegral (length items)
-    loop items
-    where
-      loop is = case is of
-        [] -> pure ()
-        i:is -> do
-          putItem i
-          loop is
+    forM_ items putItem
   TermDef (Name n) ty body -> do
     putWord8 1
     putString n
@@ -482,14 +478,15 @@ putItem item = case item of
     putString n
     putTerm ty
     putWord16 $ fromIntegral (length cons)
-    loop cons
-    where
-      loop cs = case cs of
-        [] -> pure ()
-        (Name n, t):cs -> do
-          putString n
-          putTerm t
-          loop cs
+    forM_ cons \(Name n, t) -> do
+      putString n
+      putTerm t
+  ProdDef (Name n) ty fields -> do
+    putWord8 3
+    putString n
+    putTerm ty
+    putWord16 $ fromIntegral (length fields)
+    forM_ fields \field -> putTerm field
 
 putString :: String -> Put
 putString s = do
@@ -596,7 +593,7 @@ render (EditorState (Cursor focus path) _ side) =
     Lam names body -> "\ESC[35;1mλ\ESC[39m" <> snames (map unName names) <> " ⇒ " <> renderTerm body
     App lam args -> parenFocus (simple lam) (renderTerm lam) <> space args <> sterms args
     Var (Name s) -> T.pack s
-    GVar (GName ns) -> mconcat $ intersperse "/" $ reverse (map T.pack ns)
+    GVar (GName ns) -> mconcat $ intersperse "." $ reverse (map T.pack ns)
     Hole -> "?"
     Let (Name name) def defTy body -> renderLet (T.pack name) (renderTerm defTy) (renderTerm def) (renderTerm body)
     Pi (Name "_") inTy outTy -> parenFocus (simple inTy) (renderTerm inTy) <> " \ESC[36;1m→\ESC[39m " <> renderTerm outTy
@@ -790,15 +787,13 @@ parseCommand s = case s of
   "q;" -> Just $ IQuit
   "]" -> Just $ IThenMoveRight Nothing
   "[" -> Just $ IThenMoveLeft Nothing
-  "mi;" -> Just $ ILoadFile
-  "xe;" -> Just $ IExportFile
+  " mi;" -> Just $ ILoadFile
+  " xe;" -> Just $ IExportFile
   "." -> Just $ IThenMoveHardRight $ Just $ IThenMoveRight $ Just $ IInsertTerm $ TIApp
   " >-" -> Just $ IThenMoveHardRight $ Just $ IThenMoveRight $ Just $ IThenMoveRight $ Just $ IInsertTerm $ TIPi
   " llarof" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TIPi
   " fed" -> Just $ IThenMoveRight $ Just $ IInsertTermDef
   " tel" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TILet
-  " 0u" -> Just $ IThenMoveRight $ Just IInsertU0
-  " 1u" -> Just $ IThenMoveRight $ Just IInsertU1
   "\\" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TILam
   " " -> Just IAdd
   " edoc" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TICode
@@ -807,8 +802,13 @@ parseCommand s = case s of
   " dni" -> Just $ IThenMoveRight $ Just IInsertIndDef
   " sn" -> Just $ IThenMoveRight $ Just IInsertNamespaceDef
   " dorp" -> Just $ IThenMoveRight $ Just IInsertProdDef
-  ' ':s -> Just $ IThenMoveRight $ Just $ ISetName (reverse s)
+  ' ':s -> Just $ IThenMoveRight $ Just (go s)
   _ -> Nothing
+  where
+    go s = case s of
+      "0u" -> IInsertU0
+      "1u" -> IInsertU1
+      _ -> ISetName (reverse s)
 
 moveRight state = (\c -> run c state) $ case (edge Right (unPath $ unCursor state), atomic (unFocus $ unCursor state), unSide state) of
   (False, False, Left) -> MoveInLeft
@@ -869,8 +869,8 @@ handleInput state input = case (input, unFocusType state) of
   (IInsertTermDef, FTItem) -> pure $ run InsertTermDef state
   (IInsertIndDef, FTItem) -> pure $ run InsertIndDef state
   (IInsertProdDef, FTItem) -> pure $ run InsertProdDef state
-  (ISetName s, FTTerm) -> case split s "" '/' of
-    [] -> pure $ run (InsertVar s) state
+  (ISetName s, FTTerm) -> case split s "" '.' of
+    [n] -> pure $ run (InsertVar n) state
     ns -> pure $ run (InsertGVar $ reverse ns) state 
   (ISetName s, FTName) -> pure $ if s == "" then Ex state else run (SetName s) state
   (ISetName s, FTCon) -> pure $ if s == "" then Ex state else run (InsertCon s) state
@@ -879,9 +879,9 @@ handleInput state input = case (input, unFocusType state) of
 
 loop :: EditorState a -> IO ()
 loop state = do
+  let !s = render state
   clearScreen
-  -- putStrLn (show state)
-  TIO.putStrLn (render state)
+  TIO.putStrLn s
   input <- getCommand ""
   if input == IQuit then
     pure ()

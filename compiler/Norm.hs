@@ -21,6 +21,7 @@ data MetaEntry a = Solved a | Unsolved
   deriving Show
 
 type Metas = Map.Map Global (MetaEntry Value)
+type Globals = Map.Map Id C.Item
 type Locals = [Value]
 
 type Spine = [Value]
@@ -74,7 +75,7 @@ instance Show Value where
     IndType nid indices -> "vT" ++ show nid ++ "[" ++ (concat $ intersperse " " (map show indices)) ++ "]"
     IndIntro nid args _ -> "v#" ++ show nid ++ show args
 
-type Norm a = Reader (Level, Metas, Locals, Map.Map Id C.Item) a
+type Norm a = Reader (Level, Metas, Locals, Globals) a
 
 askLv :: Norm Level
 askLv = do
@@ -153,7 +154,7 @@ blankN n act = case n of
   0 -> act
   n -> blank $ blankN (n - 1) act
 
-index :: HasCallStack => Metas -> Locals -> Map.Map Id C.Item -> Index -> C.Type -> Int -> Value
+index :: HasCallStack => Metas -> Locals -> Globals -> Index -> C.Type -> Int -> Value
 index metas locals globals ix ty ix' = case locals of
   [] -> {-ElabError-} error $ "Nonexistent var `" ++ show ix ++ " : " ++ show ty ++ "`"
   x:xs ->

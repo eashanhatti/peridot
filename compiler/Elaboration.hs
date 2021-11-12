@@ -233,7 +233,7 @@ check term goal = do
   cGoal <- readback goal
   univ <- getGoalUniv
   -- let !() = trace ("CGoal = " ++ show cGoal) ()
-  scope $ case (term, goal) of
+  scope case (term, goal) of
     (S.Spanned term' ssp, _) -> do
       putSpan ssp
       check term' goal
@@ -287,7 +287,7 @@ check term goal = do
       pure cTerm
 
 infer :: HasCallStack => S.Term -> Elab (C.Term, N.Value)
-infer term = getGoalUniv >>= \univ -> scope $ case term of
+infer term = getGoalUniv >>= \univ -> scope case term of
   S.Spanned term' ssp -> do
     putSpan ssp
     infer term'
@@ -441,7 +441,7 @@ infer term = getGoalUniv >>= \univ -> scope $ case term of
     pure (cTermMeta, vTypeMeta)
   _ -> error $ "`infer`: " ++ show term
 
-gnameMapToIdMap :: Map.Map S.GName C.Item -> Map.Map Id C.Item
+gnameMapToIdMap :: Map.Map S.GName C.Item -> N.Globals
 gnameMapToIdMap globals = Map.fromList $ map (\(_, g) -> (C.itemId g, g)) (Map.toList globals)
 
 runNorm :: HasCallStack => N.Norm a -> Elab a
