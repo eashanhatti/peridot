@@ -127,6 +127,7 @@ dependencies items = case items of
       S.Code term -> search' term
       S.Quote term -> search' term
       S.Splice term -> search' term
+      S.MkProd ty fields -> Set.union <$> search' ty <*> searchTerms fields
       S.Hole -> pure mempty
     searchTerms :: [S.Term] -> Reader Bool (Set S.GName)
     searchTerms as = case as of
@@ -160,7 +161,7 @@ checkProgram program = case pTraceShowId $ ordering {-$ pTraceShowId-} $ depende
     loopDeclare program ord
     program <- loopDefine program ord
     pure $ C.Program program
-  Left cs -> undefined
+  Left cs -> error "Left"
   where
     loopDeclare :: HasCallStack => Program -> Ordering -> Elab ()
     loopDeclare program ord = case ord of
@@ -265,7 +266,7 @@ check term goal = do
     (S.Lam names body, _) -> go names goal where
       go :: [S.Name] -> N.Value -> Elab C.Term
       go ns g = case (ns, g) of
-        ([], _) -> undefined
+        ([], _) -> error "Empty"
         ([n], ty@(N.FunType inTy outTy)) -> do
           cTy <- readback ty
           vOutTy <- appClosure outTy inTy
@@ -347,8 +348,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
         pure (C.GVar (C.itemId def) ty, vTy)
       Nothing -> do
         putError $ UnboundGlobal name
-        error ""
-        -- pure (C.ElabError, N.ElabError)
+        pure (C.ElabError, N.ElabError)
   S.Lam names body -> go names where
     go :: [S.Name] -> Elab (C.Term, N.Value)
     go ns = case ns of
@@ -376,7 +376,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
     where
       go :: C.Term -> [S.Term] -> N.Value -> Elab (C.Term, N.Value)
       go cLam as lty = case (as, lty) of
-        ([], _) -> undefined
+        ([], _) -> error "Empty"
         ([a], N.FunType inTy outTy) -> do
           cArg <- check a inTy
           vArg <- eval cArg

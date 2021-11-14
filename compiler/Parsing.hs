@@ -63,6 +63,11 @@ getTerm = do
     10 -> getTerm >>= pure . Quote
     11 -> getTerm >>= pure . Splice
     12 -> pure Hole
+    13 -> do
+      ty <- getTerm
+      len <- getWord16
+      args <- replicateM (fromIntegral len) getTerm
+      pure $ MkProd ty args
 
 getItem :: Get Item
 getItem = do

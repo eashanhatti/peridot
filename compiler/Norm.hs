@@ -75,7 +75,9 @@ instance Show Value where
     ElabBlank -> "v<blank>"
     StuckGVar nid ty -> "(vg" ++ show nid ++ " : " ++ show ty ++ ")"
     IndType nid indices -> "vT" ++ show nid ++ "[" ++ (concat $ intersperse " " (map show indices)) ++ "]"
-    IndIntro nid args _ -> "v#" ++ show nid ++ show args
+    IndIntro nid args _ -> "(v$" ++ show nid ++ (concat $ intersperse " " (map show args)) ++ ")"
+    ProdType nid indices -> "vP" ++ show nid ++ "[" ++ (concat $ intersperse " " (map show indices)) ++ "]"
+    ProdIntro ty args -> "{" ++ (concat $ intersperse " " (map show args)) ++ "} : " ++ show ty
 
 type Norm a = Reader (Level, Metas, Locals, Globals) a
 
@@ -206,6 +208,7 @@ eval term = do
     C.QuoteElim quote -> eval quote >>= vSplice
     C.IndIntro cid cds ty -> IndIntro cid <$> mapM eval cds <*> eval ty
     C.IndType nid indices -> mapM eval indices >>= pure . IndType nid
+    C.ProdType nid indices -> mapM eval indices >>= pure . ProdType nid
     C.ProdIntro ty fields -> do
       vTy <- eval ty
       vFields <- mapM eval fields
@@ -309,6 +312,7 @@ readback val = do
     IndType nid indices -> mapM readback indices >>= pure . C.IndType nid
     QuoteIntro inner ty -> C.QuoteIntro <$> (eval0 inner >>= readback) <*> readback ty
     QuoteType innerTy -> C.QuoteType <$> readback innerTy
+    ProdType nid indices -> mapM readback indices >>= pure . C.ProdType nid 
     ProdIntro ty fields -> do
       cTy <- readback ty
       cFields <- mapM readback fields

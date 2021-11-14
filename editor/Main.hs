@@ -554,6 +554,7 @@ putTerm term = case term of
   MkProd ty fields -> do
     putWord8 13
     putTerm ty
+    putWord16 $ fromIntegral (length fields)
     forM_ fields putTerm
 
 export :: EditorState a -> String -> IO ()

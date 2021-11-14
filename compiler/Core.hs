@@ -43,6 +43,7 @@ itemId item = case item of
   TermDef nid _ -> nid
   IndDef nid _ -> nid
   ConDef nid _ -> nid
+  ProdDef nid _ _ -> nid
   ElabBlankItem nid _ -> nid
 
 data Term
