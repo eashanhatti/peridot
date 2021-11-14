@@ -33,6 +33,7 @@ data InnerError
   | UnboundGlobal S.GName
   | UnifyError U.Error
   | TooManyParams
+  | MalformedProdDec
   deriving Show
 
 data Error = Error S.Span N.Locals (Map S.GName C.Item) Level InnerError
@@ -68,6 +69,7 @@ type Elab a = State ElabState a
 data Item
   = TermDef S.Term S.Term
   | IndDef S.Term
+  | ProdDef S.Term [S.Term]
   | ConDef S.GName S.Term
   deriving Show
 
@@ -80,6 +82,7 @@ flatten :: [String] -> S.Item -> Program
 flatten nameAcc item = case item of
   S.NamespaceDef name items -> foldl Map.union mempty (map (flatten ((S.unName name):nameAcc)) items)
   S.TermDef name dec def -> Map.singleton (S.GName $ (S.unName name):nameAcc) (TermDef dec def)
+  S.ProdDef name dec fields -> Map.singleton (S.GName $ (S.unName name):nameAcc) (ProdDef dec fields)
   S.IndDef name dec cs ->
     Map.union
       (Map.singleton (S.GName $ (S.unName name):nameAcc) (IndDef dec))
@@ -100,6 +103,7 @@ dependencies items = case items of
       ds = Map.singleton name $ case item of
         TermDef dec def -> searchTy dec `Set.union` search def
         IndDef dec -> searchTy dec
+        ProdDef dec fields -> searchTy dec `Set.union` runReader (searchTerms fields) True
         ConDef name ty -> searchTy ty `Set.union` singleton name
     in ds `Map.union` dependencies items
   [] -> mempty
@@ -113,14 +117,7 @@ dependencies items = case items of
       S.Var _ -> pure mempty
       S.GVar (S.GName name) -> ask >>= \b -> pure $ if b then singleton (S.GName $ name) else mempty
       S.Lam _ body -> search' body
-      S.App lam args -> Set.union <$> search' lam <*> go args where
-        go :: [S.Term] -> Reader Bool (Set S.GName)
-        go as = case as of
-          [a] -> search' a
-          a:as -> do
-            names <- search' a
-            names' <- go as
-            pure $ Set.union names names'
+      S.App lam args -> Set.union <$> search' lam <*> searchTerms args where
       S.Ann _ ty -> local (const True) $ search' ty
       S.Pi _ inTy outTy -> Set.union <$> search' inTy <*> search' outTy
       S.Let _ def defTy body -> Set.union <$> search' def <*> (Set.union <$> (local (const True) $ search' defTy) <*> search' body)
@@ -130,6 +127,13 @@ dependencies items = case items of
       S.Quote term -> search' term
       S.Splice term -> search' term
       S.Hole -> pure mempty
+    searchTerms :: [S.Term] -> Reader Bool (Set S.GName)
+    searchTerms as = case as of
+      [a] -> search' a
+      a:as -> do
+        names <- search' a
+        names' <- searchTerms as
+        pure $ Set.union names names'
 
 cycles :: Graph -> Cycles
 cycles graph = []
@@ -179,6 +183,7 @@ checkProgram program = case pTraceShowId $ ordering {-$ pTraceShowId-} $ depende
           TermDef ty _ -> do
             meta <- freshUnivMeta >>= eval
             check ty meta >>= eval
+          ProdDef ty _ -> check ty N.TypeType1 >>= eval
           IndDef ty -> check ty N.TypeType1 >>= eval
           ConDef _ ty -> check ty N.TypeType1 >>= eval
         declareGlobal name ty
@@ -217,6 +222,20 @@ checkProgram program = case pTraceShowId $ ordering {-$ pTraceShowId-} $ depende
         IndDef dec -> do
           cDec <- check dec N.TypeType1
           pure (C.IndDef nid cDec, N.TypeType1)
+        ProdDef dec fields -> do
+          cDec <- check dec N.TypeType1
+          bindParams dec
+          cFields <- mapM ((flip check) N.TypeType0) fields
+          pure (C.ProdDef nid cDec cFields, N.TypeType0)
+          where
+            bindParams :: S.Term -> Elab ()
+            bindParams term = case term of
+              S.Pi name inTy outTy -> do
+                vInTy <- check inTy N.TypeType1 >>= eval
+                bind name vInTy
+                bindParams outTy
+              S.U0 -> pure ()
+              _ -> putError MalformedProdDec
         ConDef name ty -> do
           cTy <- check ty N.TypeType1
           vTy <- eval cTy
@@ -309,9 +328,10 @@ infer term = getGoalUniv >>= \univ -> scope case term of
     case entry of
       Just def -> do
         ty <- case def of
-          C.TermDef nid tdef -> typeofC tdef
-          C.IndDef nid ty -> pure ty
-          C.ConDef nid ty -> pure ty
+          C.TermDef _ tdef -> typeofC tdef
+          C.IndDef _ ty -> pure ty
+          C.ConDef _ ty -> pure ty
+          C.ProdDef _ ty _ -> pure ty
           C.ElabBlankItem nid ty -> pure ty
         vTy <- eval ty
         pure (C.GVar (C.itemId def) ty, vTy)
@@ -417,15 +437,6 @@ infer term = getGoalUniv >>= \univ -> scope case term of
       N.QuoteType ty -> pure ty
       _ -> freshMeta C.TypeType0 >>= eval
     pure (C.QuoteElim cQuote, quoteInnerTy)
-  -- S.Let name def defTy body -> do
-  --   -- TODO: reduce `<-` clutter
-  --   cDefTy <- check defTy univ
-  --   vDefTy <- eval cDefTy
-  --   cDef <- check def vDefTy
-  --   vDef <- eval cDef
-  --   define name vDef vDefTy
-  --   (cBody, vBodyTy) <- infer body
-  --   pure (C.Let cDef cDefTy cBody, vBodyTy)
   S.Let name def defTy body -> do
     reserve [name]
     vDefTy <- check defTy univ >>= eval

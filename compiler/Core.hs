@@ -27,6 +27,7 @@ data Program = Program [Item]
 data Item
   = TermDef Id Term
   | IndDef Id Type
+  | ProdDef Id Type [Type]
   | ConDef Id Type
   | ElabBlankItem Id Type
 
@@ -34,6 +35,7 @@ instance Show Item where
   show item = case item of
     TermDef nid body -> "def " ++ show nid ++ " = " ++ show body
     IndDef nid ty -> "ind " ++ show nid ++ " : " ++ show ty
+    ProdDef nid ty fields -> "prod " ++ show nid ++ " : " ++ show ty ++ "[" ++ (concat $ intersperse ", " $ map show fields) ++ "]"
     ConDef nid ty -> "con " ++ show nid ++ " : " ++ show ty
     ElabBlankItem nid _ -> "blank " ++ show nid
 
