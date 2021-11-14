@@ -62,6 +62,8 @@ data Path a where
   PLetDefTy            :: Path Term -> String -> Term -> Term -> Path Term
   PLetDef              :: Path Term -> String -> Term -> Term -> Path Term
   PLetBody             :: Path Term -> String -> Term -> Term -> Path Term
+  PMkProdTy            :: Path Term -> [Term] -> Path Term
+  PMkProdArgs          :: Path Term -> Term -> [Term] -> [Term] -> Path Term
   PPiName              :: Path Term -> Term -> Term -> Path String
   PPiIn                :: Path Term -> String -> Term -> Path Term
   PPiOut               :: Path Term -> String -> Term -> Path Term
@@ -174,6 +176,7 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     TICode -> mkEx (Code termFocus) path Left
     TIQuote -> mkEx (Quote termFocus) path Left
     TISplice -> mkEx (Splice termFocus) path Left
+    TIMkProd -> mkEx (MkProd termFocus []) path Left
     where
       termFocus = unFTerm focus
   InsertVar s -> mkEx (Var (Name s)) path Left
@@ -191,18 +194,13 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     if blankFocus focus then
       Ex state
     else case path of
-      PLamParams up ln rn body -> goLam up ln rn body focus
-      PAppTerms up le re -> goApp up le re focus
-      PNamespaceDefItems up name li ri -> goNamespace up name li ri focus
-      PIndDefCons up name ty lc rc -> goInd up name ty lc rc focus
-      PProdDefFields up name ty lf rf -> goProd up name ty lf rf focus
+      PLamParams up ln rn body -> mkEx "" (PLamParams up (insertFocusR focus ln) rn body) Left
+      PAppTerms up le re -> mkEx EditorBlank (PAppTerms up (insertFocusR focus le) re) Left
+      PNamespaceDefItems up name li ri -> mkEx EditorBlankDef (PNamespaceDefItems up name (insertFocusR focus li) ri) Left
+      PIndDefCons up name ty lc rc -> mkEx EditorBlankCon (PIndDefCons up name ty (insertFocusR focus lc) rc) Left
+      PProdDefFields up name ty lf rf -> mkEx EditorBlank (PProdDefFields up name ty (insertFocusR focus lf) rf) Left
+      PMkProdArgs up ty le re -> mkEx EditorBlank (PMkProdArgs up ty (insertFocusR focus le) re) Left
       _ -> Ex state
-      where
-        goProd up name ty lf rf focus = mkEx EditorBlank (PProdDefFields up name ty (insertFocusR focus lf) rf) Left
-        goInd up name ty lc rc focus = mkEx EditorBlankCon (PIndDefCons up name ty (insertFocusR focus lc) rc) Left
-        goNamespace up name li ri focus = mkEx EditorBlankDef (PNamespaceDefItems up name (insertFocusR focus li) ri) Left
-        goApp up le re focus = mkEx EditorBlank (PAppTerms up (insertFocusR focus le) re) Left
-        goLam up ln rn body focus = mkEx "" (PLamParams up (insertFocusR focus ln) rn body) Left
   MoveRight -> case path of
     PTop -> sideRight
     PLamParams up ln [] body -> mkEx body (PLamBody up (insertFocusR focus ln)) Left
@@ -213,6 +211,10 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     PLetName up def defTy body -> mkEx defTy (PLetDefTy up (unFName focus) def body) Left
     PLetDefTy up name def body -> mkEx def (PLetDef up name (unFTerm focus) body) Left
     PLetDef up name defTy body -> mkEx body (PLetBody up name (unFTerm focus) defTy) Left
+    PMkProdTy up [] -> mkEx EditorBlank (PMkProdArgs up (unFTerm focus) [] []) Left
+    PMkProdTy up (e:es) -> mkEx e (PMkProdArgs up (unFTerm focus) [] es) Left
+    PMkProdArgs up ty le [] -> sideRight
+    PMkProdArgs up ty le (r:re) -> mkEx r (PMkProdArgs up ty (insertFocusR focus le) re) Left    
     PLetBody _ _ _ _ -> sideRight
     PTermDefName up ty body -> mkEx ty (PTermDefTy up (unFName focus) body) Left
     PTermDefTy up name body -> mkEx body (PTermDefBody up name (unFTerm focus)) Left
@@ -250,6 +252,9 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     PLetDefTy up name def body -> mkEx name (PLetName up def (unFTerm focus) body) Left
     PLetDef up name defTy body -> mkEx defTy (PLetDefTy up name (unFTerm focus) body) Right
     PLetBody up name def defTy -> mkEx def (PLetDef up name defTy (unFTerm focus)) Right
+    PMkProdTy _ _ -> sideLeft
+    PMkProdArgs up ty [] es -> mkEx ty (PMkProdTy up es) Right
+    PMkProdArgs up ty le re -> mkEx (last le) (PMkProdArgs up ty (init le) (insertFocusL focus re)) Right
     PTermDefName up ty body -> sideLeft
     PTermDefTy up name body -> mkEx name (PTermDefName up (unFTerm focus) body) Left
     PTermDefBody up name ty -> mkEx ty (PTermDefTy up name (unFTerm focus)) Right
@@ -289,6 +294,8 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     PLetDefTy up name def body -> mkEx (Let (Name name) def (unFTerm focus) body) up d
     PLetDef up name defTy body -> mkEx (Let (Name name) (unFTerm focus) defTy body) up d
     PLetBody up name def defTy -> mkEx (Let (Name name) def defTy (unFTerm focus)) up d
+    PMkProdTy up es -> mkEx (MkProd (unFTerm focus) es) up d
+    PMkProdArgs up ty le re -> mkEx (MkProd ty (le ++ insertFocusL focus re)) up d
     PTermDefName up ty body -> mkEx (TermDef (Name $ unFName focus) ty body) up d
     PTermDefTy up name body -> mkEx (TermDef (Name name) (unFTerm focus) body) up d
     PTermDefBody up name ty -> mkEx (TermDef (Name name) ty (unFTerm focus)) up d
@@ -324,6 +331,7 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
       Code ty -> mkEx ty (PCode path) Left
       Quote e -> mkEx e (PQuote path) Left
       Splice e -> mkEx e (PSplice path) Left
+      MkProd ty es -> mkEx ty (PMkProdTy path es) Left
       Hole -> Ex state
       EditorBlank -> Ex state
     FItem focus -> case focus of
@@ -348,6 +356,7 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
       Code ty -> mkEx ty (PCode path) Right
       Quote e -> mkEx e (PQuote path) Right
       Splice e -> mkEx e (PSplice path) Right
+      MkProd ty [] -> mkEx EditorBlank (PMkProdArgs path ty [] []) Right
       Hole -> Ex state
       EditorBlank -> Ex state
     FItem focus -> case focus of
@@ -372,6 +381,8 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
     PLamParams up ln rn body -> mkEx (last ln) (PLamParams up (init ln) rn body) Right
     PProdDefFields up name ty [] [] -> mkEx ty (PProdDefTy up name []) Right
     PProdDefFields up name ty lf@(_:_) rf -> mkEx (last lf) (PProdDefFields up name ty (init lf) rf) Right
+    PMkProdArgs up ty [] [] -> mkEx ty path Right
+    PMkProdArgs up ty le@(_:_) re -> mkEx (last le) (PMkProdArgs up ty (init le) re) Right
     PAppTerms up le re -> case le ++ re of
       [] -> mkEx Hole path Right
       [e] -> mkEx e path Right
@@ -420,6 +431,7 @@ edge d p = case d of
     PConName _ _ -> True
     PLetName _ _ _ _ -> True
     PPiName _ _ _ -> True
+    PMkProdTy _ _ -> True
     PCode _ -> True
     PQuote _ -> True
     PSplice _ -> True
@@ -435,6 +447,7 @@ edge d p = case d of
     PAppTerms _ _ [] -> True
     PLetBody _ _ _ _ -> True
     PPiOut _ _ _ -> True
+    PMkProdArgs _ _ _ [] -> True
     PCode _ -> True
     PQuote _ -> True
     PSplice _ -> True
@@ -491,20 +504,10 @@ putItem item = case item of
 putString :: String -> Put
 putString s = do
   putWord16 $ fromIntegral (length s)
-  loop s
-  where
-    loop s = case s of
-      [] -> pure ()
-      c:cs -> do
-        put c
-        loop cs
+  forM_ s put
 
 putStrings :: [String] -> Put
-putStrings ss = case ss of
-  [] -> pure ()
-  s:ss -> do
-    putString s
-    putStrings ss
+putStrings ss = forM_ ss putString
 
 putTerm :: Term -> Put
 putTerm term = case term of
@@ -524,13 +527,7 @@ putTerm term = case term of
     putWord8 3
     putTerm lam
     putWord16 $ fromIntegral (length args)
-    loop args
-    where
-      loop as = case as of
-        [] -> pure ()
-        a:as -> do
-          putTerm a
-          loop as
+    forM_ args putTerm
   Pi (Name name) inTy outTy -> do
     putWord8 5
     putString name
@@ -554,6 +551,10 @@ putTerm term = case term of
     putWord8 11
     putTerm e
   Hole -> putWord8 12
+  MkProd ty fields -> do
+    putWord8 13
+    putTerm ty
+    forM_ fields putTerm
 
 export :: EditorState a -> String -> IO ()
 export state@(EditorState cursor _ _) fn = do
@@ -603,6 +604,7 @@ render (EditorState (Cursor focus path) _ side) =
     Code ty -> "\ESC[36;1mCode\ESC[39m " <> parenFocus (simple ty) (renderTerm ty)
     Quote e -> "\ESC[35;1m‹\ESC[39m" <> renderTerm e <> "\ESC[35;1m›\ESC[39m"
     Splice e -> "\ESC[35;1m~\ESC[39m" <> parenFocus (simple e) (renderTerm e)
+    MkProd ty es -> "\ESC[35;1m#\ESC[39m" <> parenFocus (simple ty) (renderTerm ty) <> space es <> sterms es
     EditorBlank -> "_"
   renderItem :: Item -> T.Text
   renderItem item = case item of
@@ -638,6 +640,14 @@ render (EditorState (Cursor focus path) _ side) =
     PProdDefName up ty fs -> renderPath ("\ESC[33;1mproduct\ESC[39m " <> focus <> " : " <> renderTerm ty <> (indentForced $ sfields fs)) False up
     PProdDefTy up name fs -> renderPath ("\ESC[33;1mproduct\ESC[39m " <> T.pack name <> " : " <> focus <> (indentForced $ sfields fs)) False up
     PProdDefFields up name ty lf rf -> renderProd up name ty lf rf focus
+    PMkProdTy up es -> renderPath ("\ESC[35;1m#\ESC[39m" <> parenFocus isSimple focus <> space es <> sterms es) (null es && isSimple) up
+    PMkProdArgs up ty le re ->
+      renderPath (
+          "\ESC[35;1m#\ESC[39m" <> parenFocus (simple ty) (renderTerm ty) <>
+          space (le ++ re ++ [undefined]) <>
+          (sterms le <> space le <> parenFocus isSimple focus <> space re <> sterms re))
+        False
+        up
     PConName up ty -> renderPath (focus <> " : " <> renderTerm ty) False up
     PConTy up name -> renderPath (T.pack name <> " : " <> focus) False up
 
@@ -735,6 +745,7 @@ data TermInsertionType
   | TICode
   | TIQuote
   | TISplice
+  | TIMkProd
   deriving Eq
 
 data Input
@@ -789,16 +800,17 @@ parseCommand s = case s of
   "[" -> Just $ IThenMoveLeft Nothing
   " mi;" -> Just $ ILoadFile
   " xe;" -> Just $ IExportFile
-  "." -> Just $ IThenMoveHardRight $ Just $ IThenMoveRight $ Just $ IInsertTerm $ TIApp
-  " >-" -> Just $ IThenMoveHardRight $ Just $ IThenMoveRight $ Just $ IThenMoveRight $ Just $ IInsertTerm $ TIPi
-  " llarof" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TIPi
+  "." -> Just $ IThenMoveHardRight $ Just $ IThenMoveRight $ Just $ IInsertTerm TIApp
+  " >-" -> Just $ IThenMoveHardRight $ Just $ IThenMoveRight $ Just $ IThenMoveRight $ Just $ IInsertTerm TIPi
+  "#" -> Just $ IThenMoveRight $ Just $ IInsertTerm TIMkProd
+  " llarof" -> Just $ IThenMoveRight $ Just $ IInsertTerm TIPi
   " fed" -> Just $ IThenMoveRight $ Just $ IInsertTermDef
-  " tel" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TILet
-  "\\" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TILam
+  " tel" -> Just $ IThenMoveRight $ Just $ IInsertTerm TILet
+  "\\" -> Just $ IThenMoveRight $ Just $ IInsertTerm TILam
   " " -> Just IAdd
-  " edoc" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TICode
-  "<" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TIQuote
-  "~" -> Just $ IThenMoveRight $ Just $ IInsertTerm $ TISplice
+  " edoc" -> Just $ IThenMoveRight $ Just $ IInsertTerm TICode
+  "<" -> Just $ IThenMoveRight $ Just $ IInsertTerm TIQuote
+  "~" -> Just $ IThenMoveRight $ Just $ IInsertTerm TISplice
   " dni" -> Just $ IThenMoveRight $ Just IInsertIndDef
   " sn" -> Just $ IThenMoveRight $ Just IInsertNamespaceDef
   " dorp" -> Just $ IThenMoveRight $ Just IInsertProdDef
