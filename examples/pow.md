@@ -31,7 +31,7 @@ Typechecking this fails with the error ``Expected value of type `1!Nat`, got a v
 
 What we need is a function that works across both stages - if the exponent is known statically, calls expand to a series of multiplications. Otherwise, it performs the computation fully at runtime, like the original `pow` did. Here is that very function, which uses stage polymorphism:
 ```sml
-fun pow_staged_better (i:Stage) -> (j:Stage) -> (x: j!(Code i!Nat)) -> (e: j!Nat) -> j!(Code i!Nat) = case e of
+fun pow_staged_better (i:Stage) (j:Stage) (x: j!(Code i!Nat)) (e: j!Nat) -> j!(Code i!Nat) = case e of
   0 => <1>
   _ => <~x * ~(pow_staged_better x (e - 1))>
 ```
