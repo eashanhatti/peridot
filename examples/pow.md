@@ -38,11 +38,23 @@ fun pow_staged_better (i:Stage) -> (j:Stage) -> (x: j!(Code i!Nat)) -> (e: j!Nat
 Here we see that the `!` is more general than just `0!` or `1!` - it takes an expression of type `Stage` on the left and a type on the right. There's also a new reduction rule for `Code`, `<_>`, and `~_` that allows this to work. Given one of those, if the term itself and the term inside it are of the same stage, it reduces to the term inside. For instance, `j!(Code i!Nat)` reduces to `i!Nat` when `j == i`. Let's look at the type of `pow_staged_better` at different combinations of levels:
 ```sml
 pow_staged_better 0 0 : 0!Nat -> 0!Nat -> 0!Nat
+(* And the function at these stages looks like: *)
+fun pow_staged_better (x : 0!Nat) (e : 0!Nat) -> 0!Nat = case e of
+  0 => 1
+  _ => x * pow x (e - 1)
 ```
 ```sml
 pow_staged_better 0 1 : 1!(Code 0!Nat) -> 1!Nat -> 1!(Code 0!Nat)
+(* And the function at these stages looks like: *)
+fun pow_staged_better (x: 1!(Code 0!Nat)) (e: 1!Nat) -> 1!(Code 0!Nat) = case e of
+  0 => <1>
+  _ => <~x * ~(pow_staged_better x (e - 1))>
 ```
 ```sml
 pow_staged_better 1 1 : 1!Nat -> 1!Nat -> 1!Nat
+(* And the function at these stages looks like: *)
+fun pow_staged_better (x : 1!Nat) (e : 1!Nat) -> 1!Nat = case e of
+  0 => 1
+  _ => x * pow x (e - 1)
 ```
-Note that `pow_staged_better 0 1` results in a function identical to `pow_staged`. The former subsumes the latter. Now we have a very flexible function - it can be either fully evaluated at runtime, fully evaluated at compile time, or specialized to the exponent (partially evaluated).
+Note that `pow_staged_better 0 1` results in a function identical to `pow_staged`. Additionally, `pow_staged_better 0 0` and `pow_staged_better 1 1` result in a function identical to the original `pow`, just at different staged. `pow_staged_better` subsumes both of the earlier functions. We now have a very flexible function - it can be either fully evaluated at runtime, fully evaluated at compile time, or specialized to the exponent (partially evaluated).
