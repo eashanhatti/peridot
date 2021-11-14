@@ -34,6 +34,7 @@ data InnerError
   | UnifyError U.Error
   | TooManyParams
   | MalformedProdDec
+  | ExpectedProdType
   deriving Show
 
 data Error = Error S.Span N.Locals (Map S.GName C.Item) Level InnerError
@@ -295,6 +296,15 @@ check term goal = do
       cInner <- check inner ty
       cTy <- readback ty
       pure $ C.QuoteIntro cInner cTy
+    (S.MkProd ty fields, N.ProdType tid _) -> do
+      cTy <- check ty N.TypeType1
+      vTy <- eval cTy
+      unify goal vTy
+      globalDefFromId tid >>= \case
+        Just (C.ProdDef _ _ fieldTypes) -> do
+          vFieldTypes <- mapM eval fieldTypes
+          cFields <- mapM (\(f, t) -> check f t) (zip fields vFieldTypes)
+          pure $ C.ProdIntro cTy cFields
     (_, N.QuoteType ty) | univ /= N.TypeType1 -> do
       putGoalUniv N.TypeType0
       (cTerm, termTy) <- infer term
@@ -437,6 +447,18 @@ infer term = getGoalUniv >>= \univ -> scope case term of
       N.QuoteType ty -> pure ty
       _ -> freshMeta C.TypeType0 >>= eval
     pure (C.QuoteElim cQuote, quoteInnerTy)
+  S.MkProd ty fields -> do
+    cTy <- check ty N.TypeType1
+    vTy <- eval cTy
+    case vTy of
+      N.ProdType tid _ -> globalDefFromId tid >>= \case
+        Just (C.ProdDef _ _ fieldTypes) -> do
+          vFieldTypes <- mapM eval fieldTypes
+          cFields <- mapM (\(f, t) -> check f t) (zip fields vFieldTypes)
+          pure (C.ProdIntro cTy cFields, vTy)
+      _ -> do
+        putError ExpectedProdType
+        pure (C.ElabError, N.ElabError)
   S.Let name def defTy body -> do
     reserve [name]
     vDefTy <- check defTy univ >>= eval
@@ -522,17 +544,29 @@ localType name = do
 globalType :: Id -> Elab (Maybe C.Term)
 globalType nid = do
   state <- get
-  let name = fromJust $ Map.lookup nid (idsNames state)
+  name <- idName nid
   pure $ fmap
     (\case
       C.IndDef _ ty -> ty
       C.ConDef _ ty -> ty)
     (Map.lookup name (globals state))
 
+idName :: Id -> Elab S.GName
+idName nid = do
+  state <- get
+  pure $ fromJust $ Map.lookup nid (idsNames state)
+
 globalId :: S.GName -> Elab (Maybe Id)
 globalId name = do
   state <- get
   pure $ fmap C.itemId (Map.lookup name (globals state))
+
+globalDefFromId :: Id -> Elab (Maybe C.Item)
+globalDefFromId nid = do
+  state <- get
+  let name = fromJust $ Map.lookup nid (idsNames state)
+  def <- globalDef name
+  pure def
 
 globalDef :: S.GName -> Elab (Maybe C.Item)
 globalDef name = do

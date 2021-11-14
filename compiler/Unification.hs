@@ -142,6 +142,8 @@ rename metas gl pren rhs = go pren rhs
         N.QuoteType ty -> C.QuoteType <$> go pren ty
         N.IndIntro nid cds ty -> C.IndIntro nid <$> mapM (go pren) cds <*> go pren ty
         N.IndType nid indices -> mapM (go pren) indices >>= pure . C.IndType nid
+        N.ProdType nid indices -> C.ProdType nid <$> mapM (go pren) indices
+        N.ProdIntro ty fields -> C.ProdIntro <$> go pren ty <*> mapM (go pren) fields
         N.TypeType0 -> liftEither $ Right C.TypeType0
         N.TypeType1 -> liftEither $ Right C.TypeType1
         N.FunElim0 lam arg -> C.FunElim <$> go pren lam <*> go pren arg
@@ -280,6 +282,11 @@ unify lv val val' = do
     (N.IndIntro nid cds ty, N.IndIntro nid' cds' ty') | nid == nid' && length cds == length cds' -> do
       mapM (uncurry $ unify lv) (zip cds cds')
       unify lv ty ty'
+    (N.ProdType nid indices, N.ProdType nid' indices') | nid == nid' ->
+      mapM_ (uncurry $ unify lv) (zip indices indices')
+    (N.ProdIntro ty fields, N.ProdIntro ty' fields') -> do
+      unify lv ty ty'
+      mapM_ (uncurry $ unify lv) (zip fields fields')
     (N.StuckRigidVar vty rlv spine, N.StuckRigidVar vty' rlv' spine') | rlv == rlv' -> do
       unify lv vty vty'
       unifySpines lv spine spine'

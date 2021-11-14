@@ -59,7 +59,7 @@ data Term
   | IndType Id [Term]
   | IndIntro Id [Term] Type
   | ProdType Id [Term]
-  | ProdIntro [Term] Type
+  | ProdIntro Type [Term]
   | Letrec [Term] Term
   | Meta Global Type
   | InsertedMeta [BinderInfo] Global Type
@@ -125,6 +125,6 @@ showTerm showTys term = case term of
   GVar nid ty -> "(g" ++ show (unId nid) ++ ":" ++ show ty ++ ")"
   IndIntro nid args ty -> "#" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show args) ++ "]" ++ ":" ++ show ty
   IndType nid indices -> "Ind" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
-  ProdIntro coms ty -> "{" ++ (concat $ intersperse ", " $ Prelude.map show coms) ++ "}" ++ ":" ++ show ty
+  ProdIntro ty fields -> "{" ++ (concat $ intersperse ", " $ Prelude.map show fields) ++ "}" ++ ":" ++ show ty
   ProdType nid indices -> "Prod" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
   ElabError -> "<error>"

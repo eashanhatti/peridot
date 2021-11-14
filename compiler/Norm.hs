@@ -38,6 +38,8 @@ data Value
   | QuoteType Value
   | IndType Id [Value]
   | IndIntro Id [Value] Type
+  | ProdType Id [Value]
+  | ProdIntro Type [Value]
   | TypeType0
   | TypeType1
   -- Blocked eliminations
@@ -177,11 +179,7 @@ eval0 term = do
       pure $ FunType vInTy (Closure locals outTy)
     C.FunElim lam arg -> FunElim0 <$> eval0 lam <*> eval0 arg
     C.QuoteElim quote -> eval quote >>= vSplice
-    -- C.Let def defTy body -> do
-    --   vDef <- eval0 def
-    --   vDefTy <- eval0 defTy
-    --   vBody <- blank $ eval0 body
-    --   pure $ Let0 vDef vDefTy vBody
+    C.ProdIntro ty fields -> ProdIntro <$> eval0 ty <*> mapM eval0 fields
     C.Letrec defs body -> do
       vDefs <- mapM (\def -> blankN (length defs) $ eval0 def) defs
       vBody <- blankN (length defs) $ eval0 body
@@ -208,6 +206,10 @@ eval term = do
     C.QuoteElim quote -> eval quote >>= vSplice
     C.IndIntro cid cds ty -> IndIntro cid <$> mapM eval cds <*> eval ty
     C.IndType nid indices -> mapM eval indices >>= pure . IndType nid
+    C.ProdIntro ty fields -> do
+      vTy <- eval ty
+      vFields <- mapM eval fields
+      pure $ ProdIntro vTy vFields
     C.Letrec defs body -> do
       let withDefs :: Norm a -> Locals -> Norm a
           withDefs act defs = do
@@ -237,6 +239,14 @@ eval term = do
           go ty acc = case ty of
             C.FunType inTy outTy -> C.FunIntro (go outTy (C.Var (Index $ length acc) inTy : acc)) ty
             C.IndType tid indices -> C.IndIntro nid acc (C.IndType tid indices)
+      C.ProdDef nid ty fields -> do
+        nTy <- eval ty >>= readback
+        eval $ go nTy []
+        where
+          go :: C.Term -> [C.Term] -> C.Term
+          go ty acc = case ty of
+            C.FunType inTy outTy -> C.FunIntro (go outTy (C.Var (Index $ length acc) inTy : acc)) ty
+            C.TypeType0 -> C.ProdType nid acc
       C.ElabBlankItem nid ty -> eval ty >>= pure . StuckGVar nid
     C.ElabError -> pure ElabError
     _ -> error $ show term
@@ -267,6 +277,10 @@ readback0 val = case val of
     cDefs <- mapM (\def -> blankN (length defs) $ readback0 def) defs
     cBody <- blankN (length defs) $ readback0 body
     pure $ C.Letrec cDefs cBody
+  ProdIntro ty fields -> do
+    cTy <- readback0 ty
+    cFields <- mapM readback0 fields
+    pure $ C.ProdIntro cTy cFields
   Var0 ix ty -> C.Var ix <$> readback0 ty
   StuckSplice quote -> C.QuoteElim <$> readback quote
 
@@ -295,6 +309,10 @@ readback val = do
     IndType nid indices -> mapM readback indices >>= pure . C.IndType nid
     QuoteIntro inner ty -> C.QuoteIntro <$> (eval0 inner >>= readback) <*> readback ty
     QuoteType innerTy -> C.QuoteType <$> readback innerTy
+    ProdIntro ty fields -> do
+      cTy <- readback ty
+      cFields <- mapM readback fields
+      pure $ C.ProdIntro cTy cFields
     TypeType0 -> pure C.TypeType0
     TypeType1 -> pure C.TypeType1
     StuckGVar nid ty -> readback ty >>= pure . C.GVar nid

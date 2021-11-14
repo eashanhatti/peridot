@@ -36,6 +36,7 @@ data Term
   | Code Term
   | Quote Term
   | Splice Term
+  | MkProd Term [Term]
   | Hole
   | EditorBlank
   deriving (Show, Eq)
