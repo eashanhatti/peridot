@@ -185,4 +185,3 @@ How does tail recursion fit into the current system? My first idea was to have a
 Hm. What if "`^a -> ^b` is the type of inlined functions" is the wrong way of thinking about things?
 
 What if we put how much stack space a function's recursive calls will consume on its type? So we have two values, `bounded` and `unbounded`. Nonrecursive and tail recursive functions are of type `a ~bounded> b`, and everything else are of type `a ~unbounded> b` (Temporary syntax). The former can be inlined and TCOd. So "`^a -> ^b` is the type of inlined functions", *is* the wrong way of thinking, although it is accurate in a sense. It's more accurate however, to say that `^a -> ^b` is the type of a macro.
-

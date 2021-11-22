@@ -23,8 +23,7 @@ data Item
   deriving (Show, Eq)
 
 data Term
-  = Spanned Term Span
-  | Var Name
+  = Var Name
   | GVar GName
   | Lam [Name] Term
   | App Term [Term]

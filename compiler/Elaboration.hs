@@ -3,10 +3,12 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ViewPatterns #-}
 -- {-# OPTIONS_GHC -fdefer-type-errors #-}
 
 module Elaboration where
 
+import Data.List(foldl', find)
 import qualified Data.Map as Map
 import qualified Norm as N
 import qualified Unification as U
@@ -21,7 +23,7 @@ import Debug.Trace
 import qualified Data.Set as Set
 import Data.Set(singleton, Set)
 import qualified Data.Map as Map
-import Data.Map(Map)
+import Data.Map(Map, (!))
 import Debug.Trace
 import GHC.Stack
 import Prelude hiding(Ordering)
@@ -37,10 +39,10 @@ data InnerError
   | ExpectedProdType
   deriving Show
 
-data Error = Error S.Span N.Locals (Map S.GName C.Item) Level InnerError
+data Error = Error N.Locals (Map S.GName C.Item) Level InnerError
 
 instance Show Error where
-  show (Error s ls gs lv e) = "Error\n" ++ show e ++ "\n" ++ indent "  " stringLocals ++ "\n" ++ indent "  " ("----\n" ++ stringGlobals)
+  show (Error ls gs lv e) = "Error\n" ++ show e ++ "\n" ++ indent "  " stringLocals ++ "\n" ++ indent "  " ("----\n" ++ stringGlobals)
     where
       indent :: String -> String -> String
       indent i s = unlines $ map (i++) (lines s)
@@ -56,7 +58,6 @@ data ElabState = ElabState
   , locals :: N.Locals
   , ltypes :: Map S.Name (N.Value, Index)
   , level :: Level
-  , sourceSpan :: S.Span
   , binderInfos :: [C.BinderInfo]
   , nextName :: Int
   , reservedNames :: [S.Name]
@@ -64,6 +65,24 @@ data ElabState = ElabState
   , idsNames :: Map Id S.GName
   , nextId :: Int }
   deriving Show
+
+clearState :: ElabState -> Set S.GName -> ElabState
+clearState state changes = ElabState
+  mempty
+  0
+  N.TypeType1
+  []
+  []
+  mempty
+  (Level 0)
+  []
+  0
+  []
+  (Map.filterWithKey (\name _ -> Set.notMember name changes) (globals state))
+  (Map.filter (\name -> Set.notMember name changes) (idsNames state))
+  (nextId state)
+
+data OldElabState = OldElabState
 
 type Elab a = State ElabState a
 
@@ -75,13 +94,46 @@ data Item
   deriving Show
 
 type Program = Map S.GName Item
+type Graph = Map S.GName (Set S.GName)
+type Cycles = [(S.GName, [S.GName])]
+type Ordering = [Set S.GName]
+data ItemPart = Dec | Def
+  deriving (Eq, Ord)
+type ChangedItems = Map S.GName ItemPart
+type ReverseDeps = Map S.GName [(S.GName, Set ItemPart)]
 
-elab :: HasCallStack => S.Item -> (C.Program, ElabState)
-elab item = runState (checkProgram (flatten [] item)) (ElabState mempty 0 N.TypeType1 [] [] mempty (Level 0) S.Span [] 0 [] mempty mempty 0)
+elab :: HasCallStack => S.Item -> ElabState -> C.Program -> ChangedItems -> ReverseDeps -> (C.Program, ElabState)
+elab item oldState oldProgram changes deps =
+  let 
+    flatItems = flatten [] item
+    -- changed part -> dependencies -> changed items
+    go :: ItemPart -> [(S.GName, Set ItemPart)] -> Program
+    go part items = foldl' Map.union mempty $ (flip map) items \(name, ps) ->
+      let
+        m = case (part, ps) of
+          (Dec, Set.member Dec -> True)         -> go Dec (deps ! name)
+          (Dec, (== Set.singleton Def) -> True) -> mempty
+          (Def, Set.member Dec -> True)         -> go Dec (deps ! name)
+          (Def, (== Set.singleton Def) -> True) -> go Def (deps ! name)
+      in Map.singleton name (flatItems ! name) `Map.union` m
+
+    pairs = Map.elems $ Map.mapWithKey (\name part -> (part, deps ! name)) changes
+    program = mconcat (map (uncurry go) pairs) `Map.union` Map.fromList (map (\name -> (name, flatItems ! name)) (Map.keys changes))
+    
+    -- old program -> new program -> combined program
+    combinePrograms :: C.Program -> C.Program -> C.Program
+    combinePrograms (C.Program oldProg) (C.Program newProg) = C.Program $ map go oldProg where
+      go :: C.Item -> C.Item
+      go oldItem@(C.itemId -> nid) = case find (\(C.itemId -> nid') -> nid == nid') newProg of
+        Just newItem -> newItem
+        Nothing -> oldItem
+
+    (cProgram, state) = runState (checkProgram program) oldState
+  in (combinePrograms oldProgram cProgram, state)
 
 flatten :: [String] -> S.Item -> Program
 flatten nameAcc item = case item of
-  S.NamespaceDef name items -> foldl Map.union mempty (map (flatten ((S.unName name):nameAcc)) items)
+  S.NamespaceDef name items -> foldl' Map.union mempty (map (flatten ((S.unName name):nameAcc)) items)
   S.TermDef name dec def -> Map.singleton (S.GName $ (S.unName name):nameAcc) (TermDef dec def)
   S.ProdDef name dec fields -> Map.singleton (S.GName $ (S.unName name):nameAcc) (ProdDef dec fields)
   S.IndDef name dec cs ->
@@ -92,10 +144,6 @@ flatten nameAcc item = case item of
           let gname = S.unName cn : S.unName name : nameAcc
           in (S.GName gname, ConDef (S.GName $ tail gname) ct))
         cs)
-
-type Graph = Map S.GName (Set S.GName)
-type Cycles = [(S.GName, [S.GName])]
-type Ordering = [Set S.GName]
 
 dependencies :: [(S.GName, Item)] -> Graph
 dependencies items = case items of
@@ -114,7 +162,6 @@ dependencies items = case items of
 
     search' :: S.Term -> Reader Bool (Set S.GName)
     search' term = case term of
-      S.Spanned term _ -> search' term
       S.Var _ -> pure mempty
       S.GVar (S.GName name) -> ask >>= \b -> pure $ if b then singleton (S.GName $ name) else mempty
       S.Lam _ body -> search' body
@@ -255,9 +302,6 @@ check term goal = do
   univ <- getGoalUniv
   -- let !() = trace ("CGoal = " ++ show cGoal) ()
   scope case (term, goal) of
-    (S.Spanned term' ssp, _) -> do
-      putSpan ssp
-      check term' goal
     (S.Ann term' ty, _) -> do
       cTy <- check ty univ 
       vTy <- eval cTy
@@ -318,9 +362,6 @@ check term goal = do
 
 infer :: HasCallStack => S.Term -> Elab (C.Term, N.Value)
 infer term = getGoalUniv >>= \univ -> scope case term of
-  S.Spanned term' ssp -> do
-    putSpan ssp
-    infer term'
   S.Ann term' ty -> do
     vTy <- check ty univ >>= eval
     cTerm' <- check term' vTy
@@ -495,11 +536,6 @@ scope act = do
   put $ state { metas = metas s, errors = errors s, nextMeta = nextMeta s, nextName = nextName s, nextId = nextId s }
   pure a
 
-putSpan :: S.Span -> Elab ()
-putSpan ssp = do
-  state <- get
-  put $ state { sourceSpan = ssp }
-
 reserve :: [S.Name] -> Elab ()
 reserve names = do
   state <- get
@@ -634,7 +670,7 @@ unify val val' = do
 putError :: InnerError -> Elab ()
 putError err = do
   state <- get
-  put $ state { errors = (Error (sourceSpan state) (locals state) (globals state) (level state) err):(errors state) }
+  put $ state { errors = (Error (locals state) (globals state) (level state) err):(errors state) }
 
 freshName :: String -> Elab S.Name
 freshName base = do
