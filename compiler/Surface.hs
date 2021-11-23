@@ -22,6 +22,9 @@ data Item
   | EditorBlankDef
   deriving (Show, Eq)
 
+data ItemPart = Dec | Def
+  deriving (Eq, Ord, Show)
+
 data Term
   = Var Name
   | GVar GName

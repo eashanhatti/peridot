@@ -33,7 +33,7 @@ main = do
   putStrLn "Done parsing"
   putStrLn "Surface term:"
   Text.putStrLn $ pShow program
-  let (cProgram, state) = Elab.elab program
+  let (cProgram, state) = Elab.elabFresh program
   putStrLn "Core program:"
   Text.putStrLn $ pShow cProgram
   putStrLn "Errors:"

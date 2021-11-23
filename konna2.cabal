@@ -35,6 +35,6 @@ executable konna_compiler
 executable konna_editor
     main-is: Main.hs
     other-modules: Surface, Parsing
-    build-depends: base ^>=4.15.0.0, text, text-show, mtl, containers, ansi-terminal, binary, bytestring, utf8-string, bifunctors
+    build-depends: base ^>=4.15.0.0, text, text-show, mtl, containers, ansi-terminal, binary, bytestring, utf8-string, bifunctors, fused-effects
     hs-source-dirs: editor, compiler
     default-language: Haskell2010

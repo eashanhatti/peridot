@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -8,6 +7,9 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE BlockArguments #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Main where
 
@@ -21,6 +23,7 @@ import System.Console.ANSI
 import Data.Binary
 import Data.Binary.Put
 import Data.Binary.Get(runGet)
+import qualified Data.Map as DM
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.ByteString.Lazy as LB
@@ -33,6 +36,12 @@ import Data.Char
 import Foreign.C.Types
 import Data.Bifunctor
 import Control.Monad(forM_)
+import Control.Effect.State(State)
+import qualified Control.Effect.State as SE
+import Control.Effect.Lift(Lift, Has)
+import qualified Control.Effect.Lift as LE
+import Control.Carrier.State.Strict(runState)
+import Control.Carrier.Lift(runM)
 
 data Con = Con String Term | EditorBlankCon
   deriving (Show, Eq)
@@ -119,6 +128,9 @@ statesEq st st' = case (unFocusType st, unFocusType st') of
 
 data Ex = forall a. Ex { unEx :: EditorState a }
 
+type Edit sig m = (Has (State Changes) sig m, Has (State GName) sig m, Has (State (Maybe ItemPart)) sig m)
+type EditIO sig m = (Has (Lift IO) sig m, Edit sig m)
+
 data Command a where
   InsertTerm         :: TermInsertionType -> Command Term
   InsertVar          :: String -> Command Term
@@ -155,8 +167,13 @@ instance MkFocus Item where   focus = FItem
 instance MkFocus String where focus = FName
 instance MkFocus Con where    focus = FCon
 
+type Changes = DM.Map GName ItemPart
+
 mkEx :: (MkFT a, MkFocus a) => a -> Path a -> Direction -> Ex
 mkEx f p s = Ex $ EditorState (Cursor (focus f) p) focusType s
+
+mkExE :: (MkFT a, MkFocus a, Edit sig m) => a -> Path a -> Direction -> m Ex
+mkExE f p s = pure $ mkEx f p s
 
 blankFocus :: Focus a -> Bool
 blankFocus focus = case focus of
@@ -166,231 +183,310 @@ blankFocus focus = case focus of
   FCon EditorBlankCon -> True
   _ -> False
 
-run :: Command a -> EditorState a -> Ex
-run command state@(EditorState (Cursor focus path) focusType side) = case command of
-  InsertTerm ti -> case ti of
-    TILam -> mkEx (Lam [Name "_"] termFocus) path Left
-    TIApp -> mkEx (App termFocus [Hole]) path Left
-    TILet -> mkEx (Let (Name "_") Hole Hole termFocus) path Left
-    TIPi -> mkEx (Pi (Name "_") termFocus Hole) path Left
-    TICode -> mkEx (Code termFocus) path Left
-    TIQuote -> mkEx (Quote termFocus) path Left
-    TISplice -> mkEx (Splice termFocus) path Left
-    TIMkProd -> mkEx (MkProd termFocus []) path Left
-    where
-      termFocus = unFTerm focus
-  InsertVar s -> mkEx (Var (Name s)) path Left
-  InsertHole -> mkEx Hole path Left
-  InsertTermDef -> mkEx (TermDef (Name "_") Hole Hole) path Left
-  InsertNamespaceDef -> mkEx (NamespaceDef (Name "_") []) path Left
-  InsertIndDef -> mkEx (IndDef (Name "_") Hole []) path Left
-  InsertU0 -> mkEx U0 path Left
-  InsertU1 -> mkEx U1 path Left
-  InsertGVar ns -> mkEx (GVar $ GName ns) path Left
-  InsertCon s -> mkEx Hole (PConTy path s) Left
-  InsertProdDef -> mkEx (ProdDef (Name "_") Hole []) path Left
-  SetName s -> mkEx s path Left
-  Add ->
-    if blankFocus focus then
-      Ex state
-    else case path of
-      PLamParams up ln rn body -> mkEx "" (PLamParams up (insertFocusR focus ln) rn body) Left
-      PAppTerms up le re -> mkEx EditorBlank (PAppTerms up (insertFocusR focus le) re) Left
-      PNamespaceDefItems up name li ri -> mkEx EditorBlankDef (PNamespaceDefItems up name (insertFocusR focus li) ri) Left
-      PIndDefCons up name ty lc rc -> mkEx EditorBlankCon (PIndDefCons up name ty (insertFocusR focus lc) rc) Left
-      PProdDefFields up name ty lf rf -> mkEx EditorBlank (PProdDefFields up name ty (insertFocusR focus lf) rf) Left
-      PMkProdArgs up ty le re -> mkEx EditorBlank (PMkProdArgs up ty (insertFocusR focus le) re) Left
-      _ -> Ex state
-  MoveRight -> case path of
-    PTop -> sideRight
-    PLamParams up ln [] body -> mkEx body (PLamBody up (insertFocusR focus ln)) Left
-    PLamParams up ln (n:rn) body -> mkEx n (PLamParams up (insertFocusR focus ln) rn body) Left
-    PLamBody up ns -> sideRight
-    PAppTerms up le [] -> sideRight
-    PAppTerms up le (r:re) -> mkEx r (PAppTerms up (insertFocusR focus le) re) Left
-    PLetName up def defTy body -> mkEx defTy (PLetDefTy up (unFName focus) def body) Left
-    PLetDefTy up name def body -> mkEx def (PLetDef up name (unFTerm focus) body) Left
-    PLetDef up name defTy body -> mkEx body (PLetBody up name (unFTerm focus) defTy) Left
-    PMkProdTy up [] -> mkEx EditorBlank (PMkProdArgs up (unFTerm focus) [] []) Left
-    PMkProdTy up (e:es) -> mkEx e (PMkProdArgs up (unFTerm focus) [] es) Left
-    PMkProdArgs up ty le [] -> sideRight
-    PMkProdArgs up ty le (r:re) -> mkEx r (PMkProdArgs up ty (insertFocusR focus le) re) Left    
-    PLetBody _ _ _ _ -> sideRight
-    PTermDefName up ty body -> mkEx ty (PTermDefTy up (unFName focus) body) Left
-    PTermDefTy up name body -> mkEx body (PTermDefBody up name (unFTerm focus)) Left
-    PTermDefBody _ _ _ -> sideRight
-    PNamespaceDefName up [] -> mkEx EditorBlankDef (PNamespaceDefItems up (unFName focus) [] []) Left
-    PNamespaceDefName up (i:is) -> mkEx i (PNamespaceDefItems up (unFName focus) [] is) Left
-    PNamespaceDefItems up name _ [] -> sideRight
-    PNamespaceDefItems up name li (i:ri) -> mkEx i (PNamespaceDefItems up name (insertFocusR focus li) ri) Left
-    PPiName up inTy outTy -> mkEx inTy (PPiIn up (unFName focus) outTy) Left
-    PPiIn up name outTy -> mkEx outTy (PPiOut up name (unFTerm focus)) Left
-    PPiOut _ _ _ -> sideRight
-    PCode _ -> sideRight
-    PQuote _ -> sideRight
-    PSplice _ -> sideRight
-    PIndDefName up ty cons -> mkEx ty (PIndDefTy up (unFName focus) cons) Left
-    PIndDefTy up name [] -> mkEx EditorBlankCon (PIndDefCons up name (unFTerm focus) [] []) Left 
-    PIndDefTy up name (c:cs) -> mkEx c (PIndDefCons up name (unFTerm focus) [] cs) Left
-    PIndDefCons up name ty lc [] -> sideRight
-    PIndDefCons up name ty lc (c:rc) -> mkEx c (PIndDefCons up name ty (insertFocusR focus lc) rc) Left
-    PProdDefName up ty fs -> mkEx ty (PProdDefTy up (unFName focus) fs) Left
-    PProdDefTy up name [] -> mkEx EditorBlank (PProdDefFields up name (unFTerm focus) [] []) Left
-    PProdDefTy up name (f:fs) -> mkEx f (PProdDefFields up name (unFTerm focus) [] fs) Left
-    PProdDefFields up name ty lf [] -> sideRight
-    PProdDefFields up name ty lf (f:rf) -> mkEx f (PProdDefFields up name ty (insertFocusR focus lf) rf) Left
-    PConName up ty -> mkEx ty (PConTy up (unFName focus)) Left
-    PConTy _ _ -> sideRight
-  MoveLeft -> case path of
-    PTop -> sideLeft
-    PLamParams up [] rn body -> orSideLeft $ mkEx "" (PLamParams up [] (insertFocusL focus rn) body) Left
-    PLamParams up ln rn body -> mkEx (last ln) (PLamParams up (init ln) (insertFocusL focus rn) body) Left
-    PLamBody up ns -> mkEx (last ns) (PLamParams up (init ns) [] (unFTerm focus)) Left
-    PAppTerms up [] re -> orSideLeft $ mkEx EditorBlank (PAppTerms up [] (insertFocusL focus re)) Right
-    PAppTerms up le re -> mkEx (last le) (PAppTerms up (init le) (insertFocusL focus re)) Right
-    PLetName _ _ _ _ -> sideLeft
-    PLetDefTy up name def body -> mkEx name (PLetName up def (unFTerm focus) body) Left
-    PLetDef up name defTy body -> mkEx defTy (PLetDefTy up name (unFTerm focus) body) Right
-    PLetBody up name def defTy -> mkEx def (PLetDef up name defTy (unFTerm focus)) Right
-    PMkProdTy _ _ -> sideLeft
-    PMkProdArgs up ty [] es -> mkEx ty (PMkProdTy up es) Right
-    PMkProdArgs up ty le re -> mkEx (last le) (PMkProdArgs up ty (init le) (insertFocusL focus re)) Right
-    PTermDefName up ty body -> sideLeft
-    PTermDefTy up name body -> mkEx name (PTermDefName up (unFTerm focus) body) Left
-    PTermDefBody up name ty -> mkEx ty (PTermDefTy up name (unFTerm focus)) Right
-    PNamespaceDefName up _ -> sideLeft
-    PNamespaceDefItems up name [] ri -> orSideLeft $ mkEx EditorBlankDef (PNamespaceDefItems up name [] (insertFocusL focus ri)) Right
-    PNamespaceDefItems up name li ri -> mkEx (last li) (PNamespaceDefItems up name (init li) (insertFocusL focus ri)) Right
-    PPiName _ _ _ -> sideLeft
-    PPiIn up name outTy -> mkEx name (PPiName up (unFTerm focus) outTy) Left
-    PPiOut up name inTy -> mkEx inTy (PPiIn up name (unFTerm focus)) Right
-    PCode _ -> sideLeft
-    PQuote _ -> sideLeft
-    PSplice _ -> sideLeft
-    PIndDefName _ _ _ -> sideLeft
-    PIndDefTy up name cons -> mkEx name (PIndDefName up (unFTerm focus) cons) Left
-    PIndDefCons up name ty [] rc -> orSideLeft $ mkEx EditorBlankCon (PIndDefCons up name ty [] (insertFocusL focus rc)) Right
-    PIndDefCons up name ty lc rc -> mkEx (last lc) (PIndDefCons up name ty (init lc) (insertFocusL focus rc)) Right
-    PProdDefName _ _ _ -> sideLeft
-    PProdDefTy up name fs -> mkEx name (PProdDefName up (unFTerm focus) fs) Left
-    PProdDefFields up name ty [] rf -> orSideLeft $ mkEx EditorBlank (PProdDefFields up name ty [] (insertFocusL focus rf)) Right
-    PProdDefFields up name ty lf rf -> mkEx (last lf) (PProdDefFields up name ty (init lf) (insertFocusL focus rf)) Right
-    PConName _ _ -> sideLeft
-    PConTy up name -> mkEx name (PConName up (unFTerm focus)) Left
-    where
-      orSideLeft ex =
-        if blankFocus focus then
-          sideLeft
-        else
-          ex
-  MoveOut d -> case path of
-    PTop -> Ex state
-    PLamParams up ln rn body -> mkEx (Lam (map Name ln ++ (map Name $ insertFocusL focus rn)) body) up d
-    PLamBody up ns -> mkEx (Lam (map Name ns) (unFTerm focus)) up d
-    PAppTerms up le re ->
-      let es = le ++ insertFocusL focus re
-      in mkEx (App (head es) (tail es)) up d
-    PLetName up def defTy body -> mkEx (Let (Name $ unFName focus) def defTy body) up d
-    PLetDefTy up name def body -> mkEx (Let (Name name) def (unFTerm focus) body) up d
-    PLetDef up name defTy body -> mkEx (Let (Name name) (unFTerm focus) defTy body) up d
-    PLetBody up name def defTy -> mkEx (Let (Name name) def defTy (unFTerm focus)) up d
-    PMkProdTy up es -> mkEx (MkProd (unFTerm focus) es) up d
-    PMkProdArgs up ty le re -> mkEx (MkProd ty (le ++ insertFocusL focus re)) up d
-    PTermDefName up ty body -> mkEx (TermDef (Name $ unFName focus) ty body) up d
-    PTermDefTy up name body -> mkEx (TermDef (Name name) (unFTerm focus) body) up d
-    PTermDefBody up name ty -> mkEx (TermDef (Name name) ty (unFTerm focus)) up d
-    PNamespaceDefName up items -> mkEx (NamespaceDef (Name $ unFName focus) items) up d
-    PNamespaceDefItems up name li ri -> mkEx (NamespaceDef (Name name) (li ++ insertFocusL focus ri)) up d
-    PPiName up inTy outTy -> mkEx (Pi (Name $ unFName focus) inTy outTy) up d
-    PPiIn up name outTy -> mkEx (Pi (Name name) (unFTerm focus) outTy) up d
-    PPiOut up name inTy -> mkEx (Pi (Name name) inTy (unFTerm focus)) up d
-    PCode up -> mkEx (Code $ unFTerm focus) up d
-    PQuote up -> mkEx (Quote $ unFTerm focus) up d
-    PSplice up -> mkEx (Splice $ unFTerm focus) up d
-    PIndDefName up ty cons -> mkEx (IndDef (Name $ unFName focus) ty (map (first Name . unCon) cons)) up d
-    PIndDefCons up name ty lc [] ->
-      let (Con n t) = unFCon focus
-      in mkEx (IndDef (Name name) ty (map (first Name . unCon) lc ++ [(Name n, t)])) up d
-    PIndDefTy up name cons -> mkEx (IndDef (Name name) (unFTerm focus) (map (first Name . unCon) cons)) up d
-    PIndDefCons up name ty lc rc -> mkEx (IndDef (Name name) ty (map (first Name . unCon) $ lc ++ insertFocusL focus rc)) up d
-    PProdDefName up ty fs -> mkEx (ProdDef (Name $ unFName focus) ty fs) up d
-    PProdDefTy up name fs -> mkEx (ProdDef (Name name) (unFTerm focus) fs) up d
-    PProdDefFields up name ty lf rf -> mkEx (ProdDef (Name name) ty (lf ++ insertFocusL focus rf)) up d
-    PConName up ty -> mkEx (Con (unFName focus) ty) up d
-    PConTy up name -> mkEx (Con name (unFTerm focus)) up d
-  MoveInLeft -> case focus of
-    FTerm focus -> case focus of
-      Lam (Name n:ns) body -> mkEx n (PLamParams path [] (map unName ns) body) Left
-      App lam args -> mkEx lam (PAppTerms path [] args) Left
-      Let (Name name) def defTy body -> mkEx name (PLetName path def defTy body) Left
-      Pi (Name name) inTy outTy -> mkEx name (PPiName path inTy outTy) Left
-      Var _ -> Ex state
-      GVar _ -> Ex state
-      U0 -> Ex state
-      U1 -> Ex state
-      Code ty -> mkEx ty (PCode path) Left
-      Quote e -> mkEx e (PQuote path) Left
-      Splice e -> mkEx e (PSplice path) Left
-      MkProd ty es -> mkEx ty (PMkProdTy path es) Left
-      Hole -> Ex state
-      EditorBlank -> Ex state
-    FItem focus -> case focus of
-      TermDef (Name n) ty body -> mkEx n (PTermDefName path ty body) Left
-      NamespaceDef (Name n) items -> mkEx n (PNamespaceDefName path items) Left
-      IndDef (Name n) ty cons -> mkEx n (PIndDefName path ty (map (conPair . first unName) cons)) Left
-      ProdDef (Name n) ty fields -> mkEx n (PProdDefName path ty fields) Left
-    FCon focus -> case focus of
-      Con n t -> mkEx n (PConName path t) Left
-      EditorBlankCon -> sideLeft
-    FName _ -> sideLeft
-  MoveInRight -> case focus of
-    FTerm focus -> case focus of
-      Lam ns body -> mkEx body (PLamBody path (map unName ns)) Right
-      App lam args -> mkEx (last args) (PAppTerms path (lam : init args) []) Right
-      Let (Name name) def defTy body -> mkEx body (PLetBody path name def defTy) Right
-      Pi (Name name) inTy outTy -> mkEx outTy (PPiOut path name inTy) Right
-      Var _ -> Ex state
-      GVar _ -> Ex state
-      U0 -> Ex state
-      U1 -> Ex state
-      Code ty -> mkEx ty (PCode path) Right
-      Quote e -> mkEx e (PQuote path) Right
-      Splice e -> mkEx e (PSplice path) Right
-      MkProd ty [] -> mkEx EditorBlank (PMkProdArgs path ty [] []) Right
-      Hole -> Ex state
-      EditorBlank -> Ex state
-    FItem focus -> case focus of
-      TermDef (Name n) ty body -> mkEx body (PTermDefBody path n ty) Right
-      NamespaceDef (Name n) [] -> mkEx EditorBlankDef (PNamespaceDefItems path n [] []) Right
-      NamespaceDef (Name n) items -> mkEx (last items) (PNamespaceDefItems path n (init items) []) Right
-      IndDef (Name n) ty [] -> mkEx EditorBlankCon (PIndDefCons path n ty [] []) Right
-      IndDef (Name n) ty cons -> mkEx ((\(Name n, t) -> Con n t) $ last cons) (PIndDefCons path n ty (map (conPair . first unName) $ init cons) []) Right
-      ProdDef (Name n) ty [] -> mkEx EditorBlank (PProdDefFields path n ty [] []) Right
-      ProdDef (Name n) ty fs -> mkEx (last fs) (PProdDefFields path n ty (init fs) []) Right
-    FCon focus -> case focus of
-      Con n t -> mkEx t (PConTy path n) Right
-      EditorBlankCon -> sideRight
-    FName _ -> sideRight
-  Delete -> case path of
-    PNamespaceDefItems up name [] [] -> mkEx name (PNamespaceDefName up []) Left
-    PNamespaceDefItems up name li@(_:_) ri -> mkEx (last li) (PNamespaceDefItems up name (init li) ri) Right
-    PIndDefCons up name ty [] [] -> mkEx ty (PIndDefTy up name []) Right
-    PIndDefCons up name ty lc@(_:_) rc -> mkEx (last lc) (PIndDefCons up name ty (init lc) rc) Right
-    PLamParams up [] [] body -> Ex state
-    PLamParams up [] (n:rn) body -> mkEx n (PLamParams up [] rn body) Left
-    PLamParams up ln rn body -> mkEx (last ln) (PLamParams up (init ln) rn body) Right
-    PProdDefFields up name ty [] [] -> mkEx ty (PProdDefTy up name []) Right
-    PProdDefFields up name ty lf@(_:_) rf -> mkEx (last lf) (PProdDefFields up name ty (init lf) rf) Right
-    PMkProdArgs up ty [] [] -> mkEx ty path Right
-    PMkProdArgs up ty le@(_:_) re -> mkEx (last le) (PMkProdArgs up ty (init le) re) Right
-    PAppTerms up le re -> case le ++ re of
-      [] -> mkEx Hole path Right
-      [e] -> mkEx e path Right
-      _ -> mkEx (last le) (PAppTerms up (init le) re) Right
-    _ -> case focusType of
-      FTTerm -> mkEx Hole path Left
-      _ -> Ex state
+popName :: Has (State GName) sig m => m ()
+popName = do
+  GName ns <- SE.get
+  SE.put (GName $ tail ns)
+
+pushName :: Has (State GName) sig m => String -> m ()
+pushName n = do
+  GName ns <- SE.get
+  SE.put (GName $ n:ns)
+
+putPart :: Has (State (Maybe ItemPart)) sig m => ItemPart -> m ()
+putPart part = SE.put @(Maybe ItemPart) (Just part)
+
+clearPart :: Has (State (Maybe ItemPart)) sig m => m ()
+clearPart = SE.put @(Maybe ItemPart) Nothing
+
+markChange :: Edit sig m => m ()
+markChange = do
+  part <- SE.get @(Maybe ItemPart)
+  case part of
+    Just part -> do
+      changes <- SE.get @Changes
+      name <- SE.get @GName
+      case DM.lookup name changes of
+        Just Dec -> pure ()
+        _ -> SE.put @Changes (DM.insert name part changes)
+    Nothing -> pure ()
+
+itemName :: Path a -> Focus a -> Maybe String
+itemName path focus = case path of
+  PTermDefName _ _ _ -> Just $ unFName focus
+  PTermDefBody _ name _ -> Just name
+  PTermDefTy _ name _ -> Just name
+  PNamespaceDefName _ _ -> Just $ unFName focus
+  PNamespaceDefItems _ name _ _ -> Just name
+  PIndDefName _ _ _ -> Just $ unFName focus
+  PIndDefTy _ name _ -> Just name
+  PIndDefCons _ name _ _ _ -> Just name
+  PConName _ _ -> Just $ unFName focus
+  PConTy _ name -> Just name
+  PProdDefName _ _ _ -> Just $ unFName focus
+  PProdDefTy _ name _ -> Just name
+  PProdDefFields _ name _ _ _ -> Just name
+  _ -> Nothing
+
+run :: Edit sig m => Command a -> EditorState a -> m Ex
+run command state@(EditorState (Cursor focus path) focusType side) = do
+  state' <- case command of
+    InsertTerm ti -> do
+      markChange
+      case ti of
+        TILam -> mkExE (Lam [Name "_"] termFocus) path Left
+        TIApp -> mkExE (App termFocus [Hole]) path Left
+        TILet -> mkExE (Let (Name "_") Hole Hole termFocus) path Left
+        TIPi -> mkExE (Pi (Name "_") termFocus Hole) path Left
+        TICode -> mkExE (Code termFocus) path Left
+        TIQuote -> mkExE (Quote termFocus) path Left
+        TISplice -> mkExE (Splice termFocus) path Left
+        TIMkProd -> mkExE (MkProd termFocus []) path Left
+      where
+        termFocus = unFTerm focus
+    InsertVar s -> markChange >> mkExE (Var (Name s)) path Left
+    InsertHole -> markChange >> mkExE Hole path Left
+    InsertTermDef -> markItemInsertion >> mkExE (TermDef (Name "_") Hole Hole) path Left
+    InsertNamespaceDef -> mkExE (NamespaceDef (Name "_") []) path Left
+    InsertIndDef -> markItemInsertion >> mkExE (IndDef (Name "_") Hole []) path Left
+    InsertU0 -> markChange >> mkExE U0 path Left
+    InsertU1 -> markChange >> mkExE U1 path Left
+    InsertGVar ns -> markChange >> mkExE (GVar $ GName ns) path Left
+    InsertCon s -> markItemInsertion >> mkExE Hole (PConTy path s) Left
+    InsertProdDef -> markItemInsertion >> mkExE (ProdDef (Name "_") Hole []) path Left
+    SetName s -> do
+      case itemName path focus of
+        Just _ -> do
+          part <- SE.get @(Maybe ItemPart)
+          putPart Dec
+          markChange
+          case part of
+            Just part -> putPart part
+            Nothing -> clearPart
+          popName
+          pushName s
+        Nothing -> pure ()
+      mkExE s path Left
+    Add ->
+      if blankFocus focus then
+        pure oldState
+      else case path of
+        PLamParams up ln rn body -> mkExE "" (PLamParams up (insertFocusR focus ln) rn body) Left
+        PAppTerms up le re -> mkExE EditorBlank (PAppTerms up (insertFocusR focus le) re) Left
+        PNamespaceDefItems up name li ri -> mkExE EditorBlankDef (PNamespaceDefItems up name (insertFocusR focus li) ri) Left
+        PIndDefCons up name ty lc rc -> mkExE EditorBlankCon (PIndDefCons up name ty (insertFocusR focus lc) rc) Left
+        PProdDefFields up name ty lf rf -> mkExE EditorBlank (PProdDefFields up name ty (insertFocusR focus lf) rf) Left
+        PMkProdArgs up ty le re -> mkExE EditorBlank (PMkProdArgs up ty (insertFocusR focus le) re) Left
+        _ -> pure oldState
+    MoveRight -> case path of
+      PTop -> pure sideRight
+      PLamParams up ln [] body -> mkExE body (PLamBody up (insertFocusR focus ln)) Left
+      PLamParams up ln (n:rn) body -> mkExE n (PLamParams up (insertFocusR focus ln) rn body) Left
+      PLamBody up ns -> pure sideRight
+      PAppTerms up le [] -> pure sideRight
+      PAppTerms up le (r:re) -> mkExE r (PAppTerms up (insertFocusR focus le) re) Left
+      PLetName up def defTy body -> mkExE defTy (PLetDefTy up (unFName focus) def body) Left
+      PLetDefTy up name def body -> mkExE def (PLetDef up name (unFTerm focus) body) Left
+      PLetDef up name defTy body -> mkExE body (PLetBody up name (unFTerm focus) defTy) Left
+      PMkProdTy up [] -> mkExE EditorBlank (PMkProdArgs up (unFTerm focus) [] []) Left
+      PMkProdTy up (e:es) -> mkExE e (PMkProdArgs up (unFTerm focus) [] es) Left
+      PMkProdArgs up ty le [] -> pure sideRight
+      PMkProdArgs up ty le (r:re) -> mkExE r (PMkProdArgs up ty (insertFocusR focus le) re) Left    
+      PLetBody _ _ _ _ -> pure sideRight
+      PTermDefName up ty body -> putPart Dec >> mkExE ty (PTermDefTy up (unFName focus) body) Left
+      PTermDefTy up name body -> putPart Def >> mkExE body (PTermDefBody up name (unFTerm focus)) Left
+      PTermDefBody _ _ _ -> pure sideRight
+      PNamespaceDefName up [] -> mkExE EditorBlankDef (PNamespaceDefItems up (unFName focus) [] []) Left
+      PNamespaceDefName up (i:is) -> mkExE i (PNamespaceDefItems up (unFName focus) [] is) Left
+      PNamespaceDefItems up name _ [] -> pure sideRight
+      PNamespaceDefItems up name li (i:ri) -> mkExE i (PNamespaceDefItems up name (insertFocusR focus li) ri) Left
+      PPiName up inTy outTy -> mkExE inTy (PPiIn up (unFName focus) outTy) Left
+      PPiIn up name outTy -> mkExE outTy (PPiOut up name (unFTerm focus)) Left
+      PPiOut _ _ _ -> pure sideRight
+      PCode _ -> pure sideRight
+      PQuote _ -> pure sideRight
+      PSplice _ -> pure sideRight
+      PIndDefName up ty cons -> putPart Dec >> mkExE ty (PIndDefTy up (unFName focus) cons) Left
+      PIndDefTy up name [] -> clearPart >> mkExE EditorBlankCon (PIndDefCons up name (unFTerm focus) [] []) Left 
+      PIndDefTy up name (c:cs) -> clearPart >> mkExE c (PIndDefCons up name (unFTerm focus) [] cs) Left
+      PIndDefCons up name ty lc [] -> pure sideRight
+      PIndDefCons up name ty lc (c:rc) -> mkExE c (PIndDefCons up name ty (insertFocusR focus lc) rc) Left
+      PProdDefName up ty fs -> putPart Dec >> mkExE ty (PProdDefTy up (unFName focus) fs) Left
+      PProdDefTy up name [] -> clearPart >> mkExE EditorBlank (PProdDefFields up name (unFTerm focus) [] []) Left
+      PProdDefTy up name (f:fs) -> clearPart >> mkExE f (PProdDefFields up name (unFTerm focus) [] fs) Left
+      PProdDefFields up name ty lf [] -> pure sideRight
+      PProdDefFields up name ty lf (f:rf) -> mkExE f (PProdDefFields up name ty (insertFocusR focus lf) rf) Left
+      PConName up ty -> putPart Dec >> mkExE ty (PConTy up (unFName focus)) Left
+      PConTy _ _ -> clearPart >> pure sideRight
+    MoveLeft -> case path of
+      PTop -> pure sideLeft
+      PLamParams up [] rn body -> orSideLeft $ mkExE "" (PLamParams up [] (insertFocusL focus rn) body) Left
+      PLamParams up ln rn body -> mkExE (last ln) (PLamParams up (init ln) (insertFocusL focus rn) body) Left
+      PLamBody up ns -> mkExE (last ns) (PLamParams up (init ns) [] (unFTerm focus)) Left
+      PAppTerms up [] re -> orSideLeft $ mkExE EditorBlank (PAppTerms up [] (insertFocusL focus re)) Right
+      PAppTerms up le re -> mkExE (last le) (PAppTerms up (init le) (insertFocusL focus re)) Right
+      PLetName _ _ _ _ -> pure sideLeft
+      PLetDefTy up name def body -> mkExE name (PLetName up def (unFTerm focus) body) Left
+      PLetDef up name defTy body -> mkExE defTy (PLetDefTy up name (unFTerm focus) body) Right
+      PLetBody up name def defTy -> mkExE def (PLetDef up name defTy (unFTerm focus)) Right
+      PMkProdTy _ _ -> pure sideLeft
+      PMkProdArgs up ty [] es -> mkExE ty (PMkProdTy up es) Right
+      PMkProdArgs up ty le re -> mkExE (last le) (PMkProdArgs up ty (init le) (insertFocusL focus re)) Right
+      PTermDefName up ty body -> pure sideLeft
+      PTermDefTy up name body -> clearPart >> mkExE name (PTermDefName up (unFTerm focus) body) Left
+      PTermDefBody up name ty -> putPart Dec >> mkExE ty (PTermDefTy up name (unFTerm focus)) Right
+      PNamespaceDefName up _ -> pure sideLeft
+      PNamespaceDefItems up name [] ri -> orSideLeft $ mkExE EditorBlankDef (PNamespaceDefItems up name [] (insertFocusL focus ri)) Right
+      PNamespaceDefItems up name li ri -> mkExE (last li) (PNamespaceDefItems up name (init li) (insertFocusL focus ri)) Right
+      PPiName _ _ _ -> pure sideLeft
+      PPiIn up name outTy -> mkExE name (PPiName up (unFTerm focus) outTy) Left
+      PPiOut up name inTy -> mkExE inTy (PPiIn up name (unFTerm focus)) Right
+      PCode _ -> pure sideLeft
+      PQuote _ -> pure sideLeft
+      PSplice _ -> pure sideLeft
+      PIndDefName _ _ _ -> pure sideLeft
+      PIndDefTy up name cons -> clearPart >> mkExE name (PIndDefName up (unFTerm focus) cons) Left
+      PIndDefCons up name ty [] rc -> orSideLeft $ mkExE EditorBlankCon (PIndDefCons up name ty [] (insertFocusL focus rc)) Right
+      PIndDefCons up name ty lc rc -> mkExE (last lc) (PIndDefCons up name ty (init lc) (insertFocusL focus rc)) Right
+      PProdDefName _ _ _ -> pure sideLeft
+      PProdDefTy up name fs -> mkExE name (PProdDefName up (unFTerm focus) fs) Left
+      PProdDefFields up name ty [] rf -> orSideLeft $ mkExE EditorBlank (PProdDefFields up name ty [] (insertFocusL focus rf)) Right
+      PProdDefFields up name ty lf rf -> mkExE (last lf) (PProdDefFields up name ty (init lf) (insertFocusL focus rf)) Right
+      PConName _ _ -> pure sideLeft
+      PConTy up name -> clearPart >> mkExE name (PConName up (unFTerm focus)) Left
+      where
+        orSideLeft :: Edit sig m => m Ex -> m Ex
+        orSideLeft ex =
+          if blankFocus focus then
+            pure sideLeft
+          else
+            ex
+    MoveOut d -> do
+      case itemName path focus of
+        Just _ -> popName
+        Nothing -> pure ()
+      case path of
+        PTop -> pure oldState
+        PLamParams up ln rn body -> mkExE (Lam (map Name ln ++ (map Name $ insertFocusL focus rn)) body) up d
+        PLamBody up ns -> mkExE (Lam (map Name ns) (unFTerm focus)) up d
+        PAppTerms up le re ->
+          let es = le ++ insertFocusL focus re
+          in mkExE (App (head es) (tail es)) up d
+        PLetName up def defTy body -> mkExE (Let (Name $ unFName focus) def defTy body) up d
+        PLetDefTy up name def body -> mkExE (Let (Name name) def (unFTerm focus) body) up d
+        PLetDef up name defTy body -> mkExE (Let (Name name) (unFTerm focus) defTy body) up d
+        PLetBody up name def defTy -> mkExE (Let (Name name) def defTy (unFTerm focus)) up d
+        PMkProdTy up es -> mkExE (MkProd (unFTerm focus) es) up d
+        PMkProdArgs up ty le re -> mkExE (MkProd ty (le ++ insertFocusL focus re)) up d
+        PTermDefName up ty body -> mkExE (TermDef (Name $ unFName focus) ty body) up d
+        PTermDefTy up name body -> clearPart >> mkExE (TermDef (Name name) (unFTerm focus) body) up d
+        PTermDefBody up name ty -> clearPart >> mkExE (TermDef (Name name) ty (unFTerm focus)) up d
+        PNamespaceDefName up items -> mkExE (NamespaceDef (Name $ unFName focus) items) up d
+        PNamespaceDefItems up name li ri -> mkExE (NamespaceDef (Name name) (li ++ insertFocusL focus ri)) up d
+        PPiName up inTy outTy -> mkExE (Pi (Name $ unFName focus) inTy outTy) up d
+        PPiIn up name outTy -> mkExE (Pi (Name name) (unFTerm focus) outTy) up d
+        PPiOut up name inTy -> mkExE (Pi (Name name) inTy (unFTerm focus)) up d
+        PCode up -> mkExE (Code $ unFTerm focus) up d
+        PQuote up -> mkExE (Quote $ unFTerm focus) up d
+        PSplice up -> mkExE (Splice $ unFTerm focus) up d
+        PIndDefName up ty cons -> mkExE (IndDef (Name $ unFName focus) ty (map (first Name . unCon) cons)) up d
+        PIndDefCons up name ty lc [] ->
+          let (Con n t) = unFCon focus
+          in mkExE (IndDef (Name name) ty (map (first Name . unCon) lc ++ [(Name n, t)])) up d
+        PIndDefTy up name cons -> clearPart >> mkExE (IndDef (Name name) (unFTerm focus) (map (first Name . unCon) cons)) up d
+        PIndDefCons up name ty lc rc -> mkExE (IndDef (Name name) ty (map (first Name . unCon) $ lc ++ insertFocusL focus rc)) up d
+        PProdDefName up ty fs -> mkExE (ProdDef (Name $ unFName focus) ty fs) up d
+        PProdDefTy up name fs -> clearPart >> mkExE (ProdDef (Name name) (unFTerm focus) fs) up d
+        PProdDefFields up name ty lf rf -> mkExE (ProdDef (Name name) ty (lf ++ insertFocusL focus rf)) up d
+        PConName up ty -> mkExE (Con (unFName focus) ty) up d
+        PConTy up name -> clearPart >> mkExE (Con name (unFTerm focus)) up d
+    MoveInLeft -> case focus of
+      FTerm focus -> case focus of
+        Lam (Name n:ns) body -> mkExE n (PLamParams path [] (map unName ns) body) Left
+        App lam args -> mkExE lam (PAppTerms path [] args) Left
+        Let (Name name) def defTy body -> mkExE name (PLetName path def defTy body) Left
+        Pi (Name name) inTy outTy -> mkExE name (PPiName path inTy outTy) Left
+        Var _ -> pure oldState
+        GVar _ -> pure oldState
+        U0 -> pure oldState
+        U1 -> pure oldState
+        Code ty -> mkExE ty (PCode path) Left
+        Quote e -> mkExE e (PQuote path) Left
+        Splice e -> mkExE e (PSplice path) Left
+        MkProd ty es -> mkExE ty (PMkProdTy path es) Left
+        Hole -> pure oldState
+        EditorBlank -> pure oldState
+      FItem focus -> do
+        let
+          (n, ex) = case focus of
+            TermDef (Name n) ty body -> (n, mkExE n (PTermDefName path ty body) Left)
+            NamespaceDef (Name n) items -> (n, mkExE n (PNamespaceDefName path items) Left)
+            IndDef (Name n) ty cons -> (n, mkExE n (PIndDefName path ty (map (conPair . first unName) cons)) Left)
+            ProdDef (Name n) ty fields -> (n, mkExE n (PProdDefName path ty fields) Left)
+        pushName n
+        ex
+      FCon focus -> case focus of
+        Con n t -> do
+          pushName n
+          mkExE n (PConName path t) Left
+        EditorBlankCon -> pure sideLeft
+      FName _ -> pure sideLeft
+    MoveInRight -> case focus of
+      FTerm focus -> case focus of
+        Lam ns body -> mkExE body (PLamBody path (map unName ns)) Right
+        App lam args -> mkExE (last args) (PAppTerms path (lam : init args) []) Right
+        Let (Name name) def defTy body -> mkExE body (PLetBody path name def defTy) Right
+        Pi (Name name) inTy outTy -> mkExE outTy (PPiOut path name inTy) Right
+        Var _ -> pure oldState
+        GVar _ -> pure oldState
+        U0 -> pure oldState
+        U1 -> pure oldState
+        Code ty -> mkExE ty (PCode path) Right
+        Quote e -> mkExE e (PQuote path) Right
+        Splice e -> mkExE e (PSplice path) Right
+        MkProd ty [] -> mkExE EditorBlank (PMkProdArgs path ty [] []) Right
+        Hole -> pure oldState
+        EditorBlank -> pure oldState
+      FItem focus -> do
+        let
+          (n, ex) = case focus of
+            TermDef (Name n) ty body -> (n, putPart Def >> mkExE body (PTermDefBody path n ty) Right)
+            NamespaceDef (Name n) [] -> (n, mkExE EditorBlankDef (PNamespaceDefItems path n [] []) Right)
+            NamespaceDef (Name n) items -> (n, mkExE (last items) (PNamespaceDefItems path n (init items) []) Right)
+            IndDef (Name n) ty [] -> (n, mkExE EditorBlankCon (PIndDefCons path n ty [] []) Right)
+            IndDef (Name n) ty cons -> (n, mkExE ((\(Name n, t) -> Con n t) $ last cons) (PIndDefCons path n ty (map (conPair . first unName) $ init cons) []) Right)
+            ProdDef (Name n) ty [] -> (n, mkExE EditorBlank (PProdDefFields path n ty [] []) Right)
+            ProdDef (Name n) ty fs -> (n, mkExE (last fs) (PProdDefFields path n ty (init fs) []) Right)
+        pushName n
+        ex
+      FCon focus -> case focus of
+        Con n t -> do
+          pushName n
+          mkExE t (PConTy path n) Right
+        EditorBlankCon -> pure sideRight
+      FName _ -> pure sideRight
+    Delete -> case path of
+      PNamespaceDefItems up name [] []       -> mkExE name (PNamespaceDefName up []) Left
+      PNamespaceDefItems up name li@(_:_) ri -> mkExE (last li) (PNamespaceDefItems up name (init li) ri) Right
+      PIndDefCons up name ty [] []           -> markDecChange >> mkExE ty (PIndDefTy up name []) Right
+      PIndDefCons up name ty lc@(_:_) rc     -> markDecChange >> mkExE (last lc) (PIndDefCons up name ty (init lc) rc) Right
+      PLamParams up [] [] body               -> pure oldState
+      PLamParams up [] (n:rn) body           -> markChange >> mkExE n (PLamParams up [] rn body) Left
+      PLamParams up ln rn body               -> markChange >> mkExE (last ln) (PLamParams up (init ln) rn body) Right
+      PProdDefFields up name ty [] []        -> mkExE ty (PProdDefTy up name []) Right
+      PProdDefFields up name ty lf@(_:_) rf  -> mkExE (last lf) (PProdDefFields up name ty (init lf) rf) Right
+      PMkProdArgs up ty [] []                -> markChange >> mkExE ty path Right
+      PMkProdArgs up ty le@(_:_) re          -> markChange >> mkExE (last le) (PMkProdArgs up ty (init le) re) Right
+      PAppTerms up le re -> markChange >> case le ++ re of
+        [] -> mkExE Hole path Right
+        [e] -> mkExE e path Right
+        _ -> mkExE (last le) (PAppTerms up (init le) re) Right
+      _ -> case focusType of
+        FTTerm -> markChange >> mkExE Hole path Left
+        _ -> pure oldState
+  pure state'
   where
+    oldState = Ex state
     sideRight = case side of
       Left -> Ex $ state { unSide = Right }
       Right -> Ex state
@@ -417,7 +513,10 @@ run command state@(EditorState (Cursor focus path) focusType side) = case comman
       FCon _ -> unFCon focus : la
       FItem EditorBlankDef -> la
       FItem _ -> unFItem focus : la
-    
+    markDecChange :: Edit sig m => m ()
+    markDecChange = putPart Dec >> markChange >> clearPart
+    markItemInsertion :: Edit sig m => m ()
+    markItemInsertion = pushName "_" >> markDecChange >> popName
 
 edge :: Direction -> Path a -> Bool
 edge d p = case d of
@@ -557,19 +656,19 @@ putTerm term = case term of
     putWord16 $ fromIntegral (length fields)
     forM_ fields putTerm
 
-export :: EditorState a -> String -> IO ()
+export :: EditIO sig m => EditorState a -> String -> m ()
 export state@(EditorState cursor _ _) fn = do
-  let program = loop (Ex state) 
+  program <- loop (Ex state) 
   let bs = runPut $ putItem program
-  handle <- openFile fn WriteMode
-  LB.hPut handle bs
-  hClose handle
+  handle <- LE.sendIO $ openFile fn WriteMode
+  LE.sendIO $ LB.hPut handle bs
+  LE.sendIO $ hClose handle
   where
-    loop :: Ex -> Item
+    loop :: Edit sig m => Ex -> m Item
     loop (Ex state) =
-      case run (MoveOut Left) state of
+      run (MoveOut Left) state >>= \case
         ex@(Ex (EditorState (Cursor focus path) _ _)) -> case path of
-          PTop -> case focus of FItem item -> item
+          PTop -> pure $ unFItem focus
           _ -> loop ex
 
 render :: EditorState a -> T.Text
@@ -823,6 +922,7 @@ parseCommand s = case s of
       "1u" -> IInsertU1
       _ -> ISetName (reverse s)
 
+moveRight :: Edit sig m => EditorState a -> m Ex
 moveRight state = (\c -> run c state) $ case (edge Right (unPath $ unCursor state), atomic (unFocus $ unCursor state), unSide state) of
   (False, False, Left) -> MoveInLeft
   (False, True, Left) -> MoveRight
@@ -833,6 +933,7 @@ moveRight state = (\c -> run c state) $ case (edge Right (unPath $ unCursor stat
   (True, False, Right) -> MoveOut Right
   (True, True, Right) -> MoveOut Right
 
+moveLeft :: Edit sig m => EditorState a -> m Ex
 moveLeft state = (\c -> run c state) $ case (edge Left (unPath $ unCursor state), atomic (unFocus $ unCursor state), unSide state) of
   (False, False, Left) -> MoveLeft
   (False, True, Left) -> MoveLeft
@@ -843,70 +944,83 @@ moveLeft state = (\c -> run c state) $ case (edge Left (unPath $ unCursor state)
   (True, False, Right) -> MoveInRight
   (True, True, Right) -> MoveLeft
 
-handleInput :: EditorState a -> Input -> IO Ex
+handleInput :: EditIO sig m => EditorState a -> Input -> m Ex
 handleInput state input = case (input, unFocusType state) of
   (IExportFile, _) -> do
-    fn <- getLine
+    fn <- LE.sendIO $ getLine
     export state fn
     pure $ Ex state
   (ILoadFile, _) -> do
-    fn <- getLine
-    handle <- openFile fn ReadMode
-    bs' <- LB.hGetContents handle
+    fn <- LE.sendIO $ getLine
+    handle <- LE.sendIO $ openFile fn ReadMode
+    bs' <- LE.sendIO $ LB.hGetContents handle
     let !bs = bs'
     let program = runGet getItem bs
-    hClose handle
+    LE.sendIO $ hClose handle
     pure $ mkEx program PTop Left
   (IThenMoveHardRight input', _) -> do
     (Ex state') <- case input' of
       Just input' -> handleInput state input'
       Nothing -> pure $ Ex state
-    pure $ run MoveRight state'
+    run MoveRight state'
   (IThenMoveRight input', _) -> do
     (Ex state') <- case input' of
       Just input' -> handleInput state input'
       Nothing -> pure $ Ex state
-    pure $ moveRight state'
+    moveRight state'
   (IThenMoveLeft input', _) -> do
     (Ex state') <- case input' of
       Just input' -> handleInput state input'
       Nothing -> pure $ Ex state
-    pure $ moveLeft state'
-  -- ("al", _) -> pure $ run (Add Left) state
-  (IAdd, _) -> pure $ run Add state
-  -- ("d", FTTerm) -> pure $ run InsertHole state
-  (IInsertTerm ti, FTTerm) -> pure $ run (InsertTerm ti) state
-  (IInsertU0, FTTerm) -> pure $ run InsertU0 state
-  (IInsertU1, FTTerm) -> pure $ run InsertU1 state
-  (IInsertNamespaceDef, FTItem) -> pure $ run InsertNamespaceDef state
-  (IInsertTermDef, FTItem) -> pure $ run InsertTermDef state
-  (IInsertIndDef, FTItem) -> pure $ run InsertIndDef state
-  (IInsertProdDef, FTItem) -> pure $ run InsertProdDef state
+    moveLeft state'
+  -- ("al", _) -> run (Add Left) state
+  (IAdd, _) -> run Add state
+  -- ("d", FTTerm) -> run InsertHole state
+  (IInsertTerm ti, FTTerm) -> run (InsertTerm ti) state
+  (IInsertU0, FTTerm) -> run InsertU0 state
+  (IInsertU1, FTTerm) -> run InsertU1 state
+  (IInsertNamespaceDef, FTItem) -> run InsertNamespaceDef state
+  (IInsertTermDef, FTItem) -> run InsertTermDef state
+  (IInsertIndDef, FTItem) -> run InsertIndDef state
+  (IInsertProdDef, FTItem) -> run InsertProdDef state
   (ISetName s, FTTerm) -> case split s "" '.' of
-    [n] -> pure $ run (InsertVar n) state
-    ns -> pure $ run (InsertGVar $ reverse ns) state 
-  (ISetName s, FTName) -> pure $ if s == "" then Ex state else run (SetName s) state
-  (ISetName s, FTCon) -> pure $ if s == "" then Ex state else run (InsertCon s) state
-  (IDelete, _) -> pure $ run Delete state
+    [n] -> run (InsertVar n) state
+    ns -> run (InsertGVar $ reverse ns) state 
+  (ISetName s, FTName) -> if s == "" then pure $ Ex state else run (SetName s) state
+  (ISetName s, FTCon) -> if s == "" then pure $ Ex state else run (InsertCon s) state
+  (IDelete, _) -> run Delete state
   _ -> pure $ Ex state
 
-loop :: EditorState a -> IO ()
+loop :: EditIO sig m => EditorState a -> m ()
 loop state = do
+  LE.sendIO $ clearScreen
+  -- (GName ns) <- SE.get
+  -- part <- SE.get @(Maybe ItemPart)
+  -- changes <- SE.get @Changes
+  -- LE.sendIO $ putStrLn $ show changes
+  SE.put @Changes mempty
+  -- LE.sendIO $ putStrLn $ show part
+  -- LE.sendIO $ putStrLn $ show ns
   let !s = render state
-  clearScreen
-  TIO.putStrLn s
-  input <- getCommand ""
+  LE.sendIO $ TIO.putStrLn s
+  input <- LE.sendIO $ getCommand ""
   if input == IQuit then
     pure ()
   else do
     state <- handleInput state input
     next state
     where
-      next :: Ex -> IO ()
+      next :: (Has (Lift IO) sig m, Edit sig m) => Ex -> m ()
       next (Ex state) = loop state
 
 main :: IO ()
 main = do
   setLocaleEncoding utf8
   putStr "\ESC[0m"
-  loop (EditorState (Cursor (FName "main") (PNamespaceDefName PTop [])) FTName Left)
+  state <-
+    runM @IO .
+    runState @GName (GName ["main"]) .
+    runState @Changes DM.empty .
+    runState @(Maybe ItemPart) Nothing $
+    loop (EditorState (Cursor (FName "main") (PNamespaceDefName PTop [])) FTName Left)
+  pure ()

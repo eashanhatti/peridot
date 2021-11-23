@@ -82,6 +82,8 @@ clearState state changes = ElabState
   (Map.filter (\name -> Set.notMember name changes) (idsNames state))
   (nextId state)
 
+startingState = ElabState  mempty 0 N.TypeType1 [] [] mempty (Level 0) [] 0 [] mempty mempty 0
+
 data OldElabState = OldElabState
 
 type Elab a = State ElabState a
@@ -97,24 +99,28 @@ type Program = Map S.GName Item
 type Graph = Map S.GName (Set S.GName)
 type Cycles = [(S.GName, [S.GName])]
 type Ordering = [Set S.GName]
-data ItemPart = Dec | Def
-  deriving (Eq, Ord)
-type ChangedItems = Map S.GName ItemPart
-type ReverseDeps = Map S.GName [(S.GName, Set ItemPart)]
+type ChangedItems = Map S.GName S.ItemPart
+type ReverseDeps = Map S.GName [(S.GName, Set S.ItemPart)]
+
+elabFresh :: HasCallStack => S.Item -> (C.Program, ElabState)
+elabFresh item = runState (checkProgram (flatten [] item)) startingState
+
+reverseDeps :: Graph -> ReverseDeps
+reverseDeps graph = undefined
 
 elab :: HasCallStack => S.Item -> ElabState -> C.Program -> ChangedItems -> ReverseDeps -> (C.Program, ElabState)
 elab item oldState oldProgram changes deps =
   let 
     flatItems = flatten [] item
     -- changed part -> dependencies -> changed items
-    go :: ItemPart -> [(S.GName, Set ItemPart)] -> Program
+    go :: S.ItemPart -> [(S.GName, Set S.ItemPart)] -> Program
     go part items = foldl' Map.union mempty $ (flip map) items \(name, ps) ->
       let
         m = case (part, ps) of
-          (Dec, Set.member Dec -> True)         -> go Dec (deps ! name)
-          (Dec, (== Set.singleton Def) -> True) -> mempty
-          (Def, Set.member Dec -> True)         -> go Dec (deps ! name)
-          (Def, (== Set.singleton Def) -> True) -> go Def (deps ! name)
+          (S.Dec, Set.member S.Dec -> True)         -> go S.Dec (deps ! name)
+          (S.Dec, (== Set.singleton S.Def) -> True) -> mempty
+          (S.Def, Set.member S.Dec -> True)         -> go S.Dec (deps ! name)
+          (S.Def, (== Set.singleton S.Def) -> True) -> go S.Def (deps ! name)
       in Map.singleton name (flatItems ! name) `Map.union` m
 
     pairs = Map.elems $ Map.mapWithKey (\name part -> (part, deps ! name)) changes
