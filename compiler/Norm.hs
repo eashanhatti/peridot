@@ -60,7 +60,7 @@ data Value
   deriving Eq
 
 instance Show Value where
-  show v = tr "show val" $ case v of
+  show v = case v of
     FunIntro (Closure _ body) ty -> "v{" ++ show body ++ "}"
     FunType inTy (Closure env outTy) -> show inTy ++ " v-> " ++ show outTy ++ " " ++ show env
     QuoteIntro inner _ -> "v<" ++ show inner ++ ">"
@@ -170,7 +170,7 @@ index metas locals globals ix ty ix' = case locals of
       index metas xs globals ix ty (ix' - 1)
 
 eval0 :: HasCallStack => C.Term -> Norm Value
-eval0 term = tr "eval0" $ do
+eval0 term = do
   (_, _, locals, _) <- ask
   case term of
     C.Var ix ty -> Var0 ix <$> eval0 ty
@@ -189,7 +189,7 @@ eval0 term = tr "eval0" $ do
     _ -> pure ElabError
 
 eval :: HasCallStack => C.Term -> Norm Value
-eval term = tr ("eval" ++ show term) $ do
+eval term = do
   (_, metas, locals, globals) <- ask
   case term of
     C.Var ix ty -> pure $ index metas locals globals ix ty (unIndex ix)
@@ -276,7 +276,7 @@ readbackSpine term spine = do
     [] -> pure term
 
 readback0 :: HasCallStack => Value -> Norm C.Term
-readback0 val = tr "readback0" $ case val of
+readback0 val = case val of
   TypeType0 -> pure C.TypeType0
   FunElim0 lam arg -> C.FunElim <$> readback0 lam <*> readback0 arg
   Letrec0 defs body -> do
@@ -292,7 +292,7 @@ readback0 val = tr "readback0" $ case val of
 
 -- TODO? replace `bind` with `blank`
 readback :: HasCallStack => Value -> Norm C.Term
-readback val = tr ("readback" ++ show val) $ do
+readback val = do
   val <- force val
   case val of
     StuckFlexVar vty gl spine -> do

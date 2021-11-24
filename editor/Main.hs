@@ -42,6 +42,7 @@ import Control.Effect.Lift(Lift, Has)
 import qualified Control.Effect.Lift as LE
 import Control.Carrier.State.Strict(runState)
 import Control.Carrier.Lift(runM)
+import qualified Elaboration as Elab
 
 data Con = Con String Term | EditorBlankCon
   deriving (Show, Eq)
@@ -661,7 +662,7 @@ moveToTop (Ex state) =
   run (MoveOut Left) state >>= \case
     ex@(Ex (EditorState (Cursor focus path) _ _)) -> case path of
       PTop -> pure $ unFItem focus
-      _ -> loop ex
+      _ -> moveToTop ex
 
 export :: EditIO sig m => EditorState a -> String -> m ()
 export state@(EditorState cursor _ _) fn = do
@@ -1001,8 +1002,11 @@ loop state = do
   SE.put @Changes mempty
   -- LE.sendIO $ putStrLn $ show part
   -- LE.sendIO $ putStrLn $ show ns
-  let !s = render state
+  item <- moveToTop $ Ex state
+  let (_, elabState) = Elab.elabFresh item
+  let !s = render state <> "\n" <> T.pack (show $ Elab.errors elabState)
   LE.sendIO $ TIO.putStrLn s
+  LE.sendIO $ hFlush stdout
   input <- LE.sendIO $ getCommand ""
   if input == IQuit then
     pure ()
@@ -1010,7 +1014,7 @@ loop state = do
     state <- handleInput state input
     next state
     where
-      next :: (Has (Lift IO) sig m, Edit sig m) => Ex -> m ()
+      next :: EditIO sig m => Ex -> m ()
       next (Ex state) = loop state
 
 main :: IO ()

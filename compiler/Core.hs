@@ -93,7 +93,7 @@ instance Show Term where
   show = showTerm False
 
 showTerm :: Bool -> Term -> String
-showTerm showTys term = tr "show core" $ case term of
+showTerm showTys term = case term of
   Var ix ty ->
     if showTys then
       "(i" ++ show (unIndex ix) ++ " : " ++ show ty ++ ")"
