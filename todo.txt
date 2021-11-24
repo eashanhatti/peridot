@@ -1,5 +1,3 @@
-Write example programs
-Implement elaboration of product declarations
 Add source location tracking for errors
 Implement stage polymorphism
 Implement eliminators

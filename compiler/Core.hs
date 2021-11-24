@@ -9,6 +9,7 @@ import Data.Map(Map)
 import Data.Set(Set)
 import Data.List(intersperse)
 import Numeric.Natural
+import Etc
 
 data BinderInfo = Abstract | Concrete
   deriving (Show, Eq)
@@ -62,8 +63,8 @@ data Term
   | ProdType Id [Term]
   | ProdIntro Type [Term]
   | Letrec [Term] Term
-  | Meta Global Type
-  | InsertedMeta [BinderInfo] Global Type
+  | Meta Global (Maybe Type)
+  | InsertedMeta [BinderInfo] Global (Maybe Type)
   | ElabError
   deriving Eq
 
@@ -92,7 +93,7 @@ instance Show Term where
   show = showTerm False
 
 showTerm :: Bool -> Term -> String
-showTerm showTys term = case term of
+showTerm showTys term = tr "show core" $ case term of
   Var ix ty ->
     if showTys then
       "(i" ++ show (unIndex ix) ++ " : " ++ show ty ++ ")"
@@ -118,7 +119,7 @@ showTerm showTys term = case term of
     --   "?" ++ show (unGlobal gl)
   InsertedMeta bis gl ty ->
     let
-      sty = show ty
+      sty = "_"
         -- case ty of
         --   InsertedMeta _ gl' _ | gl == gl' -> "_"
         --   _ -> show ty

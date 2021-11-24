@@ -108,6 +108,11 @@ rename metas gl pren rhs = go pren rhs
       (arg:spine) -> C.FunElim <$> goSpine pren val spine <*> go pren arg
       [] -> liftEither $ Right val
 
+    goMaybe :: HasCallStack => PartialRenaming -> Maybe (N.Value) -> ExceptT Error Unify (Maybe C.Term)
+    goMaybe pren val = case val of
+      Just val -> go pren val >>= pure . Just
+      Nothing -> pure Nothing
+
     go :: HasCallStack => PartialRenaming -> N.Value -> ExceptT Error Unify C.Term
     go pren val = do
       val <- lift $ runNorm (domain pren) $ N.force val
@@ -116,7 +121,7 @@ rename metas gl pren rhs = go pren rhs
           if gl == gl'
           then throwError OccursCheck
           else do
-            tty <- go pren vty
+            tty <- goMaybe pren vty
             goSpine pren (C.Meta gl' tty) spine
         N.StuckRigidVar vty lv spine -> case Map.lookup lv (ren pren) of
           Just lv' -> do
@@ -164,7 +169,8 @@ getTtySpine metas lv vty spine = case (vty, spine) of
 
 getTty :: N.Metas -> Level -> N.Value -> C.Term
 getTty metas lv val = case val of
-  N.StuckFlexVar vty _ spine -> getTtySpine metas lv vty spine
+  N.StuckFlexVar (Just vty) _ spine -> getTtySpine metas lv vty spine
+  N.StuckFlexVar Nothing gl spine -> runReader (N.readback val) (lv, metas, [], mempty)
   N.StuckRigidVar vty _ spine -> getTtySpine metas lv vty spine
   N.StuckSplice _ -> C.TypeType1
   N.FunIntro _ vty -> runReader (N.readback vty) (lv, metas, [], mempty)
@@ -192,7 +198,8 @@ getVtySpine metas lv vty spine = case (vty, spine) of
 
 getVty :: N.Metas -> Level -> N.Value -> N.Value
 getVty metas lv val = case val of
-  N.StuckFlexVar vty _ spine -> getVtySpine metas lv vty spine
+  N.StuckFlexVar (Just vty) _ spine -> getVtySpine metas lv vty spine
+  N.StuckFlexVar Nothing _ spine -> val
   N.StuckRigidVar vty _ spine -> getVtySpine metas lv vty spine
   N.StuckSplice _ -> N.TypeType1
   N.FunIntro _ vty -> vty
@@ -290,9 +297,10 @@ unify lv val val' = do
     (N.StuckRigidVar vty rlv spine, N.StuckRigidVar vty' rlv' spine') | rlv == rlv' -> do
       unify lv vty vty'
       unifySpines lv spine spine'
-    (N.StuckFlexVar vty gl spine, N.StuckFlexVar vty' gl' spine') | gl == gl' -> do
+    (N.StuckFlexVar (Just vty) gl spine, N.StuckFlexVar (Just vty') gl' spine') | gl == gl' -> do
       unify lv vty vty'
       unifySpines lv spine spine
+    (N.StuckFlexVar Nothing gl spine, N.StuckFlexVar Nothing gl' spine') | gl == gl' -> unifySpines lv spine spine
     -- FIXME? Unify types
     (val, N.StuckFlexVar _ gl spine) -> solve lv gl spine val
     (N.StuckFlexVar _ gl spine, val') -> solve lv gl spine val'

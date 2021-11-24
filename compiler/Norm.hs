@@ -16,6 +16,7 @@ import qualified Data.Set as Set
 import GHC.Stack
 import Data.List(intersperse)
 import Numeric.Natural
+import Etc
 
 data MetaEntry a = Solved a | Unsolved
   deriving Show
@@ -43,7 +44,7 @@ data Value
   | TypeType0
   | TypeType1
   -- Blocked eliminations
-  | StuckFlexVar Type Global Spine
+  | StuckFlexVar (Maybe Type) Global Spine
   | StuckGVar Id Type
   | StuckRigidVar Type Level Spine
   | StuckSplice Value
@@ -59,7 +60,7 @@ data Value
   deriving Eq
 
 instance Show Value where
-  show v = case v of
+  show v = tr "show val" $ case v of
     FunIntro (Closure _ body) ty -> "v{" ++ show body ++ "}"
     FunType inTy (Closure env outTy) -> show inTy ++ " v-> " ++ show outTy ++ " " ++ show env
     QuoteIntro inner _ -> "v<" ++ show inner ++ ">"
@@ -106,8 +107,7 @@ vApp lam arg = case lam of
   FunIntro body vty -> appClosure body arg
   StuckFlexVar vty gl spine -> pure $ StuckFlexVar vty gl (arg:spine)
   StuckRigidVar vty lv spine -> pure $ StuckRigidVar vty lv (arg:spine)
-  ElabError -> pure ElabError
-  _ -> error $ "Cannot `vApp` `" ++ show lam ++ "`"
+  _ -> pure ElabError
 
 vSplice :: HasCallStack => Value -> Norm Value
 vSplice val = case val of
@@ -131,7 +131,7 @@ vAppBis val locals bis = do
     ([], []) -> pure val
     _ -> error ("impossible\n" ++ show locals ++ "\n" ++ show bis ++ "\n" ++ show val)
 
-vMeta :: HasCallStack => Global -> Type -> Norm Value
+vMeta :: HasCallStack => Global -> Maybe Type -> Norm Value
 vMeta gl vty = do
   metas <- askMetas
   pure $ case fromJust $ Map.lookup gl metas of
@@ -160,7 +160,7 @@ blankN n act = case n of
 
 index :: HasCallStack => Metas -> Locals -> Globals -> Index -> C.Type -> Int -> Value
 index metas locals globals ix ty ix' = case locals of
-  [] -> {-ElabError-} error $ "Nonexistent var `" ++ show ix ++ " : " ++ show ty ++ "`"
+  [] -> ElabError
   x:xs ->
     if ix' == 0 then
       case x of
@@ -170,7 +170,7 @@ index metas locals globals ix ty ix' = case locals of
       index metas xs globals ix ty (ix' - 1)
 
 eval0 :: HasCallStack => C.Term -> Norm Value
-eval0 term = do
+eval0 term = tr "eval0" $ do
   (_, _, locals, _) <- ask
   case term of
     C.Var ix ty -> Var0 ix <$> eval0 ty
@@ -186,10 +186,10 @@ eval0 term = do
       vDefs <- mapM (\def -> blankN (length defs) $ eval0 def) defs
       vBody <- blankN (length defs) $ eval0 body
       pure $ Letrec0 vDefs vBody
-    _ -> error $ "`eval0` unreachable: " ++ show term
+    _ -> pure ElabError
 
 eval :: HasCallStack => C.Term -> Norm Value
-eval term = do
+eval term = tr ("eval" ++ show term) $ do
   (_, metas, locals, globals) <- ask
   case term of
     C.Var ix ty -> pure $ index metas locals globals ix ty (unIndex ix)
@@ -222,8 +222,12 @@ eval term = do
       -- let !() = trace ("Enter") ()
       -- let !() = traceShow vDefs ()
       eval body `withDefs` (reverse vDefs)
-    C.Meta gl ty -> eval ty >>= vMeta gl
-    C.InsertedMeta bis gl ty -> eval ty >>= vMeta gl >>= \meta -> vAppBis meta locals bis
+    C.Meta gl ty -> case fmap eval ty of
+      Just ty -> ty >>= \ty -> vMeta gl (Just ty)
+      Nothing -> vMeta gl Nothing
+    C.InsertedMeta bis gl ty -> case ty of
+      Just ty -> eval ty >>= \ty -> vMeta gl (Just ty) >>= \meta -> vAppBis meta locals bis
+      Nothing -> vMeta gl Nothing >>= \meta -> vAppBis meta locals bis
     C.GVar nid ty -> case fromJust $ Map.lookup nid globals of
       C.TermDef _ def -> eval def
       C.IndDef nid ty -> do
@@ -251,8 +255,7 @@ eval term = do
             C.FunType inTy outTy -> C.FunIntro (go outTy (C.Var (Index $ length acc) inTy : acc)) ty
             C.TypeType0 -> C.ProdType nid acc
       C.ElabBlankItem nid ty -> eval ty >>= pure . StuckGVar nid
-    C.ElabError -> pure ElabError
-    _ -> error $ show term
+    _ -> pure ElabError
 
 force :: HasCallStack => Value -> Norm Value
 force val = do
@@ -273,7 +276,7 @@ readbackSpine term spine = do
     [] -> pure term
 
 readback0 :: HasCallStack => Value -> Norm C.Term
-readback0 val = case val of
+readback0 val = tr "readback0" $ case val of
   TypeType0 -> pure C.TypeType0
   FunElim0 lam arg -> C.FunElim <$> readback0 lam <*> readback0 arg
   Letrec0 defs body -> do
@@ -289,11 +292,15 @@ readback0 val = case val of
 
 -- TODO? replace `bind` with `blank`
 readback :: HasCallStack => Value -> Norm C.Term
-readback val = do
+readback val = tr ("readback" ++ show val) $ do
   val <- force val
   case val of
     StuckFlexVar vty gl spine -> do
-      meta <- C.Meta <$> pure gl <*> readback vty
+      let
+        cty = case vty of
+          Just vty -> Just <$> readback vty
+          Nothing -> pure Nothing
+      meta <- C.Meta <$> pure gl <*> cty
       readbackSpine meta spine
     StuckRigidVar vty lv' spine -> do
       lv <- askLv

@@ -11,7 +11,7 @@ import Control.Monad(forM_)
 import Control.Monad.Reader(runReader)
 import Data.Map(toList)
 import Data.Either(fromRight)
-import Text.Pretty.Simple(pShow)
+-- import Text.Pretty.Simple(pShow)
 import qualified Data.Text.Lazy.IO as Text
 import Data.Binary.Get(runGet)
 import Data.ByteString.Lazy(readFile)
@@ -32,17 +32,13 @@ main = do
   let program = runGet Parse.getItem file
   putStrLn "Done parsing"
   putStrLn "Surface term:"
-  Text.putStrLn $ pShow program
+  -- Text.putStrLn $ pShow program
+  putStrLn $ show program
   let (cProgram, state) = Elab.elabFresh program
   putStrLn "Core program:"
-  Text.putStrLn $ pShow cProgram
+  -- Text.putStrLn $ pShow cProgram
+  putStrLn $ show cProgram
   putStrLn "Errors:"
   forM_ (Elab.errors state) (putStrLn . show)
   putStrLn "Metas:"
   forM_ (toList $ Elab.metas state) (putStrLn . show)
-  -- if length (Elab.errors state) == 0 then do
-  --   putStrLn "After partial eval:"
-  --   let resiTerm = PE.partialEval cTerm
-  --   putStrLn $ show $ resiTerm
-  -- else
-  --   pure ()

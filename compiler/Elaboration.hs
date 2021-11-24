@@ -27,8 +27,9 @@ import Data.Map(Map, (!))
 import Debug.Trace
 import GHC.Stack
 import Prelude hiding(Ordering)
-import Debug.Pretty.Simple(pTraceShowId, pTrace)
+-- import Debug.Pretty.Simple(pTraceShowId, pTrace)
 import Data.Maybe(fromJust)
+import Etc
 
 data InnerError
   = UnboundLocal S.Name
@@ -42,7 +43,7 @@ data InnerError
 data Error = Error N.Locals (Map S.GName C.Item) Level InnerError
 
 instance Show Error where
-  show (Error ls gs lv e) = "Error\n" ++ show e ++ "\n" ++ indent "  " stringLocals ++ "\n" ++ indent "  " ("----\n" ++ stringGlobals)
+  show (Error ls gs lv e) = tr "show error" $ "Error\n" ++ show e ++ "\n" ++ indent "  " stringLocals ++ "\n" ++ indent "  " ("----\n" ++ stringGlobals)
     where
       indent :: String -> String -> String
       indent i s = unlines $ map (i++) (lines s)
@@ -82,9 +83,7 @@ clearState state changes = ElabState
   (Map.filter (\name -> Set.notMember name changes) (idsNames state))
   (nextId state)
 
-startingState = ElabState  mempty 0 N.TypeType1 [] [] mempty (Level 0) [] 0 [] mempty mempty 0
-
-data OldElabState = OldElabState
+startingState = ElabState mempty 0 N.TypeType1 [] [] mempty (Level 0) [] 0 [] mempty mempty 0
 
 type Elab a = State ElabState a
 
@@ -192,7 +191,7 @@ dependencies items = case items of
       S.Hole -> pure mempty
     searchTerms :: [S.Term] -> Reader S.ItemPart (Map S.GName (Set S.ItemPart))
     searchTerms as = case as of
-      [a] -> search' a
+      [] -> pure mempty
       a:as -> do
         names <- search' a
         names' <- searchTerms as
@@ -216,12 +215,10 @@ ordering graph = case cycles graph of
         let nowAvailable = Map.keysSet $ Map.filter (\ds -> ds `Set.isSubsetOf` available) graph
         in (nowAvailable `Set.difference` available):(loop graph (nowAvailable `Set.union` available))
 
-tr s f = trace s () `seq` f
-
 checkProgram :: HasCallStack => Program -> Elab (C.Program, Graph)
 checkProgram program =
   let deps = dependencies (Map.toList program)
-  in case pTraceShowId $ ordering deps of
+  in case ordering deps of
     Right ord -> do
       loopDeclare program ord
       program <- loopDefine program ord
@@ -249,6 +246,7 @@ checkProgram program =
         ty <- case item of
           TermDef ty _ -> do
             meta <- freshUnivMeta >>= eval
+            putGoalUniv meta
             check ty meta >>= eval
           ProdDef ty _ -> check ty N.TypeType1 >>= eval
           IndDef ty -> check ty N.TypeType1 >>= eval
@@ -283,6 +281,7 @@ checkProgram program =
       meta <- freshUnivMeta >>= eval
       case item of
         TermDef dec def -> do
+          putGoalUniv meta
           vDec <- check dec meta >>= eval
           cDef <- check def vDec
           pure (C.TermDef nid cDef, vDec)
@@ -444,7 +443,8 @@ infer term = getGoalUniv >>= \univ -> scope case term of
         ([a], _) -> do
           inTy <- readback univ >>= freshMeta
           vInTy <- eval inTy
-          cArg <- check a vInTy
+          cArg' <- check a vInTy
+          let !cArg = tr "cArg'" cArg'
           name <- freshName "p"
           (outTy, vOutTy) <- scope do
             bind name vInTy
@@ -662,7 +662,7 @@ eval term = do
 freshMeta :: C.Term -> Elab C.Term
 freshMeta ty = do
   state <- get
-  let meta = C.InsertedMeta (binderInfos state) (Global $ nextMeta state) ty
+  let meta = C.InsertedMeta (binderInfos state) (Global $ nextMeta state) (Just ty)
   put $ state
     { metas = Map.insert (Global $ nextMeta state) N.Unsolved (metas state)
     , nextMeta = (nextMeta state) + 1 }
@@ -671,7 +671,7 @@ freshMeta ty = do
 freshUnivMeta :: Elab C.Term
 freshUnivMeta = do
   state <- get
-  let meta = C.InsertedMeta (binderInfos state) (Global $ nextMeta state) meta
+  let meta = C.InsertedMeta (binderInfos state) (Global $ nextMeta state) Nothing
   put $ state
     { metas = Map.insert (Global $ nextMeta state) N.Unsolved (metas state)
     , nextMeta = (nextMeta state) + 1 }
