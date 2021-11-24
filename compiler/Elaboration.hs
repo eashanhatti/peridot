@@ -96,25 +96,31 @@ data Item
   deriving Show
 
 type Program = Map S.GName Item
-type Graph = Map S.GName (Set S.GName)
+-- Mapping from items to the items they depend on, and where the dependency occurs
+type Graph = Map S.GName (Map S.GName (Set S.ItemPart))
 type Cycles = [(S.GName, [S.GName])]
 type Ordering = [Set S.GName]
 type ChangedItems = Map S.GName S.ItemPart
-type ReverseDeps = Map S.GName [(S.GName, Set S.ItemPart)]
+-- Mapping from items to the items that depend on them, and where the dependency occurs
+type ReverseDeps = Map S.GName (Map S.GName (Set S.ItemPart))
 
 elabFresh :: HasCallStack => S.Item -> (C.Program, ElabState)
-elabFresh item = runState (checkProgram (flatten [] item)) startingState
+elabFresh item =
+  let ((p, _), s) = runState (checkProgram (flatten [] item)) startingState
+  in (p, s)
 
 reverseDeps :: Graph -> ReverseDeps
-reverseDeps graph = undefined
+reverseDeps graph = Map.mapWithKey (\name _ -> go name) graph where
+  go :: S.GName -> Map S.GName (Set S.ItemPart)
+  go name = fmap (fromJust . Map.lookup name) $ Map.filter (Map.member name) graph
 
-elab :: HasCallStack => S.Item -> ElabState -> C.Program -> ChangedItems -> ReverseDeps -> (C.Program, ElabState)
+elab :: HasCallStack => S.Item -> ElabState -> C.Program -> ChangedItems -> ReverseDeps -> (C.Program, Graph, ElabState)
 elab item oldState oldProgram changes deps =
-  let 
+  let
     flatItems = flatten [] item
     -- changed part -> dependencies -> changed items
-    go :: S.ItemPart -> [(S.GName, Set S.ItemPart)] -> Program
-    go part items = foldl' Map.union mempty $ (flip map) items \(name, ps) ->
+    go :: S.ItemPart -> Map S.GName (Set S.ItemPart) -> Program
+    go part items = Map.foldl' Map.union mempty $ (flip Map.mapWithKey) items \name ps ->
       let
         m = case (part, ps) of
           (S.Dec, Set.member S.Dec -> True)         -> go S.Dec (deps ! name)
@@ -134,8 +140,8 @@ elab item oldState oldProgram changes deps =
         Just newItem -> newItem
         Nothing -> oldItem
 
-    (cProgram, state) = runState (checkProgram program) oldState
-  in (combinePrograms oldProgram cProgram, state)
+    ((cProgram, graph), state) = runState (checkProgram program) oldState
+  in (combinePrograms oldProgram cProgram, graph, state)
 
 flatten :: [String] -> S.Item -> Program
 flatten nameAcc item = case item of
@@ -156,49 +162,53 @@ dependencies items = case items of
   (name, item):items ->
     let
       ds = Map.singleton name $ case item of
-        TermDef dec def -> searchTy dec `Set.union` search def
+        TermDef dec def -> searchTy dec `combine` search def
         IndDef dec -> searchTy dec
-        ProdDef dec fields -> searchTy dec `Set.union` runReader (searchTerms fields) True
-        ConDef name ty -> searchTy ty `Set.union` singleton name
+        ProdDef dec fields -> searchTy dec `combine` runReader (searchTerms fields) S.Dec
+        ConDef tyName ty -> searchTy ty
     in ds `Map.union` dependencies items
   [] -> mempty
   where
-    search term = runReader (search' term) False
-    searchTy term = runReader (search' term) True
+    search term = runReader (search' term) S.Def
+    searchTy term = runReader (search' term) S.Dec
 
-    search' :: S.Term -> Reader Bool (Set S.GName)
+    search' :: S.Term -> Reader S.ItemPart (Map S.GName (Set S.ItemPart))
     search' term = case term of
       S.Var _ -> pure mempty
-      S.GVar (S.GName name) -> ask >>= \b -> pure $ if b then singleton (S.GName $ name) else mempty
+      S.GVar (S.GName name) -> do
+        p <- ask
+        pure $ Map.singleton (S.GName $ name) (Set.singleton p)
       S.Lam _ body -> search' body
-      S.App lam args -> Set.union <$> search' lam <*> searchTerms args where
-      S.Ann _ ty -> local (const True) $ search' ty
-      S.Pi _ inTy outTy -> Set.union <$> search' inTy <*> search' outTy
-      S.Let _ def defTy body -> Set.union <$> search' def <*> (Set.union <$> (local (const True) $ search' defTy) <*> search' body)
+      S.App lam args -> combine <$> search' lam <*> searchTerms args where
+      S.Ann _ ty -> local (const S.Dec) $ search' ty
+      S.Pi _ inTy outTy -> combine <$> search' inTy <*> search' outTy
+      S.Let _ def defTy body -> combine <$> search' def <*> (combine <$> (local (const S.Dec) $ search' defTy) <*> search' body)
       S.U0 -> pure mempty
       S.U1 -> pure mempty
       S.Code term -> search' term
       S.Quote term -> search' term
       S.Splice term -> search' term
-      S.MkProd ty fields -> Set.union <$> search' ty <*> searchTerms fields
+      S.MkProd ty fields -> combine <$> search' ty <*> searchTerms fields
       S.Hole -> pure mempty
-    searchTerms :: [S.Term] -> Reader Bool (Set S.GName)
+    searchTerms :: [S.Term] -> Reader S.ItemPart (Map S.GName (Set S.ItemPart))
     searchTerms as = case as of
       [a] -> search' a
       a:as -> do
         names <- search' a
         names' <- searchTerms as
-        pure $ Set.union names names'
+        pure $ combine names names'
+    combine :: Map S.GName (Set S.ItemPart) -> Map S.GName (Set S.ItemPart) -> Map S.GName (Set S.ItemPart)
+    combine = Map.unionWith Set.union
 
 cycles :: Graph -> Cycles
 cycles graph = []
 
-ordering :: Graph -> Either Cycles Ordering
+ordering :: Graph-> Either Cycles Ordering
 ordering graph = case cycles graph of
-  [] -> Right $ loop graph mempty
+  [] -> Right $ loop (Map.map (Map.keysSet . Map.filter (Set.member S.Dec)) graph) mempty
   cs -> Left cs
   where
-    loop :: Graph -> Set S.GName -> Ordering
+    loop :: Map S.GName (Set S.GName) -> Set S.GName -> Ordering
     loop graph available = -- traceShow available $
       if available == Map.keysSet graph then
         []
@@ -208,13 +218,15 @@ ordering graph = case cycles graph of
 
 tr s f = trace s () `seq` f
 
-checkProgram :: HasCallStack => Program -> Elab C.Program
-checkProgram program = case pTraceShowId $ ordering {-$ pTraceShowId-} $ dependencies (Map.toList program) of
-  Right ord -> do
-    loopDeclare program ord
-    program <- loopDefine program ord
-    pure $ C.Program program
-  Left cs -> error "Left"
+checkProgram :: HasCallStack => Program -> Elab (C.Program, Graph)
+checkProgram program =
+  let deps = dependencies (Map.toList program)
+  in case pTraceShowId $ ordering deps of
+    Right ord -> do
+      loopDeclare program ord
+      program <- loopDefine program ord
+      pure (C.Program program, deps)
+    Left cs -> error "TODO: Cycle detection"
   where
     loopDeclare :: HasCallStack => Program -> Ordering -> Elab ()
     loopDeclare program ord = case ord of

@@ -656,20 +656,20 @@ putTerm term = case term of
     putWord16 $ fromIntegral (length fields)
     forM_ fields putTerm
 
+moveToTop :: Edit sig m => Ex -> m Item
+moveToTop (Ex state) =
+  run (MoveOut Left) state >>= \case
+    ex@(Ex (EditorState (Cursor focus path) _ _)) -> case path of
+      PTop -> pure $ unFItem focus
+      _ -> loop ex
+
 export :: EditIO sig m => EditorState a -> String -> m ()
 export state@(EditorState cursor _ _) fn = do
-  program <- loop (Ex state) 
+  program <- moveToTop (Ex state) 
   let bs = runPut $ putItem program
   handle <- LE.sendIO $ openFile fn WriteMode
   LE.sendIO $ LB.hPut handle bs
   LE.sendIO $ hClose handle
-  where
-    loop :: Edit sig m => Ex -> m Item
-    loop (Ex state) =
-      run (MoveOut Left) state >>= \case
-        ex@(Ex (EditorState (Cursor focus path) _ _)) -> case path of
-          PTop -> pure $ unFItem focus
-          _ -> loop ex
 
 render :: EditorState a -> T.Text
 render (EditorState (Cursor focus path) _ side) =
@@ -688,14 +688,14 @@ render (EditorState (Cursor focus path) _ side) =
     FTerm term -> renderTerm term
     FItem item -> renderItem item
     FCon (Con name ty) -> T.pack name <> " : " <> renderTerm ty
-    FCon EditorBlankCon -> "_"
+    FCon EditorBlankCon -> "\ESC[36;1m?\ESC[39m"
   renderTerm :: Term -> T.Text
   renderTerm term = case term of
     Lam names body -> "\ESC[35;1mλ\ESC[39m" <> snames (map unName names) <> " ⇒ " <> renderTerm body
     App lam args -> parenFocus (simple lam) (renderTerm lam) <> space args <> sterms args
     Var (Name s) -> T.pack s
     GVar (GName ns) -> mconcat $ intersperse "." $ reverse (map T.pack ns)
-    Hole -> "?"
+    Hole -> "\ESC[7m?\ESC[27m"
     Let (Name name) def defTy body -> renderLet (T.pack name) (renderTerm defTy) (renderTerm def) (renderTerm body)
     Pi (Name "_") inTy outTy -> parenFocus (simple inTy) (renderTerm inTy) <> " \ESC[36;1m→\ESC[39m " <> renderTerm outTy
     Pi (Name name) inTy outTy -> "\ESC[36;1mΠ\ESC[39m" <> T.pack name <> " : " <> renderTerm inTy <> ". " <> renderTerm outTy
@@ -705,14 +705,14 @@ render (EditorState (Cursor focus path) _ side) =
     Quote e -> "\ESC[35;1m‹\ESC[39m" <> renderTerm e <> "\ESC[35;1m›\ESC[39m"
     Splice e -> "\ESC[35;1m~\ESC[39m" <> parenFocus (simple e) (renderTerm e)
     MkProd ty es -> "\ESC[35;1m#\ESC[39m" <> parenFocus (simple ty) (renderTerm ty) <> space es <> sterms es
-    EditorBlank -> "_"
+    EditorBlank -> "\ESC[7m?\ESC[27m"
   renderItem :: Item -> T.Text
   renderItem item = case item of
     TermDef (Name n) ty body -> "\ESC[33;1mdef\ESC[39m " <> T.pack n <> " : " <> renderTerm ty <> " = " <> (indent $ renderTerm body)
     NamespaceDef (Name n) items -> "\ESC[33;1mnamespace\ESC[39m " <> T.pack n <> indentForced (sitems items)
     IndDef (Name n) ty cons -> "\ESC[33;1minductive\ESC[39m " <> T.pack n <> " : " <> renderTerm ty <> (indentForced $ scons (map (\(Name n, t) -> Con n t) cons))
     ProdDef (Name n) ty fields -> "\ESC[33;1mproduct\ESC[39m " <> T.pack n <> " : " <> renderTerm ty <> (indentForced $ sfields fields)
-    EditorBlankDef -> "_"
+    EditorBlankDef -> "\ESC[7m?\ESC[27m"
   renderPath :: T.Text -> Bool -> Path a -> T.Text
   renderPath focus isSimple path = case path of
     PTop -> focus
