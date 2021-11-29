@@ -41,4 +41,5 @@ data Term
   | MkProd Term [Term]
   | Hole
   | EditorBlank
+  | EditorFocus Term
   deriving (Show, Eq)

@@ -20,8 +20,6 @@ type Type = Term
 data HoleName = HoleName Int
   deriving (Show, Eq)
 
--- data ItemAttrib = Opaque
-
 data Program = Program [Item]
   deriving Show
 
@@ -47,14 +45,34 @@ itemId item = case item of
   ProdDef nid _ _ -> nid
   ElabBlankItem nid _ -> nid
 
-data Term
-  = Var Index Type
-  | GVar Id Type
+data FunIntroInfo = FunIntroInfo Natural String
+  deriving Eq
+data FunTypeInfo = FunTypeInfo String
+  deriving Eq
+data FunElimInfo = FunElimInfo Natural
+  deriving Eq
+data VarInfo = VarInfo String
+  deriving Eq
+data GVarInfo = GVarInfo [String]
+  deriving Eq
+data Info = Info Bool
+  deriving Eq
+
+data Term = Term
+  { unInfo :: Info
+  , unTerm :: TermInner }
+  deriving Eq
+
+gen e = Term (Info False) e
+
+data TermInner
+  = Var Index Type VarInfo
+  | GVar Id Type GVarInfo
   | TypeType0
   | TypeType1
-  | FunIntro Term Type
-  | FunType Term Term
-  | FunElim Term Term
+  | FunIntro Term Type FunIntroInfo
+  | FunType Term Term FunTypeInfo
+  | FunElim Term Term FunElimInfo
   | QuoteType Term
   | QuoteIntro Term Type
   | QuoteElim Term
@@ -93,21 +111,21 @@ instance Show Term where
   show = showTerm False
 
 showTerm :: Bool -> Term -> String
-showTerm showTys term = case term of
-  Var ix ty ->
+showTerm showTys (Term _ term) = case term of
+  Var ix ty _ ->
     if showTys then
       "(i" ++ show (unIndex ix) ++ " : " ++ show ty ++ ")"
     else
       "i" ++ show (unIndex ix)
   TypeType0 -> "U0"
   TypeType1 -> "U1"
-  FunIntro body ty ->
+  FunIntro body ty _ ->
     if showTys then
       "{" ++ show body ++ "; : " ++ show ty ++ "}"
     else
       "{" ++ show body ++ "}"
-  FunType inTy outTy -> show inTy ++ " -> " ++ show outTy
-  FunElim lam arg -> "(" ++ show lam ++ " @ " ++ show arg ++ ")"
+  FunType inTy outTy _ -> show inTy ++ " -> " ++ show outTy
+  FunElim lam arg _ -> "(" ++ show lam ++ " @ " ++ show arg ++ ")"
   QuoteType innerTy -> "Quote " ++ show innerTy
   QuoteIntro inner _ -> "<" ++ show inner ++ ">"
   QuoteElim quote -> "[" ++ show quote ++ "]"
@@ -124,7 +142,7 @@ showTerm showTys term = case term of
         --   InsertedMeta _ gl' _ | gl == gl' -> "_"
         --   _ -> show ty
     in "(?" ++ show (unGlobal gl) ++ " : " ++ sty ++ ";" ++ (show $ Prelude.map show bis) ++ ")"
-  GVar nid ty -> "(g" ++ show (unId nid) ++ ":" ++ show ty ++ ")"
+  GVar nid ty _ -> "(g" ++ show (unId nid) ++ ":" ++ show ty ++ ")"
   IndIntro nid args ty -> "#" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show args) ++ "]" ++ ":" ++ show ty
   IndType nid indices -> "Ind" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
   ProdIntro ty fields -> "{" ++ (concat $ intersperse ", " $ Prelude.map show fields) ++ "}" ++ ":" ++ show ty

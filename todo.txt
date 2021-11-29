@@ -1,3 +1,4 @@
 Add source location tracking for errors
+	Add source information to core terms?
 Implement stage polymorphism
 Implement eliminators

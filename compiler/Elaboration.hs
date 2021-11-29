@@ -43,7 +43,7 @@ data InnerError
 data Error = Error N.Locals (Map S.GName C.Item) Level InnerError
 
 instance Show Error where
-  show (Error ls gs lv e) = tr "show error" $ "Error\n" ++ show e ++ "\n" ++ indent "  " stringLocals ++ "\n" ++ indent "  " ("----\n" ++ stringGlobals)
+  show (Error ls gs lv e) = "Error\n" ++ show e ++ "\n" ++ indent "  " stringLocals ++ "\n" ++ indent "  " ("----\n" ++ stringGlobals)
     where
       indent :: String -> String -> String
       indent i s = unlines $ map (i++) (lines s)
@@ -71,7 +71,7 @@ clearState :: ElabState -> Set S.GName -> ElabState
 clearState state changes = ElabState
   mempty
   0
-  N.TypeType1
+  (N.gen N.TypeType1)
   []
   []
   mempty
@@ -83,7 +83,7 @@ clearState state changes = ElabState
   (Map.filter (\name -> Set.notMember name changes) (idsNames state))
   (nextId state)
 
-startingState = ElabState mempty 0 N.TypeType1 [] [] mempty (Level 0) [] 0 [] mempty mempty 0
+startingState = ElabState mempty 0 (N.gen N.TypeType1) [] [] mempty (Level 0) [] 0 [] mempty mempty 0
 
 type Elab a = State ElabState a
 
@@ -189,6 +189,7 @@ dependencies items = case items of
       S.Splice term -> search' term
       S.MkProd ty fields -> combine <$> search' ty <*> searchTerms fields
       S.Hole -> pure mempty
+      S.EditorBlank -> pure mempty
     searchTerms :: [S.Term] -> Reader S.ItemPart (Map S.GName (Set S.ItemPart))
     searchTerms as = case as of
       [] -> pure mempty
@@ -248,9 +249,9 @@ checkProgram program =
             meta <- freshUnivMeta >>= eval
             putGoalUniv meta
             check ty meta >>= eval
-          ProdDef ty _ -> check ty N.TypeType1 >>= eval
-          IndDef ty -> check ty N.TypeType1 >>= eval
-          ConDef _ ty -> check ty N.TypeType1 >>= eval
+          ProdDef ty _ -> check ty (N.gen N.TypeType1) >>= eval
+          IndDef ty -> check ty (N.gen N.TypeType1) >>= eval
+          ConDef _ ty -> check ty (N.gen N.TypeType1) >>= eval
         declareGlobal name ty
         declareGlobals names program
     declareGlobal :: HasCallStack => S.GName -> N.Value -> Elab ()
@@ -286,24 +287,24 @@ checkProgram program =
           cDef <- check def vDec
           pure (C.TermDef nid cDef, vDec)
         IndDef dec -> do
-          cDec <- check dec N.TypeType1
-          pure (C.IndDef nid cDec, N.TypeType1)
+          cDec <- check dec (N.gen N.TypeType1)
+          pure (C.IndDef nid cDec, N.gen N.TypeType1)
         ProdDef dec fields -> do
-          cDec <- check dec N.TypeType1
+          cDec <- check dec (N.gen N.TypeType1)
           bindParams dec
-          cFields <- mapM ((flip check) N.TypeType0) fields
-          pure (C.ProdDef nid cDec cFields, N.TypeType0)
+          cFields <- mapM ((flip check) (N.gen N.TypeType0)) fields
+          pure (C.ProdDef nid cDec cFields, N.gen N.TypeType0)
           where
             bindParams :: S.Term -> Elab ()
             bindParams term = case term of
               S.Pi name inTy outTy -> do
-                vInTy <- check inTy N.TypeType1 >>= eval
+                vInTy <- check inTy (N.gen N.TypeType1) >>= eval
                 bind name vInTy
                 bindParams outTy
               S.U0 -> pure ()
               _ -> putError MalformedProdDec
         ConDef name ty -> do
-          cTy <- check ty N.TypeType1
+          cTy <- check ty (N.gen $ N.TypeType1)
           vTy <- eval cTy
           pure (C.ConDef nid cTy, vTy)
     validateCon :: S.GName -> C.Term -> Elab ()
@@ -318,7 +319,10 @@ check term goal = do
   cGoal <- readback goal
   univ <- getGoalUniv
   -- let !() = trace ("CGoal = " ++ show cGoal) ()
-  scope case (term, goal) of
+  scope case (term, N.unVal goal) of
+    (S.EditorFocus term', _) -> do
+      cTerm' <- check term' goal
+      pure $ C.Term (C.Info True) (C.unTerm cTerm')
     (S.Ann term' ty, _) -> do
       cTy <- check ty univ 
       vTy <- eval cTy
@@ -328,21 +332,21 @@ check term goal = do
       go :: [S.Name] -> N.Value -> Elab C.Term
       go ns g = case (ns, g) of
         ([], _) -> error "Empty"
-        ([n], ty@(N.FunType inTy outTy)) -> do
+        ([n], ty@(N.unVal -> N.FunType inTy outTy _)) -> do
           cTy <- readback ty
           vOutTy <- appClosure outTy inTy
           bind n inTy
           cBody <- check body vOutTy
-          pure $ C.FunIntro cBody cTy
-        (n:ns, ty@(N.FunType inTy outTy)) -> do
+          pure $ C.gen $ C.FunIntro cBody cTy (C.FunIntroInfo 1 (S.unName n))
+        (n:ns, ty@(N.unVal -> N.FunType inTy outTy _)) -> do
           cTy <- readback ty
           vOutTy <- appClosure outTy inTy
           bind n inTy
           cBody <- go ns vOutTy
-          pure $ C.FunIntro cBody cTy
+          pure $ C.gen $ C.FunIntro cBody cTy (C.FunIntroInfo (fromIntegral $ length ns + 1) (S.unName n))
         (_, _) -> do
           putError TooManyParams
-          pure C.ElabError
+          pure $ C.gen $ C.ElabError
     (S.Let name def defTy body, _) -> do
       reserve [name]
       vDefTy <- check defTy univ >>= eval
@@ -350,28 +354,28 @@ check term goal = do
       vDef <- eval cDef
       defineReserved name vDef vDefTy
       cBody <- check body goal
-      pure $ C.Letrec [cDef] cBody
+      pure $ C.gen $ C.Letrec [cDef] cBody
     (S.Hole, _) -> freshMeta cGoal
     (S.Quote inner, N.QuoteType ty) -> do
-      unify univ N.TypeType1
-      putGoalUniv N.TypeType0
+      unify univ (N.gen $ N.TypeType1)
+      putGoalUniv (N.gen $ N.TypeType0)
       cInner <- check inner ty
       cTy <- readback ty
-      pure $ C.QuoteIntro cInner cTy
+      pure $ C.gen $ C.QuoteIntro cInner cTy
     (S.MkProd ty fields, N.ProdType tid _) -> do
-      cTy <- check ty N.TypeType1
+      cTy <- check ty (N.gen N.TypeType1)
       vTy <- eval cTy
       unify goal vTy
       globalDefFromId tid >>= \case
         Just (C.ProdDef _ _ fieldTypes) -> do
           vFieldTypes <- mapM eval fieldTypes
           cFields <- mapM (\(f, t) -> check f t) (zip fields vFieldTypes)
-          pure $ C.ProdIntro cTy cFields
-    (_, N.QuoteType ty) | univ /= N.TypeType1 -> do
-      putGoalUniv N.TypeType0
+          pure $ C.gen $ C.ProdIntro cTy cFields
+    (_, N.QuoteType ty) | N.unVal univ /= N.TypeType1 -> do
+      putGoalUniv (N.gen $ N.TypeType0)
       (cTerm, termTy) <- infer term
       cTermTy <- readback termTy
-      pure $ C.QuoteIntro cTerm cTermTy
+      pure $ C.gen $ C.QuoteIntro cTerm cTermTy
     (_, _) -> do
       (cTerm, ty) <- infer term
       unify goal ty
@@ -388,10 +392,10 @@ infer term = getGoalUniv >>= \univ -> scope case term of
     case entry of
       Just (ty, ix) -> do
         cTy <- readback ty
-        pure (C.Var ix cTy, ty)
+        pure (C.gen $ C.Var ix cTy (C.VarInfo $ S.unName name), ty)
       Nothing -> do
         putError $ UnboundLocal name
-        pure (C.ElabError, N.ElabError)
+        pure (C.gen $ C.ElabError, N.gen $ N.ElabError)
   S.GVar name -> do
     entry <- globalDef name
     case entry of
@@ -403,48 +407,47 @@ infer term = getGoalUniv >>= \univ -> scope case term of
           C.ProdDef _ ty _ -> pure ty
           C.ElabBlankItem nid ty -> pure ty
         vTy <- eval ty
-        pure (C.GVar (C.itemId def) ty, vTy)
+        pure (C.gen $ C.GVar (C.itemId def) ty (C.GVarInfo $ S.unGName name), vTy)
       Nothing -> do
         putError $ UnboundGlobal name
-        pure (C.ElabError, N.ElabError)
+        pure (C.gen $ C.ElabError, N.gen $ N.ElabError)
   S.Lam names body -> go names where
     go :: [S.Name] -> Elab (C.Term, N.Value)
     go ns = case ns of
-      [n] -> do
+      [n@(S.Name s)] -> do
         cMeta <- readback univ >>= freshMeta
         vMeta <- eval cMeta
         bind n vMeta
         (cBody, vBodyTy) <- infer body
         closure <- closeValue vBodyTy
         cBodyTy <- readback vBodyTy
-        let ty = N.FunType vMeta closure
-        pure (C.FunIntro cBody (C.FunType cMeta cBodyTy), ty)
-      n:ns -> do
+        let ty = N.gen $ N.FunType vMeta closure (C.FunTypeInfo s)
+        pure (C.gen $ C.FunIntro cBody (C.gen $ C.FunType cMeta cBodyTy (C.FunTypeInfo s)) (C.FunIntroInfo 1 s), ty)
+      n@(S.Name s):ns -> do
         cMeta <- readback univ >>= freshMeta
         vMeta <- eval cMeta
         bind n vMeta
         (cBody, vBodyTy) <- go ns
         closure <- closeValue vBodyTy
         cBodyTy <- readback vBodyTy
-        let ty = N.FunType vMeta closure
-        pure (C.FunIntro cBody (C.FunType cMeta cBodyTy), ty)
+        let ty = N.gen $ N.FunType vMeta closure (C.FunTypeInfo s)
+        pure (C.gen $ C.FunIntro cBody (C.gen $ C.FunType cMeta cBodyTy (C.FunTypeInfo s)) (C.FunIntroInfo (fromIntegral $ length ns + 1) s), ty)
   S.App lam args -> do
     (cLam, lamTy) <- infer lam
     go cLam (reverse args) lamTy
     where
       go :: C.Term -> [S.Term] -> N.Value -> Elab (C.Term, N.Value)
-      go cLam as lty = case (as, lty) of
+      go cLam as lty = case (as, N.unVal lty) of
         ([], _) -> error "Empty"
-        ([a], N.FunType inTy outTy) -> do
+        ([a], N.FunType inTy outTy _) -> do
           cArg <- check a inTy
           vArg <- eval cArg
           outTy <- evalClosure outTy vArg
-          pure (C.FunElim cLam cArg, outTy)
+          pure (C.gen $ C.FunElim cLam cArg (C.FunElimInfo 1), outTy)
         ([a], _) -> do
           inTy <- readback univ >>= freshMeta
           vInTy <- eval inTy
-          cArg' <- check a vInTy
-          let !cArg = tr "cArg'" cArg'
+          cArg <- check a vInTy
           name <- freshName "p"
           (outTy, vOutTy) <- scope do
             bind name vInTy
@@ -452,14 +455,14 @@ infer term = getGoalUniv >>= \univ -> scope case term of
             vOutTy <- eval outTy
             pure (outTy, vOutTy)
           outTyClo <- closeTerm outTy
-          unify lty (N.FunType vInTy outTyClo)
-          pure (C.FunElim cLam cArg, vOutTy)
-        (a:as, N.FunType inTy outTy) -> do
+          unify lty (N.gen $ N.FunType vInTy outTyClo (C.FunTypeInfo "_"))
+          pure (C.gen $ C.FunElim cLam cArg (C.FunElimInfo 1), vOutTy)
+        (a:as, N.FunType inTy outTy _) -> do
           cArg <- check a inTy
           vArg <- eval cArg
           outTy <- evalClosure outTy vArg
           (cLamInner, outTyInner) <- go cLam as outTy
-          pure (C.FunElim cLamInner cArg, outTyInner)
+          pure (C.gen $ C.FunElim cLamInner cArg (C.FunElimInfo (fromIntegral $ length as + 1)), outTyInner)
         (a:as, _) -> do
           inTy <- readback univ >>= freshMeta
           vInTy <- eval inTy
@@ -471,53 +474,52 @@ infer term = getGoalUniv >>= \univ -> scope case term of
             vOutTy <- eval outTy
             pure (outTy, vOutTy)
           outTyClo <- closeTerm outTy
-          unify lty (N.FunType vInTy outTyClo)
+          unify lty (N.gen $ N.FunType vInTy outTyClo (C.FunTypeInfo "_"))
           (cLamInner, outTyInner) <- go cLam as vOutTy
-          pure (C.FunElim cLamInner cArg, outTyInner)
+          pure (C.gen $ C.FunElim cLamInner cArg (C.FunElimInfo (fromIntegral $ length as + 1)), outTyInner)
   S.U0 -> do
-    unify univ N.TypeType0
-    pure (C.TypeType0, N.TypeType0)
+    unify univ (N.gen $ N.TypeType0)
+    pure (C.gen $ C.TypeType0, N.gen $ N.TypeType0)
   S.U1 -> do
-    unify univ N.TypeType1
-    pure (C.TypeType1, N.TypeType1)
+    unify univ (N.gen $ N.TypeType1)
+    pure (C.gen $ C.TypeType1, N.gen $ N.TypeType1)
   S.Pi name inTy outTy -> do
-    unify univ N.TypeType1
     cInTy <- check inTy univ
     vInTy <- eval cInTy
     bind name vInTy
     cOutTy <- check outTy univ
-    pure (C.FunType cInTy cOutTy, univ)
+    pure (C.gen $ C.FunType cInTy cOutTy (C.FunTypeInfo $ S.unName name), univ)
   S.Code ty -> do
-    unify univ N.TypeType1
-    putGoalUniv N.TypeType0
-    cTy <- check ty N.TypeType0
-    pure (C.QuoteType cTy, N.TypeType1)
+    unify univ (N.gen $ N.TypeType1)
+    putGoalUniv (N.gen $ N.TypeType0)
+    cTy <- check ty (N.gen $ N.TypeType0)
+    pure (C.gen $ C.QuoteType cTy, N.gen $ N.TypeType1)
   S.Quote inner -> do
-    unify univ N.TypeType1
-    putGoalUniv N.TypeType0
+    unify univ (N.gen $ N.TypeType1)
+    putGoalUniv (N.gen $ N.TypeType0)
     (cInner, innerTy) <- infer inner
     cInnerTy <- readback innerTy
-    pure (C.QuoteIntro cInner cInnerTy, N.QuoteType innerTy)
+    pure (C.gen $ C.QuoteIntro cInner cInnerTy, N.gen $ N.QuoteType innerTy)
   S.Splice quote -> do
-    unify univ N.TypeType0
-    putGoalUniv N.TypeType1
+    unify univ (N.gen $ N.TypeType0)
+    putGoalUniv (N.gen $ N.TypeType1)
     (cQuote, quoteTy) <- infer quote
-    quoteInnerTy <- case quoteTy of
+    quoteInnerTy <- case N.unVal quoteTy of
       N.QuoteType ty -> pure ty
-      _ -> freshMeta C.TypeType0 >>= eval
-    pure (C.QuoteElim cQuote, quoteInnerTy)
+      _ -> freshMeta (C.gen $ C.TypeType0) >>= eval
+    pure (C.gen $ C.QuoteElim cQuote, quoteInnerTy)
   S.MkProd ty fields -> do
-    cTy <- check ty N.TypeType1
+    cTy <- check ty (N.gen $ N.TypeType1)
     vTy <- eval cTy
-    case vTy of
+    case N.unVal vTy of
       N.ProdType tid _ -> globalDefFromId tid >>= \case
         Just (C.ProdDef _ _ fieldTypes) -> do
           vFieldTypes <- mapM eval fieldTypes
           cFields <- mapM (\(f, t) -> check f t) (zip fields vFieldTypes)
-          pure (C.ProdIntro cTy cFields, vTy)
+          pure (C.gen $ C.ProdIntro cTy cFields, vTy)
       _ -> do
         putError ExpectedProdType
-        pure (C.ElabError, N.ElabError)
+        pure (C.gen $ C.ElabError, N.gen $ N.ElabError)
   S.Let name def defTy body -> do
     reserve [name]
     vDefTy <- check defTy univ >>= eval
@@ -525,13 +527,16 @@ infer term = getGoalUniv >>= \univ -> scope case term of
     vDef <- eval cDef
     defineReserved name vDef vDefTy
     (cBody, vBodyTy) <- infer body
-    pure (C.Letrec [cDef] cBody, vBodyTy)
-  S.Hole -> do
-    cTypeMeta <- readback univ >>= freshMeta
-    vTypeMeta <- eval cTypeMeta
-    cTermMeta <- freshMeta cTypeMeta
-    pure (cTermMeta, vTypeMeta)
+    pure (C.gen $ C.Letrec [cDef] cBody, vBodyTy)
+  S.Hole -> inferHole univ
+  S.EditorBlank -> inferHole univ
   _ -> error $ "`infer`: " ++ show term
+  where
+    inferHole univ = do
+      cTypeMeta <- readback univ >>= freshMeta
+      vTypeMeta <- eval cTypeMeta
+      cTermMeta <- freshMeta cTypeMeta
+      pure (cTermMeta, vTypeMeta)
 
 gnameMapToIdMap :: Map.Map S.GName C.Item -> N.Globals
 gnameMapToIdMap globals = Map.fromList $ map (\(_, g) -> (C.itemId g, g)) (Map.toList globals)
@@ -576,7 +581,7 @@ bind :: S.Name -> N.Value -> Elab ()
 bind name ty = do
   state <- get
   put $ state
-    { locals = (N.StuckRigidVar ty (level state) []):(locals state)
+    { locals = (N.gen $ N.StuckRigidVar ty (level state) [] (C.VarInfo $ S.unName name)):(locals state)
     , ltypes = Map.insert name (ty, Index 0) $ Map.map (\(ty, ix) -> (ty, Index $ unIndex ix + 1)) (ltypes state)
     , level = Level $ unLevel (level state) + 1
     , binderInfos = C.Abstract:(binderInfos state) }
@@ -630,7 +635,7 @@ globalDef name = do
 appClosure :: HasCallStack => N.Closure -> N.Value -> Elab N.Value
 appClosure closure ty = do
   state <- get
-  runNorm $ N.appClosure closure (N.StuckRigidVar ty (level state) [])
+  runNorm $ N.appClosure closure (N.gen $ N.StuckRigidVar ty (level state) [] undefined)
 
 -- FIXME: better name
 evalClosure :: N.Closure -> N.Value -> Elab N.Value
@@ -662,7 +667,7 @@ eval term = do
 freshMeta :: C.Term -> Elab C.Term
 freshMeta ty = do
   state <- get
-  let meta = C.InsertedMeta (binderInfos state) (Global $ nextMeta state) (Just ty)
+  let meta = C.gen $ C.InsertedMeta (binderInfos state) (Global $ nextMeta state) (Just ty)
   put $ state
     { metas = Map.insert (Global $ nextMeta state) N.Unsolved (metas state)
     , nextMeta = (nextMeta state) + 1 }
@@ -671,7 +676,7 @@ freshMeta ty = do
 freshUnivMeta :: Elab C.Term
 freshUnivMeta = do
   state <- get
-  let meta = C.InsertedMeta (binderInfos state) (Global $ nextMeta state) Nothing
+  let meta = C.gen $ C.InsertedMeta (binderInfos state) (Global $ nextMeta state) Nothing
   put $ state
     { metas = Map.insert (Global $ nextMeta state) N.Unsolved (metas state)
     , nextMeta = (nextMeta state) + 1 }
