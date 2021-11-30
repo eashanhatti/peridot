@@ -12,6 +12,9 @@ data Name = Name { unName :: String }
 data GName = GName { unGName :: [String] }
   deriving (Show, Eq, Ord)
 
+data Direction = Left | Right
+  deriving (Eq, Show)
+
 -- data ItemAttrib = Opaque | Private
 
 data Item
@@ -20,6 +23,7 @@ data Item
   | IndDef Name Term [(Name, Term)] -- name, dec, constructors
   | ProdDef Name Term [Term]
   | EditorBlankDef
+  | EditorFocusDef Item Direction
   deriving (Show, Eq)
 
 data ItemPart = Dec | Def
@@ -41,5 +45,5 @@ data Term
   | MkProd Term [Term]
   | Hole
   | EditorBlank
-  | EditorFocus Term
+  | EditorFocus Term Direction
   deriving (Show, Eq)

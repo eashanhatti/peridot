@@ -89,7 +89,7 @@ type Elab a = State ElabState a
 
 data Item
   = TermDef S.Term S.Term
-  | IndDef S.Term
+  | IndDef S.Term C.IndDefInfo
   | ProdDef S.Term [S.Term]
   | ConDef S.GName S.Term
   deriving Show
@@ -144,12 +144,14 @@ elab item oldState oldProgram changes deps =
 
 flatten :: [String] -> S.Item -> Program
 flatten nameAcc item = case item of
+  S.EditorFocusDef item _ -> flatten nameAcc item
+  S.EditorBlankDef -> mempty
   S.NamespaceDef name items -> foldl' Map.union mempty (map (flatten ((S.unName name):nameAcc)) items)
   S.TermDef name dec def -> Map.singleton (S.GName $ (S.unName name):nameAcc) (TermDef dec def)
   S.ProdDef name dec fields -> Map.singleton (S.GName $ (S.unName name):nameAcc) (ProdDef dec fields)
   S.IndDef name dec cs ->
     Map.union
-      (Map.singleton (S.GName $ (S.unName name):nameAcc) (IndDef dec))
+      (Map.singleton (S.GName $ (S.unName name):nameAcc) (IndDef dec (C.IndDefInfo $ map (S.unName . fst) cs)))
       (Map.fromList $ map
         (\(cn, ct) ->
           let gname = S.unName cn : S.unName name : nameAcc
@@ -162,7 +164,7 @@ dependencies items = case items of
     let
       ds = Map.singleton name $ case item of
         TermDef dec def -> searchTy dec `combine` search def
-        IndDef dec -> searchTy dec
+        IndDef dec _ -> searchTy dec
         ProdDef dec fields -> searchTy dec `combine` runReader (searchTerms fields) S.Dec
         ConDef tyName ty -> searchTy ty
     in ds `Map.union` dependencies items
@@ -173,6 +175,7 @@ dependencies items = case items of
 
     search' :: S.Term -> Reader S.ItemPart (Map S.GName (Set S.ItemPart))
     search' term = case term of
+      S.EditorFocus term _ -> search' term
       S.Var _ -> pure mempty
       S.GVar (S.GName name) -> do
         p <- ask
@@ -250,7 +253,7 @@ checkProgram program =
             putGoalUniv meta
             check ty meta >>= eval
           ProdDef ty _ -> check ty (N.gen N.TypeType1) >>= eval
-          IndDef ty -> check ty (N.gen N.TypeType1) >>= eval
+          IndDef ty _ -> check ty (N.gen N.TypeType1) >>= eval
           ConDef _ ty -> check ty (N.gen N.TypeType1) >>= eval
         declareGlobal name ty
         declareGlobals names program
@@ -286,9 +289,9 @@ checkProgram program =
           vDec <- check dec meta >>= eval
           cDef <- check def vDec
           pure (C.TermDef nid cDef, vDec)
-        IndDef dec -> do
+        IndDef dec info -> do
           cDec <- check dec (N.gen N.TypeType1)
-          pure (C.IndDef nid cDec, N.gen N.TypeType1)
+          pure (C.IndDef nid cDec info, N.gen N.TypeType1)
         ProdDef dec fields -> do
           cDec <- check dec (N.gen N.TypeType1)
           bindParams dec
@@ -320,9 +323,9 @@ check term goal = do
   univ <- getGoalUniv
   -- let !() = trace ("CGoal = " ++ show cGoal) ()
   scope case (term, N.unVal goal) of
-    (S.EditorFocus term', _) -> do
-      cTerm' <- check term' goal
-      pure $ C.Term (C.Info True) (C.unTerm cTerm')
+    (S.EditorFocus term' side, _) -> do
+      C.Term _ cTerm' <- check term' goal
+      pure $ trace "HERE__________" $ C.Term (C.Info (Just side)) cTerm'
     (S.Ann term' ty, _) -> do
       cTy <- check ty univ 
       vTy <- eval cTy
@@ -383,6 +386,9 @@ check term goal = do
 
 infer :: HasCallStack => S.Term -> Elab (C.Term, N.Value)
 infer term = getGoalUniv >>= \univ -> scope case term of
+  S.EditorFocus term' side -> do
+    (C.Term _ cTerm', ty) <- infer term'
+    pure $ trace "HERE INFER__________" $ (C.Term (C.Info (Just side)) cTerm', ty)
   S.Ann term' ty -> do
     vTy <- check ty univ >>= eval
     cTerm' <- check term' vTy
@@ -402,7 +408,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
       Just def -> do
         ty <- case def of
           C.TermDef _ tdef -> typeofC tdef
-          C.IndDef _ ty -> pure ty
+          C.IndDef _ ty _ -> pure ty
           C.ConDef _ ty -> pure ty
           C.ProdDef _ ty _ -> pure ty
           C.ElabBlankItem nid ty -> pure ty
@@ -606,7 +612,7 @@ globalType nid = do
   name <- idName nid
   pure $ fmap
     (\case
-      C.IndDef _ ty -> ty
+      C.IndDef _ ty _ -> ty
       C.ConDef _ ty -> ty)
     (Map.lookup name (globals state))
 

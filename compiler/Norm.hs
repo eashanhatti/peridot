@@ -65,7 +65,7 @@ data ValueInner
   | ElabBlank
   deriving Eq
 
-gen v = Value (C.Info False) v
+gen v = Value (C.Info Nothing) v
 
 instance Show Value where
   show (Value _ v) = case v of
@@ -114,7 +114,7 @@ vApp :: HasCallStack => Value -> Value -> Norm Value
 vApp (Value info lam) arg = case lam of
   FunIntro body vty _ -> appClosure body arg
   StuckFlexVar vty gl spine -> Value info <$> (pure $ StuckFlexVar vty gl (arg:spine))
-  StuckRigidVar vty lv spine info' -> Value info <$> (pure $ StuckRigidVar vty lv (arg:spine) info')
+  StuckRigidVar vty lv spine _ -> Value info <$> (pure $ StuckRigidVar vty lv (arg:spine) (C.VarInfo "_")) -- FIXME
   _ -> pure $ gen ElabError
 
 vSplice :: HasCallStack => Value -> Norm Value
@@ -238,7 +238,7 @@ eval (C.Term info term) = do
       Nothing -> vMeta gl Nothing >>= \meta -> vAppBis meta locals bis
     C.GVar nid ty info' -> case fromJust $ Map.lookup nid globals of
       C.TermDef _ def -> eval def
-      C.IndDef nid ty -> do
+      C.IndDef nid ty _ -> do
         nTy <- eval ty >>= readback
         eval $ go nTy []
         where
