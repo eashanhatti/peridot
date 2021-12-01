@@ -1,21 +1,26 @@
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE PatternSynonyms #-}
+
 module Surface where
 
 import Data.Map(Map)
 import Data.Set(Set)
 
-data Span = Span
-  deriving (Show, Eq)
-
-data Name = Name { unName :: String }
+data Name = UnfocusedName String | FocusedName String
   deriving (Show, Eq, Ord)
+
+pattern Name s <- (unName -> s) where
+  Name s = UnfocusedName s
+
+unName name = case name of
+  UnfocusedName s -> s
+  FocusedName s -> s
 
 data GName = GName { unGName :: [String] }
   deriving (Show, Eq, Ord)
 
 data Direction = Left | Right
   deriving (Eq, Show)
-
--- data ItemAttrib = Opaque | Private
 
 data Item
   = NamespaceDef Name [Item]
