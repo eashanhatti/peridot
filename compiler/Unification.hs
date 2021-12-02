@@ -11,6 +11,7 @@ module Unification where
 import qualified Data.Map as Map
 import qualified Norm as N
 import qualified Core as C
+import qualified Surface as S
 import Var
 import Data.List(uncons)
 import Data.Maybe(fromJust)
@@ -132,12 +133,12 @@ rename metas gl pren rhs = go pren rhs
         N.StuckSplice quote -> C.gen <$> (C.QuoteElim <$> go pren quote)
         N.FunIntro body vty@(N.unVal -> N.FunType inTy _ _) info@(C.FunIntroInfo _ s) -> do
           tty <- go pren vty
-          vBody <- lift $ runNorm (domain pren) $ N.appClosure body (N.gen $ N.StuckRigidVar inTy (codomain pren) [] (C.VarInfo s))
+          vBody <- lift $ runNorm (domain pren) $ N.appClosure body (N.gen $ N.StuckRigidVar inTy (codomain pren) [] (varInfo s))
           bodyTerm <- go (inc pren) vBody
           liftEither $ Right $ C.gen $ C.FunIntro bodyTerm tty info
         N.FunType inTy outTy info@(C.FunTypeInfo s) -> do
           inTyTerm <- go pren inTy
-          vOutTy <- lift $ runNorm (domain pren) $ N.appClosure outTy (N.gen $ N.StuckRigidVar inTy (codomain pren) [] (C.VarInfo s))
+          vOutTy <- lift $ runNorm (domain pren) $ N.appClosure outTy (N.gen $ N.StuckRigidVar inTy (codomain pren) [] (varInfo s))
           outTyTerm <- go (inc pren) vOutTy
           liftEither $ Right $ C.gen $ C.FunType inTyTerm outTyTerm info
         N.QuoteIntro inner ty -> do
@@ -157,14 +158,16 @@ rename metas gl pren rhs = go pren rhs
         -- N.Let0 def defTy body -> C.Let <$> go pren def <*> go pren defTy <*> go (inc pren) body
         N.Letrec0 defs body -> C.gen <$> (C.Letrec <$> mapM (go (incN (length defs) pren)) defs <*> go (incN (length defs) pren) body)
         N.StuckGVar nid ty info -> go pren ty >>= \ty -> pure $ C.gen $ C.GVar nid ty info
-        N.ElabError -> liftEither $ Right $ C.gen C.ElabError
+        N.ElabError s -> liftEither $ Right $ C.gen (C.ElabError s)
+        N.ElabBlank -> liftEither $ Right $ C.gen C.ElabBlank
+        _ -> error $ show val
 
 getTtySpine :: N.Metas -> Level -> N.Type -> N.Spine -> C.Term
 getTtySpine metas lv vty spine = case (N.unVal vty, spine) of
   (N.FunType inTy outTy (C.FunTypeInfo s), _:spine) -> getTtySpine
     metas
     (incLevel lv)
-    (runReader (N.appClosure outTy (N.gen $ N.StuckRigidVar inTy lv [] (C.VarInfo s))) (lv, metas, [], mempty))
+    (runReader (N.appClosure outTy (N.gen $ N.StuckRigidVar inTy lv [] (varInfo s))) (lv, metas, [], mempty))
     spine
   (_, []) -> runReader (N.readback vty) (lv, metas, [], mempty)
 
@@ -186,14 +189,15 @@ getTty metas lv val = case N.unVal val of
   N.IndType _ _ -> C.gen C.TypeType1
   -- N.Let0 _ _ _ -> C.TypeType0
   N.Letrec0 _ _ -> C.gen C.TypeType0
-  N.ElabError -> C.gen C.ElabError
+  N.ElabError s -> C.gen $ C.ElabError s
+  N.ElabBlank -> C.gen C.ElabBlank
 
 getVtySpine :: N.Metas -> Level -> N.Type -> N.Spine -> N.Value
 getVtySpine metas lv vty spine = case (N.unVal vty, spine) of
   (N.FunType inTy outTy (C.FunTypeInfo s), _:spine) -> getVtySpine
     metas
     (incLevel lv)
-    (runReader (N.appClosure outTy (N.gen $ N.StuckRigidVar inTy lv [] (C.VarInfo s))) (lv, metas, [], mempty))
+    (runReader (N.appClosure outTy (N.gen $ N.StuckRigidVar inTy lv [] (varInfo s))) (lv, metas, [], mempty))
     spine
   (_, []) -> vty
 
@@ -215,7 +219,8 @@ getVty metas lv val = case N.unVal val of
   N.Var0 _ _ _ -> N.gen N.TypeType0
   -- N.Let0 _ _ _ -> N.TypeType0
   N.Letrec0 _ _ -> N.gen N.TypeType0
-  N.ElabError -> N.gen N.ElabError
+  N.ElabError s -> N.gen $ N.ElabError s
+  N.ElabBlank -> N.gen N.ElabBlank
 
 lams :: Level -> [C.Term] -> C.Term -> C.Term
 lams lv ttys term = go (Level 0) ttys
@@ -249,6 +254,8 @@ unifySpines lv spine spine'= case (spine, spine') of
   ([], []) -> pure ()
   _ -> putError $ MismatchSpines spine spine'
 
+varInfo = C.VarInfo . S.unName
+
 -- level, goal, given
 unify :: HasCallStack => Level -> N.Value -> N.Value -> Unify ()
 unify lv val val' = do
@@ -258,26 +265,26 @@ unify lv val val' = do
   case (N.unVal val, N.unVal val') of
     (N.FunIntro body vty@(N.unVal -> N.FunType inTy _ (C.FunTypeInfo s)) _, N.FunIntro body' vty'@(N.unVal -> N.FunType inTy' _ (C.FunTypeInfo s')) _) -> do
       unify lv vty vty'
-      vBody <- runNorm (incLevel lv) $ N.appClosure body (N.gen $ N.StuckRigidVar inTy lv [] (C.VarInfo s))
-      vBody' <- runNorm (incLevel lv) $ N.appClosure body' (N.gen $ N.StuckRigidVar inTy' lv [] (C.VarInfo s'))
+      vBody <- runNorm (incLevel lv) $ N.appClosure body (N.gen $ N.StuckRigidVar inTy lv [] (varInfo s))
+      vBody' <- runNorm (incLevel lv) $ N.appClosure body' (N.gen $ N.StuckRigidVar inTy' lv [] (varInfo s'))
       unify (incLevel lv) vBody vBody'
     (_, N.FunIntro body vty@(N.unVal -> N.FunType inTy' _ (C.FunTypeInfo s)) _) | valTy@(N.unVal -> N.FunType inTy _ (C.FunTypeInfo s')) <- getVty metasForGetVty lv val -> do
       unify lv valTy vty
-      vAppVal <- runNorm lv $ N.vApp val (N.gen $ N.StuckRigidVar inTy lv [] (C.VarInfo s))
-      vBody <- runNorm (incLevel lv) $ N.appClosure body (N.gen $ N.StuckRigidVar inTy' lv [] (C.VarInfo s'))
+      vAppVal <- runNorm lv $ N.vApp val (N.gen $ N.StuckRigidVar inTy lv [] (varInfo s))
+      vBody <- runNorm (incLevel lv) $ N.appClosure body (N.gen $ N.StuckRigidVar inTy' lv [] (varInfo s'))
       unify (incLevel lv) vAppVal vBody
     (N.FunIntro body vty@(N.unVal -> N.FunType inTy _ (C.FunTypeInfo s)) _, _) | valTy@(N.unVal -> N.FunType inTy' _ (C.FunTypeInfo s')) <- getVty metasForGetVty lv val' -> do
       unify lv valTy vty
-      vBody <- runNorm (incLevel lv) $ N.appClosure body (N.gen $ N.StuckRigidVar inTy lv [] (C.VarInfo s))
-      vAppVal <- runNorm lv $ N.vApp val (N.gen $ N.StuckRigidVar inTy' lv [] (C.VarInfo s'))
+      vBody <- runNorm (incLevel lv) $ N.appClosure body (N.gen $ N.StuckRigidVar inTy lv [] (varInfo s))
+      vAppVal <- runNorm lv $ N.vApp val (N.gen $ N.StuckRigidVar inTy' lv [] (varInfo s'))
       unify (incLevel lv) vBody vAppVal
     (N.TypeType0, N.TypeType0) -> pure ()
     (N.TypeType1, N.TypeType0) -> pure ()
     (N.TypeType1, N.TypeType1) -> pure ()
     (N.FunType inTy outTy (C.FunTypeInfo s), N.FunType inTy' outTy' (C.FunTypeInfo s')) -> do
       unify lv inTy inTy'
-      vOutTy <- runNorm (incLevel lv) $ N.appClosure outTy (N.gen $ N.StuckRigidVar inTy lv [] (C.VarInfo s))
-      vOutTy' <- runNorm (incLevel lv) $ N.appClosure outTy' (N.gen $ N.StuckRigidVar inTy' lv [] (C.VarInfo s'))
+      vOutTy <- runNorm (incLevel lv) $ N.appClosure outTy (N.gen $ N.StuckRigidVar inTy lv [] (varInfo s))
+      vOutTy' <- runNorm (incLevel lv) $ N.appClosure outTy' (N.gen $ N.StuckRigidVar inTy' lv [] (varInfo s'))
       unify (incLevel lv) vOutTy vOutTy'
     (N.QuoteType ty, N.QuoteType ty') -> unify lv ty ty'
     (N.QuoteIntro inner ty, N.QuoteIntro inner' ty') -> do
@@ -317,6 +324,6 @@ unify lv val val' = do
     (N.Letrec0 defs body, N.Letrec0 defs' body') -> do
       mapM (\(def, def') -> unify (incLevelN (length defs) lv) def def') (zip defs defs')
       unify (incLevelN (length defs) lv) body body'
-    (N.ElabError, _) -> pure ()
-    (_, N.ElabError) -> pure ()
+    (N.ElabError _, _) -> pure ()
+    (_, N.ElabError _) -> pure ()
     _ -> putError $ Mismatch val val'

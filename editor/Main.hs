@@ -45,6 +45,7 @@ import Control.Carrier.Lift(runM)
 import qualified Elaboration as Elab
 import qualified Core as C
 import Debug.Trace(traceShowId)
+import Numeric.Natural
 
 data Con = Con String Term | EditorBlankCon
   deriving (Show, Eq)
@@ -686,42 +687,119 @@ render state elabState item = pure $ renderItem item []
     renderItem :: Item -> [String] -> T.Text
     renderItem item gname = case item of
       TermDef n ty body -> renderTermDef n (GName $ unName n : gname)
-      NamespaceDef n items -> "\ESC[33;1mnamespace\ESC[39m " <> renderName n <> indentForced (sitems items (unName n : gname))
+      NamespaceDef n items -> green "namespace " <> renderName n <> indentForced (sitems items (unName n : gname))
       IndDef n ty cons -> renderIndDef n (GName $ unName n : gname)
       ProdDef n _ _ -> renderProdDef n (GName $ unName n : gname)
       EditorFocusDef item side -> case side of
-        Left -> "\ESC[32;1m{\ESC[0m" <> renderItem item gname <> "\ESC[32;1m]\ESC[0m"
-        Right -> "\ESC[32;1m[\ESC[0m" <> renderItem item gname <> "\ESC[32;1m}\ESC[0m"
+        Left -> yellow "{" <> renderItem item gname <> yellow "]"
+        Right -> yellow "[" <> renderItem item gname <> yellow "}"
       EditorBlankDef -> "\ESC[7m?\ESC[27m"
     renderTermDef :: Name -> GName -> T.Text
     renderTermDef name gname =
-      let Just (C.TermDef _ def) = DM.lookup gname (Elab.globals elabState)
-      in "\ESC[33;1mval\ESC[39m " <> renderName name <> " : <todo> = " <> indent (renderTerm def)
+      let Just (C.TermDef _ def dec) = DM.lookup gname (Elab.globals elabState)
+      in green "val " <> renderName name <> " : " <> renderTerm dec <> " = " <> indent (renderTerm def)
     renderIndDef :: Name -> GName -> T.Text
     renderIndDef name gname =
       let Just (C.IndDef _ ty (C.IndDefInfo cns)) = DM.lookup gname (Elab.globals elabState)
-      in "\ESC[33;1minductive\ESC[39m " <> renderName name <> " : " <> renderTerm ty <> (indentForced $ scons cns (unGName gname))
+      in green "inductive " <> renderName name <> " : " <> renderTerm ty <> (indentForced $ scons cns (unGName gname))
     renderProdDef :: Name -> GName -> T.Text
     renderProdDef name gname =
       let Just (C.ProdDef _ ty fields) = DM.lookup gname (Elab.globals elabState)
-      in "\ESC[33;1mproduct\ESC[39m " <> renderName name <> " : " <> renderTerm ty <> (indentForced $ sfields fields)
+      in green "product " <> renderName name <> " : " <> renderTerm ty <> (indentForced $ sfields fields)
     renderTerm :: C.Term -> T.Text
     renderTerm (C.Term (C.Info side) term) = case side of
-      Just Left -> "\ESC[32;1m{\ESC[0m" <> go term <> "\ESC[32;1m]\ESC[0m"
-      Just Right -> "\ESC[32;1m[\ESC[0m" <> go term <> "\ESC[32;1m}\ESC[0m"
+      Just Left -> yellow "{" <> go term <> yellow "]"
+      Just Right -> yellow "[" <> go term <> yellow "}"
       Nothing -> go term
       where
         go :: C.TermInner -> T.Text
         go term = case term of
-          C.Var _ _ (C.VarInfo s) -> T.pack s
-          C.GVar _ _ (C.GVarInfo s) -> T.pack $ mconcat $ intersperse "." s
+          C.Var _ ty (C.VarInfo s) -> goVar ty (T.pack s)
+          C.GVar _ ty (C.GVarInfo s') -> goGName s' ty
+          C.TypeType0 -> blue "U0"
+          C.TypeType1 -> blue "U1"
+          C.FunIntro _ _ (C.FunIntroInfo n _) ->  
+            let (body, params) = goFunIntro term n []
+            in green "λ" <> params <> " -> " <> renderTerm body
+          C.FunType inTy outTy (C.FunTypeInfo s) -> renderPi s (renderTerm inTy) (renderTerm outTy)
+          C.FunElim _ _ (C.FunElimInfo n) -> goFunElim term n []
+          C.QuoteType term -> blue "Code " <> renderTerm term
+          C.QuoteIntro term _ -> green "<" <> renderTerm term <> green ">"
+          C.QuoteElim term -> green "~" <> renderTerm term
+          C.ProdType nid args ->
+            let Just (GName name) = DM.lookup nid (Elab.idsNames elabState)
+            in goGName name (C.gen C.TypeType0) <> " " <> T.intercalate " " (map renderTerm args)
+          C.ProdIntro ty args -> green "#" <> renderTerm ty <> " " <> T.intercalate " " (map renderTerm (traceShowId args))
           C.Meta _ _ -> "\ESC[7m?\ESC[27m"
           C.InsertedMeta _ _ _ -> "\ESC[7m?\ESC[27m"
+          C.ElabError s -> renderSTerm s
           _ -> error $ show term
+        goFunIntro :: C.TermInner -> Natural -> [T.Text] -> (C.Term, T.Text)
+        goFunIntro (C.FunIntro body _ (C.FunIntroInfo _ s)) n acc = case n of
+          1 -> (body, T.intercalate " " $ reverse $ renderName s : acc)
+          n -> goFunIntro (C.unTerm body) (n - 1) (renderName s : acc)
+        goFunElim :: C.TermInner -> Natural -> [C.Term] -> T.Text
+        goFunElim (C.FunElim lam arg _) n args = case traceShowId n of
+          1 -> T.intercalate " " $ map renderTerm $ lam:arg:args
+          n -> goFunElim (C.unTerm lam) (n - 1) (arg:args)
+        goVar :: C.Term -> T.Text -> T.Text
+        goVar term s = case C.unTerm term of
+          C.FunType _ outTy _ -> goVar outTy s
+          C.TypeType0 -> blue s
+          C.TypeType1 -> blue s
+          _ -> s
+        goGName :: [String] -> C.Term -> T.Text
+        goGName s' ty =
+          let
+            s = reverse s'
+            name = T.pack $ last s
+            mpath = init s
+          in (T.pack $ mconcat $ intersperse "." mpath) <> "." <> goVar ty name  
+    renderSTerm :: Term -> T.Text
+    renderSTerm term = case term of
+      Var name -> renderName name
+      GVar (GName gname) -> T.pack $ mconcat $ intersperse "." gname
+      Lam names body -> green "λ" <> (T.intercalate " " $ map renderName names) <> " -> " <> renderSTerm body
+      App lam args -> renderSTerm lam <> " " <> (T.intercalate " " $ map renderSTerm args)
+      Pi name inTy outTy -> renderPi name (renderSTerm inTy) (renderSTerm outTy)
+      Let name' def' ty' body' ->
+        let
+          name = renderName name'
+          def = renderSTerm def'
+          ty = renderSTerm ty'
+          body = renderSTerm body'
+        in green "let " <> name <> case (multiline ty, multiline def, multiline body) of
+          (False, False, False) -> " : " <> ty <> " = " <> def <> inStringSpace <> body
+          (False, False, True) -> " : " <> ty <> " = " <> def <> inString <> indent body
+          (False, True, False) -> " : " <> ty <> "\n  =" <> indent2 def <> inStringSpace <> body
+          (False, True, True) -> " : " <> ty <> "\n  =" <> indent2 def <> inString <> indent body
+          (True, False, False) -> "\n  :" <> indent2 ty <> "\n  = " <> def <> inStringSpace <> body
+          (True, False, True) -> "\n  :" <> indent2 ty <> "\n  = " <> def <> inString <> indent body
+          (True, True, False) -> "\n  :" <> indent2 ty <> "\n  =" <> indent2 def <> inStringSpace <> body
+          (True, True, True) -> "\n  :" <> indent2 ty <> "\n  =" <> indent2 def <> inString <> indent body
+          where
+            inString = green "in"
+            inStringSpace = inString <> " "
+      U1 -> blue "U1"
+      U0 -> blue "U0"
+      Code term -> blue "Code " <> renderSTerm term
+      Quote term -> green "<" <> renderSTerm term <> green ">"
+      Splice term -> green "~" <> renderSTerm term
+      MkProd ty args -> green "#" <> renderSTerm ty <> " " <> (T.intercalate " " $ map renderSTerm args)
+      Hole -> "\ESC[7m?\ESC[27m"
+      EditorBlank -> "\ESC[7m?\ESC[27m"
+      EditorFocus term side -> case side of
+        Left -> yellow "{" <> renderSTerm term <> yellow "]"
+        Right -> yellow "[" <> renderSTerm term <> yellow "}"
     renderName :: Name -> T.Text
     renderName name = case name of
       UnfocusedName s -> T.pack s
-      FocusedName s -> "\ESC[32;1m{\ESC[0m" <> T.pack s <> "\ESC[32;1m]\ESC[0m"
+      FocusedName s -> yellow "{" <> T.pack s <> yellow "]"
+    renderPi :: Name -> T.Text -> T.Text -> T.Text
+    renderPi name inTy outTy = case name of
+      FocusedName _ -> "(" <> renderName name <> " : " <> inTy <> ") -> " <> outTy
+      UnfocusedName "_" -> inTy <> " -> " <> outTy
+      UnfocusedName _ -> "(" <> renderName name <> " : " <> inTy <> ") -> " <> outTy
 
     multiline s = length (T.lines s) /= 1
     scons cns gname = case cns of
@@ -755,6 +833,12 @@ render state elabState item = pure $ renderItem item []
         (mconcat $ intersperse "\n" $ map ("  "<>) (T.lines s))
     indentForced :: T.Text -> T.Text
     indentForced s = (if s == "" then "" else "\n") <> (mconcat $ intersperse "\n" $ map ("  "<>) (T.lines s))
+
+    red s = "\ESC[31;1m" <> s <> "\ESC[39m"
+    green s = "\ESC[32;1m" <> s <> "\ESC[39m"
+    purple s = "\ESC[35;1m" <> s <> "\ESC[39m"
+    yellow s = "\ESC[33;1m" <> s <> "\ESC[39m"
+    blue s = "\ESC[36;1m" <> s <> "\ESC[39m"
 
 insertFocusMarker :: EditorState a -> EditorState a
 insertFocusMarker state@(EditorState (Cursor focus path) ft side) = case ft of

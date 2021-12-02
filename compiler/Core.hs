@@ -1,10 +1,11 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Core where
 
 import Var
 import {-# SOURCE #-} qualified Norm as N
-import Surface(Direction)
+import qualified Surface as S
 import Control.Monad.Reader(Reader, ask)
 import Data.Map(Map)
 import Data.Set(Set)
@@ -30,7 +31,7 @@ data IndDefInfo = IndDefInfo [String]
   deriving Show
 
 data Item
-  = TermDef Id Term
+  = TermDef Id Term Term
   | IndDef Id Type IndDefInfo
   | ProdDef Id Type [Type]
   | ConDef Id Type
@@ -38,22 +39,22 @@ data Item
 
 instance Show Item where
   show item = case item of
-    TermDef nid body -> "def " ++ show nid ++ " = " ++ show body
+    TermDef nid body ty -> "def " ++ show nid ++ " : " ++ show ty ++ " = " ++ show body
     IndDef nid ty _ -> "ind " ++ show nid ++ " : " ++ show ty
     ProdDef nid ty fields -> "prod " ++ show nid ++ " : " ++ show ty ++ "[" ++ (concat $ intersperse ", " $ map show fields) ++ "]"
     ConDef nid ty -> "con " ++ show nid ++ " : " ++ show ty
     ElabBlankItem nid _ -> "blank " ++ show nid
 
 itemId item = case item of
-  TermDef nid _ -> nid
+  TermDef nid _ _ -> nid
   IndDef nid _ _ -> nid
   ConDef nid _ -> nid
   ProdDef nid _ _ -> nid
   ElabBlankItem nid _ -> nid
 
-data FunIntroInfo = FunIntroInfo Natural String
+data FunIntroInfo = FunIntroInfo Natural S.Name
   deriving Eq
-data FunTypeInfo = FunTypeInfo String
+data FunTypeInfo = FunTypeInfo S.Name
   deriving Eq
 data FunElimInfo = FunElimInfo Natural
   deriving Eq
@@ -61,7 +62,7 @@ data VarInfo = VarInfo String
   deriving Eq
 data GVarInfo = GVarInfo [String]
   deriving Eq
-data Info = Info (Maybe Direction)
+data Info = Info (Maybe S.Direction)
   deriving Eq
 
 data Term = Term
@@ -69,7 +70,7 @@ data Term = Term
   , unTerm :: TermInner }
   deriving Eq
 
-gen e = trace ("TRACE " ++ show (Term (Info Nothing) e)) $ Term (Info Nothing) e
+gen e = Term (Info Nothing) e
 
 data TermInner
   = Var Index Type VarInfo
@@ -89,8 +90,32 @@ data TermInner
   | Letrec [Term] Term
   | Meta Global (Maybe Type)
   | InsertedMeta [BinderInfo] Global (Maybe Type)
-  | ElabError
+  | ElabError S.Term
+  | ElabBlank
   deriving Eq
+
+-- getType :: Term -> Term
+-- getType (Term _ term) = case term of
+--   Var _ ty _ -> ty
+--   GVar _ ty _ -> ty
+--   TypeType0 -> gen TypeType1
+--   TypeType1 -> gen TypeType1
+--   FunIntro _ ty _ -> ty
+--   FunType inTy _ _ -> getType inTy
+--   FunElim (unTerm . getType -> FunType _ outTy _) _ _ -> outTy
+--   QuoteType _ -> gen TypeType1
+--   QuoteIntro _ ty -> ty
+--   QuoteElim (unTerm . getType -> QuoteType ty) -> ty
+--   IndType _ _ -> gen TypeType1
+--   IndIntro _ _ ty -> ty
+--   ProdType _ _ -> gen TypeType0
+--   ProdIntro ty _ -> ty
+--   Letrec _ body -> getType body
+--   Meta _ (Just ty) -> ty
+--   Meta _ Nothing -> gen TypeType1
+--   InsertedMeta _ _ (Just ty) -> ty
+--   InsertedMeta _ _ Nothing -> gen TypeType1
+--   ElabError _ -> gen ElabError
 
 instance Show TermInner where
   show term = case term of
@@ -121,7 +146,7 @@ instance Show TermInner where
     IndType nid indices -> "Ind" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
     ProdIntro ty fields -> "{" ++ (concat $ intersperse ", " $ Prelude.map show fields) ++ "}" ++ ":" ++ show ty
     ProdType nid indices -> "Prod" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
-    ElabError -> "<error>"
+    ElabError _ -> "<error>"
 
 -- shift :: Set Index -> Term -> Reader Int Term
 -- shift bounds = \case

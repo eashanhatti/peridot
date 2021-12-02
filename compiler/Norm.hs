@@ -9,6 +9,7 @@ module Norm where
 
 import Var
 import qualified Core as C
+import qualified Surface as S
 import qualified Data.Map as Map
 import Data.Maybe(fromJust)
 import Debug.Trace
@@ -61,7 +62,7 @@ data ValueInner
   -- | Let0 Value Value Value
   -- Extras
   | LetrecBound Closure
-  | ElabError
+  | ElabError S.Term
   | ElabBlank
   deriving Eq
 
@@ -80,7 +81,7 @@ instance Show Value where
     FunElim0 lam arg _ -> "v(" ++ show lam ++ " @ " ++ show arg ++ ")"
     StuckSplice quote -> "v[" ++ show quote ++ "]"
     LetrecBound v -> "lrb(" ++ show v ++ ")"
-    ElabError -> "v<error>"
+    ElabError s -> "error(" ++ show s ++ ")"
     ElabBlank -> "v<blank>"
     StuckGVar nid ty _ -> "(vg" ++ show nid ++ " : " ++ show ty ++ ")"
     IndType nid indices -> "vT" ++ show nid ++ "[" ++ (concat $ intersperse " " (map show indices)) ++ "]"
@@ -115,7 +116,7 @@ vApp (Value info lam) arg = case lam of
   FunIntro body vty _ -> appClosure body arg
   StuckFlexVar vty gl spine -> Value info <$> (pure $ StuckFlexVar vty gl (arg:spine))
   StuckRigidVar vty lv spine _ -> Value info <$> (pure $ StuckRigidVar vty lv (arg:spine) (C.VarInfo "_")) -- FIXME
-  _ -> pure $ gen ElabError
+  _ -> pure $ gen ElabBlank
 
 vSplice :: HasCallStack => Value -> Norm Value
 vSplice val = case unVal val of
@@ -168,7 +169,7 @@ blankN n act = case n of
 
 index :: HasCallStack => Metas -> Locals -> Globals -> Index -> C.Type -> Int -> Value
 index metas locals globals ix ty ix' = case locals of
-  [] -> gen ElabError
+  [] -> gen ElabBlank
   x:xs ->
     if ix' == 0 then
       case unVal x of
@@ -194,7 +195,7 @@ eval0 (C.Term info term) = do
       vDefs <- mapM (\def -> blankN (length defs) $ eval0 def) defs
       vBody <- blankN (length defs) $ eval0 body
       pure $ Letrec0 vDefs vBody
-    _ -> pure ElabError
+    C.ElabError s -> pure $ ElabError s
 
 eval :: HasCallStack => C.Term -> Norm Value
 eval (C.Term info term) = do
@@ -237,14 +238,14 @@ eval (C.Term info term) = do
       Just ty -> eval ty >>= \ty -> vMeta gl (Just ty) >>= \meta -> vAppBis meta locals bis
       Nothing -> vMeta gl Nothing >>= \meta -> vAppBis meta locals bis
     C.GVar nid ty info' -> case fromJust $ Map.lookup nid globals of
-      C.TermDef _ def -> eval def
+      C.TermDef _ def _ -> eval def
       C.IndDef nid ty _ -> do
         nTy <- eval ty >>= readback
         eval $ go nTy []
         where
           go :: C.Term -> [C.Term] -> C.Term
           go ty acc = case C.unTerm $ ty of
-            C.FunType inTy outTy (C.FunTypeInfo s) -> C.gen $ C.FunIntro (go outTy (C.gen (C.Var (Index $ length acc) inTy (C.VarInfo s)) : acc)) ty (C.FunIntroInfo 1 s) -- FIXME
+            C.FunType inTy outTy (C.FunTypeInfo s) -> C.gen $ C.FunIntro (go outTy (C.gen (C.Var (Index $ length acc) inTy (C.VarInfo $ S.unName s)) : acc)) ty (C.FunIntroInfo 1 s) -- FIXME
             C.TypeType1 -> C.gen $ C.IndType nid acc
       C.ConDef nid ty -> do
         nTy <- eval ty >>= readback
@@ -252,7 +253,7 @@ eval (C.Term info term) = do
         where
           go :: C.Term -> [C.Term] -> C.Term
           go ty acc = case C.unTerm $ ty of
-            C.FunType inTy outTy (C.FunTypeInfo s) -> C.gen $ C.FunIntro (go outTy (C.gen (C.Var (Index $ length acc) inTy (C.VarInfo s)) : acc)) ty (C.FunIntroInfo 1 s) -- FIXME
+            C.FunType inTy outTy (C.FunTypeInfo s) -> C.gen $ C.FunIntro (go outTy (C.gen (C.Var (Index $ length acc) inTy (C.VarInfo $ S.unName s)) : acc)) ty (C.FunIntroInfo 1 s) -- FIXME
             C.IndType tid indices -> C.gen $ C.IndIntro nid acc (C.gen $ C.IndType tid indices)
       C.ProdDef nid ty fields -> do
         nTy <- eval ty >>= readback
@@ -260,10 +261,10 @@ eval (C.Term info term) = do
         where
           go :: C.Term -> [C.Term] -> C.Term
           go ty acc = case C.unTerm ty of
-            C.FunType inTy outTy (C.FunTypeInfo s) -> C.gen $ C.FunIntro (go outTy (C.gen (C.Var (Index $ length acc) inTy (C.VarInfo s)) : acc)) ty (C.FunIntroInfo 1 s) -- FIXME
+            C.FunType inTy outTy (C.FunTypeInfo s) -> C.gen $ C.FunIntro (go outTy (C.gen (C.Var (Index $ length acc) inTy (C.VarInfo $ S.unName s)) : acc)) ty (C.FunIntroInfo 1 s) -- FIXME
             C.TypeType0 -> C.gen $ C.ProdType nid acc
       C.ElabBlankItem nid ty -> eval ty >>= \ty -> pure $ Value info $ StuckGVar nid ty info'
-    _ -> Value info <$> pure ElabError
+    C.ElabError s -> Value info <$> pure (ElabError s)
 
 force :: HasCallStack => Value -> Norm Value
 force val@(Value info val') = do
@@ -317,11 +318,11 @@ readback val = do
     StuckSplice quote -> C.QuoteElim <$> readback quote
     FunIntro body vty@(unVal -> FunType inTy _ _) info@(C.FunIntroInfo _ s) -> do
       lv <- askLv
-      vBody <- appClosure body (gen $ StuckRigidVar inTy lv [] (C.VarInfo s))
+      vBody <- appClosure body (gen $ StuckRigidVar inTy lv [] (C.VarInfo $ S.unName s))
       C.FunIntro <$> blank (readback vBody) <*> readback vty <*> pure info
     FunType inTy outTy@(Closure env tmp) info@(C.FunTypeInfo s) -> do
       lv <- askLv
-      vOutTy <- appClosure outTy (gen $ StuckRigidVar inTy lv [] (C.VarInfo s))
+      vOutTy <- appClosure outTy (gen $ StuckRigidVar inTy lv [] (C.VarInfo $ S.unName s))
       C.FunType <$> readback inTy <*> blank (readback vOutTy) <*> pure info
     IndIntro nid cds ty -> C.IndIntro nid <$> mapM readback cds <*> readback ty
     IndType nid indices -> mapM readback indices >>= pure . C.IndType nid
@@ -335,4 +336,4 @@ readback val = do
     TypeType0 -> pure C.TypeType0
     TypeType1 -> pure C.TypeType1
     StuckGVar nid ty info -> readback ty >>= \ty -> pure $ C.GVar nid ty info 
-    ElabError -> pure C.ElabError
+    ElabError s -> pure $ C.ElabError s

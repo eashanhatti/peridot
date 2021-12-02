@@ -19,7 +19,6 @@ import Control.Monad.State(State, get, put, runState)
 import Control.Monad(forM_)
 import Data.Foldable(foldlM)
 import Control.Monad.Reader(runReader, Reader, ask, local)
-import Debug.Trace
 import qualified Data.Set as Set
 import Data.Set(singleton, Set)
 import qualified Data.Map as Map
@@ -286,9 +285,10 @@ checkProgram program =
       case item of
         TermDef dec def -> do
           putGoalUniv meta
-          vDec <- check dec meta >>= eval
+          cDec <- check dec meta
+          vDec <- eval cDec
           cDef <- check def vDec
-          pure (C.TermDef nid cDef, vDec)
+          pure (C.TermDef nid cDef cDec, vDec)
         IndDef dec info -> do
           cDec <- check dec (N.gen N.TypeType1)
           pure (C.IndDef nid cDec info, N.gen N.TypeType1)
@@ -325,31 +325,35 @@ check term goal = do
   scope case (term, N.unVal goal) of
     (S.EditorFocus term' side, _) -> do
       C.Term _ cTerm' <- check term' goal
-      pure $ trace "HERE__________" $ C.Term (C.Info (Just side)) cTerm'
+      pure $ C.Term (C.Info (Just side)) cTerm'
     (S.Ann term' ty, _) -> do
       cTy <- check ty univ 
       vTy <- eval cTy
       unify goal vTy
       check term' vTy
-    (S.Lam names body, _) -> go names goal where
-      go :: [S.Name] -> N.Value -> Elab C.Term
-      go ns g = case (ns, g) of
-        ([], _) -> error "Empty"
-        ([n], ty@(N.unVal -> N.FunType inTy outTy _)) -> do
-          cTy <- readback ty
-          vOutTy <- appClosure outTy inTy
-          bind n inTy
-          cBody <- check body vOutTy
-          pure $ C.gen $ C.FunIntro cBody cTy (C.FunIntroInfo 1 (S.unName n))
-        (n:ns, ty@(N.unVal -> N.FunType inTy outTy _)) -> do
-          cTy <- readback ty
-          vOutTy <- appClosure outTy inTy
-          bind n inTy
-          cBody <- go ns vOutTy
-          pure $ C.gen $ C.FunIntro cBody cTy (C.FunIntroInfo (fromIntegral $ length ns + 1) (S.unName n))
-        (_, _) -> do
-          putError TooManyParams
-          pure $ C.gen $ C.ElabError
+    (S.Lam names body, _) -> go names goal >>= \case
+      Just cTerm -> pure cTerm
+      Nothing -> pure $ C.gen $ C.ElabError term
+      where
+        go :: [S.Name] -> N.Value -> Elab (Maybe C.Term)
+        go ns g = case (ns, g) of
+          ([], _) -> error "Empty"
+          ([n], ty@(N.unVal -> N.FunType inTy outTy _)) -> do
+            cTy <- readback ty
+            vOutTy <- appClosure outTy inTy
+            bind n inTy
+            cBody <- check body vOutTy
+            pure $ Just $ C.gen $ C.FunIntro cBody cTy (C.FunIntroInfo 1 n)
+          (n:ns, ty@(N.unVal -> N.FunType inTy outTy _)) -> do
+            cTy <- readback ty
+            vOutTy <- appClosure outTy inTy
+            bind n inTy
+            go ns vOutTy >>= \case
+              Just cBody -> pure $ Just $ C.gen $ C.FunIntro cBody cTy (C.FunIntroInfo (fromIntegral $ length ns + 1) n)
+              Nothing -> pure Nothing
+          (_, _) -> do
+            putError TooManyParams
+            pure $ Nothing
     (S.Let name def defTy body, _) -> do
       reserve [name]
       vDefTy <- check defTy univ >>= eval
@@ -388,7 +392,7 @@ infer :: HasCallStack => S.Term -> Elab (C.Term, N.Value)
 infer term = getGoalUniv >>= \univ -> scope case term of
   S.EditorFocus term' side -> do
     (C.Term _ cTerm', ty) <- infer term'
-    pure $ trace "HERE INFER__________" $ (C.Term (C.Info (Just side)) cTerm', ty)
+    pure $ (C.Term (C.Info (Just side)) cTerm', ty)
   S.Ann term' ty -> do
     vTy <- check ty univ >>= eval
     cTerm' <- check term' vTy
@@ -401,13 +405,13 @@ infer term = getGoalUniv >>= \univ -> scope case term of
         pure (C.gen $ C.Var ix cTy (C.VarInfo $ S.unName name), ty)
       Nothing -> do
         putError $ UnboundLocal name
-        pure (C.gen $ C.ElabError, N.gen $ N.ElabError)
+        pure (C.gen $ C.ElabError term, N.gen $ N.ElabBlank)
   S.GVar name -> do
     entry <- globalDef name
     case entry of
       Just def -> do
         ty <- case def of
-          C.TermDef _ tdef -> typeofC tdef
+          C.TermDef _ _ ty -> pure ty 
           C.IndDef _ ty _ -> pure ty
           C.ConDef _ ty -> pure ty
           C.ProdDef _ ty _ -> pure ty
@@ -416,28 +420,28 @@ infer term = getGoalUniv >>= \univ -> scope case term of
         pure (C.gen $ C.GVar (C.itemId def) ty (C.GVarInfo $ S.unGName name), vTy)
       Nothing -> do
         putError $ UnboundGlobal name
-        pure (C.gen $ C.ElabError, N.gen $ N.ElabError)
+        pure (C.gen $ C.ElabError term, N.gen $ N.ElabBlank)
   S.Lam names body -> go names where
     go :: [S.Name] -> Elab (C.Term, N.Value)
     go ns = case ns of
-      [n@(S.Name s)] -> do
+      [n] -> do
         cMeta <- readback univ >>= freshMeta
         vMeta <- eval cMeta
         bind n vMeta
         (cBody, vBodyTy) <- infer body
         closure <- closeValue vBodyTy
         cBodyTy <- readback vBodyTy
-        let ty = N.gen $ N.FunType vMeta closure (C.FunTypeInfo s)
-        pure (C.gen $ C.FunIntro cBody (C.gen $ C.FunType cMeta cBodyTy (C.FunTypeInfo s)) (C.FunIntroInfo 1 s), ty)
-      n@(S.Name s):ns -> do
+        let ty = N.gen $ N.FunType vMeta closure (C.FunTypeInfo n)
+        pure (C.gen $ C.FunIntro cBody (C.gen $ C.FunType cMeta cBodyTy (C.FunTypeInfo n)) (C.FunIntroInfo 1 n), ty)
+      n:ns -> do
         cMeta <- readback univ >>= freshMeta
         vMeta <- eval cMeta
         bind n vMeta
         (cBody, vBodyTy) <- go ns
         closure <- closeValue vBodyTy
         cBodyTy <- readback vBodyTy
-        let ty = N.gen $ N.FunType vMeta closure (C.FunTypeInfo s)
-        pure (C.gen $ C.FunIntro cBody (C.gen $ C.FunType cMeta cBodyTy (C.FunTypeInfo s)) (C.FunIntroInfo (fromIntegral $ length ns + 1) s), ty)
+        let ty = N.gen $ N.FunType vMeta closure (C.FunTypeInfo n)
+        pure (C.gen $ C.FunIntro cBody (C.gen $ C.FunType cMeta cBodyTy (C.FunTypeInfo n)) (C.FunIntroInfo (fromIntegral $ length ns + 1) n), ty)
   S.App lam args -> do
     (cLam, lamTy) <- infer lam
     go cLam (reverse args) lamTy
@@ -461,7 +465,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
             vOutTy <- eval outTy
             pure (outTy, vOutTy)
           outTyClo <- closeTerm outTy
-          unify lty (N.gen $ N.FunType vInTy outTyClo (C.FunTypeInfo "_"))
+          unify lty (N.gen $ N.FunType vInTy outTyClo (C.FunTypeInfo $ S.Name "_"))
           pure (C.gen $ C.FunElim cLam cArg (C.FunElimInfo 1), vOutTy)
         (a:as, N.FunType inTy outTy _) -> do
           cArg <- check a inTy
@@ -480,7 +484,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
             vOutTy <- eval outTy
             pure (outTy, vOutTy)
           outTyClo <- closeTerm outTy
-          unify lty (N.gen $ N.FunType vInTy outTyClo (C.FunTypeInfo "_"))
+          unify lty (N.gen $ N.FunType vInTy outTyClo (C.FunTypeInfo $ S.Name "_"))
           (cLamInner, outTyInner) <- go cLam as vOutTy
           pure (C.gen $ C.FunElim cLamInner cArg (C.FunElimInfo (fromIntegral $ length as + 1)), outTyInner)
   S.U0 -> do
@@ -494,7 +498,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
     vInTy <- eval cInTy
     bind name vInTy
     cOutTy <- check outTy univ
-    pure (C.gen $ C.FunType cInTy cOutTy (C.FunTypeInfo $ S.unName name), univ)
+    pure (C.gen $ C.FunType cInTy cOutTy (C.FunTypeInfo name), univ)
   S.Code ty -> do
     unify univ (N.gen $ N.TypeType1)
     putGoalUniv (N.gen $ N.TypeType0)
@@ -525,7 +529,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
           pure (C.gen $ C.ProdIntro cTy cFields, vTy)
       _ -> do
         putError ExpectedProdType
-        pure (C.gen $ C.ElabError, N.gen $ N.ElabError)
+        pure (C.gen $ C.ElabError term, N.gen $ N.ElabBlank)
   S.Let name def defTy body -> do
     reserve [name]
     vDefTy <- check defTy univ >>= eval
