@@ -30,6 +30,7 @@ data Error
   | EscapingVar
   | Mismatch N.Value N.Value
   | MismatchSpines N.Spine N.Spine
+  deriving Eq
 
 instance Show Error where
   show e = case e of
@@ -156,7 +157,7 @@ rename metas gl pren rhs = go pren rhs
         N.FunElim0 lam arg info -> C.gen <$> (C.FunElim <$> go pren lam <*> go pren arg <*> pure info)
         N.Var0 ix ty info -> C.gen <$> (C.Var <$> pure ix <*> go pren ty <*> pure info)
         -- N.Let0 def defTy body -> C.Let <$> go pren def <*> go pren defTy <*> go (inc pren) body
-        N.Letrec0 defs body -> C.gen <$> (C.Letrec <$> mapM (go (incN (length defs) pren)) defs <*> go (incN (length defs) pren) body)
+        N.Letrec0 defs body info -> C.gen <$> (C.Letrec <$> mapM (go (incN (length defs) pren)) defs <*> go (incN (length defs) pren) body <*> pure info)
         N.StuckGVar nid ty info -> go pren ty >>= \ty -> pure $ C.gen $ C.GVar nid ty info
         N.ElabError s -> liftEither $ Right $ C.gen (C.ElabError s)
         N.ElabBlank -> liftEither $ Right $ C.gen C.ElabBlank
@@ -188,7 +189,7 @@ getTty metas lv val = case N.unVal val of
   N.IndIntro _ _ ty -> runReader (N.readback ty) (lv, metas, [], mempty)
   N.IndType _ _ -> C.gen C.TypeType1
   -- N.Let0 _ _ _ -> C.TypeType0
-  N.Letrec0 _ _ -> C.gen C.TypeType0
+  N.Letrec0 _ _ _ -> C.gen C.TypeType0
   N.ElabError s -> C.gen $ C.ElabError s
   N.ElabBlank -> C.gen C.ElabBlank
 
@@ -218,7 +219,7 @@ getVty metas lv val = case N.unVal val of
   N.FunElim0 _ _ _ -> N.gen N.TypeType0
   N.Var0 _ _ _ -> N.gen N.TypeType0
   -- N.Let0 _ _ _ -> N.TypeType0
-  N.Letrec0 _ _ -> N.gen N.TypeType0
+  N.Letrec0 _ _ _ -> N.gen N.TypeType0
   N.ElabError s -> N.gen $ N.ElabError s
   N.ElabBlank -> N.gen N.ElabBlank
 
@@ -321,9 +322,11 @@ unify lv val val' = do
     --   unify lv def def'
     --   unify lv defTy defTy'
     --   unify (incLevel lv) body body'
-    (N.Letrec0 defs body, N.Letrec0 defs' body') -> do
+    (N.Letrec0 defs body _, N.Letrec0 defs' body' _) -> do
       mapM (\(def, def') -> unify (incLevelN (length defs) lv) def def') (zip defs defs')
       unify (incLevelN (length defs) lv) body body'
     (N.ElabError _, _) -> pure ()
     (_, N.ElabError _) -> pure ()
+    (N.ElabBlank, _) -> pure ()
+    (_, N.ElabBlank) -> pure ()
     _ -> putError $ Mismatch val val'

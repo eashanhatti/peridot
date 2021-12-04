@@ -19,6 +19,7 @@ import GHC.Stack
 import Data.List(intersperse)
 import Numeric.Natural
 import Etc
+import {-# SOURCE #-} Elaboration.Error
 
 data MetaEntry a = Solved a | Unsolved
   deriving Show
@@ -58,7 +59,7 @@ data ValueInner
   -- Object-level terms, should only appear under quotes
   | FunElim0 Value Value C.FunElimInfo
   | Var0 Index Value C.VarInfo
-  | Letrec0 [Value] Value
+  | Letrec0 [Value] Value C.LetrecInfo
   -- | Let0 Value Value Value
   -- Extras
   | LetrecBound Closure
@@ -66,7 +67,7 @@ data ValueInner
   | ElabBlank
   deriving Eq
 
-gen v = Value (C.Info Nothing) v
+gen v = Value (C.Info Nothing []) v
 
 instance Show Value where
   show (Value _ v) = case v of
@@ -191,10 +192,10 @@ eval0 (C.Term info term) = do
     C.FunElim lam arg info -> FunElim0 <$> eval0 lam <*> eval0 arg <*> pure info
     C.QuoteElim quote -> unVal <$> (eval quote >>= vSplice)
     C.ProdIntro ty fields -> ProdIntro <$> eval0 ty <*> mapM eval0 fields
-    C.Letrec defs body -> do
+    C.Letrec defs body info' -> do
       vDefs <- mapM (\def -> blankN (length defs) $ eval0 def) defs
       vBody <- blankN (length defs) $ eval0 body
-      pure $ Letrec0 vDefs vBody
+      pure $ Letrec0 vDefs vBody info'
     C.ElabError s -> pure $ ElabError s
 
 eval :: HasCallStack => C.Term -> Norm Value
@@ -222,7 +223,7 @@ eval (C.Term info term) = do
       vTy <- eval ty
       vFields <- mapM eval fields
       pure $ Value info $ ProdIntro vTy vFields
-    C.Letrec defs body -> do
+    C.Letrec defs body _ -> do
       let withDefs :: Norm a -> Locals -> Norm a
           withDefs act defs = do
             (level, metas, locals, globals) <- ask
@@ -288,10 +289,10 @@ readback0 :: HasCallStack => Value -> Norm C.Term
 readback0 (Value info val) = C.Term info <$> case val of
   TypeType0 -> pure C.TypeType0
   FunElim0 lam arg info -> C.FunElim <$> readback0 lam <*> readback0 arg <*> pure info
-  Letrec0 defs body -> do
+  Letrec0 defs body info' -> do
     cDefs <- mapM (\def -> blankN (length defs) $ readback0 def) defs
     cBody <- blankN (length defs) $ readback0 body
-    pure $ C.Letrec cDefs cBody
+    pure $ C.Letrec cDefs cBody info'
   ProdIntro ty fields -> do
     cTy <- readback0 ty
     cFields <- mapM readback0 fields

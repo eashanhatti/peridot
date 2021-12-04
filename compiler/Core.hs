@@ -14,6 +14,7 @@ import Numeric.Natural
 import Debug.Trace(trace)
 import Data.Maybe(isJust)
 import Etc
+import {-# SOURCE #-} Elaboration.Error
 
 data BinderInfo = Abstract | Concrete
   deriving (Show, Eq)
@@ -28,7 +29,7 @@ data Program = Program [Item]
   deriving Show
 
 data IndDefInfo = IndDefInfo [String]
-  deriving Show
+  deriving (Show, Eq)
 
 data Item
   = TermDef Id Term Term
@@ -36,6 +37,7 @@ data Item
   | ProdDef Id Type [Type]
   | ConDef Id Type
   | ElabBlankItem Id Type
+  deriving Eq
 
 instance Show Item where
   show item = case item of
@@ -62,7 +64,9 @@ data VarInfo = VarInfo String
   deriving Eq
 data GVarInfo = GVarInfo [String]
   deriving Eq
-data Info = Info (Maybe S.Direction)
+data LetrecInfo = LetrecInfo S.Name
+  deriving Eq
+data Info = Info (Maybe S.Direction) [Error]
   deriving Eq
 
 data Term = Term
@@ -70,7 +74,9 @@ data Term = Term
   , unTerm :: TermInner }
   deriving Eq
 
-gen e = Term (Info Nothing) e
+withErrs errs (Term (Info side es) e) = Term (Info side (errs ++ es)) e
+withErrsGen errs e = Term (Info Nothing errs) e
+gen e = Term (Info Nothing []) e
 
 data TermInner
   = Var Index Type VarInfo
@@ -87,7 +93,7 @@ data TermInner
   | IndIntro Id [Term] Type
   | ProdType Id [Term]
   | ProdIntro Type [Term]
-  | Letrec [Term] Term
+  | Letrec [Term] Term LetrecInfo
   | Meta Global (Maybe Type)
   | InsertedMeta [BinderInfo] Global (Maybe Type)
   | ElabError S.Term
@@ -128,7 +134,7 @@ instance Show TermInner where
     QuoteType innerTy -> "Quote " ++ show innerTy
     QuoteIntro inner _ -> "<" ++ show inner ++ ">"
     QuoteElim quote -> "[" ++ show quote ++ "]"
-    Letrec defs body -> "letrec " ++ show defs ++ " in " ++ show body
+    Letrec defs body _ -> "letrec " ++ show defs ++ " in " ++ show body
     Meta gl ty ->
       -- if showTys then
         "(?" ++ show (unGlobal gl) ++ " : " ++ show ty ++ ")"
@@ -170,4 +176,4 @@ instance Show TermInner where
 --     next = insert (Index 0) $ Data.Set.map (\ix -> Index $ unIndex ix + 1) bounds
 
 instance Show Term where
-  show (Term (Info m) term) = show (isJust m) ++ show term
+  show (Term (Info m _) term) = show (isJust m) ++ show term
