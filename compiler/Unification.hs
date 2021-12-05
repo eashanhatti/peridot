@@ -175,14 +175,14 @@ getTtySpine metas lv vty spine = case (N.unVal vty, spine) of
 getTty :: N.Metas -> Level -> N.Value -> C.Term
 getTty metas lv val = case N.unVal val of
   N.StuckFlexVar (Just vty) _ spine -> getTtySpine metas lv vty spine
-  N.StuckFlexVar Nothing gl spine -> runReader (N.readback val) (lv, metas, [], mempty)
+  N.StuckFlexVar Nothing gl spine -> C.gen C.TypeType1 -- runReader (N.readback val) (lv, metas, [], mempty)
   N.StuckRigidVar vty _ spine _ -> getTtySpine metas lv vty spine
   N.StuckSplice _ -> C.gen C.TypeType1
   N.FunIntro _ vty _ -> runReader (N.readback vty) (lv, metas, [], mempty)
   N.FunType inTy _ _ -> getTty metas lv inTy
   N.QuoteType _ -> C.gen C.TypeType1
   N.QuoteIntro _ _ -> C.gen C.TypeType1
-  N.TypeType0 -> C.gen C.TypeType0
+  N.TypeType0 -> C.gen C.TypeType1
   N.TypeType1 -> C.gen C.TypeType1
   N.FunElim0 _ _ _ -> C.gen C.TypeType0
   N.Var0 _ _ _ -> C.gen C.TypeType0
@@ -205,14 +205,14 @@ getVtySpine metas lv vty spine = case (N.unVal vty, spine) of
 getVty :: N.Metas -> Level -> N.Value -> N.Value
 getVty metas lv val = case N.unVal val of
   N.StuckFlexVar (Just vty) _ spine -> getVtySpine metas lv vty spine
-  N.StuckFlexVar Nothing _ spine -> val
+  N.StuckFlexVar Nothing _ spine -> N.gen N.TypeType1
   N.StuckRigidVar vty _ spine _ -> getVtySpine metas lv vty spine
   N.StuckSplice _ -> N.gen N.TypeType1
   N.FunIntro _ vty _ -> vty
   N.FunType inTy _ _ -> getVty metas lv inTy
   N.QuoteType _ -> N.gen N.TypeType1
   N.QuoteIntro _ _ -> N.gen N.TypeType1
-  N.TypeType0 -> N.gen N.TypeType0
+  N.TypeType0 -> N.gen N.TypeType1
   N.TypeType1 -> N.gen N.TypeType1
   N.IndType _ _ -> N.gen N.TypeType1
   N.IndIntro _ _ ty -> ty
@@ -279,7 +279,6 @@ unify lv val val' = do
       vBody <- runNorm (incLevel lv) $ N.appClosure body (N.gen $ N.StuckRigidVar inTy lv [] (varInfo s))
       vAppVal <- runNorm lv $ N.vApp val (N.gen $ N.StuckRigidVar inTy' lv [] (varInfo s'))
       unify (incLevel lv) vBody vAppVal
-    (N.TypeType0, N.TypeType0) -> pure ()
     (N.TypeType1, N.TypeType0) -> pure ()
     (N.TypeType1, N.TypeType1) -> pure ()
     (N.FunType inTy outTy (C.FunTypeInfo s), N.FunType inTy' outTy' (C.FunTypeInfo s')) -> do

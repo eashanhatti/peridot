@@ -176,4 +176,4 @@ instance Show TermInner where
 --     next = insert (Index 0) $ Data.Set.map (\ix -> Index $ unIndex ix + 1) bounds
 
 instance Show Term where
-  show (Term (Info m _) term) = show (isJust m) ++ show term
+  show (Term (Info m _) term) = show term

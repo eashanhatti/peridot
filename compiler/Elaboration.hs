@@ -435,16 +435,22 @@ infer term = getGoalUniv >>= \univ -> scope case term of
         pure (C.gen $ C.FunIntro cBody (C.gen $ C.FunType cMeta cBodyTy (C.FunTypeInfo n)) (C.FunIntroInfo (fromIntegral $ length ns + 1) n), ty)
   S.App lam args -> do
     (cLam, lamTy) <- infer lam
-    go cLam (reverse args) lamTy
+    (cArgs, outTy) <- go cLam args lamTy
+    pure (mkElims (reverse cArgs) cLam, outTy)
     where
-      go :: C.Term -> [S.Term] -> N.Value -> Elab (C.Term, N.Value)
+      mkElims :: [(C.Term, [Error])] -> C.Term -> C.Term
+      mkElims cArgs cLam = case cArgs of
+        [] -> error "Empty2"
+        [(a, errs)] -> C.withErrsGen errs $ C.FunElim cLam a (C.FunElimInfo 1)
+        (a, errs):cArgs -> C.withErrsGen errs $ C.FunElim (mkElims cArgs cLam) a (C.FunElimInfo $ fromIntegral $ length cArgs + 1)
+      go :: C.Term -> [S.Term] -> N.Value -> Elab ([(C.Term, [Error])], N.Value)
       go cLam as lty = case (as, N.unVal lty) of
         ([], _) -> error "Empty"
         ([a], N.FunType inTy outTy _) -> do
-          cArg <- check a inTy
+          cArg <- check a (traceShowId inTy)
           vArg <- eval cArg
           outTy <- evalClosure outTy vArg
-          pure (C.gen $ C.FunElim cLam cArg (C.FunElimInfo 1), outTy)
+          pure ([(cArg, [])], outTy)
         ([a], _) -> do
           inTy <- readback univ >>= freshMeta
           vInTy <- eval inTy
@@ -457,13 +463,13 @@ infer term = getGoalUniv >>= \univ -> scope case term of
             pure (outTy, vOutTy)
           outTyClo <- closeTerm outTy
           errs <- unify lty (N.gen $ N.FunType vInTy outTyClo (C.FunTypeInfo $ S.Name "_"))
-          pure (C.withErrsGen errs $ C.FunElim cLam cArg (C.FunElimInfo 1), vOutTy)
+          pure ([(cArg, errs)], vOutTy)
         (a:as, N.FunType inTy outTy _) -> do
-          cArg <- check a inTy
+          cArg <- check a (traceShowId inTy)
           vArg <- eval cArg
           outTy <- evalClosure outTy vArg
-          (cLamInner, outTyInner) <- go cLam as outTy
-          pure (C.gen $ C.FunElim cLamInner cArg (C.FunElimInfo (fromIntegral $ length as + 1)), outTyInner)
+          (cArgs, outTyInner) <- go cLam as outTy
+          pure ((cArg, []):cArgs, outTyInner)
         (a:as, _) -> do
           inTy <- readback univ >>= freshMeta
           vInTy <- eval inTy
@@ -476,11 +482,11 @@ infer term = getGoalUniv >>= \univ -> scope case term of
             pure (outTy, vOutTy)
           outTyClo <- closeTerm outTy
           errs <- unify lty (N.gen $ N.FunType vInTy outTyClo (C.FunTypeInfo $ S.Name "_"))
-          (cLamInner, outTyInner) <- go cLam as vOutTy
-          pure (C.withErrsGen errs $ C.FunElim cLamInner cArg (C.FunElimInfo (fromIntegral $ length as + 1)), outTyInner)
+          (cArgs, outTyInner) <- go cLam as vOutTy
+          pure ((cArg, errs):cArgs, outTyInner)
   S.U0 -> do
-    errs <- unify univ (N.gen $ N.TypeType0)
-    pure (C.withErrsGen errs $ C.TypeType0, N.gen $ N.TypeType0)
+    errs <- unify univ (N.gen $ N.TypeType1)
+    pure (C.withErrsGen errs $ C.TypeType0, N.gen $ N.TypeType1)
   S.U1 -> do
     errs <- unify univ (N.gen $ N.TypeType1)
     pure (C.withErrsGen errs $ C.TypeType1, N.gen $ N.TypeType1)
