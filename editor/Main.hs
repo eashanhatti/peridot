@@ -739,7 +739,7 @@ render state elabState item = (text, errs)
           C.ProdType nid args ->
             let Just (GName name) = DM.lookup nid (Elab.idsNames elabState)
             in combine [goGName name (C.gen C.TypeType0), pure " ", T.intercalate " " <$> mapM renderTerm args]
-          C.ProdIntro ty args -> combine [greenM "#", renderTerm ty, pure " ", T.intercalate " " <$> (mapM renderTerm args)]
+          C.ProdIntro ty args -> combine [greenM "#", renderTerm ty, pure " ", if null args then pure "" else T.intercalate " " <$> (mapM renderTerm args)]
           C.Meta _ _ -> pure "\ESC[7m?\ESC[27m"
           C.InsertedMeta _ _ _ -> pure "\ESC[7m?\ESC[27m"
           C.ElabError s -> renderSTerm s
@@ -796,7 +796,7 @@ render state elabState item = (text, errs)
       Code term -> combine [blueM "Code ", renderSTerm term]
       Quote term -> combine [greenM "<", renderSTerm term, greenM ">"]
       Splice term -> combine [greenM "~", renderSTerm term]
-      MkProd ty args -> combine [greenM "#", renderSTerm ty, pure " ", T.intercalate " " <$> mapM renderSTerm args]
+      MkProd ty args -> combine [greenM "#", renderSTerm ty, pure " ", if null args then pure "" else T.intercalate " " <$> mapM renderSTerm args]
       Hole -> pure "\ESC[7m?\ESC[27m"
       EditorBlank -> pure "\ESC[7m?\ESC[27m"
       EditorFocus term side -> case side of
@@ -1039,12 +1039,13 @@ handleInput state input = case (input, unFocusType state) of
 
 renderError :: Error -> T.Text
 renderError (Error _ _ _ err) = case err of
-  UnboundLocal (Name name) -> yellow "Unbound local variable `" <> T.pack name <> "`"
-  UnboundGlobal (GName gname) -> yellow "Unbound global variable `" <> T.intercalate "." (map T.pack gname)
-  UnifyError _ -> yellow "Type mismatch"
+  UnboundLocal (Name name) -> yellow "Unbound local variable " <> "`" <> T.pack name <> "`"
+  UnboundGlobal (GName gname) -> yellow "Unbound global variable " <> "`" <> T.intercalate "." (map T.pack gname)
+  UnifyError err -> yellow "Failed to unify:\n" <> T.pack (show err)
   TooManyParams -> yellow "Too many parameters"
   MalformedProdDec -> yellow "Malformed product declaration"
   ExpectedProdType -> yellow "Expected a product type"
+  MismatchedFieldNumber -> yellow "Mismatched field number"
 
 loop :: EditIO sig m => EditorState a -> m ()
 loop state = do
@@ -1057,10 +1058,10 @@ loop state = do
   -- LE.sendIO $ putStrLn $ show part
   -- LE.sendIO $ putStrLn $ show ns
   item <- moveToTop $ Ex $ insertFocusMarker state
-  -- LE.sendIO $ putStrLn $ show item
+  LE.sendIO $ putStrLn $ show item
   -- LE.sendIO $ putStrLn $ show item'
-  let (_, elabState) = Elab.elabFresh item
-  -- LE.sendIO $ putStrLn $ show cTerm
+  let (cTerm, elabState) = Elab.elabFresh item
+  LE.sendIO $ putStrLn $ show cTerm
   let (s, es) = render state elabState item
   LE.sendIO $ TIO.putStrLn (s <> "\n")
   forM_ es (LE.sendIO . TIO.putStrLn . renderError)

@@ -14,6 +14,7 @@ data InnerError
   | TooManyParams
   | MalformedProdDec
   | ExpectedProdType
+  | MismatchedFieldNumber
   deriving (Show, Eq)
 
 data Error = Error N.Locals (Map.Map S.GName C.Item) Level InnerError

@@ -320,7 +320,7 @@ check term goal = do
       C.withErrs errs <$> check term' vTy
     (S.Lam names body, _) -> go names goal >>= \case
       Right cTerm -> pure cTerm
-      Left err -> pure $ C.gen $ C.ElabError term
+      Left err -> pure $ C.withErrsGen [err] $ C.ElabError term
       where
         go :: [S.Name] -> N.Value -> Elab (Either Error C.Term)
         go ns g = case (ns, g) of
@@ -361,10 +361,14 @@ check term goal = do
       vTy <- eval cTy
       errs <- unify goal vTy
       C.withErrs errs <$> (globalDefFromId tid >>= \case
-        Just (C.ProdDef _ _ fieldTypes) -> do
-          vFieldTypes <- mapM eval fieldTypes
-          cFields <- mapM (\(f, t) -> check f t) (zip fields vFieldTypes)
-          pure $ C.gen $ C.ProdIntro cTy cFields)
+        Just (C.ProdDef _ _ fieldTypes) ->
+          if length fieldTypes == length fields then do
+            vFieldTypes <- mapM eval fieldTypes
+            cFields <- mapM (\(f, t) -> check f t) (zip fields vFieldTypes)
+            pure $ C.gen $ C.ProdIntro cTy cFields
+          else do
+            err <- putError MismatchedFieldNumber
+            pure $ C.withErrsGen [err] $ C.ElabError term)
     (_, N.QuoteType ty) | N.unVal univ /= N.TypeType1 -> do
       putGoalUniv (N.gen $ N.TypeType0)
       (cTerm, termTy) <- infer term
@@ -392,7 +396,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
         pure (C.gen $ C.Var ix cTy (C.VarInfo $ S.unName name), ty)
       Nothing -> do
         err <- putError $ UnboundLocal name
-        pure (C.gen $ C.ElabError term, N.gen $ N.ElabBlank)
+        pure (C.withErrsGen [err] $ C.ElabError term, N.gen $ N.ElabBlank)
   S.GVar name -> do
     entry <- globalDef name
     case entry of
@@ -407,7 +411,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
         pure (C.gen $ C.GVar (C.itemId def) ty (C.GVarInfo $ S.unGName name), vTy)
       Nothing -> do
         err <- putError $ UnboundGlobal name
-        pure (C.gen $ C.ElabError term, N.gen $ N.ElabBlank)
+        pure (C.withErrsGen [err] $ C.ElabError term, N.gen $ N.ElabBlank)
   S.Lam names body -> go names where
     go :: [S.Name] -> Elab (C.Term, N.Value)
     go ns = case ns of
@@ -510,13 +514,17 @@ infer term = getGoalUniv >>= \univ -> scope case term of
     vTy <- eval cTy
     case N.unVal vTy of
       N.ProdType tid _ -> globalDefFromId tid >>= \case
-        Just (C.ProdDef _ _ fieldTypes) -> do
-          vFieldTypes <- mapM eval fieldTypes
-          cFields <- mapM (\(f, t) -> check f t) (zip fields vFieldTypes)
-          pure (C.gen $ C.ProdIntro cTy cFields, vTy)
+        Just (C.ProdDef _ _ fieldTypes) ->
+          if length fieldTypes == length fields then do
+            vFieldTypes <- mapM eval fieldTypes
+            cFields <- mapM (\(f, t) -> check f t) (zip fields vFieldTypes)
+            pure (C.gen $ C.ProdIntro cTy cFields, vTy)
+          else do
+            err <- putError MismatchedFieldNumber
+            pure (C.withErrsGen [err] $ C.ElabError term, N.gen N.ElabBlank)
       _ -> do
         err <- putError ExpectedProdType
-        pure (C.gen $ C.ElabError term, N.gen $ N.ElabBlank)
+        pure (C.withErrsGen [err] $ C.ElabError term, N.gen N.ElabBlank)
   S.Let name def defTy body -> do
     reserve [name]
     vDefTy <- check defTy univ >>= eval
@@ -686,7 +694,7 @@ unify val val' = do
   errs <- case newErrors of
     [] -> do put $ state { metas = newMetas }; pure []
     _ -> forM (map UnifyError newErrors) putError
-  pure  errs
+  pure errs
 
 putError :: InnerError -> Elab Error
 putError err = do
