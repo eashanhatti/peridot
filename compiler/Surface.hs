@@ -16,8 +16,15 @@ unName name = case name of
   UnfocusedName s -> s
   FocusedName s -> s
 
-data GName = GName { unGName :: [String] }
+data GName = UnfocusedGName [String] | FocusedGName [String]
   deriving (Show, Eq, Ord)
+
+pattern GName ns <- (unGName -> ns) where
+  GName ns = UnfocusedGName ns
+
+unGName name = case name of
+  UnfocusedGName ns -> ns
+  FocusedGName ns -> ns
 
 data Direction = Left | Right
   deriving (Eq, Show)
@@ -47,6 +54,7 @@ data Term
   | Code Term
   | Quote Term
   | Splice Term
+  | MkInd GName [Term]
   | MkProd Term [Term]
   | Hole
   | EditorBlank

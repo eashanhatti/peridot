@@ -171,6 +171,9 @@ dependencies items = case items of
       S.Quote term -> search' term
       S.Splice term -> search' term
       S.MkProd ty fields -> combine <$> search' ty <*> searchTerms fields
+      S.MkInd name fields -> do
+        p <- ask
+        combine <$> pure (Map.singleton name (Set.singleton p)) <*> searchTerms fields
       S.Hole -> pure mempty
       S.EditorBlank -> pure mempty
     searchTerms :: [S.Term] -> Reader S.ItemPart (Map S.GName (Set S.ItemPart))
@@ -531,6 +534,27 @@ infer term = getGoalUniv >>= \univ -> scope case term of
       _ -> do
         err <- putError ExpectedProdType
         pure (C.withErrsGen [err] $ C.ElabError term, N.gen N.ElabBlank)
+  S.MkInd conName fields -> globalId conName >>= \case
+    Just nid -> do
+      conTy <- fromJust <$> globalType nid
+      let (fieldTys, cIndTy) = telescope conTy
+      if length fields == length fieldTys then do
+        cFields <- forM (zip fields fieldTys) \(field, (name, ty)) -> do
+          vTy <- eval ty
+          cField <- check field vTy
+          vField <- eval cField
+          define name vField vTy
+          pure cField
+        vIndTy <- eval cIndTy
+        cIndTy <- readback vIndTy
+        let C.IndType tid _ = C.unTerm cIndTy
+        pure (C.gen $ C.IndIntro nid cFields cIndTy, vIndTy)
+      else do
+        err <- putError MismatchedFieldNumber
+        pure (C.withErrsGen [err] $ C.ElabError term, N.gen N.ElabBlank)
+    Nothing -> do
+      err <- putError $ UnboundGlobal conName
+      pure (C.withErrsGen [err] $ C.ElabError term, N.gen N.ElabBlank)
   S.Let name def defTy body -> do
     reserve [name]
     vDefTy <- check defTy univ >>= eval
@@ -548,6 +572,12 @@ infer term = getGoalUniv >>= \univ -> scope case term of
       vTypeMeta <- eval cTypeMeta
       cTermMeta <- freshMeta cTypeMeta
       pure (cTermMeta, vTypeMeta)
+
+telescope :: C.Term -> ([(S.Name, C.Term)], C.Term)
+telescope term = go term [] where
+  go term acc = case C.unTerm term of
+    C.FunType inTy outTy (C.FunTypeInfo name) -> go outTy (acc ++ [(name, inTy)])
+    _ -> (acc, term)
 
 gnameMapToIdMap :: Map.Map S.GName C.Item -> N.Globals
 gnameMapToIdMap globals = Map.fromList $ map (\(_, g) -> (C.itemId g, g)) (Map.toList globals)

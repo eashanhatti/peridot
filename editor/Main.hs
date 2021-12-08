@@ -10,6 +10,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Main where
 
@@ -27,6 +28,7 @@ import qualified Data.Map as DM
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.ByteString.Lazy as LB
+import Data.Maybe(fromJust)
 import Data.List(intersperse)
 import Prelude hiding (Left, Right)
 import Parsing(getItem)
@@ -81,6 +83,8 @@ data Path a where
   PLetBody             :: Path Term -> String -> Term -> Term -> Path Term
   PMkProdTy            :: Path Term -> [Term] -> Path Term
   PMkProdArgs          :: Path Term -> Term -> [Term] -> [Term] -> Path Term
+  PMkIndName           :: Path Term -> [Term] -> Path GName
+  PMkIndArgs           :: Path Term -> GName -> [Term] -> [Term] -> Path Term
   PPiName              :: Path Term -> Term -> Term -> Path Name
   PPiIn                :: Path Term -> String -> Term -> Path Term
   PPiOut               :: Path Term -> String -> Term -> Path Term
@@ -94,6 +98,7 @@ data Focus a where
   FName :: Name -> Focus Name
   FTerm :: Term -> Focus Term
   FItem :: Item -> Focus Item
+  FGName :: GName -> Focus GName
   FCon  :: Con -> Focus Con
 deriving instance Show (Focus a)
 deriving instance Eq (Focus a)
@@ -102,6 +107,8 @@ unFNameS :: Focus Name -> String
 unFNameS (FName (Name s)) = s
 unFName :: Focus Name -> Name
 unFName (FName n) = n
+unFGName :: Focus GName -> GName
+unFGName (FGName n) = n
 unFTerm :: Focus Term -> Term
 unFTerm (FTerm e) = e
 unFItem :: Focus Item -> Item
@@ -110,10 +117,11 @@ unFCon :: Focus Con -> Con
 unFCon  (FCon c)  = c
 
 data FocusType a where
-  FTName :: FocusType Name
-  FTTerm :: FocusType Term
-  FTItem :: FocusType Item
-  FTCon  :: FocusType Con
+  FTName  :: FocusType Name
+  FTTerm  :: FocusType Term
+  FTItem  :: FocusType Item
+  FTCon   :: FocusType Con
+  FTGName :: FocusType GName
 deriving instance Eq (FocusType a)
 deriving instance Show (FocusType a)
 
@@ -122,10 +130,7 @@ deriving instance Show (Cursor a)
 deriving instance Eq (Cursor a)
 
 data EditorState a = EditorState { unCursor :: Cursor a, unFocusType :: FocusType a, unSide :: Direction }
-deriving instance Eq (EditorState Name)
-deriving instance Eq (EditorState Term)
-deriving instance Eq (EditorState Item)
-deriving instance Eq (EditorState Con)
+deriving instance Eq (EditorState a)
 deriving instance Show (EditorState a)
 
 statesEq :: EditorState a -> EditorState b -> Bool
@@ -134,6 +139,7 @@ statesEq st st' = case (unFocusType st, unFocusType st') of
   (FTTerm, FTTerm) -> st == st'
   (FTItem, FTItem) -> st == st'
   (FTCon, FTCon) -> st == st'
+  (FTGName, FTGName) -> st == st'
   _ -> False
 
 data Ex = forall a. Ex { unEx :: EditorState a }
@@ -154,6 +160,7 @@ data Command a where
   InsertGVar         :: [String] -> Command Term
   InsertCon          :: String -> Command Con
   SetName            :: String -> Command Name
+  SetGName           :: [String] -> Command GName
   MoveOut            :: Direction -> Command a
   MoveRight          :: Command a
   MoveLeft           :: Command a
@@ -163,16 +170,18 @@ data Command a where
   Delete             :: Command a
 
 class MkFT a where focusType :: FocusType a
-instance MkFT Term where   focusType = FTTerm
-instance MkFT Name where focusType = FTName
-instance MkFT Item where   focusType = FTItem
-instance MkFT Con where    focusType = FTCon
+instance MkFT Term where  focusType = FTTerm
+instance MkFT Name where  focusType = FTName
+instance MkFT Item where  focusType = FTItem
+instance MkFT Con where   focusType = FTCon
+instance MkFT GName where focusType = FTGName
 
 class MkFocus a where focus :: a -> Focus a
-instance MkFocus Term where   focus = FTerm
-instance MkFocus Item where   focus = FItem
-instance MkFocus Name where focus = FName
-instance MkFocus Con where    focus = FCon
+instance MkFocus Term where  focus = FTerm
+instance MkFocus Item where  focus = FItem
+instance MkFocus Name where  focus = FName
+instance MkFocus Con where   focus = FCon
+instance MkFocus GName where focus = FGName
 
 type Changes = DM.Map GName ItemPart
 
@@ -187,18 +196,19 @@ blankFocus focus = case focus of
   FTerm EditorBlank -> True
   FItem EditorBlankDef -> True
   FName (Name "") -> True
+  FGName (GName []) -> True
   FCon EditorBlankCon -> True
   _ -> False
 
 popName :: Has (State GName) sig m => m ()
 popName = do
-  GName ns <- SE.get
-  SE.put (GName $ tail ns)
+  gname <- SE.get
+  SE.put (GName $ tail $ unGName gname)
 
 pushName :: Has (State GName) sig m => String -> m ()
 pushName n = do
-  GName ns <- SE.get
-  SE.put (GName $ n:ns)
+  gname <- SE.get
+  SE.put (GName $ n : unGName gname)
 
 putPart :: Has (State (Maybe ItemPart)) sig m => ItemPart -> m ()
 putPart part = SE.put @(Maybe ItemPart) (Just part)
@@ -249,6 +259,7 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
         TIQuote -> mkExE (Quote termFocus) path Left
         TISplice -> mkExE (Splice termFocus) path Left
         TIMkProd -> mkExE (MkProd termFocus []) path Left
+        TIMkInd -> mkExE (MkInd (GName []) []) path Left -- FIXME: `GName []`
       where
         termFocus = unFTerm focus
     InsertVar s -> markChange >> mkExE (Var (Name s)) path Left
@@ -274,6 +285,7 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
           pushName s
         Nothing -> pure ()
       mkExE (Name s) path Left
+    SetGName ns -> markChange >>= pure (mkExE (GName ns) path Left)
     Add ->
       if blankFocus focus then
         pure oldState
@@ -298,7 +310,11 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
       PMkProdTy up [] -> mkExE EditorBlank (PMkProdArgs up (unFTerm focus) [] []) Left
       PMkProdTy up (e:es) -> mkExE e (PMkProdArgs up (unFTerm focus) [] es) Left
       PMkProdArgs up ty le [] -> pure sideRight
-      PMkProdArgs up ty le (r:re) -> mkExE r (PMkProdArgs up ty (insertFocusR focus le) re) Left    
+      PMkProdArgs up ty le (r:re) -> mkExE r (PMkProdArgs up ty (insertFocusR focus le) re) Left
+      PMkIndName up [] -> mkExE EditorBlank (PMkIndArgs up (unFGName focus) [] []) Left
+      PMkIndName up (e:es) -> mkExE e (PMkIndArgs up (unFGName focus) [] es) Left
+      PMkIndArgs up ty le [] -> pure sideRight
+      PMkIndArgs up ty le (r:re) -> mkExE r (PMkIndArgs up ty (insertFocusR focus le) re) Left
       PLetBody _ _ _ _ -> pure sideRight
       PTermDefName up ty body -> putPart Dec >> mkExE ty (PTermDefTy up (unFNameS focus) body) Left
       PTermDefTy up name body -> putPart Def >> mkExE body (PTermDefBody up name (unFTerm focus)) Left
@@ -339,6 +355,9 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
       PMkProdTy _ _ -> pure sideLeft
       PMkProdArgs up ty [] es -> mkExE ty (PMkProdTy up es) Right
       PMkProdArgs up ty le re -> mkExE (last le) (PMkProdArgs up ty (init le) (insertFocusL focus re)) Right
+      PMkIndName _ _ -> pure sideLeft
+      PMkIndArgs up name [] es -> mkExE name (PMkIndName up es) Right
+      PMkIndArgs up name le re -> mkExE (last le) (PMkIndArgs up name (init le) (insertFocusL focus re)) Right
       PTermDefName up ty body -> pure sideLeft
       PTermDefTy up name body -> clearPart >> mkExE (Name name) (PTermDefName up (unFTerm focus) body) Left
       PTermDefBody up name ty -> putPart Dec >> mkExE ty (PTermDefTy up name (unFTerm focus)) Right
@@ -385,6 +404,8 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
         PLetBody up name def defTy -> mkExE (Let (Name name) def defTy (unFTerm focus)) up d
         PMkProdTy up es -> mkExE (MkProd (unFTerm focus) es) up d
         PMkProdArgs up ty le re -> mkExE (MkProd ty (le ++ insertFocusL focus re)) up d
+        PMkIndName up es -> mkExE (MkInd (unFGName focus) es) up d
+        PMkIndArgs up name le re -> mkExE (MkInd name (le ++ insertFocusL focus re)) up d
         PTermDefName up ty body -> mkExE (TermDef (unFName focus) ty body) up d
         PTermDefTy up name body -> clearPart >> mkExE (TermDef (Name name) (unFTerm focus) body) up d
         PTermDefBody up name ty -> clearPart >> mkExE (TermDef (Name name) ty (unFTerm focus)) up d
@@ -421,6 +442,7 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
         Quote e -> mkExE e (PQuote path) Left
         Splice e -> mkExE e (PSplice path) Left
         MkProd ty es -> mkExE ty (PMkProdTy path es) Left
+        MkInd name es -> mkExE name (PMkIndName path es) Left
         Hole -> pure oldState
         EditorBlank -> pure oldState
       FItem focus -> do
@@ -452,6 +474,7 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
         Quote e -> mkExE e (PQuote path) Right
         Splice e -> mkExE e (PSplice path) Right
         MkProd ty [] -> mkExE EditorBlank (PMkProdArgs path ty [] []) Right
+        MkInd name [] -> mkExE EditorBlank (PMkIndArgs path name [] []) Right
         Hole -> pure oldState
         EditorBlank -> pure oldState
       FItem focus -> do
@@ -538,6 +561,7 @@ edge d p = case d of
     PLetName _ _ _ _ -> True
     PPiName _ _ _ -> True
     PMkProdTy _ _ -> True
+    PMkIndName _ _ -> True
     PCode _ -> True
     PQuote _ -> True
     PSplice _ -> True
@@ -554,6 +578,7 @@ edge d p = case d of
     PLetBody _ _ _ _ -> True
     PPiOut _ _ _ -> True
     PMkProdArgs _ _ _ [] -> True
+    PMkIndArgs _ _ _ [] -> True
     PCode _ -> True
     PQuote _ -> True
     PSplice _ -> True
@@ -576,6 +601,7 @@ atomic focus = case focus of
     EditorBlankCon -> True
     _ -> False
   FName _ -> True
+  FGName _ -> True
 
 putWord16 :: Word16 -> Put
 putWord16 = put
@@ -724,8 +750,8 @@ render state elabState item = (text, errs)
           Nothing -> go term
         go :: Render sig m => C.TermInner -> m T.Text
         go term = case term of
-          C.Var _ ty (C.VarInfo s) -> goVar ty (T.pack s)
-          C.GVar _ ty (C.GVarInfo s') -> goGName s' ty
+          C.Var _ ty (C.VarInfo s) -> renderVar ty (T.pack s)
+          C.GVar _ ty (C.GVarInfo s') -> renderGName (GName s') ty
           C.TypeType0 -> blueM "U0"
           C.TypeType1 -> blueM "U1"
           C.FunIntro _ _ (C.FunIntroInfo n _) ->
@@ -738,8 +764,12 @@ render state elabState item = (text, errs)
           C.QuoteElim term -> combine [greenM "~", renderTerm term]
           C.ProdType nid args ->
             let Just (GName name) = DM.lookup nid (Elab.idsNames elabState)
-            in combine [goGName name (C.gen C.TypeType0), pure " ", T.intercalate " " <$> mapM renderTerm args]
-          C.ProdIntro ty args -> combine [greenM "#", renderTerm ty, pure " ", if null args then pure "" else T.intercalate " " <$> (mapM renderTerm args)]
+            in combine [renderGName (GName name) (C.gen C.TypeType0), pure " ", T.intercalate " " <$> mapM renderTerm args]
+          C.ProdIntro ty args -> combine [greenM "#", renderTerm ty, pure $ if null args then "" else " ", T.intercalate " " <$> (mapM renderTerm args)]
+          C.IndIntro nid args _ -> combine [
+            greenM "#",
+            (flip renderGName) (C.gen C.ElabBlank) $ fromJust $ DM.lookup nid (Elab.idsNames elabState),
+            pure $ if null args then "" else " ", T.intercalate " " <$> (mapM renderTerm args)]
           C.Meta _ _ -> pure "\ESC[7m?\ESC[27m"
           C.InsertedMeta _ _ _ -> pure "\ESC[7m?\ESC[27m"
           C.ElabError s -> renderSTerm s
@@ -752,19 +782,24 @@ render state elabState item = (text, errs)
         goFunElim (C.FunElim lam arg _) n args = case traceShowId n of
           1 -> T.intercalate " " <$> mapM renderTerm (lam:arg:args)
           n -> goFunElim (C.unTerm lam) (n - 1) (arg:args)
-        goVar :: Render sig m => C.Term -> T.Text -> m T.Text
-        goVar term s = case C.unTerm term of
-          C.FunType _ outTy _ -> goVar outTy s
-          C.TypeType0 -> pure $ blue s
-          C.TypeType1 -> pure $ blue s
-          _ -> pure s
-        goGName :: Render sig m => [String] -> C.Term -> m T.Text
-        goGName s' ty =
-          let
-            s = reverse s'
-            name = T.pack $ last s
-            mpath = init s
-          in combine [pure $ T.pack $ mconcat $ intersperse "." mpath, pure ".", goVar ty name]  
+    renderVar :: Render sig m => C.Term -> T.Text -> m T.Text
+    renderVar term s = case C.unTerm term of
+      C.FunType _ outTy _ -> renderVar outTy s
+      C.TypeType0 -> pure $ blue s
+      C.TypeType1 -> pure $ blue s
+      _ -> pure s
+    renderGName :: Render sig m => GName -> C.Term -> m T.Text
+    renderGName gname@(GName s') ty = case s' of
+      [] -> yellowM "{]"
+      _ ->
+        let
+          s = reverse s'
+          name = T.pack $ last s
+          mpath = init s
+          tname = combine [pure $ T.pack $ mconcat $ intersperse "." mpath, pure ".", renderVar ty name]  
+        in case gname of
+          FocusedGName _ -> combine [yellowM "{", tname, yellowM "]"]
+          UnfocusedGName _ -> tname
     renderSTerm :: Render sig m => Term -> m T.Text
     renderSTerm term = case term of
       Var name -> pure $ renderName name
@@ -796,7 +831,8 @@ render state elabState item = (text, errs)
       Code term -> combine [blueM "Code ", renderSTerm term]
       Quote term -> combine [greenM "<", renderSTerm term, greenM ">"]
       Splice term -> combine [greenM "~", renderSTerm term]
-      MkProd ty args -> combine [greenM "#", renderSTerm ty, pure " ", if null args then pure "" else T.intercalate " " <$> mapM renderSTerm args]
+      MkProd ty args -> combine [greenM "#", renderSTerm ty, pure $ if null args then "" else " ", T.intercalate " " <$> mapM renderSTerm args]
+      MkInd name args -> combine [greenM "#", renderGName name (C.gen C.ElabBlank), pure $ if null args then "" else " ", T.intercalate " " <$> mapM renderSTerm args]
       Hole -> pure "\ESC[7m?\ESC[27m"
       EditorBlank -> pure "\ESC[7m?\ESC[27m"
       EditorFocus term side -> case side of
@@ -876,6 +912,7 @@ insertFocusMarker state@(EditorState (Cursor focus path) ft side) = case ft of
   FTItem -> EditorState (Cursor (FItem $ EditorFocusDef (unFItem focus) side) path) ft side
   FTTerm -> EditorState (Cursor (FTerm $ EditorFocus (unFTerm focus) side) path) ft side
   FTName -> EditorState (Cursor (FName $ FocusedName $ unFNameS focus) path) ft side
+  FTGName -> EditorState (Cursor (FGName $ FocusedGName $ unGName $ unFGName focus) path) ft side
   _ -> state
 
 -- Lol just Ctrl+C + Ctrl+V from StackOverflow. `hSetBuffering stdin NoBuffering` doesn't work on Windows.
@@ -892,6 +929,7 @@ data TermInsertionType
   | TIQuote
   | TISplice
   | TIMkProd
+  | TIMkInd
   deriving Eq
 
 data Input
@@ -910,6 +948,7 @@ data Input
   | IInsertU1
   | IAdd
   | ISetName String
+  | ISetGName [String]
   | IDelete
   deriving Eq
 
@@ -948,6 +987,7 @@ parseCommand s = case s of
   " xe;" -> Just $ IExportFile
   "." -> Just $ IThenMoveHardRight $ Just $ IThenMoveRight $ Just $ IInsertTerm TIApp
   " >-" -> Just $ IThenMoveHardRight $ Just $ IThenMoveRight $ Just $ IThenMoveRight $ Just $ IInsertTerm TIPi
+  "#i" -> Just $ IThenMoveRight $ Just $ IInsertTerm TIMkInd
   "#" -> Just $ IThenMoveRight $ Just $ IInsertTerm TIMkProd
   " llarof" -> Just $ IThenMoveRight $ Just $ IInsertTerm TIPi
   " lav" -> Just $ IThenMoveRight $ Just $ IInsertTermDef
@@ -966,6 +1006,7 @@ parseCommand s = case s of
     go s = case s of
       "0u" -> IInsertU0
       "1u" -> IInsertU1
+      (elem '.' -> True) -> ISetGName (map reverse (split s [] '.'))
       _ -> ISetName (reverse s)
 
 moveRight :: Edit sig m => EditorState a -> m Ex
@@ -1034,6 +1075,7 @@ handleInput state input = case (input, unFocusType state) of
     ns -> run (InsertGVar $ reverse ns) state 
   (ISetName s, FTName) -> if s == "" then pure $ Ex state else run (SetName s) state
   (ISetName s, FTCon) -> if s == "" then pure $ Ex state else run (InsertCon s) state
+  (ISetGName ns, FTGName) -> if ns == [] then pure $ Ex state else run (SetGName ns) state
   (IDelete, _) -> run Delete state
   _ -> pure $ Ex state
 
@@ -1058,10 +1100,10 @@ loop state = do
   -- LE.sendIO $ putStrLn $ show part
   -- LE.sendIO $ putStrLn $ show ns
   item <- moveToTop $ Ex $ insertFocusMarker state
-  LE.sendIO $ putStrLn $ show item
+  -- LE.sendIO $ putStrLn $ show item
   -- LE.sendIO $ putStrLn $ show item'
   let (cTerm, elabState) = Elab.elabFresh item
-  LE.sendIO $ putStrLn $ show cTerm
+  -- LE.sendIO $ putStrLn $ show cTerm
   let (s, es) = render state elabState item
   LE.sendIO $ TIO.putStrLn (s <> "\n")
   forM_ es (LE.sendIO . TIO.putStrLn . renderError)

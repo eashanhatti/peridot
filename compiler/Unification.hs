@@ -279,6 +279,7 @@ unify lv val val' = do
       vBody <- runNorm (incLevel lv) $ N.appClosure body (N.gen $ N.StuckRigidVar inTy lv [] (varInfo s))
       vAppVal <- runNorm lv $ N.vApp val (N.gen $ N.StuckRigidVar inTy' lv [] (varInfo s'))
       unify (incLevel lv) vBody vAppVal
+    (N.TypeType0, N.TypeType0) -> pure ()
     (N.TypeType1, N.TypeType0) -> pure ()
     (N.TypeType1, N.TypeType1) -> pure ()
     (N.FunType inTy outTy (C.FunTypeInfo s), N.FunType inTy' outTy' (C.FunTypeInfo s')) -> do
