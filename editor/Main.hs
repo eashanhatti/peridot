@@ -418,9 +418,9 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
         PQuote up -> mkExE (Quote $ unFTerm focus) up d
         PSplice up -> mkExE (Splice $ unFTerm focus) up d
         PIndDefName up ty cons -> mkExE (IndDef (unFName focus) ty (map (first Name . unCon) cons)) up d
-        PIndDefCons up name ty lc [] ->
-          let (Con n t) = unFCon focus
-          in mkExE (IndDef (Name name) ty (map (first Name . unCon) lc ++ [(Name n, t)])) up d
+        PIndDefCons up name ty lc [] -> case unFCon focus of
+          Con n t -> mkExE (IndDef (Name name) ty (map (first Name . unCon) lc ++ [(Name n, t)])) up d
+          EditorBlankCon -> mkExE (IndDef (Name name) ty []) up d
         PIndDefTy up name cons -> clearPart >> mkExE (IndDef (Name name) (unFTerm focus) (map (first Name . unCon) cons)) up d
         PIndDefCons up name ty lc rc -> mkExE (IndDef (Name name) ty (map (first Name . unCon) $ lc ++ insertFocusL focus rc)) up d
         PProdDefName up ty fs -> mkExE (ProdDef (unFName focus) ty fs) up d
@@ -948,7 +948,6 @@ data Input
   | IInsertU1
   | IAdd
   | ISetName String
-  | ISetGName [String]
   | IDelete
   deriving Eq
 
@@ -1006,7 +1005,6 @@ parseCommand s = case s of
     go s = case s of
       "0u" -> IInsertU0
       "1u" -> IInsertU1
-      (elem '.' -> True) -> ISetGName (map reverse (split s [] '.'))
       _ -> ISetName (reverse s)
 
 moveRight :: Edit sig m => EditorState a -> m Ex
@@ -1072,10 +1070,10 @@ handleInput state input = case (input, unFocusType state) of
   (IInsertProdDef, FTItem) -> run InsertProdDef state
   (ISetName s, FTTerm) -> case split s "" '.' of
     [n] -> run (InsertVar n) state
-    ns -> run (InsertGVar $ reverse ns) state 
+    ns -> run (InsertGVar $ reverse ns) state
+  (ISetName s, FTGName) -> run (SetGName $ reverse $ split s "" '.') state
   (ISetName s, FTName) -> if s == "" then pure $ Ex state else run (SetName s) state
   (ISetName s, FTCon) -> if s == "" then pure $ Ex state else run (InsertCon s) state
-  (ISetGName ns, FTGName) -> if ns == [] then pure $ Ex state else run (SetGName ns) state
   (IDelete, _) -> run Delete state
   _ -> pure $ Ex state
 

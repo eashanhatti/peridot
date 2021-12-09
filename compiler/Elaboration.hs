@@ -199,7 +199,7 @@ ordering graph = case cycles graph of
       if available == Map.keysSet graph then
         []
       else
-        let nowAvailable = Map.keysSet $ Map.filter (\ds -> ds `Set.isSubsetOf` available) graph
+        let nowAvailable =  Map.keysSet $ Map.filter (\ds -> ds `Set.isSubsetOf` available) graph
         in (nowAvailable `Set.difference` available):(loop graph (nowAvailable `Set.union` available))
 
 checkProgram :: HasCallStack => Program -> Elab (C.Program, Graph)
@@ -245,7 +245,9 @@ checkProgram program =
       nid <- freshId
       cTy <- readback ty
       state <- get
-      put $ state { globals = Map.insert name (C.ElabBlankItem nid cTy) (globals state) }
+      put $ state
+        { globals = Map.insert name (C.ElabBlankItem nid cTy) (globals state)
+        , idsNames = Map.insert nid name (idsNames state) }
     defineGlobals :: HasCallStack => [S.GName] -> Program -> Elab [C.Item]
     defineGlobals names program = case names of
       [] -> pure []
@@ -260,7 +262,7 @@ checkProgram program =
       state <- get
       put $ state
         { globals = Map.insert name item (globals state)
-        , idsNames = Map.insert (C.itemId item) name (idsNames state) }
+        {-, idsNames = Map.insert (C.itemId item) name (idsNames state)-} }
     checkItem :: HasCallStack => Item -> S.GName -> Elab (C.Item, N.Value)
     checkItem item name = do
       gs <- globals <$> get
@@ -450,7 +452,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
       go cLam as lty = case (as, N.unVal lty) of
         ([], _) -> error "Empty"
         ([a], N.FunType inTy outTy _) -> do
-          cArg <- check a (traceShowId inTy)
+          cArg <- check a inTy
           vArg <- eval cArg
           outTy <- evalClosure outTy vArg
           pure ([(cArg, [])], outTy)
@@ -468,7 +470,7 @@ infer term = getGoalUniv >>= \univ -> scope case term of
           errs <- unify lty (N.gen $ N.FunType vInTy outTyClo (C.FunTypeInfo $ S.Name "_"))
           pure ([(cArg, errs)], vOutTy)
         (a:as, N.FunType inTy outTy _) -> do
-          cArg <- check a (traceShowId inTy)
+          cArg <- check a inTy
           vArg <- eval cArg
           outTy <- evalClosure outTy vArg
           (cArgs, outTyInner) <- go cLam as outTy
@@ -648,6 +650,9 @@ globalType nid = do
   pure $ fmap
     (\case
       C.IndDef _ ty _ -> ty
+      C.TermDef _ _ ty -> ty
+      C.ElabBlankItem _ ty -> ty
+      C.ProdDef _ ty _ -> ty
       C.ConDef _ ty -> ty)
     (Map.lookup name (globals state))
 
