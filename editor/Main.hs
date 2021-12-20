@@ -88,6 +88,12 @@ data Path a where
   PPiName              :: Path Term -> Term -> Term -> Path Name
   PPiIn                :: Path Term -> String -> Term -> Path Term
   PPiOut               :: Path Term -> String -> Term -> Path Term
+  PMatchScr            :: Path Term -> [Term] -> [Term] -> [Clause] -> Path Term
+  PMatchClause         :: Path Term -> [Term] -> [Clause] -> [Clause] -> Path Clause
+  PMatchClausePat      :: Path Clause -> Term -> Path Pattern
+  PMatchClauseBody     :: Path Clause -> Pattern -> Path Term
+  PPatConName          :: Path Pattern -> [Pattern] -> Path GName
+  PPatConArg           :: Path Pattern -> GName -> [Pattern] -> [Pattern] -> Path Pattern
   PCode                :: Path Term -> Path Term
   PQuote               :: Path Term -> Path Term
   PSplice              :: Path Term -> Path Term
@@ -95,11 +101,13 @@ deriving instance Show (Path a)
 deriving instance Eq (Path a)
 
 data Focus a where
-  FName :: Name -> Focus Name
-  FTerm :: Term -> Focus Term
-  FItem :: Item -> Focus Item
-  FGName :: GName -> Focus GName
-  FCon  :: Con -> Focus Con
+  FName   :: Name -> Focus Name
+  FTerm   :: Term -> Focus Term
+  FItem   :: Item -> Focus Item
+  FGName  :: GName -> Focus GName
+  FClause :: Clause -> Focus Clause
+  FCon    :: Con -> Focus Con
+  FPat    :: Pattern -> Focus Pattern
 deriving instance Show (Focus a)
 deriving instance Eq (Focus a)
 
@@ -114,14 +122,20 @@ unFTerm (FTerm e) = e
 unFItem :: Focus Item -> Item
 unFItem (FItem i) = i
 unFCon :: Focus Con -> Con
-unFCon  (FCon c)  = c
+unFCon  (FCon c) = c
+unFClause :: Focus Clause -> Clause
+unFClause (FClause c) = c
+unFPat :: Focus Pattern -> Pattern
+unFPat (FPat p) = p
 
 data FocusType a where
-  FTName  :: FocusType Name
-  FTTerm  :: FocusType Term
-  FTItem  :: FocusType Item
-  FTCon   :: FocusType Con
-  FTGName :: FocusType GName
+  FTName   :: FocusType Name
+  FTTerm   :: FocusType Term
+  FTItem   :: FocusType Item
+  FTCon    :: FocusType Con
+  FTGName  :: FocusType GName
+  FTClause :: FocusType Clause
+  FTPat    :: FocusType Pattern
 deriving instance Eq (FocusType a)
 deriving instance Show (FocusType a)
 
@@ -140,6 +154,8 @@ statesEq st st' = case (unFocusType st, unFocusType st') of
   (FTItem, FTItem) -> st == st'
   (FTCon, FTCon) -> st == st'
   (FTGName, FTGName) -> st == st'
+  (FTClause, FTClause) -> st == st'
+  (FTPat, FTPat) -> st == st'
   _ -> False
 
 data Ex = forall a. Ex { unEx :: EditorState a }
@@ -170,18 +186,22 @@ data Command a where
   Delete             :: Command a
 
 class MkFT a where focusType :: FocusType a
-instance MkFT Term where  focusType = FTTerm
-instance MkFT Name where  focusType = FTName
-instance MkFT Item where  focusType = FTItem
-instance MkFT Con where   focusType = FTCon
-instance MkFT GName where focusType = FTGName
+instance MkFT Term where    focusType = FTTerm
+instance MkFT Name where    focusType = FTName
+instance MkFT Item where    focusType = FTItem
+instance MkFT Con where     focusType = FTCon
+instance MkFT GName where   focusType = FTGName
+instance MkFT Clause where  focusType = FTClause
+instance MkFT Pattern where focusType = FTPat
 
 class MkFocus a where focus :: a -> Focus a
-instance MkFocus Term where  focus = FTerm
-instance MkFocus Item where  focus = FItem
-instance MkFocus Name where  focus = FName
-instance MkFocus Con where   focus = FCon
-instance MkFocus GName where focus = FGName
+instance MkFocus Term where    focus = FTerm
+instance MkFocus Item where    focus = FItem
+instance MkFocus Name where    focus = FName
+instance MkFocus Con where     focus = FCon
+instance MkFocus GName where   focus = FGName
+instance MkFocus Clause where  focus = FClause
+instance MkFocus Pattern where focus = FPat
 
 type Changes = DM.Map GName ItemPart
 
@@ -198,6 +218,8 @@ blankFocus focus = case focus of
   FName (Name "") -> True
   FGName (GName []) -> True
   FCon EditorBlankCon -> True
+  FClause EditorBlankClause -> True
+  FPat EditorBlankPat -> True
   _ -> False
 
 popName :: Has (State GName) sig m => m ()
@@ -296,6 +318,8 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
         PIndDefCons up name ty lc rc -> mkExE EditorBlankCon (PIndDefCons up name ty (insertFocusR focus lc) rc) Left
         PProdDefFields up name ty lf rf -> mkExE EditorBlank (PProdDefFields up name ty (insertFocusR focus lf) rf) Left
         PMkProdArgs up ty le re -> mkExE EditorBlank (PMkProdArgs up ty (insertFocusR focus le) re) Left
+        PMatchScr up ls rs cs -> mkExE EditorBlank (PMatchScr up (insertFocusR focus ls) rs cs) Left
+        PMatchClause up ss rc lc -> mkExE EditorBlankClause (PMatchClause up ss (insertFocusR focus rc) lc) Left
         _ -> pure oldState
     MoveRight -> case path of
       PTop -> pure sideRight
@@ -341,6 +365,16 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
       PProdDefFields up name ty lf (f:rf) -> mkExE f (PProdDefFields up name ty (insertFocusR focus lf) rf) Left
       PConName up ty -> putPart Dec >> mkExE ty (PConTy up (unFNameS focus)) Left
       PConTy _ _ -> clearPart >> pure sideRight
+      PMatchScr up ls [] [] -> mkExE EditorBlankClause (PMatchClause up (insertFocusR focus ls) [] []) Left
+      PMatchScr up ls [] (c:cs) -> mkExE c (PMatchClause up (insertFocusR focus ls) [] cs) Left
+      PMatchScr up ls (s:rs) cs -> mkExE s (PMatchScr up (insertFocusR focus ls) rs cs) Left
+      PMatchClause up ss lc [] -> pure sideRight
+      PMatchClause up ss lc (c:rc) -> mkExE c (PMatchClause up ss (insertFocusR focus lc) rc) Left
+      PMatchClausePat up body -> mkExE body (PMatchClauseBody up (unFPat focus)) Left
+      PMatchClauseBody up pat -> pure sideRight
+      PPatConName up [] -> mkExE EditorBlankPat (PPatConArg up (unFGName focus) [] []) Left
+      PPatConArg up name lp [] -> pure sideRight
+      PPatConArg up name lp (p:rp) -> mkExE p (PPatConArg up name (insertFocusR focus lp) rp) Left
     MoveLeft -> case path of
       PTop -> pure sideLeft
       PLamParams up [] rn body -> orSideLeft $ mkExE (Name "") (PLamParams up [] (insertNameL focus rn) body) Left
@@ -380,6 +414,14 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
       PProdDefFields up name ty lf rf -> mkExE (last lf) (PProdDefFields up name ty (init lf) (insertFocusL focus rf)) Right
       PConName _ _ -> pure sideLeft
       PConTy up name -> clearPart >> mkExE (Name name) (PConName up (unFTerm focus)) Left
+      PMatchScr up [] rs cs -> orSideLeft $ mkExE EditorBlank (PMatchScr up [] (insertFocusL focus rs) cs) Right
+      PMatchScr up ls rs cs -> mkExE (last ls) (PMatchScr up (init ls) (insertFocusL focus rs) cs) Right
+      PMatchClause up ss [] rc -> orSideLeft $ mkExE EditorBlankClause (PMatchClause up ss [] (insertFocusL focus rc)) Right
+      PMatchClausePat _ _ -> pure sideLeft
+      PMatchClauseBody up pat -> mkExE pat (PMatchClausePat up (unFTerm focus)) Right
+      PPatConName _ _ -> pure sideLeft
+      PPatConArg up name [] rp -> mkExE name (PPatConName up (insertFocusL focus rp)) Right
+      PPatConArg up name lp rp -> mkExE (last lp) (PPatConArg up name (init lp) (insertFocusL focus rp)) Right
       where
         orSideLeft :: Edit sig m => m Ex -> m Ex
         orSideLeft ex =
@@ -428,6 +470,12 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
         PProdDefFields up name ty lf rf -> mkExE (ProdDef (Name name) ty (lf ++ insertFocusL focus rf)) up d
         PConName up ty -> mkExE (Con (unFNameS focus) ty) up d
         PConTy up name -> clearPart >> mkExE (Con name (unFTerm focus)) up d
+        PMatchScr up ls rs cs -> mkExE (Match (ls ++ insertFocusL focus rs) cs) up d
+        PMatchClause up ss lc rc -> mkExE (Match ss (lc ++ insertFocusL focus rc)) up d
+        PMatchClausePat up body -> mkExE (Clause (unFPat focus) body) up d
+        PMatchClauseBody up pat -> mkExE (Clause pat (unFTerm focus)) up d
+        PPatConName up ps -> mkExE (ConPat (unFGName focus) ps) up d
+        PPatConArg up name lp rp -> mkExE (ConPat name (lp ++ insertFocusL focus rp)) up d
     MoveInLeft -> case focus of
       FTerm focus -> case focus of
         Lam (n:ns) body -> mkExE n (PLamParams path [] (map unName ns) body) Left
@@ -443,6 +491,8 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
         Splice e -> mkExE e (PSplice path) Left
         MkProd ty es -> mkExE ty (PMkProdTy path es) Left
         MkInd name es -> mkExE name (PMkIndName path es) Left
+        Match (s:ss) cs -> mkExE s (PMatchScr path [] ss cs) Left
+        Match [] cs -> mkExE EditorBlank (PMatchScr path [] [] cs) Left
         Hole -> pure oldState
         EditorBlank -> pure oldState
       FItem focus -> do
@@ -460,6 +510,9 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
           mkExE (Name n) (PConName path t) Left
         EditorBlankCon -> pure sideLeft
       FName _ -> pure sideLeft
+      FClause (Clause p b) -> mkExE p (PMatchClausePat path b) Left
+      FPat (ConPat name ps) -> mkExE name (PPatConName path ps) Left
+      FPat _ -> pure oldState
     MoveInRight -> case focus of
       FTerm focus -> case focus of
         Lam ns body -> mkExE body (PLamBody path (map unName ns)) Right
@@ -473,8 +526,9 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
         Code ty -> mkExE ty (PCode path) Right
         Quote e -> mkExE e (PQuote path) Right
         Splice e -> mkExE e (PSplice path) Right
-        MkProd ty [] -> mkExE EditorBlank (PMkProdArgs path ty [] []) Right
-        MkInd name [] -> mkExE EditorBlank (PMkIndArgs path name [] []) Right
+        MkProd ty es -> mkExE EditorBlank (PMkProdArgs path ty es []) Right
+        MkInd name es -> mkExE EditorBlank (PMkIndArgs path name es []) Right
+        Match ss cs -> mkExE EditorBlankClause (PMatchClause path ss cs []) Right
         Hole -> pure oldState
         EditorBlank -> pure oldState
       FItem focus -> do
@@ -495,6 +549,9 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
           mkExE t (PConTy path n) Right
         EditorBlankCon -> pure sideRight
       FName _ -> pure sideRight
+      FClause (Clause p b) -> mkExE b (PMatchClauseBody path p) Right
+      FPat (ConPat name ps) -> mkExE EditorBlankPat (PPatConArg path name ps []) Right
+      FPat _ -> pure oldState
     Delete -> case path of
       PNamespaceDefItems up name [] []       -> mkExE (Name name) (PNamespaceDefName up []) Left
       PNamespaceDefItems up name li@(_:_) ri -> mkExE (last li) (PNamespaceDefItems up name (init li) ri) Right
@@ -526,19 +583,27 @@ run command state@(EditorState (Cursor focus path) focusType side) = do
     insertFocusR :: Focus a -> [a] -> [a]
     insertFocusR focus la = case focus of
       FTerm EditorBlank -> la
-      FTerm _ -> la ++ [unFTerm focus]
+      FTerm e -> la ++ [e]
       FCon EditorBlankCon -> la
-      FCon _ -> la ++ [unFCon focus]
+      FCon c -> la ++ [c]
       FItem EditorBlankDef -> la
-      FItem _ -> la ++ [unFItem focus]
+      FItem i -> la ++ [i]
+      FClause EditorBlankClause -> la
+      FClause c -> la ++ [c]
+      FPat EditorBlankPat -> la
+      FPat p -> la ++ [p]
     insertFocusL :: Focus a -> [a] -> [a]
     insertFocusL focus la = case focus of
       FTerm EditorBlank -> la
-      FTerm _ -> unFTerm focus : la
+      FTerm e -> e:la
       FCon EditorBlankCon -> la
-      FCon _ -> unFCon focus : la
+      FCon c -> c:la
       FItem EditorBlankDef -> la
-      FItem _ -> unFItem focus : la
+      FItem i -> i:la
+      FClause EditorBlankClause -> la
+      FClause c -> c:la
+      FPat EditorBlankPat -> la
+      FPat p -> p:la
     insertNameR :: Focus Name -> [String] -> [String]
     insertNameR (FName (Name n)) ln = ln ++ [n]
     insertNameL :: Focus Name -> [String] -> [String]
@@ -565,6 +630,9 @@ edge d p = case d of
     PCode _ -> True
     PQuote _ -> True
     PSplice _ -> True
+    PMatchScr _ [] _ _ -> True
+    PMatchClausePat _ _ -> True
+    PPatConName _ _ -> True
     _ -> False
   Right -> case p of
     PTop -> True
@@ -582,6 +650,9 @@ edge d p = case d of
     PCode _ -> True
     PQuote _ -> True
     PSplice _ -> True
+    PMatchClauseBody _ _ -> True
+    PMatchClause _ _ _ [] -> True
+    PPatConArg _ _ _ [] -> True
     _ -> False
 
 atomic :: Focus a -> Bool
@@ -602,6 +673,10 @@ atomic focus = case focus of
     _ -> False
   FName _ -> True
   FGName _ -> True
+  FClause _ -> True
+  FPat p -> case p of
+    BindingPat _ -> True
+    _ -> False
 
 putWord16 :: Word16 -> Put
 putWord16 = put
@@ -856,6 +931,7 @@ render state elabState item = (text, errs)
         let Just (C.ConDef _ ty) = DM.lookup (GName $ cn:gname) (Elab.globals elabState)
         in combine [pure $ T.pack cn, pure " : ", renderTerm ty, pure "\n", scons cns gname]
     sfields :: Render sig m => [C.Term] -> m T.Text
+    
     sfields fs = mapM renderTerm fs >>= \tfs -> pure $ mconcat $ intersperse "\n" tfs
     sitems :: Render sig m => [Item] -> [String] -> m T.Text
     sitems is gname = case is of
@@ -930,6 +1006,7 @@ data TermInsertionType
   | TISplice
   | TIMkProd
   | TIMkInd
+  | TIMatch
   deriving Eq
 
 data Input
@@ -999,6 +1076,7 @@ parseCommand s = case s of
   " dni" -> Just $ IThenMoveRight $ Just IInsertIndDef
   " sn" -> Just $ IThenMoveRight $ Just IInsertNamespaceDef
   " dorp" -> Just $ IThenMoveRight $ Just IInsertProdDef
+  " esac" -> Just $ IThenMoveRight $ Just $ IInsertTerm TIMatch
   ' ':s -> Just $ IThenMoveRight $ Just (go s)
   _ -> Nothing
   where

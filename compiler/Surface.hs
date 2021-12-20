@@ -41,6 +41,23 @@ data Item
 data ItemPart = Dec | Def
   deriving (Eq, Ord, Show)
 
+data Pattern
+  = BindingPat String
+  | ConPat GName [Pattern]
+  | EditorFocusPat Pattern
+  | EditorBlankPat
+  deriving (Show, Eq)
+
+data Clause = UnfocusedClause Pattern Term | FocusedClause Pattern Term | EditorBlankClause
+  deriving (Show, Eq)
+
+pattern Clause p t <- (unClause -> (p, t)) where
+  Clause p t = UnfocusedClause p t
+
+unClause clause = case clause of
+  UnfocusedClause p t -> (p, t)
+  FocusedClause p t -> (p, t)
+
 data Term
   = Var Name
   | GVar GName
@@ -56,6 +73,7 @@ data Term
   | Splice Term
   | MkInd GName [Term]
   | MkProd Term [Term]
+  | Match [Term] [Clause]
   | Hole
   | EditorBlank
   | EditorFocus Term Direction

@@ -265,7 +265,8 @@ eval (C.Term info term) = do
             C.FunType inTy outTy (C.FunTypeInfo s) -> C.gen $ C.FunIntro (go outTy (C.gen (C.Var (Index $ length acc) inTy (C.VarInfo $ S.unName s)) : acc)) ty (C.FunIntroInfo 1 s) -- FIXME
             C.TypeType0 -> C.gen $ C.ProdType nid acc
       C.ElabBlankItem nid ty -> eval ty >>= \ty -> pure $ Value info $ StuckGVar nid ty info'
-    C.ElabError s -> Value info <$> pure (ElabError s)
+    C.ElabError s -> pure $ Value info (ElabError s)
+    C.ElabBlank -> pure $ Value info ElabBlank
 
 force :: HasCallStack => Value -> Norm Value
 force val@(Value info val') = do
@@ -338,3 +339,5 @@ readback val = do
     TypeType1 -> pure C.TypeType1
     StuckGVar nid ty info -> readback ty >>= \ty -> pure $ C.GVar nid ty info 
     ElabError s -> pure $ C.ElabError s
+    ElabBlank -> pure C.ElabBlank
+    _ -> error $ "readback: " ++ show (gen val)
