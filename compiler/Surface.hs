@@ -1,13 +1,15 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 
 module Surface where
 
 import Data.Map(Map)
 import Data.Set(Set)
+import Data.Data(Data)
 
 data Name = UnfocusedName String | FocusedName String
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Data)
 
 pattern Name s <- (unName -> s) where
   Name s = UnfocusedName s
@@ -17,7 +19,7 @@ unName name = case name of
   FocusedName s -> s
 
 data GName = UnfocusedGName [String] | FocusedGName [String]
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Data)
 
 pattern GName ns <- (unGName -> ns) where
   GName ns = UnfocusedGName ns
@@ -27,7 +29,7 @@ unGName name = case name of
   FocusedGName ns -> ns
 
 data Direction = Left | Right
-  deriving (Eq, Show)
+  deriving (Eq, Show, Data)
 
 data Item
   = NamespaceDef Name [Item]
@@ -36,7 +38,7 @@ data Item
   | ProdDef Name Term [Term]
   | EditorBlankDef
   | EditorFocusDef Item Direction
-  deriving (Show, Eq)
+  deriving (Show, Eq, Data)
 
 data ItemPart = Dec | Def
   deriving (Eq, Ord, Show)
@@ -46,10 +48,10 @@ data Pattern
   | ConPat GName [Pattern]
   | EditorFocusPat Pattern
   | EditorBlankPat
-  deriving (Show, Eq)
+  deriving (Show, Eq, Data)
 
 data Clause = UnfocusedClause Pattern Term | FocusedClause Pattern Term | EditorBlankClause
-  deriving (Show, Eq)
+  deriving (Show, Eq, Data)
 
 pattern Clause p t <- (unClause -> (p, t)) where
   Clause p t = UnfocusedClause p t
@@ -77,4 +79,4 @@ data Term
   | Hole
   | EditorBlank
   | EditorFocus Term Direction
-  deriving (Show, Eq)
+  deriving (Show, Eq, Data)
