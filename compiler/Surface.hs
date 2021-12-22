@@ -8,7 +8,7 @@ import Data.Map(Map)
 import Data.Set(Set)
 import Data.Data(Data)
 
-data Name = UnfocusedName String | FocusedName String
+data Name = UnfocusedName String | FocusedName String Direction
   deriving (Show, Eq, Ord, Data)
 
 pattern Name s <- (unName -> s) where
@@ -16,7 +16,7 @@ pattern Name s <- (unName -> s) where
 
 unName name = case name of
   UnfocusedName s -> s
-  FocusedName s -> s
+  FocusedName s _ -> s
 
 data GName = UnfocusedGName [String] | FocusedGName [String]
   deriving (Show, Eq, Ord, Data)
@@ -28,13 +28,23 @@ unGName name = case name of
   UnfocusedGName ns -> ns
   FocusedGName ns -> ns
 
+data Constructor = FocusedConstructor Name Term | UnfocusedConstructor Name Term | EditorBlankCon
+  deriving (Show, Eq, Data)
+
+pattern Constructor n t <- (unCon -> (n, t)) where
+  Constructor n t = UnfocusedConstructor n t
+
+unCon con = case con of
+  UnfocusedConstructor n t -> (n, t)
+  FocusedConstructor n t -> (n, t)
+
 data Direction = Left | Right
-  deriving (Eq, Show, Data)
+  deriving (Eq, Ord, Show, Data)
 
 data Item
   = NamespaceDef Name [Item]
   | TermDef Name Term Term -- name, dec, def
-  | IndDef Name Term [(Name, Term)] -- name, dec, constructors
+  | IndDef Name Term [Constructor] -- name, dec, constructors
   | ProdDef Name Term [Term]
   | EditorBlankDef
   | EditorFocusDef Item Direction

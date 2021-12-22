@@ -131,9 +131,9 @@ flatten nameAcc item = case item of
   S.ProdDef name dec fields -> Map.singleton (S.GName $ (S.unName name):nameAcc) (ProdDef dec fields)
   S.IndDef name dec cs ->
     Map.union
-      (Map.singleton (S.GName $ (S.unName name):nameAcc) (IndDef dec (C.IndDefInfo $ map (S.unName . fst) cs)))
+      (Map.singleton (S.GName $ (S.unName name):nameAcc) (IndDef dec (C.IndDefInfo $ map (\(S.Constructor n _) -> S.unName n) cs)))
       (Map.fromList $ map
-        (\(cn, ct) ->
+        (\(S.Constructor cn ct) ->
           let gname = S.unName cn : S.unName name : nameAcc
           in (S.GName gname, ConDef (S.GName $ tail gname) ct))
         cs)

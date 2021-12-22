@@ -1,11 +1,14 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Main where
 
-import Data.Generics.Zipper
+import Data.Generics.Zipper(Zipper, getHole, setHole, toZipper, fromZipper, query, trans)
+import qualified Data.Generics.Zipper as Z
 import Surface
 import Data.Maybe(fromMaybe)
 import Control.Effect.Lift(Lift, Has)
@@ -28,7 +31,7 @@ import Elaboration.Error(Error)
 import Numeric.Natural
 import Data.List(intersperse)
 import Data.Maybe(fromJust)
-import Data.Typeable(cast)
+import Data.Typeable(cast, typeOf)
 import Data.Data(Data)
 
 data State = State
@@ -49,14 +52,101 @@ type Edit sig m = Has (Lift IO) sig m
 (|>) = flip fromMaybe
 infixr 1 |>
 
+caseHole :: Zipper a -> (Name -> b) -> (Item -> b) -> (Term -> b) -> ([Item] -> b) -> b
+caseHole z nc ic ec lc = query go z where
+  go h = case h of
+    (cast -> Just i) -> ic i
+    (cast -> Just e) -> ec e
+    (cast -> Just n) -> nc n
+    (cast -> Just l) -> lc l
+
+atomic :: Data a => a -> Bool
+atomic f = case f of
+  (cast -> Just (Name _)) -> True
+  (cast -> Just e) -> case e of
+    Hole -> True
+    EditorBlank -> True
+    Var _ -> True
+    GVar _ -> True
+    U0 -> True
+    U1 -> True
+    _ -> False
+  (cast -> Just i) -> case i of
+    EditorBlankDef -> True
+    _ -> False
+  _ -> error $ show $ typeOf f
+
+down :: Zipper a -> Zipper a
+down z = caseHole z
+  (const z)
+  (\case
+    NamespaceDef _ [] -> fjDown' z
+    NamespaceDef _ _ -> fjDownDown z
+    TermDef _ _ _ -> fjDown z
+    IndDef _ _ [] -> fjDown'Right z
+    IndDef _ _ _ -> fjDownDown z
+    ProdDef _ _ [] -> fjDown'Right z
+    ProdDef _ _ _ -> fjDownDown z)
+  undefined
+  (\case
+    [] -> z
+    _ -> fjDownDown z)
+  where
+    fjDown' = fromJust . Z.down'
+    fjDownDown = fromJust . Z.down . fromJust . Z.down
+    fjDown = fromJust . Z.down
+    fjDown'Right = fromJust . Z.right . fromJust . Z.down'
+down' :: Zipper a -> Zipper a
+down' z = caseHole z
+  (const z)
+  (const $ fromJust $ Z.down' z)
+  (const $ fromJust $ Z.down' z)
+  (\case
+    [] -> z
+    _ -> fromJust $ Z.down' $ fromJust $ Z.down' $ z)
+left :: Zipper a -> Maybe (Zipper a)
+left z = Z.left z >>= \z -> caseHole z
+  (const $ Just z)
+  (const $ Just z)
+  (const $ Just z)
+  (const $ Z.down z)
+
+right :: Zipper a -> Maybe (Zipper a)
+right z = Z.right z >>= \z -> caseHole z
+  (const $ Just z)
+  (const $ Just z)
+  (const $ Just z)
+  (const $ Z.down' z)
+
+up :: Zipper a -> Maybe (Zipper a)
+up z = Z.up z >>= \z -> caseHole z
+  undefined
+  (const $ Just z)
+  (const $ Just z)
+  (const $ Z.up z)
+
+moveLeft :: State -> State
+moveLeft (State z d) = case (query atomic z, d) of
+  (_, Left) -> case left z of
+    Just z -> State z Right
+    Nothing -> State (up z |> z) Left
+  (True, Right) -> State z Left
+  (False, Right) -> State (down z) Right
+
+moveRight :: State -> State
+moveRight (State z d) = case (query atomic z, d) of
+  (_, Right) -> State (right z |> up z |> z) Right
+  (True, Left) -> State z Right
+  (False, Left) -> State (down' z) Left
+
 handleInput :: State -> Command -> State
-handleInput (State z d) input = (flip State $ d) $ case input of
-  Move Left -> down z |> left z |> up z |> z
-  Move Right -> down' z |> right z |> up z |> z
-  HardMove Left -> left z |> z
-  HardMove Right -> right z |> z
-  InsertTerm e -> setHole e z
-  InsertItem i -> setHole i z
+handleInput state@(State z d) cmd = case cmd of
+  Move Left -> moveLeft state
+  Move Right -> moveRight state
+  HardMove Left -> State (left z |> z) d
+  HardMove Right -> State (right z |> z) d
+  InsertTerm e -> State (setHole e z) d
+  InsertItem i -> State (setHole i z) d
 
 parseCommand :: String -> Maybe Command
 parseCommand s = case s of
@@ -220,10 +310,11 @@ render state elabState item = (text, errs)
     renderName :: Name -> T.Text
     renderName name = case name of
       UnfocusedName s -> T.pack s
-      FocusedName s -> yellow "{" <> T.pack s <> yellow "]"
+      FocusedName s Left -> yellow "{" <> T.pack s <> yellow "]"
+      FocusedName s Right -> yellow "[" <> T.pack s <> yellow "}"
     renderPi :: Name -> T.Text -> T.Text -> T.Text
     renderPi name inTy outTy = case name of
-      FocusedName _ -> "(" <> renderName name <> " : " <> inTy <> ") -> " <> outTy
+      FocusedName _ _ -> "(" <> renderName name <> " : " <> inTy <> ") -> " <> outTy
       UnfocusedName "_" -> inTy <> " -> " <> outTy
       UnfocusedName _ -> "(" <> renderName name <> " : " <> inTy <> ") -> " <> outTy
 
@@ -288,18 +379,25 @@ blueM :: Render sig m => T.Text -> m T.Text
 blueM = pure . blue
 
 insertFocusMarker :: Data a => Direction -> a -> a
-insertFocusMarker d f = case cast f :: Maybe Item of
-  Just i -> fromJust $ cast (EditorFocusDef i d)
-  Nothing -> case cast f :: Maybe Term of
-    Just e -> fromJust $ cast (EditorFocus e d)
-    Nothing -> case cast f :: Maybe Name of
-      Just (Name n) -> fromJust $ cast (FocusedName n)
-      Nothing -> f
+insertFocusMarker d f = case f of
+  (cast -> Just i) -> fromJust $ cast (EditorFocusDef i d)
+  (cast -> Just e) -> fromJust $ cast (EditorFocus e d)
+  (cast -> Just (Name n)) -> fromJust $ cast (FocusedName n d)
+  _ -> f
+-- case cast f :: Maybe Item of
+--   Just i -> fromJust $ cast (EditorFocusDef i d)
+--   Nothing -> case cast f :: Maybe Term of
+--     Just e -> fromJust $ cast (EditorFocus e d)
+--     Nothing -> case cast f :: Maybe Name of
+--       Just (Name n) -> fromJust $ cast (FocusedName n)
+--       Nothing -> f
 
 loop :: Edit sig m => State -> m ()
 loop state@(State z d) = do
   LE.sendIO $ clearScreen
   let item = fromZipper (trans (insertFocusMarker d) z)
+  LE.sendIO $ putStrLn $ show d
+  LE.sendIO $ putStrLn $ show $ query typeOf z
   let (cTerm, elabState) = Elab.elabFresh item
   let (s, es) = render state elabState item
   LE.sendIO $ TIO.putStrLn (s <> "\n")

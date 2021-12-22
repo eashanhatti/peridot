@@ -90,7 +90,7 @@ getItem = do
       cons <- replicateM (fromIntegral len) do
         name <- getString
         ty <- getTerm
-        pure $ (Name name, ty)
+        pure $ Constructor (Name name) ty
       pure $ IndDef (Name name) dec cons
     3 -> do
       name <- getString
