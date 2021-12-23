@@ -23,6 +23,8 @@ import Foreign.C.Types
 import Data.Char(chr)
 import System.Console.ANSI(clearScreen)
 import qualified Elaboration as Elab
+import Elaboration.Error
+import Control.Monad(forM_)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Core as C
@@ -44,7 +46,8 @@ data Command
   | InsertTerm Term
   | InsertItem Item
   | Delete
-  | Add
+  | Add Direction
+  | SetName String
   | Quit
 
 type Edit sig m = Has (Lift IO) sig m
@@ -105,6 +108,13 @@ moveListLast z =
   else
     moveListLast (fromJust $ Z.down z)
 
+moveOutList :: Zipper a -> Zipper a
+moveOutList z =
+  if not $ holeIsList $ fromJust $ Z.up z then
+    z
+  else
+    moveOutList $ fromJust $ Z.up z
+
 down :: Zipper a -> Zipper a
 down z = caseHole z
   (const z)
@@ -113,7 +123,24 @@ down z = caseHole z
     TermDef _ _ _ -> fjDown z
     IndDef _ _ _ -> (moveListLast . fjDown) z
     ProdDef _ _ _ -> (moveListLast . fjDown) z)
-  undefined
+  (\case
+    Var _ -> z
+    GVar _ -> z
+    Lam _ _ -> fjDown z
+    App _ _ -> (moveListLast . fjDown) z
+    Ann _ _ -> fjDown z
+    Pi _ _ _ -> fjDown z
+    Let _ _ _ _ -> fjDown z
+    U0 -> z
+    U1 -> z
+    Code _ -> fjDown z
+    Quote _ -> fjDown z
+    Splice _ -> fjDown z
+    MkInd _ _ -> (moveListLast . fjDown) z
+    MkProd _ _ -> (moveListLast . fjDown) z
+    Match _ _ -> (moveListLast . fjDown) z
+    Hole -> z
+    EditorBlank -> z)
   (moveListLast z)
   where
     fjDown' = fromJust . Z.down'
@@ -125,8 +152,27 @@ down' :: Zipper a -> Zipper a
 down' z = caseHole z
   (const z)
   (const $ fromJust $ Z.down' z)
-  (const $ fromJust $ Z.down' z)
+  (\case
+    Var _ -> z
+    GVar _ -> z
+    Lam _ _ -> (fjDown' . fjDown') z
+    App _ _ -> fjDown' z
+    Ann _ _ -> fjDown' z
+    Pi _ _ _ -> fjDown' z
+    Let _ _ _ _ -> fjDown' z
+    U0 -> z
+    U1 -> z
+    Code _ -> fjDown' z
+    Quote _ -> fjDown' z
+    Splice _ -> fjDown' z
+    MkInd _ _ -> fjDown' z
+    MkProd _ _ -> fjDown' z
+    Match _ _ -> (fjDown' . fjDown') z
+    Hole -> z
+    EditorBlank -> z)
   (fromJust $ Z.down' $ fromJust $ Z.down' $ z)
+  where
+    fjDown' = fromJust . Z.down'
 left :: Zipper a -> Maybe (Zipper a)
 left z = case Z.left z of
   Just z -> caseHole z
@@ -134,20 +180,21 @@ left z = case Z.left z of
     (const $ Just z)
     (const $ Just z)
     (Just $ moveListLast z)
-  Nothing ->
-    let z' = fromJust $ Z.up z
-    in
-      if holeIsList z' then
-        Z.left z'
-      else
-        Nothing
+  Nothing -> Z.up z >>= \z' ->
+    if holeIsList z' then
+      Z.left z'
+    else
+      Nothing
 
 right :: Zipper a -> Maybe (Zipper a)
 right z = Z.right z >>= \z -> caseHole z
   (const $ Just z)
   (const $ Just z)
   (const $ Just z)
-  (Z.down' z)
+  (if holeIsEmptyList z then
+      Z.right (moveOutList z)
+    else
+      Z.down' z)
 
 up :: Zipper a -> Maybe (Zipper a)
 up z = Z.up z >>= \z -> caseHole z
@@ -180,24 +227,57 @@ handleInput state@(State z d) cmd = case cmd of
   HardMove Right -> State (right z |> z) d
   InsertTerm e -> State (setHole e z) d
   InsertItem i -> State (setHole i z) d
+  SetName s -> case z of
+    (getHole -> Just _ :: Maybe Name) -> State (setHole (Name s) z) d
+    (getHole -> Just _ :: Maybe Term) -> State (setHole (Var (Name s)) z) d
+    _ -> state
+  Add d -> case Z.up z of
+    Just z' ->
+      if holeIsList z' then
+        case d of
+          Left -> (\z -> State z Right) $ case z' of
+            (getHole -> Just l :: Maybe [Item]) -> fromJust $ Z.down' $ setHole (EditorBlankDef:l) z'
+            (getHole -> Just l :: Maybe [Name]) -> fromJust $ Z.down' $ setHole (Name "_" : l) z'
+            (getHole -> Just l :: Maybe [Constructor]) -> fromJust $ Z.down' $ setHole (EditorBlankCon:l) z'
+            (getHole -> Just l :: Maybe [Term]) -> fromJust $ Z.down' $ setHole (Hole:l) z'
+            (getHole -> Just l :: Maybe [Pattern]) -> fromJust $ Z.down' $ setHole (EditorBlankPat:l) z'
+            (getHole -> Just l :: Maybe [Clause]) -> fromJust $ Z.down' $ setHole (EditorBlankClause:l) z'
+          Right -> (\z -> State z Left) $ case fromJust $ Z.right z of
+            z''@(getHole -> Just l :: Maybe [Item]) -> fromJust $ Z.down' $ setHole (EditorBlankDef:l) z''
+            z''@(getHole -> Just l :: Maybe [Name]) -> fromJust $ Z.down' $ setHole (Name "_" : l) z''
+            z''@(getHole -> Just l :: Maybe [Constructor]) -> fromJust $ Z.down' $ setHole (EditorBlankCon:l) z''
+            z''@(getHole -> Just l :: Maybe [Term]) -> fromJust $ Z.down' $ setHole (Hole:l) z''
+            z''@(getHole -> Just l :: Maybe [Pattern]) -> fromJust $ Z.down' $ setHole (EditorBlankPat:l) z''
+            z''@(getHole -> Just l :: Maybe [Clause]) -> fromJust $ Z.down' $ setHole (EditorBlankClause:l) z''
+      else
+        state
+    Nothing -> state
 
-parseCommand :: String -> Maybe Command
-parseCommand s = case s of
+parseCommand :: String -> State -> Maybe Command
+parseCommand s (State _ d) = case s of
   ";q" -> Just Quit
   "\\" -> Just (InsertTerm $ Lam [Name "_"] Hole)
   "(" -> Just (InsertTerm $ App Hole [Hole])
-  " " -> Just Add
+  " " -> Just (Add d)
   "]" -> Just (Move Right)
   "[" -> Just (Move Left)
-  _ -> Nothing 
+  "val " -> Just (InsertItem $ TermDef (Name "_") Hole Hole)
+  "/" -> Just (InsertTerm $ Pi (Name "_") Hole Hole)
+  "u0 " -> Just (InsertTerm U0)
+  "u1 " -> Just (InsertTerm U1)
+  "Code " -> Just (InsertTerm $ Code Hole)
+  "<" -> Just (InsertTerm $ Quote Hole)
+  "~" -> Just (InsertTerm $ Splice Hole)
+  _ | last s == ' ' -> Just (SetName $ init s)
+  _ -> Nothing
 
 -- Lol just Ctrl+C + Ctrl+V from StackOverflow. `hSetBuffering stdin NoBuffering` doesn't work on Windows.
 getHiddenChar = fmap (chr.fromEnum) c_getch
 foreign import ccall unsafe "conio.h getch"
   c_getch :: IO CInt
 
-getCommand :: String -> IO Command
-getCommand acc = do
+getCommand :: String -> State -> IO Command
+getCommand acc state = do
   putStr "\ESC[2K"
   putStr "\ESC[1000D"
   putStr (reverse acc)
@@ -208,10 +288,10 @@ getCommand acc = do
       if null acc then
         pure Delete
       else
-        getCommand (tail acc)
-    _ -> case parseCommand (reverse $ c:acc) of
+        getCommand (tail acc) state
+    _ -> case parseCommand (reverse $ c:acc) state of
       Just cmd -> pure cmd
-      Nothing -> getCommand (c:acc)
+      Nothing -> getCommand (c:acc) state
 
 type Render sig m = Has (SE.State [Error]) sig m
 
@@ -395,6 +475,16 @@ render state elabState item = (text, errs)
     indentForced :: T.Text -> T.Text
     indentForced s = (if s == "" then "" else "\n") <> (mconcat $ intersperse "\n" $ map ("  "<>) (T.lines s))
 
+renderError :: Error -> T.Text
+renderError (Error _ _ _ err) = case err of
+  UnboundLocal (Name name) -> yellow "Unbound local variable " <> "`" <> T.pack name <> "`"
+  UnboundGlobal (GName gname) -> yellow "Unbound global variable " <> "`" <> T.intercalate "." (map T.pack gname)
+  UnifyError err -> yellow "Failed to unify:\n" <> T.pack (show err)
+  TooManyParams -> yellow "Too many parameters"
+  MalformedProdDec -> yellow "Malformed product declaration"
+  ExpectedProdType -> yellow "Expected a product type"
+  MismatchedFieldNumber -> yellow "Mismatched field number"
+
 red s = "\ESC[31;1m" <> s <> "\ESC[39m"
 green s = "\ESC[32;1m" <> s <> "\ESC[39m"
 purple s = "\ESC[35;1m" <> s <> "\ESC[39m"
@@ -434,7 +524,8 @@ loop state@(State z d) = do
   let (cTerm, elabState) = Elab.elabFresh item
   let (s, es) = render state elabState item
   LE.sendIO $ TIO.putStrLn (s <> "\n")
-  cmd <- LE.sendIO $ getCommand ""
+  forM_ es (LE.sendIO . TIO.putStrLn . renderError)
+  cmd <- LE.sendIO $ getCommand "" state
   case cmd of
     Quit -> pure ()
     _ -> loop (handleInput state cmd)
