@@ -76,26 +76,29 @@ atomic f = case f of
     _ -> False
   _ -> error $ show $ typeOf f
 
+moveListLast :: Zipper a -> Zipper a
+moveListLast z = case query cast z :: Maybe [Item] of
+    Just [] -> fromJust $ Z.left z
+    Just (_:xs) -> moveListLast (fromJust $ Z.down z)
+
 down :: Zipper a -> Zipper a
 down z = caseHole z
   (const z)
   (\case
-    NamespaceDef _ [] -> fjDown' z
-    NamespaceDef _ _ -> fjDownDown z
+    NamespaceDef _ _ -> (moveListLast . fjDown) z
     TermDef _ _ _ -> fjDown z
-    IndDef _ _ [] -> fjDown'Right z
-    IndDef _ _ _ -> fjDownDown z
-    ProdDef _ _ [] -> fjDown'Right z
-    ProdDef _ _ _ -> fjDownDown z)
+    IndDef _ _ _ -> (moveListLast . fjDown) z
+    ProdDef _ _ _ -> (moveListLast . fjDown) z)
   undefined
   (\case
     [] -> z
-    _ -> fjDownDown z)
+    _ -> moveListLast z)
   where
     fjDown' = fromJust . Z.down'
     fjDownDown = fromJust . Z.down . fromJust . Z.down
     fjDown = fromJust . Z.down
     fjDown'Right = fromJust . Z.right . fromJust . Z.down'
+
 down' :: Zipper a -> Zipper a
 down' z = caseHole z
   (const z)
@@ -105,11 +108,14 @@ down' z = caseHole z
     [] -> z
     _ -> fromJust $ Z.down' $ fromJust $ Z.down' $ z)
 left :: Zipper a -> Maybe (Zipper a)
-left z = Z.left z >>= \z -> caseHole z
-  (const $ Just z)
-  (const $ Just z)
-  (const $ Just z)
-  (const $ Z.down z)
+left z = case Z.left z of
+  Just z -> caseHole z
+    (const $ Just z)
+    (const $ Just z)
+    (const $ Just z)
+    (const $ Just $ moveListLast z)
+  Nothing ->
+    (getHole (fromJust $ Z.up z) :: Maybe [Item]) >> Z.left (fromJust $ Z.up z)
 
 right :: Zipper a -> Maybe (Zipper a)
 right z = Z.right z >>= \z -> caseHole z
@@ -135,7 +141,9 @@ moveLeft (State z d) = case (query atomic z, d) of
 
 moveRight :: State -> State
 moveRight (State z d) = case (query atomic z, d) of
-  (_, Right) -> State (right z |> up z |> z) Right
+  (_, Right) -> case right z of
+    Just z -> State z Left
+    Nothing -> State (up z |> z) Right
   (True, Left) -> State z Right
   (False, Left) -> State (down' z) Left
 
@@ -407,7 +415,4 @@ loop state@(State z d) = do
     _ -> loop (handleInput state cmd)
 
 main :: IO ()
-main = do
-  putStr "\ESC[0;75;\"{MOVELEFT}\"p"
-  putStr "\ESC[0;77;\"{MOVERIGHT}\"p"
-  runM @IO $ loop (State (toZipper $ NamespaceDef (Name "main") []) Left)
+main = runM @IO $ loop (State (toZipper $ NamespaceDef (Name "main") [EditorBlankDef]) Left)
