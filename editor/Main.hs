@@ -30,7 +30,7 @@ import qualified Data.Map as DM
 import Elaboration.Error(Error)
 import Numeric.Natural
 import Data.List(intersperse)
-import Data.Maybe(fromJust)
+import Data.Maybe(fromJust, isJust)
 import Data.Typeable(cast, typeOf)
 import Data.Data(Data)
 
@@ -52,13 +52,12 @@ type Edit sig m = Has (Lift IO) sig m
 (|>) = flip fromMaybe
 infixr 1 |>
 
-caseHole :: Zipper a -> (Name -> b) -> (Item -> b) -> (Term -> b) -> ([Item] -> b) -> b
-caseHole z nc ic ec lc = query go z where
-  go h = case h of
-    (cast -> Just i) -> ic i
-    (cast -> Just e) -> ec e
-    (cast -> Just n) -> nc n
-    (cast -> Just l) -> lc l
+caseHole :: Zipper a -> (Name -> b) -> (Item -> b) -> (Term -> b) -> b -> b
+caseHole z nc ic ec lc = case z of
+  (getHole -> Just n :: Maybe Name) -> nc n
+  (getHole -> Just i :: Maybe Item) -> ic i
+  (getHole -> Just e :: Maybe Term) -> ec e
+  (holeIsList -> True) -> lc
 
 atomic :: Data a => a -> Bool
 atomic f = case f of
@@ -76,10 +75,35 @@ atomic f = case f of
     _ -> False
   _ -> error $ show $ typeOf f
 
+-- FIXME: Make this work for all list types
+holeIsList :: Zipper a -> Bool
+holeIsList z = case z of
+  (getHole -> Just _ :: Maybe [Item]) -> True
+  (getHole -> Just _ :: Maybe [String]) -> True
+  (getHole -> Just _ :: Maybe [Name]) -> True
+  (getHole -> Just _ :: Maybe [Constructor]) -> True
+  (getHole -> Just _ :: Maybe [Term]) -> True
+  (getHole -> Just _ :: Maybe [Pattern]) -> True
+  (getHole -> Just _ :: Maybe [Clause]) -> True
+  _ -> False
+
+holeIsEmptyList :: Zipper a -> Bool
+holeIsEmptyList z = case z of
+  (getHole -> Just [] :: Maybe [Item]) -> True
+  (getHole -> Just [] :: Maybe [String]) -> True
+  (getHole -> Just [] :: Maybe [Name]) -> True
+  (getHole -> Just [] :: Maybe [Constructor]) -> True
+  (getHole -> Just [] :: Maybe [Term]) -> True
+  (getHole -> Just [] :: Maybe [Pattern]) -> True
+  (getHole -> Just [] :: Maybe [Clause]) -> True
+  _ -> False
+
 moveListLast :: Zipper a -> Zipper a
-moveListLast z = case query cast z :: Maybe [Item] of
-    Just [] -> fromJust $ Z.left z
-    Just (_:xs) -> moveListLast (fromJust $ Z.down z)
+moveListLast z =
+  if holeIsEmptyList z then
+    fromJust $ Z.left z
+  else
+    moveListLast (fromJust $ Z.down z)
 
 down :: Zipper a -> Zipper a
 down z = caseHole z
@@ -90,9 +114,7 @@ down z = caseHole z
     IndDef _ _ _ -> (moveListLast . fjDown) z
     ProdDef _ _ _ -> (moveListLast . fjDown) z)
   undefined
-  (\case
-    [] -> z
-    _ -> moveListLast z)
+  (moveListLast z)
   where
     fjDown' = fromJust . Z.down'
     fjDownDown = fromJust . Z.down . fromJust . Z.down
@@ -104,32 +126,35 @@ down' z = caseHole z
   (const z)
   (const $ fromJust $ Z.down' z)
   (const $ fromJust $ Z.down' z)
-  (\case
-    [] -> z
-    _ -> fromJust $ Z.down' $ fromJust $ Z.down' $ z)
+  (fromJust $ Z.down' $ fromJust $ Z.down' $ z)
 left :: Zipper a -> Maybe (Zipper a)
 left z = case Z.left z of
   Just z -> caseHole z
     (const $ Just z)
     (const $ Just z)
     (const $ Just z)
-    (const $ Just $ moveListLast z)
+    (Just $ moveListLast z)
   Nothing ->
-    (getHole (fromJust $ Z.up z) :: Maybe [Item]) >> Z.left (fromJust $ Z.up z)
+    let z' = fromJust $ Z.up z
+    in
+      if holeIsList z' then
+        Z.left z'
+      else
+        Nothing
 
 right :: Zipper a -> Maybe (Zipper a)
 right z = Z.right z >>= \z -> caseHole z
   (const $ Just z)
   (const $ Just z)
   (const $ Just z)
-  (const $ Z.down' z)
+  (Z.down' z)
 
 up :: Zipper a -> Maybe (Zipper a)
 up z = Z.up z >>= \z -> caseHole z
   undefined
   (const $ Just z)
   (const $ Just z)
-  (const $ Z.up z)
+  (Z.up z)
 
 moveLeft :: State -> State
 moveLeft (State z d) = case (query atomic z, d) of
