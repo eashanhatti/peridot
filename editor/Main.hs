@@ -35,6 +35,7 @@ import Data.List(intersperse)
 import Data.Maybe(fromJust, isJust)
 import Data.Typeable(cast, typeOf)
 import Data.Data(Data)
+import Debug.Trace
 
 data State = State
   { unZipper :: Zipper Item
@@ -48,23 +49,28 @@ data Command
   | Delete
   | Add Direction
   | SetName String
+  | SetGName [String]
   | Quit
+  deriving Show
 
 type Edit sig m = Has (Lift IO) sig m
 
 (|>) = flip fromMaybe
 infixr 1 |>
 
-caseHole :: Zipper a -> (Name -> b) -> (Item -> b) -> (Term -> b) -> b -> b
-caseHole z nc ic ec lc = case z of
+caseHole :: Zipper a -> (Name -> b) -> (GName -> b) -> (Item -> b) -> (Term -> b) -> b -> (Constructor -> b) -> b
+caseHole z nc gc ic ec lc cc = case z of
   (getHole -> Just n :: Maybe Name) -> nc n
+  (getHole -> Just g :: Maybe GName) -> gc g
   (getHole -> Just i :: Maybe Item) -> ic i
   (getHole -> Just e :: Maybe Term) -> ec e
   (holeIsList -> True) -> lc
+  (getHole -> Just c :: Maybe Constructor) -> cc c
 
 atomic :: Data a => a -> Bool
 atomic f = case f of
   (cast -> Just (Name _)) -> True
+  (cast -> Just (GName _)) -> True
   (cast -> Just e) -> case e of
     Hole -> True
     EditorBlank -> True
@@ -76,6 +82,7 @@ atomic f = case f of
   (cast -> Just i) -> case i of
     EditorBlankDef -> True
     _ -> False
+  (cast -> Just c :: Maybe Constructor) -> False
   _ -> error $ show $ typeOf f
 
 -- FIXME: Make this work for all list types
@@ -118,6 +125,7 @@ moveOutList z =
 down :: Zipper a -> Zipper a
 down z = caseHole z
   (const z)
+  (const z)
   (\case
     NamespaceDef _ _ -> (moveListLast . fjDown) z
     TermDef _ _ _ -> fjDown z
@@ -142,6 +150,7 @@ down z = caseHole z
     Hole -> z
     EditorBlank -> z)
   (moveListLast z)
+  (const $ fromJust $ Z.down z)
   where
     fjDown' = fromJust . Z.down'
     fjDownDown = fromJust . Z.down . fromJust . Z.down
@@ -150,6 +159,7 @@ down z = caseHole z
 
 down' :: Zipper a -> Zipper a
 down' z = caseHole z
+  (const z)
   (const z)
   (const $ fromJust $ Z.down' z)
   (\case
@@ -171,6 +181,7 @@ down' z = caseHole z
     Hole -> z
     EditorBlank -> z)
   (fromJust $ Z.down' $ fromJust $ Z.down' $ z)
+  (const $ fromJust $ Z.down' z)
   where
     fjDown' = fromJust . Z.down'
 left :: Zipper a -> Maybe (Zipper a)
@@ -179,7 +190,9 @@ left z = case Z.left z of
     (const $ Just z)
     (const $ Just z)
     (const $ Just z)
+    (const $ Just z)
     (Just $ moveListLast z)
+    (const $ Just z)
   Nothing -> Z.up z >>= \z' ->
     if holeIsList z' then
       Z.left z'
@@ -191,17 +204,21 @@ right z = Z.right z >>= \z -> caseHole z
   (const $ Just z)
   (const $ Just z)
   (const $ Just z)
+  (const $ Just z)
   (if holeIsEmptyList z then
       Z.right (moveOutList z)
     else
       Z.down' z)
+  (const $ Just z)
 
 up :: Zipper a -> Maybe (Zipper a)
 up z = Z.up z >>= \z -> caseHole z
   undefined
+  undefined
   (const $ Just z)
   (const $ Just z)
   (Z.up z)
+  (const $ Just z)
 
 moveLeft :: State -> State
 moveLeft (State z d) = case (query atomic z, d) of
@@ -231,6 +248,10 @@ handleInput state@(State z d) cmd = case cmd of
     (getHole -> Just _ :: Maybe Name) -> State (setHole (Name s) z) d
     (getHole -> Just _ :: Maybe Term) -> State (setHole (Var (Name s)) z) d
     _ -> state
+  SetGName ns -> case z of
+    (getHole -> Just _ :: Maybe GName) -> State (setHole (GName ns) z) d
+    (getHole -> Just _ :: Maybe Term) -> State (setHole (GVar (GName ns)) z) d
+    _ -> state
   Add d -> case Z.up z of
     Just z' ->
       if holeIsList z' then
@@ -250,7 +271,16 @@ handleInput state@(State z d) cmd = case cmd of
             z''@(getHole -> Just l :: Maybe [Pattern]) -> fromJust $ Z.down' $ setHole (EditorBlankPat:l) z''
             z''@(getHole -> Just l :: Maybe [Clause]) -> fromJust $ Z.down' $ setHole (EditorBlankClause:l) z''
       else
-        state
+        case (d, z) of
+          (Right, getHole . fromJust . Z.up -> Just (NamespaceDef _ _)) ->
+            let z'' = fromJust $ Z.down z'
+            in State (fromJust $ Z.down' $ setHole (EditorBlankDef:(fromJust $ getHole z'')) z'') Left
+          (Right, getHole . fromJust . Z.up -> Just (ProdDef _ _ _)) ->
+            let z'' = fromJust $ Z.down z'
+            in State (fromJust $ Z.down' $ setHole (Hole:(fromJust $ getHole z'')) z'') Left
+          (Right, getHole . fromJust . Z.right -> Just l :: Maybe [Constructor]) ->
+            let z'' = fromJust $ Z.right z
+            in State (fromJust $ Z.down' $ setHole (Constructor (Name "_") Hole : l) z'') Left
     Nothing -> state
 
 parseCommand :: String -> State -> Maybe Command
@@ -262,14 +292,28 @@ parseCommand s (State _ d) = case s of
   "]" -> Just (Move Right)
   "[" -> Just (Move Left)
   "val " -> Just (InsertItem $ TermDef (Name "_") Hole Hole)
+  "prod " -> Just (InsertItem $ ProdDef (Name "_") Hole [])
+  "ind " -> Just (InsertItem $ IndDef (Name "_") Hole [])
   "/" -> Just (InsertTerm $ Pi (Name "_") Hole Hole)
   "u0 " -> Just (InsertTerm U0)
   "u1 " -> Just (InsertTerm U1)
   "Code " -> Just (InsertTerm $ Code Hole)
   "<" -> Just (InsertTerm $ Quote Hole)
   "~" -> Just (InsertTerm $ Splice Hole)
+  "i#" -> Just (InsertTerm $ MkInd (GName []) [])
+  "p#" -> Just (InsertTerm $ MkProd Hole [])
+  _ | last s == ' ' && elem '.' s -> Just (SetGName $ reverse $ split (init s) "" '.')
   _ | last s == ' ' -> Just (SetName $ init s)
   _ -> Nothing
+  where
+    split :: String -> String -> Char -> [String]
+    split s acc d = case s of
+      [] -> [acc]
+      c:cs ->
+        if c == d then
+          acc : split cs "" d
+        else
+          split cs (acc ++ [c]) d
 
 -- Lol just Ctrl+C + Ctrl+V from StackOverflow. `hSetBuffering stdin NoBuffering` doesn't work on Windows.
 getHiddenChar = fmap (chr.fromEnum) c_getch
@@ -355,7 +399,6 @@ render state elabState item = (text, errs)
           C.Meta _ _ -> pure "\ESC[7m?\ESC[27m"
           C.InsertedMeta _ _ _ -> pure "\ESC[7m?\ESC[27m"
           C.ElabError s -> renderSTerm s
-          _ -> error $ show term
         goFunIntro :: C.TermInner -> Natural -> [T.Text] -> (C.Term, T.Text)
         goFunIntro (C.FunIntro body _ (C.FunIntroInfo _ s)) n acc = case n of
           1 -> (body, T.intercalate " " $ reverse (renderName s : acc))
@@ -380,7 +423,7 @@ render state elabState item = (text, errs)
           mpath = init s
           tname = combine [pure $ T.pack $ mconcat $ intersperse "." mpath, pure ".", renderVar ty name]  
         in case gname of
-          FocusedGName _ -> combine [yellowM "{", tname, yellowM "]"]
+          FocusedGName _ _ -> combine [yellowM "{", tname, yellowM "]"]
           UnfocusedGName _ -> tname
     renderSTerm :: Render sig m => Term -> m T.Text
     renderSTerm term = case term of
@@ -506,6 +549,7 @@ insertFocusMarker d f = case f of
   (cast -> Just i) -> fromJust $ cast (EditorFocusDef i d)
   (cast -> Just e) -> fromJust $ cast (EditorFocus e d)
   (cast -> Just (Name n)) -> fromJust $ cast (FocusedName n d)
+  (cast -> Just (GName ns)) -> fromJust $ cast (FocusedGName ns d)
   _ -> f
 -- case cast f :: Maybe Item of
 --   Just i -> fromJust $ cast (EditorFocusDef i d)
@@ -517,7 +561,7 @@ insertFocusMarker d f = case f of
 
 loop :: Edit sig m => State -> m ()
 loop state@(State z d) = do
-  LE.sendIO $ clearScreen
+  LE.sendIO clearScreen
   let item = fromZipper (trans (insertFocusMarker d) z)
   LE.sendIO $ putStrLn $ show d
   LE.sendIO $ putStrLn $ show $ query typeOf z
@@ -526,9 +570,10 @@ loop state@(State z d) = do
   LE.sendIO $ TIO.putStrLn (s <> "\n")
   forM_ es (LE.sendIO . TIO.putStrLn . renderError)
   cmd <- LE.sendIO $ getCommand "" state
+  LE.sendIO $ putStrLn $ show cmd
   case cmd of
     Quit -> pure ()
     _ -> loop (handleInput state cmd)
 
 main :: IO ()
-main = runM @IO $ loop (State (toZipper $ NamespaceDef (Name "main") [EditorBlankDef]) Left)
+main = runM @IO $ loop (State (toZipper $ NamespaceDef (Name "main") []) Left)

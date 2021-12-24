@@ -18,7 +18,7 @@ unName name = case name of
   UnfocusedName s -> s
   FocusedName s _ -> s
 
-data GName = UnfocusedGName [String] | FocusedGName [String]
+data GName = UnfocusedGName [String] | FocusedGName [String] Direction
   deriving (Show, Eq, Ord, Data)
 
 pattern GName ns <- (unGName -> ns) where
@@ -26,7 +26,7 @@ pattern GName ns <- (unGName -> ns) where
 
 unGName name = case name of
   UnfocusedGName ns -> ns
-  FocusedGName ns -> ns
+  FocusedGName ns _ -> ns
 
 data Constructor = FocusedConstructor Name Term | UnfocusedConstructor Name Term | EditorBlankCon
   deriving (Show, Eq, Data)
