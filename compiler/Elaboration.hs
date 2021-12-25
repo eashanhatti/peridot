@@ -593,18 +593,23 @@ type PatVars = Map Global (N.Value, Index)
 checkMatch :: PatVars -> Clauses -> N.Value -> Elab C.Term
 checkMatch patVars clauses goal = do
   clauses <- removeUnreachable clauses >>= (pure . simplifyConstraints) >>= instantiate patVars
-  case N.unVal goal of
-    N.FunType inTy outTy _ -> do
-      let pats = map (fromJust . extractAppPat) (userPats clauses) -- TODO: Error reporting
-      gl <- Global <$> freshInt
-      let clauses' = map (\((p, np), (cts, _, e)) -> ((BindingPat gl, p):cts, np, e)) (zip pats clauses)
-      bindUnnamed inTy
-      outTy <- appClosure outTy inTy
-      cGoal <- readback goal
-      tree <- scope $ checkMatch (bindPatVar patVars gl inTy) clauses' outTy
-      pure $ C.gen $ C.FunIntro tree cGoal undefined
-    _ -> undefined
+  case solved clauses of
+    Just body -> check body goal
+    Nothing -> case N.unVal goal of
+      N.FunType inTy outTy _ -> do
+        let pats = map (fromJust . extractAppPat) (userPats clauses) -- TODO: Error reporting
+        gl <- Global <$> freshInt
+        let clauses' = map (\((p, np), (cts, _, e)) -> ((BindingPat gl, p):cts, np, e)) (zip pats clauses)
+        bindUnnamed inTy
+        outTy <- appClosure outTy inTy
+        cGoal <- readback goal
+        tree <- scope $ checkMatch (bindPatVar patVars gl inTy) clauses' outTy
+        pure $ C.gen $ C.FunIntro tree cGoal undefined
+      _ -> undefined
   where
+    solved :: Clauses -> Maybe S.Term
+    solved = fmap (\(_, _, e) -> e) . find (\(cts, _, _) -> length cts == 0)
+
     removeUnreachable :: Clauses -> Elab Clauses
     removeUnreachable = filterM \(cts, _, _) -> allM sensible cts
     sensible :: (ConstraintPat, S.Pattern) -> Elab Bool
