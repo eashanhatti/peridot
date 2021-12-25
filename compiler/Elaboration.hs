@@ -26,7 +26,7 @@ import Data.Map(Map, (!))
 import Debug.Trace
 import GHC.Stack
 import Prelude hiding(Ordering)
--- import Debug.Pretty.Simple(pTraceShowId, pTrace)
+import Debug.Pretty.Simple(pTraceShowId, pTrace)
 import Data.Maybe(fromJust)
 import Etc
 import Elaboration.Error
@@ -176,6 +176,7 @@ dependencies items = case items of
       S.MkInd name fields -> do
         p <- ask
         combine <$> pure (Map.singleton name (Set.singleton p)) <*> searchTerms fields
+      S.Match cs -> combine (searchPats (map (\(S.Clause p _) -> p) cs)) <$> searchTerms (map (\(S.Clause _ e) -> e) cs)
       S.Hole -> pure mempty
       S.EditorBlank -> pure mempty
     searchTerms :: [S.Term] -> Reader S.ItemPart (Map S.GName (Set S.ItemPart))
@@ -185,6 +186,13 @@ dependencies items = case items of
         names <- search' a
         names' <- searchTerms as
         pure $ combine names names'
+    searchPat :: S.Pattern -> Map S.GName (Set S.ItemPart)
+    searchPat pat = case pat of
+      S.BindingPat _ -> mempty
+      S.ConPat gname ps -> Map.singleton gname (Set.singleton S.Dec) `combine` searchPats ps
+      S.AppPat ps -> searchPats ps
+      S.EditorFocusPat pat' -> searchPat pat'
+    searchPats = foldl' (\m p -> searchPat p `combine` m) mempty
     combine :: Map S.GName (Set S.ItemPart) -> Map S.GName (Set S.ItemPart) -> Map S.GName (Set S.ItemPart)
     combine = Map.unionWith Set.union
 
@@ -206,8 +214,8 @@ ordering graph = case cycles graph of
 
 checkProgram :: HasCallStack => Program -> Elab (C.Program, Graph)
 checkProgram program =
-  let deps = dependencies (Map.toList program)
-  in case ordering deps of
+  let deps = pTraceShowId $ dependencies (Map.toList program)
+  in case pTraceShowId $ ordering deps of
     Right ord -> do
       loopDeclare program ord
       program <- loopDefine program ord
@@ -584,6 +592,7 @@ data ElabMatchError
 data ConstraintPat
   = ConPat Id [ConstraintPat]
   | BindingPat Global
+  deriving Show
 
 -- Partially deconstructed clause
 type PDClause = ([(ConstraintPat, S.Pattern)], S.Pattern, S.Term)
@@ -597,18 +606,59 @@ checkMatch patVars clauses goal = do
     Just body -> check body goal
     Nothing -> case N.unVal goal of
       N.FunType inTy outTy _ -> do
-        let pats = map (fromJust . extractAppPat) (userPats clauses) -- TODO: Error reporting
-        gl <- Global <$> freshInt
-        let clauses' = map (\((p, np), (cts, _, e)) -> ((BindingPat gl, p):cts, np, e)) (zip pats clauses)
-        bindUnnamed inTy
+        cInTy <- readback inTy
+        meta <- freshMeta cInTy
+        let C.Term _ (C.InsertedMeta _ gl _) = meta
+        vMeta <- eval meta
+        let clauses' = map (\(cts, S.AppPat (p:ps), e) -> (cts ++ [(BindingPat gl, p)], S.AppPat ps, e)) clauses -- TODO: Error reporting
+        defineUnnamed vMeta
         outTy <- appClosure outTy inTy
         cGoal <- readback goal
         tree <- scope $ checkMatch (bindPatVar patVars gl inTy) clauses' outTy
-        pure $ C.gen $ C.FunIntro tree cGoal undefined
-      _ -> undefined
+        pure $ C.gen $ C.FunIntro tree cGoal (error "TODO")
+      _ ->
+        if null clauses then
+          -- error "TODO" -- Rule 'SplitEmpty'
+          pure $ C.gen C.ElabBlank
+        else
+          case find isConConstraint ((\(cts, _, _) -> cts) (head clauses)) of
+            Just (BindingPat gl, S.ConPat (S.GName (_:gname)) _) -> globalDef (S.GName gname) >>= \case
+              Just (C.IndDef _ _ (C.IndDefInfo cns)) -> do
+                conDefs <- mapM (pure . fromJust <=< globalDef) (map (S.GName . (:gname)) cns)
+                let !() = traceShow conDefs ()
+                branches <- forM conDefs \(C.ConDef nid ty) -> scope do
+                  conPatVars <- forM (map snd . fst $ telescope ty) \ty -> do
+                    meta <- freshMeta ty
+                    vTy <- eval ty
+                    let C.Term _ (C.InsertedMeta _ gl _) = meta
+                    vMeta <- eval meta
+                    defineUnnamed vMeta
+                    pure (gl, (vMeta, vTy))
+                  let conPat = ConPat nid (map (BindingPat . fst) conPatVars)
+                  vTy <- eval ty
+                  putSolution gl (N.gen $ N.IndIntro nid (map (fst . snd) conPatVars) vTy)
+                  let clauses' = update clauses gl conPat
+                  let patVars' = foldl' (\patVars (gl, vTy) -> bindPatVar patVars gl vTy) patVars (map (second fst) conPatVars)
+                  checkMatch patVars' clauses' goal
+                let Just (patVarTy, patVarIx) = Map.lookup gl patVars
+                cPatVarTy <- readback patVarTy
+                pure $ C.gen $ C.IndElim (C.gen $ C.Var patVarIx cPatVarTy undefined) branches
+              _ -> error "TODO"
+            Nothing -> error $ "TODO" ++ show clauses
   where
     solved :: Clauses -> Maybe S.Term
-    solved = fmap (\(_, _, e) -> e) . find (\(cts, _, _) -> length cts == 0)
+    solved = fmap (\(_, _, e) -> e) . find (\(cts, p, _) -> length cts == 0 && p == S.AppPat [])
+
+    isConConstraint :: (ConstraintPat, S.Pattern) -> Bool
+    isConConstraint pair = case pair of
+      (BindingPat _, S.ConPat _ _) -> True
+      _ -> False 
+    update :: Clauses -> Global -> ConstraintPat -> Clauses
+    update clauses gl cp = map (\(cts, p, e) -> (map (first go) cts, p, e)) clauses where
+      go :: ConstraintPat -> ConstraintPat
+      go cp' = case cp' of
+        BindingPat gl' | gl == gl' -> cp
+        _ -> cp'
 
     removeUnreachable :: Clauses -> Elab Clauses
     removeUnreachable = filterM \(cts, _, _) -> allM sensible cts
@@ -643,12 +693,6 @@ checkMatch patVars clauses goal = do
 
     bindPatVar :: PatVars -> Global -> N.Value -> PatVars
     bindPatVar patVars gl ty = Map.insert gl (ty, Index 0) (Map.map (second incIndex) patVars)
-    userPats :: Clauses -> [S.Pattern]
-    userPats = map \(_, p, _) -> p
-    extractAppPat :: S.Pattern -> Maybe (S.Pattern, S.Pattern)
-    extractAppPat p = case p of
-      S.AppPat p' p'' -> Just (p', p'')
-      _ -> Nothing
 
 telescope :: C.Term -> ([(S.Name, C.Term)], C.Term)
 telescope term = go term [] where
@@ -723,6 +767,14 @@ define name def ty = do
   put $ state
     { locals = def:(locals state)
     , ltypes = Map.insert name (ty, Index 0) $ Map.map (\(ty, ix) -> (ty, Index $ unIndex ix + 1)) (ltypes state)
+    , level = Level $ unLevel (level state) + 1
+    , binderInfos = C.Concrete:(binderInfos state) }
+
+defineUnnamed :: N.Value -> Elab ()
+defineUnnamed def = do
+  state <- get
+  put $ state
+    { locals = def:(locals state)
     , level = Level $ unLevel (level state) + 1
     , binderInfos = C.Concrete:(binderInfos state) }
 
@@ -821,9 +873,15 @@ unify val val' = do
   state <- get
   let ((), (newMetas, newErrors, _)) = U.runUnify (U.unify (level state) val val') (metas state, [], gnameMapToIdMap (globals state))
   errs <- case newErrors of
-    [] -> do put $ state { metas = newMetas }; pure []
+    [] -> put (state { metas = newMetas }) >> pure []
     _ -> forM (map UnifyError newErrors) putError
   pure errs
+
+putSolution :: HasCallStack => Global -> N.Value -> Elab ()
+putSolution gl sol = do
+  state <- get
+  let ((), (newMetas, _, _)) = U.runUnify (U.putSolution gl sol) (metas state, [], gnameMapToIdMap (globals state))
+  put $ state { metas = newMetas }
 
 putError :: InnerError -> Elab Error
 putError err = do

@@ -309,6 +309,7 @@ unify lv val val' = do
     (N.StuckFlexVar (Just vty) gl spine, N.StuckFlexVar (Just vty') gl' spine') | gl == gl' -> do
       unify lv vty vty'
       unifySpines lv spine spine
+    (N.StuckGVar nid _ _, N.StuckGVar nid' _ _) | nid == nid' -> pure ()
     (N.StuckFlexVar Nothing gl spine, N.StuckFlexVar Nothing gl' spine') | gl == gl' -> unifySpines lv spine spine
     -- FIXME? Unify types
     (_, N.StuckFlexVar _ gl spine) -> solve lv gl spine val

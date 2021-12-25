@@ -56,7 +56,7 @@ data ItemPart = Dec | Def
 data Pattern
   = BindingPat Name
   | ConPat GName [Pattern]
-  | AppPat Pattern Pattern
+  | AppPat [Pattern]
   | EditorFocusPat Pattern
   deriving (Show, Eq, Data)
 

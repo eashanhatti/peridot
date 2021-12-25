@@ -26,7 +26,9 @@ data HoleName = HoleName Int
   deriving (Show, Eq)
 
 data Program = Program [Item]
-  deriving Show
+
+instance Show Program where
+  show (Program is) = concat $ intersperse "\n" (map show is)
 
 data IndDefInfo = IndDefInfo [String]
   deriving (Show, Eq)
@@ -149,12 +151,14 @@ instance Show TermInner where
           --   InsertedMeta _ gl' _ | gl == gl' -> "_"
           --   _ -> show ty
       in "(?" ++ show (unGlobal gl) ++ " : " ++ sty ++ ";" ++ (show $ Prelude.map show bis) ++ ")"
-    GVar nid ty _ -> "(g" ++ show (unId nid) ++ ":" ++ show ty ++ ")"
+    GVar nid ty _ -> "g" ++ show (unId nid){- ++ ":" ++ show ty ++ ")"-}
     IndIntro nid args ty -> "#" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show args) ++ "]" ++ ":" ++ show ty
     IndType nid indices -> "Ind" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
+    IndElim scr bs -> "case " ++ show scr ++ " of" ++ (concat $ map ("\n  "++) (map show bs))
     ProdIntro ty fields -> "{" ++ (concat $ intersperse ", " $ Prelude.map show fields) ++ "}" ++ ":" ++ show ty
     ProdType nid indices -> "Prod" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
     ElabError _ -> "<error>"
+    ElabBlank -> "<blank>"
 
 -- shift :: Set Index -> Term -> Reader Int Term
 -- shift bounds = \case
