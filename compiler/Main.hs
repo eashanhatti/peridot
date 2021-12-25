@@ -21,6 +21,7 @@ import Prelude hiding(readFile)
 -- main = do
 --   putStrLn $ show $ runReader (N.eval e) (Level 0, mempty, [])
 
+e :: S.Item
 e = undefined
 
 main :: IO ()

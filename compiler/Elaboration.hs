@@ -16,7 +16,7 @@ import qualified Surface as S
 import qualified Core as C
 import Var
 import Control.Monad.State(State, get, put, runState)
-import Control.Monad(forM, filterM)
+import Control.Monad(forM, filterM, (>=>), (<=<))
 import Data.Foldable(foldlM)
 import Control.Monad.Reader(runReader, Reader, ask, local)
 import qualified Data.Set as Set
@@ -30,7 +30,8 @@ import Prelude hiding(Ordering)
 import Data.Maybe(fromJust)
 import Etc
 import Elaboration.Error
-import Control.Monad.Extra(andM)
+import Control.Monad.Extra(andM, allM)
+import Data.Bifunctor
 
 data ElabState = ElabState
   { metas :: N.Metas
@@ -584,25 +585,28 @@ data ConstraintPat
   = ConPat Id [ConstraintPat]
   | BindingPat Global
 
-type Clauses = [([(ConstraintPat, S.Pattern)], S.Pattern, S.Term)]
+-- Partially deconstructed clause
+type PDClause = ([(ConstraintPat, S.Pattern)], S.Pattern, S.Term)
+type Clauses = [PDClause]
+type PatVars = Map Global (N.Value, Index)
 
-checkMatch :: Map Global Index -> Clauses -> N.Value -> Elab C.Term
+checkMatch :: PatVars -> Clauses -> N.Value -> Elab C.Term
 checkMatch patVars clauses goal = do
-  let clauses' = (simplifyConstraints . removeUnreachable) clauses
+  clauses <- removeUnreachable clauses >>= (pure . simplifyConstraints) >>= instantiate patVars
   case N.unVal goal of
     N.FunType inTy outTy _ -> do
-      let pats = map (fromJust . extractAppPat) (userPats clauses')
+      let pats = map (fromJust . extractAppPat) (userPats clauses) -- TODO: Error reporting
       gl <- Global <$> freshInt
-      let clauses'' = map (\((p, np), (cts, _, e)) -> ((BindingPat gl, p):cts, np, e)) (zip pats clauses')
+      let clauses' = map (\((p, np), (cts, _, e)) -> ((BindingPat gl, p):cts, np, e)) (zip pats clauses)
       bindUnnamed inTy
       outTy <- appClosure outTy inTy
       cGoal <- readback goal
-      tree <- scope $ checkMatch (bindPatVar patVars gl) clauses'' outTy
+      tree <- scope $ checkMatch (bindPatVar patVars gl inTy) clauses' outTy
       pure $ C.gen $ C.FunIntro tree cGoal undefined
     _ -> undefined
   where
     removeUnreachable :: Clauses -> Elab Clauses
-    removeUnreachable = undefined
+    removeUnreachable = filterM \(cts, _, _) -> allM sensible cts
     sensible :: (ConstraintPat, S.Pattern) -> Elab Bool
     sensible pair = case pair of
       (ConPat nid cts, S.ConPat gname ps) -> do
@@ -613,10 +617,27 @@ checkMatch patVars clauses goal = do
           pure False
       (BindingPat _, _) -> pure True
       (_, S.BindingPat _) -> pure True
-    simplifyConstraints :: Clauses -> Elab Clauses
-    simplifyConstraints = undefined
-    bindPatVar :: Map Global Index -> Global -> Map Global Index
-    bindPatVar patVars gl = Map.insert gl (Index 0) (Map.map incIndex patVars)
+
+    -- Precondition: Constraints must all be sensible
+    simplifyConstraints :: Clauses -> Clauses
+    simplifyConstraints = map \(cts, p, e) -> (concatMap go cts, p, e) where
+      go :: (ConstraintPat, S.Pattern) -> [(ConstraintPat, S.Pattern)]
+      go pair = case pair of
+        (ConPat _ cts, S.ConPat _ ps) -> concatMap go (zip cts ps)
+        _ -> [pair]
+
+    instantiate :: PatVars -> Clauses -> Elab Clauses
+    instantiate patVars clauses = mapM (\(cts, p, e) -> filterM go cts >>= \cts -> pure (cts, p, e)) clauses where
+      go :: (ConstraintPat, S.Pattern) -> Elab Bool
+      go pair = case pair of
+        (BindingPat gl, S.BindingPat name) -> do
+          let Just (ty, ix) = Map.lookup gl patVars
+          bindName name ty ix
+          pure False
+        (_, _) -> pure True
+
+    bindPatVar :: PatVars -> Global -> N.Value -> PatVars
+    bindPatVar patVars gl ty = Map.insert gl (ty, Index 0) (Map.map (second incIndex) patVars)
     userPats :: Clauses -> [S.Pattern]
     userPats = map \(_, p, _) -> p
     extractAppPat :: S.Pattern -> Maybe (S.Pattern, S.Pattern)
@@ -685,6 +706,11 @@ bindUnnamed ty = do
     { locals = (N.gen $ N.StuckRigidVar ty (level state) [] (C.VarInfo "<anon>")):(locals state)
     , level = Level $ unLevel (level state) + 1
     , binderInfos = C.Abstract:(binderInfos state) }
+
+bindName :: S.Name -> N.Value -> Index -> Elab ()
+bindName name ty ix = do
+  state <- get
+  put $ state { ltypes = Map.insert name (ty, ix) (ltypes state) }
 
 define :: S.Name -> N.Value -> N.Value -> Elab ()
 define name def ty = do
