@@ -91,8 +91,10 @@ data TermInner
   | QuoteElim Term
   | IndType Id [Term]
   | IndIntro Id [Term] Type
+  | IndElim Term [Term]
   | ProdType Id [Term]
   | ProdIntro Type [Term]
+  | ProdElim Term Term
   | Letrec [Term] Term LetrecInfo
   | Meta Global (Maybe Type)
   | InsertedMeta [BinderInfo] Global (Maybe Type)

@@ -16,7 +16,7 @@ import qualified Surface as S
 import qualified Core as C
 import Var
 import Control.Monad.State(State, get, put, runState)
-import Control.Monad(forM)
+import Control.Monad(forM, filterM)
 import Data.Foldable(foldlM)
 import Control.Monad.Reader(runReader, Reader, ask, local)
 import qualified Data.Set as Set
@@ -30,6 +30,7 @@ import Prelude hiding(Ordering)
 import Data.Maybe(fromJust)
 import Etc
 import Elaboration.Error
+import Control.Monad.Extra(andM)
 
 data ElabState = ElabState
   { metas :: N.Metas
@@ -374,6 +375,7 @@ check term goal = do
           else do
             err <- putError MismatchedFieldNumber
             pure $ C.withErrsGen [err] $ C.ElabError term)
+    (S.Match clauses, _) -> checkMatch mempty (map (\(S.Clause p e) -> ([], p, e)) clauses) goal
     (_, N.QuoteType ty) | N.unVal univ /= N.TypeType1 -> do
       putGoalUniv (N.gen $ N.TypeType0)
       (cTerm, termTy) <- infer term
@@ -575,6 +577,53 @@ infer term = getGoalUniv >>= \univ -> scope case term of
       cTermMeta <- freshMeta cTypeMeta
       pure (cTermMeta, vTypeMeta)
 
+data ElabMatchError
+  = NotAllAppPats
+
+data ConstraintPat
+  = ConPat Id [ConstraintPat]
+  | BindingPat Global
+
+type Clauses = [([(ConstraintPat, S.Pattern)], S.Pattern, S.Term)]
+
+checkMatch :: Map Global Index -> Clauses -> N.Value -> Elab C.Term
+checkMatch patVars clauses goal = do
+  let clauses' = (simplifyConstraints . removeUnreachable) clauses
+  case N.unVal goal of
+    N.FunType inTy outTy _ -> do
+      let pats = map (fromJust . extractAppPat) (userPats clauses')
+      gl <- Global <$> freshInt
+      let clauses'' = map (\((p, np), (cts, _, e)) -> ((BindingPat gl, p):cts, np, e)) (zip pats clauses')
+      bindUnnamed inTy
+      outTy <- appClosure outTy inTy
+      cGoal <- readback goal
+      tree <- scope $ checkMatch (bindPatVar patVars gl) clauses'' outTy
+      pure $ C.gen $ C.FunIntro tree cGoal undefined
+    _ -> undefined
+  where
+    removeUnreachable :: Clauses -> Elab Clauses
+    removeUnreachable = undefined
+    sensible :: (ConstraintPat, S.Pattern) -> Elab Bool
+    sensible pair = case pair of
+      (ConPat nid cts, S.ConPat gname ps) -> do
+        gname' <- idName nid
+        if gname == gname' then
+          andM (map sensible (zip cts ps))
+        else
+          pure False
+      (BindingPat _, _) -> pure True
+      (_, S.BindingPat _) -> pure True
+    simplifyConstraints :: Clauses -> Elab Clauses
+    simplifyConstraints = undefined
+    bindPatVar :: Map Global Index -> Global -> Map Global Index
+    bindPatVar patVars gl = Map.insert gl (Index 0) (Map.map incIndex patVars)
+    userPats :: Clauses -> [S.Pattern]
+    userPats = map \(_, p, _) -> p
+    extractAppPat :: S.Pattern -> Maybe (S.Pattern, S.Pattern)
+    extractAppPat p = case p of
+      S.AppPat p' p'' -> Just (p', p'')
+      _ -> Nothing
+
 telescope :: C.Term -> ([(S.Name, C.Term)], C.Term)
 telescope term = go term [] where
   go term acc = case C.unTerm term of
@@ -626,6 +675,14 @@ bind name ty = do
   put $ state
     { locals = (N.gen $ N.StuckRigidVar ty (level state) [] (C.VarInfo $ S.unName name)):(locals state)
     , ltypes = Map.insert name (ty, Index 0) $ Map.map (\(ty, ix) -> (ty, Index $ unIndex ix + 1)) (ltypes state)
+    , level = Level $ unLevel (level state) + 1
+    , binderInfos = C.Abstract:(binderInfos state) }
+
+bindUnnamed :: N.Value -> Elab ()
+bindUnnamed ty = do
+  state <- get
+  put $ state
+    { locals = (N.gen $ N.StuckRigidVar ty (level state) [] (C.VarInfo "<anon>")):(locals state)
     , level = Level $ unLevel (level state) + 1
     , binderInfos = C.Abstract:(binderInfos state) }
 
@@ -748,8 +805,15 @@ freshName :: String -> Elab S.Name
 freshName base = do
   state <- get
   let n = nextName state
-  put $ state { nextName = nextName state + 1 }
+  put $ state { nextName = n + 1 }
   pure $ S.Name (base ++ show n)
+
+freshInt :: Elab Int
+freshInt = do
+  state <- get
+  let n = nextName state
+  put $ state { nextName = n + 1 }
+  pure n
 
 putGoalUniv :: N.Value -> Elab ()
 putGoalUniv univ = do

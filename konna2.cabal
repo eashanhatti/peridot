@@ -24,11 +24,11 @@ executable konna_compiler
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    other-modules: Var, Core, Norm, Surface, Unification, Elaboration, Parsing
+    other-modules: Var, Core, Norm, Surface, Unification, Elaboration, Parsing, Elaboration.Error, Etc
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
-    build-depends:    base ^>=4.15.0.0, containers^>=0.6.4.1, mtl, array, pretty-simple, text, binary, bytestring
+    build-depends:    base ^>=4.15.0.0, containers^>=0.6.4.1, mtl, array, pretty-simple, text, binary, bytestring, extra
     hs-source-dirs:   compiler
     default-language: Haskell2010
 

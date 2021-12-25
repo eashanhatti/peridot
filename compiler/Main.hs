@@ -17,19 +17,17 @@ import Data.Binary.Get(runGet)
 import Data.ByteString.Lazy(readFile)
 import Prelude hiding(readFile)
 
--- e = C.Letrec [C.Var (Index 0) C.TypeType0] (C.Var (Index 1) C.ElabError)
--- e = C.Letrec [C.TypeType1] (C.Var (Index 0) C.ElabError)
--- e = C.Letrec [] C.TypeType1
-
 -- main :: IO ()
 -- main = do
 --   putStrLn $ show $ runReader (N.eval e) (Level 0, mempty, [])
+
+e = undefined
 
 main :: IO ()
 main = do
   file <- readFile "source.kon"
   putStrLn "Start parsing"
-  let program = runGet Parse.getItem file
+  let program = e
   putStrLn "Done parsing"
   putStrLn "Surface term:"
   -- Text.putStrLn $ pShow program

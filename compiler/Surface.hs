@@ -54,10 +54,10 @@ data ItemPart = Dec | Def
   deriving (Eq, Ord, Show)
 
 data Pattern
-  = BindingPat String
+  = BindingPat Name
   | ConPat GName [Pattern]
+  | AppPat Pattern Pattern
   | EditorFocusPat Pattern
-  | EditorBlankPat
   deriving (Show, Eq, Data)
 
 data Clause = UnfocusedClause Pattern Term | FocusedClause Pattern Term | EditorBlankClause
@@ -85,7 +85,7 @@ data Term
   | Splice Term
   | MkInd GName [Term]
   | MkProd Term [Term]
-  | Match [Term] [Clause]
+  | Match [Clause]
   | Hole
   | EditorBlank
   | EditorFocus Term Direction
