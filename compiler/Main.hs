@@ -42,6 +42,7 @@ import Prelude hiding(readFile)
 bool = GVar (GName ["Bool", "main"])
 true = GVar (GName ["true", "Bool", "main"])
 trueP = ConPat (GName ["true", "Bool", "main"]) []
+falseP = ConPat (GName ["false", "Bool", "main"]) []
 isTrueP = ConPat (GName ["is_true", "IsTrue", "main"]) []
 isTrue = GVar (GName ["IsTrue", "main"])
 
@@ -57,7 +58,7 @@ e = NamespaceDef (Name "main") [
     TermDef (Name "example")
       (Pi (Name "b") bool $ Pi (Name "_") (App isTrue [Var (Name "b")]) $ bool)
       (Match [
-        Clause (AppPat [trueP, isTrueP]) true
+        Clause (AppPat [falseP, isTrueP]) true
       ])
   ]
 

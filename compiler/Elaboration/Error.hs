@@ -11,10 +11,16 @@ data InnerError
   = UnboundLocal S.Name
   | UnboundGlobal S.GName
   | UnifyError U.Error
+  | ElabMatchError ElabMatchError
   | TooManyParams
   | MalformedProdDec
   | ExpectedProdType
   | MismatchedFieldNumber
+  deriving (Show, Eq)
+
+data ElabMatchError
+  = NotAllAppPats
+  | Inexhaustive
   deriving (Show, Eq)
 
 data Error = Error N.Locals (Map.Map S.GName C.Item) Level InnerError

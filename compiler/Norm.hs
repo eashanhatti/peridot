@@ -85,8 +85,8 @@ instance Show Value where
     ElabError s -> "error(" ++ show s ++ ")"
     ElabBlank -> "v<blank>"
     StuckGVar nid ty _ -> "(vg" ++ show nid ++ " : " ++ show ty ++ ")"
-    IndType nid indices -> "vT" ++ show nid ++ "[" ++ (concat $ intersperse " " (map show indices)) ++ "]"
-    IndIntro nid args _ -> "(v$" ++ show nid ++ (concat $ intersperse " " (map show args)) ++ ")"
+    IndType (Id nid) indices -> "vInd" ++ show nid ++ "[" ++ (concat $ intersperse " " (map show indices)) ++ "]"
+    IndIntro (Id nid) args _ -> "(v#" ++ show nid ++ (concat $ intersperse " " (map show args)) ++ ")"
     ProdType nid indices -> "vP" ++ show nid ++ "[" ++ (concat $ intersperse " " (map show indices)) ++ "]"
     ProdIntro ty args -> "{" ++ (concat $ intersperse " " (map show args)) ++ "} : " ++ show ty
 

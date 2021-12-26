@@ -16,7 +16,7 @@ import qualified Surface as S
 import qualified Core as C
 import Var
 import Control.Monad.State(State, get, put, runState)
-import Control.Monad(forM, filterM, (>=>), (<=<))
+import Control.Monad(forM, forM_, filterM, (>=>), (<=<))
 import Data.Foldable(foldlM)
 import Control.Monad.Reader(runReader, Reader, ask, local)
 import qualified Data.Set as Set
@@ -32,6 +32,7 @@ import Etc
 import Elaboration.Error
 import Control.Monad.Extra(andM, allM)
 import Data.Bifunctor
+import Data.Either(partitionEithers)
 
 data ElabState = ElabState
   { metas :: N.Metas
@@ -214,8 +215,8 @@ ordering graph = case cycles graph of
 
 checkProgram :: HasCallStack => Program -> Elab (C.Program, Graph)
 checkProgram program =
-  let deps = pTraceShowId $ dependencies (Map.toList program)
-  in case pTraceShowId $ ordering deps of
+  let deps = dependencies (Map.toList program)
+  in case ordering deps of
     Right ord -> do
       loopDeclare program ord
       program <- loopDefine program ord
@@ -586,9 +587,6 @@ infer term = getGoalUniv >>= \univ -> scope case term of
       cTermMeta <- freshMeta cTypeMeta
       pure (cTermMeta, vTypeMeta)
 
-data ElabMatchError
-  = NotAllAppPats
-
 data ConstraintPat
   = ConPat Id [ConstraintPat]
   | BindingPat Global
@@ -608,43 +606,70 @@ checkMatch patVars clauses goal = do
       N.FunType inTy outTy _ -> do
         cInTy <- readback inTy
         meta <- freshMeta cInTy
-        let C.Term _ (C.InsertedMeta _ gl _) = meta
+        let C.Term _ (C.InsertedMeta _ gl _) = trace ("meta = " ++ show meta) meta
         vMeta <- eval meta
         let clauses' = map (\(cts, S.AppPat (p:ps), e) -> (cts ++ [(BindingPat gl, p)], S.AppPat ps, e)) clauses -- TODO: Error reporting
-        defineUnnamed vMeta
-        outTy <- appClosure outTy inTy
+        outTy <- evalClosure outTy vMeta
         cGoal <- readback goal
         tree <- scope $ checkMatch (bindPatVar patVars gl inTy) clauses' outTy
         pure $ C.gen $ C.FunIntro tree cGoal (error "TODO")
       _ ->
-        if null clauses then
-          -- error "TODO" -- Rule 'SplitEmpty'
-          pure $ C.gen C.ElabBlank
+        if null clauses then do
+          pure $ C.gen C.Impossible -- TODO: Rule 'SplitEmpty'
         else
-          case find isConConstraint ((\(cts, _, _) -> cts) (head clauses)) of
-            Just (BindingPat gl, S.ConPat (S.GName (_:gname)) _) -> globalDef (S.GName gname) >>= \case
-              Just (C.IndDef _ _ (C.IndDefInfo cns)) -> do
-                conDefs <- mapM (pure . fromJust <=< globalDef) (map (S.GName . (:gname)) cns)
-                let !() = traceShow conDefs ()
-                branches <- forM conDefs \(C.ConDef nid ty) -> scope do
-                  conPatVars <- forM (map snd . fst $ telescope ty) \ty -> do
-                    meta <- freshMeta ty
-                    vTy <- eval ty
-                    let C.Term _ (C.InsertedMeta _ gl _) = meta
-                    vMeta <- eval meta
-                    defineUnnamed vMeta
-                    pure (gl, (vMeta, vTy))
-                  let conPat = ConPat nid (map (BindingPat . fst) conPatVars)
-                  vTy <- eval ty
-                  putSolution gl (N.gen $ N.IndIntro nid (map (fst . snd) conPatVars) vTy)
-                  let clauses' = update clauses gl conPat
-                  let patVars' = foldl' (\patVars (gl, vTy) -> bindPatVar patVars gl vTy) patVars (map (second fst) conPatVars)
-                  checkMatch patVars' clauses' goal
-                let Just (patVarTy, patVarIx) = Map.lookup gl patVars
-                cPatVarTy <- readback patVarTy
-                pure $ C.gen $ C.IndElim (C.gen $ C.Var patVarIx cPatVarTy undefined) branches
-              _ -> error "TODO"
-            Nothing -> error $ "TODO" ++ show clauses
+          case (find isConConstraint ((\(cts, _, _) -> cts) (head clauses)), patVars) of
+            (Just (BindingPat gl, S.ConPat _ _), Map.lookup gl -> Just (ty, ix)) ->
+              readback ty >>= eval >>= \case
+                ty@(N.Value _ (N.IndType nid _)) -> do
+                  gname <- idName nid
+                  cns <- globalDef gname >>= \case Just (C.IndDef _ _ (C.IndDefInfo cns)) -> pure cns
+                  conDefs <- mapM (pure . fromJust <=< globalDef) (map (S.GName . (: S.unGName gname)) cns)
+                  branches <- forM conDefs \(C.ConDef cid cty) -> scope do
+                    vCty <- eval cty
+                    errs <- unifyR ty vCty
+                    if null errs then do
+                      conPatVars <- forM (map snd . fst $ telescope cty) \cty -> do
+                        meta <- freshMeta cty
+                        let C.Term _ (C.InsertedMeta _ gl _) = trace ("meta''' = " ++ show meta) meta
+                        vMeta <- eval meta
+                        defineUnnamed vMeta
+                        pure (gl, (vMeta, vCty))
+                      let conPat = ConPat cid (map (BindingPat . fst) conPatVars)
+                      putSolution gl (N.gen $ N.IndIntro cid (map (fst . snd) conPatVars) vCty)
+                      let clauses' = update clauses gl conPat
+                      let patVars' = foldl' (\patVars (gl, vTy) -> bindPatVar patVars gl vTy) patVars (map (second fst) conPatVars)
+                      branch <- checkMatch patVars' clauses' goal
+                      pure $ Right branch
+                    else
+                      pure $ Left errs
+                  let (ess, bs) = partitionEithers branches
+                  forM_ ess (mapM (putError . UnifyError))
+                  cTy <- readback (trace ("ty = " ++ show ty) ty)
+                  pure $ C.gen $ C.IndElim (C.gen $ C.Var ix (trace ("cTy = " ++ show cTy) cTy) undefined) bs
+                _ -> error "TODO"
+            _ -> error "TODO"
+            -- Just (BindingPat gl, S.ConPat (S.GName (_:gname)) _) -> globalDef (S.GName gname) >>= \case
+            --   Just (C.IndDef _ _ (C.IndDefInfo cns)) -> do
+            --     conDefs <- mapM (pure . fromJust <=< globalDef) (map (S.GName . (:gname)) cns)
+            --     branches <- forM conDefs \(C.ConDef nid ty) -> scope do
+                  -- conPatVars <- forM (map snd . fst $ telescope ty) \ty -> do
+                  --   meta <- freshMeta ty
+                  --   vTy <- eval ty
+                  --   let C.Term _ (C.InsertedMeta _ gl _) = meta
+                  --   vMeta <- eval meta
+                  --   defineUnnamed vMeta
+                  --   pure (gl, (vMeta, vTy))
+                  -- let conPat = ConPat nid (map (BindingPat . fst) conPatVars)
+                  -- vTy <- eval ty
+                  -- putSolution gl (N.gen $ N.IndIntro nid (map (fst . snd) conPatVars) vTy)
+                  -- let clauses' = update clauses gl conPat
+                  -- let patVars' = foldl' (\patVars (gl, vTy) -> bindPatVar patVars gl vTy) patVars (map (second fst) conPatVars)
+                  -- checkMatch patVars' clauses' goal
+            --     let Just (patVarTy, patVarIx) = Map.lookup gl patVars
+            --     cPatVarTy <- readback patVarTy
+            --     pure $ C.gen $ C.IndElim (C.gen $ C.Var patVarIx cPatVarTy undefined) branches
+            --   _ -> error "TODO"
+            -- Nothing -> error $ "TODO" ++ show clauses
   where
     solved :: Clauses -> Maybe S.Term
     solved = fmap (\(_, _, e) -> e) . find (\(cts, p, _) -> length cts == 0 && p == S.AppPat [])
@@ -875,6 +900,12 @@ unify val val' = do
   errs <- case newErrors of
     [] -> put (state { metas = newMetas }) >> pure []
     _ -> forM (map UnifyError newErrors) putError
+  pure errs
+
+unifyR :: HasCallStack => N.Value -> N.Value -> Elab [U.Error]
+unifyR val val' = do
+  state <- get
+  let ((), (_, errs, _)) = U.runUnify (U.unify (level state) val val') (metas state, [], gnameMapToIdMap (globals state))
   pure errs
 
 putSolution :: HasCallStack => Global -> N.Value -> Elab ()

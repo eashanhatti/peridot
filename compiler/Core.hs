@@ -102,6 +102,7 @@ data TermInner
   | InsertedMeta [BinderInfo] Global (Maybe Type)
   | ElabError S.Term
   | ElabBlank
+  | Impossible
   deriving Eq
 
 -- getType :: Term -> Term
@@ -129,7 +130,7 @@ data TermInner
 
 instance Show TermInner where
   show term = case term of
-    Var ix ty _ -> "i" ++ show (unIndex ix)
+    Var ix ty _ -> "i" ++ show (unIndex ix) ++ ":" ++ show ty
     TypeType0 -> "U0"
     TypeType1 -> "U1"
     FunIntro body ty _ -> "{" ++ show body ++ "}"
@@ -145,20 +146,16 @@ instance Show TermInner where
       -- else
       --   "?" ++ show (unGlobal gl)
     InsertedMeta bis gl ty ->
-      let
-        sty = "_"
-          -- case ty of
-          --   InsertedMeta _ gl' _ | gl == gl' -> "_"
-          --   _ -> show ty
-      in "(?" ++ show (unGlobal gl) ++ " : " ++ sty ++ ";" ++ (show $ Prelude.map show bis) ++ ")"
+      "(?" ++ show (unGlobal gl) ++ " : " ++ show ty ++ ";" ++ (show $ Prelude.map show bis) ++ ")"
     GVar nid ty _ -> "g" ++ show (unId nid){- ++ ":" ++ show ty ++ ")"-}
-    IndIntro nid args ty -> "#" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show args) ++ "]" ++ ":" ++ show ty
-    IndType nid indices -> "Ind" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
-    IndElim scr bs -> "case " ++ show scr ++ " of" ++ (concat $ map ("\n  "++) (map show bs))
+    IndIntro (Id nid) args ty -> "#" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show args) ++ "]" ++ ":(" ++ show ty ++ ")"
+    IndType (Id nid) indices -> "Ind" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
+    IndElim scr bs -> "case " ++ show scr ++ " of" ++ show bs
     ProdIntro ty fields -> "{" ++ (concat $ intersperse ", " $ Prelude.map show fields) ++ "}" ++ ":" ++ show ty
     ProdType nid indices -> "Prod" ++ show nid ++ "[" ++ (concat $ intersperse ", " $ Prelude.map show indices) ++ "]"
     ElabError _ -> "<error>"
     ElabBlank -> "<blank>"
+    Impossible -> "<impossible>"
 
 -- shift :: Set Index -> Term -> Reader Int Term
 -- shift bounds = \case
