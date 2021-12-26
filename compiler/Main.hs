@@ -39,26 +39,23 @@ import Prelude hiding(readFile)
 --       ])
 --   ]
 
-bool = GVar (GName ["Bool", "main"])
-true = GVar (GName ["true", "Bool", "main"])
-trueP = ConPat (GName ["true", "Bool", "main"]) []
-falseP = ConPat (GName ["false", "Bool", "main"]) []
-isTrueP = ConPat (GName ["is_true", "IsTrue", "main"]) []
-isTrue = GVar (GName ["IsTrue", "main"])
+natT = GVar (GName ["Nat", "main"])
+zeroN = GName ["zero", "Nat", "main"]
+succN = GName ["succ", "Nat", "main"]
+maxV = GVar (GName ["max", "main"])
 
 e :: Item
 e = NamespaceDef (Name "main") [
-    IndDef (Name "Bool") U1 [
-      Constructor (Name "true") bool,
-      Constructor (Name "false") bool
+    IndDef (Name "Nat") U1 [
+      Constructor (Name "zero") natT,
+      Constructor (Name "succ") (Pi (Name "_") natT natT)
     ],
-    IndDef (Name "IsTrue") (Pi (Name "_") bool U1) [
-      Constructor (Name "is_true") (App isTrue [true])
-    ],
-    TermDef (Name "example")
-      (Pi (Name "b") bool $ Pi (Name "_") (App isTrue [Var (Name "b")]) $ bool)
+    TermDef (Name "max")
+      (Pi (Name "n") natT $ Pi (Name "m") natT $ natT)
       (Match [
-        Clause (AppPat [falseP, isTrueP]) true
+        Clause (AppPat [ConPat zeroN [], BindingPat (Name "a")]) (Var (Name "a")),
+        Clause (AppPat [BindingPat (Name "b"), ConPat zeroN []]) (Var (Name "b")),
+        Clause (AppPat [ConPat succN [BindingPat (Name "c")], ConPat succN [BindingPat (Name "d")]]) (MkInd succN [App maxV [Var (Name "c"), Var (Name "d")]])
       ])
   ]
 

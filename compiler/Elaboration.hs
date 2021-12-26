@@ -8,7 +8,7 @@
 
 module Elaboration where
 
-import Data.List(foldl', find)
+import Data.List(foldl', find, foldr)
 import qualified Data.Map as Map
 import qualified Norm as N
 import qualified Unification as U
@@ -588,9 +588,14 @@ infer term = getGoalUniv >>= \univ -> scope case term of
       pure (cTermMeta, vTypeMeta)
 
 data ConstraintPat
-  = ConPat Id [ConstraintPat]
+  = ConPat Global Id [ConstraintPat]
   | BindingPat Global
-  deriving Show
+  deriving (Show, Eq)
+
+cpGl :: ConstraintPat -> Global
+cpGl cp = case cp of
+  ConPat gl _ _ -> gl
+  BindingPat gl -> gl
 
 -- Partially deconstructed clause
 type PDClause = ([(ConstraintPat, S.Pattern)], S.Pattern, S.Term)
@@ -599,14 +604,14 @@ type PatVars = Map Global (N.Value, Index)
 
 checkMatch :: PatVars -> Clauses -> N.Value -> Elab C.Term
 checkMatch patVars clauses goal = do
-  clauses <- removeUnreachable clauses >>= (pure . simplifyConstraints) >>= instantiate patVars
+  clauses <- removeUnreachable clauses >>= (pure . simplifyConstraints)
   case solved clauses of
-    Just body -> check body goal
+    Just (cts, _, body) -> instantiate patVars cts >> check body goal
     Nothing -> case N.unVal goal of
       N.FunType inTy outTy _ -> do
         cInTy <- readback inTy
         meta <- freshMeta cInTy
-        let C.Term _ (C.InsertedMeta _ gl _) = trace ("meta = " ++ show meta) meta
+        let C.Term _ (C.InsertedMeta _ gl _) = meta
         vMeta <- eval meta
         let clauses' = map (\(cts, S.AppPat (p:ps), e) -> (cts ++ [(BindingPat gl, p)], S.AppPat ps, e)) clauses -- TODO: Error reporting
         outTy <- evalClosure outTy vMeta
@@ -625,59 +630,41 @@ checkMatch patVars clauses goal = do
                   cns <- globalDef gname >>= \case Just (C.IndDef _ _ (C.IndDefInfo cns)) -> pure cns
                   conDefs <- mapM (pure . fromJust <=< globalDef) (map (S.GName . (: S.unGName gname)) cns)
                   branches <- forM conDefs \(C.ConDef cid cty) -> scope do
-                    vCty <- eval cty
+                    vCty <- eval (snd $ telescope cty)
                     errs <- unifyR ty vCty
                     if null errs then do
                       conPatVars <- forM (map snd . fst $ telescope cty) \cty -> do
                         meta <- freshMeta cty
-                        let C.Term _ (C.InsertedMeta _ gl _) = trace ("meta''' = " ++ show meta) meta
+                        let C.Term _ (C.InsertedMeta _ gl _) = meta
                         vMeta <- eval meta
                         defineUnnamed vMeta
                         pure (gl, (vMeta, vCty))
-                      let conPat = ConPat cid (map (BindingPat . fst) conPatVars)
+                      let conPat = ConPat gl cid (map (BindingPat . fst) conPatVars)
                       putSolution gl (N.gen $ N.IndIntro cid (map (fst . snd) conPatVars) vCty)
                       let clauses' = update clauses gl conPat
-                      let patVars' = foldl' (\patVars (gl, vTy) -> bindPatVar patVars gl vTy) patVars (map (second fst) conPatVars)
+                      let patVars' = foldr (\(gl, vTy) patVars -> bindPatVar patVars gl vTy) patVars (map (second fst) conPatVars)
                       branch <- checkMatch patVars' clauses' goal
                       pure $ Right branch
                     else
                       pure $ Left errs
                   let (ess, bs) = partitionEithers branches
                   forM_ ess (mapM (putError . UnifyError))
-                  cTy <- readback (trace ("ty = " ++ show ty) ty)
-                  pure $ C.gen $ C.IndElim (C.gen $ C.Var ix (trace ("cTy = " ++ show cTy) cTy) undefined) bs
+                  cTy <- readback ty
+                  pure $ C.gen $ C.IndElim (C.gen $ C.Var ix cTy undefined) bs
                 _ -> error "TODO"
-            _ -> error "TODO"
-            -- Just (BindingPat gl, S.ConPat (S.GName (_:gname)) _) -> globalDef (S.GName gname) >>= \case
-            --   Just (C.IndDef _ _ (C.IndDefInfo cns)) -> do
-            --     conDefs <- mapM (pure . fromJust <=< globalDef) (map (S.GName . (:gname)) cns)
-            --     branches <- forM conDefs \(C.ConDef nid ty) -> scope do
-                  -- conPatVars <- forM (map snd . fst $ telescope ty) \ty -> do
-                  --   meta <- freshMeta ty
-                  --   vTy <- eval ty
-                  --   let C.Term _ (C.InsertedMeta _ gl _) = meta
-                  --   vMeta <- eval meta
-                  --   defineUnnamed vMeta
-                  --   pure (gl, (vMeta, vTy))
-                  -- let conPat = ConPat nid (map (BindingPat . fst) conPatVars)
-                  -- vTy <- eval ty
-                  -- putSolution gl (N.gen $ N.IndIntro nid (map (fst . snd) conPatVars) vTy)
-                  -- let clauses' = update clauses gl conPat
-                  -- let patVars' = foldl' (\patVars (gl, vTy) -> bindPatVar patVars gl vTy) patVars (map (second fst) conPatVars)
-                  -- checkMatch patVars' clauses' goal
-            --     let Just (patVarTy, patVarIx) = Map.lookup gl patVars
-            --     cPatVarTy <- readback patVarTy
-            --     pure $ C.gen $ C.IndElim (C.gen $ C.Var patVarIx cPatVarTy undefined) branches
-            --   _ -> error "TODO"
-            -- Nothing -> error $ "TODO" ++ show clauses
+            p -> error $ "TODO " ++ show (head clauses)
   where
-    solved :: Clauses -> Maybe S.Term
-    solved = fmap (\(_, _, e) -> e) . find (\(cts, p, _) -> length cts == 0 && p == S.AppPat [])
+    solved :: Clauses -> Maybe PDClause
+    solved = find (\(cts, p, _) -> all simple cts && p == S.AppPat [])
+    simple :: (ConstraintPat, S.Pattern) -> Bool
+    simple pair = case pair of
+      (_, S.BindingPat _) -> True
+      _ -> False
 
     isConConstraint :: (ConstraintPat, S.Pattern) -> Bool
     isConConstraint pair = case pair of
       (BindingPat _, S.ConPat _ _) -> True
-      _ -> False 
+      _ -> False
     update :: Clauses -> Global -> ConstraintPat -> Clauses
     update clauses gl cp = map (\(cts, p, e) -> (map (first go) cts, p, e)) clauses where
       go :: ConstraintPat -> ConstraintPat
@@ -689,7 +676,7 @@ checkMatch patVars clauses goal = do
     removeUnreachable = filterM \(cts, _, _) -> allM sensible cts
     sensible :: (ConstraintPat, S.Pattern) -> Elab Bool
     sensible pair = case pair of
-      (ConPat nid cts, S.ConPat gname ps) -> do
+      (ConPat _ nid cts, S.ConPat gname ps) -> do
         gname' <- idName nid
         if gname == gname' then
           andM (map sensible (zip cts ps))
@@ -703,18 +690,16 @@ checkMatch patVars clauses goal = do
     simplifyConstraints = map \(cts, p, e) -> (concatMap go cts, p, e) where
       go :: (ConstraintPat, S.Pattern) -> [(ConstraintPat, S.Pattern)]
       go pair = case pair of
-        (ConPat _ cts, S.ConPat _ ps) -> concatMap go (zip cts ps)
+        (ConPat _ _ cts, S.ConPat _ ps) -> concatMap go (zip cts ps)
         _ -> [pair]
 
-    instantiate :: PatVars -> Clauses -> Elab Clauses
-    instantiate patVars clauses = mapM (\(cts, p, e) -> filterM go cts >>= \cts -> pure (cts, p, e)) clauses where
-      go :: (ConstraintPat, S.Pattern) -> Elab Bool
-      go pair = case pair of
-        (BindingPat gl, S.BindingPat name) -> do
-          let Just (ty, ix) = Map.lookup gl patVars
-          bindName name ty ix
-          pure False
-        (_, _) -> pure True
+    -- Precondition: All constraints are simple
+    instantiate :: PatVars -> [(ConstraintPat, S.Pattern)] -> Elab ()
+    instantiate patVars cts = forM_ cts go where
+      go :: (ConstraintPat, S.Pattern) -> Elab ()
+      go (cpGl -> gl, S.BindingPat name) = do
+        let Just (ty, ix) = Map.lookup gl patVars
+        bindName name ty ix
 
     bindPatVar :: PatVars -> Global -> N.Value -> PatVars
     bindPatVar patVars gl ty = Map.insert gl (ty, Index 0) (Map.map (second incIndex) patVars)

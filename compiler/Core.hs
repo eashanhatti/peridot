@@ -130,7 +130,7 @@ data TermInner
 
 instance Show TermInner where
   show term = case term of
-    Var ix ty _ -> "i" ++ show (unIndex ix) ++ ":" ++ show ty
+    Var ix ty _ -> "i" ++ show (unIndex ix) -- ++ ":" ++ show ty
     TypeType0 -> "U0"
     TypeType1 -> "U1"
     FunIntro body ty _ -> "{" ++ show body ++ "}"
