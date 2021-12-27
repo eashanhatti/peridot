@@ -87,7 +87,7 @@ Implicit arguments, function definition syntax, and implicit splicing/quoting ha
 ```
 fun map (n : Nat) (a b : U0) = case n
     zero => λf #Unit => #Unit
-    succ n => <λf (#Pair x arr) => #Pair (f x) (map n a b f arr)>
+    succ n => λf (#Pair x arr) => #Pair (f x) (map n a b f arr)
 ```
 More pattern matching.
 ```
