@@ -620,7 +620,7 @@ checkMatch patVars clauses goal = do
         pure $ C.gen $ C.FunIntro tree cGoal (error "TODO")
       _ ->
         if null clauses then do
-          pure $ C.gen C.Impossible -- TODO: Rule 'SplitEmpty'
+          pure $ C.gen C.Impossible -- TODO: Exhaustiveness checking
         else
           case (find isConConstraint ((\(cts, _, _) -> cts) (head clauses)), patVars) of
             (Just (BindingPat gl, S.ConPat _ _), Map.lookup gl -> Just (ty, ix)) ->
@@ -652,7 +652,7 @@ checkMatch patVars clauses goal = do
                   cTy <- readback ty
                   pure $ C.gen $ C.IndElim (C.gen $ C.Var ix cTy undefined) bs
                 _ -> error "TODO"
-            p -> error $ "TODO " ++ show (head clauses)
+            p -> error $ "TODO "
   where
     solved :: Clauses -> Maybe PDClause
     solved = find (\(cts, p, _) -> all simple cts && p == S.AppPat [])

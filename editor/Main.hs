@@ -146,7 +146,7 @@ down z = caseHole z
     Splice _ -> fjDown z
     MkInd _ _ -> (moveListLast . fjDown) z
     MkProd _ _ -> (moveListLast . fjDown) z
-    Match _ _ -> (moveListLast . fjDown) z
+    -- Match _ _ -> (moveListLast . fjDown) z
     Hole -> z
     EditorBlank -> z)
   (moveListLast z)
@@ -177,7 +177,7 @@ down' z = caseHole z
     Splice _ -> fjDown' z
     MkInd _ _ -> fjDown' z
     MkProd _ _ -> fjDown' z
-    Match _ _ -> (fjDown' . fjDown') z
+    -- Match _ _ -> (fjDown' . fjDown') z
     Hole -> z
     EditorBlank -> z)
   (fromJust $ Z.down' $ fromJust $ Z.down' $ z)
@@ -259,16 +259,16 @@ handleInput state@(State z d) cmd = case cmd of
           Left -> (\z -> State z Right) $ case z' of
             (getHole -> Just l :: Maybe [Item]) -> fromJust $ Z.down' $ setHole (EditorBlankDef:l) z'
             (getHole -> Just l :: Maybe [Name]) -> fromJust $ Z.down' $ setHole (Name "_" : l) z'
-            (getHole -> Just l :: Maybe [Constructor]) -> fromJust $ Z.down' $ setHole (EditorBlankCon:l) z'
+            (getHole -> Just l :: Maybe [Constructor]) -> fromJust $ Z.down' $ setHole (Constructor (Name "_") Hole : l) z'
             (getHole -> Just l :: Maybe [Term]) -> fromJust $ Z.down' $ setHole (Hole:l) z'
-            (getHole -> Just l :: Maybe [Pattern]) -> fromJust $ Z.down' $ setHole (EditorBlankPat:l) z'
+            (getHole -> Just l :: Maybe [Pattern]) -> fromJust $ Z.down' $ setHole (BindingPat (Name "_") : l) z'
             (getHole -> Just l :: Maybe [Clause]) -> fromJust $ Z.down' $ setHole (EditorBlankClause:l) z'
           Right -> (\z -> State z Left) $ case fromJust $ Z.right z of
             z''@(getHole -> Just l :: Maybe [Item]) -> fromJust $ Z.down' $ setHole (EditorBlankDef:l) z''
             z''@(getHole -> Just l :: Maybe [Name]) -> fromJust $ Z.down' $ setHole (Name "_" : l) z''
-            z''@(getHole -> Just l :: Maybe [Constructor]) -> fromJust $ Z.down' $ setHole (EditorBlankCon:l) z''
+            z''@(getHole -> Just l :: Maybe [Constructor]) -> fromJust $ Z.down' $ setHole (Constructor (Name "_") Hole : l) z''
             z''@(getHole -> Just l :: Maybe [Term]) -> fromJust $ Z.down' $ setHole (Hole:l) z''
-            z''@(getHole -> Just l :: Maybe [Pattern]) -> fromJust $ Z.down' $ setHole (EditorBlankPat:l) z''
+            z''@(getHole -> Just l :: Maybe [Pattern]) -> fromJust $ Z.down' $ setHole (BindingPat (Name "_") : l) z''
             z''@(getHole -> Just l :: Maybe [Clause]) -> fromJust $ Z.down' $ setHole (EditorBlankClause:l) z''
       else
         case (d, z) of
@@ -360,7 +360,7 @@ render state elabState item = (text, errs)
     renderIndDef :: Render sig m => Name -> GName -> m T.Text
     renderIndDef name gname =
       let Just (C.IndDef _ ty (C.IndDefInfo cns)) = DM.lookup gname (Elab.globals elabState)
-      in combine [greenM "inductive ", pure $ renderName name, pure " : ", renderTerm ty, indentForced <$> scons cns (unGName gname)]
+      in combine [greenM "datatype ", pure $ renderName name, pure " : ", renderTerm ty, indentForced <$> scons cns (unGName gname)]
     renderProdDef :: Render sig m => Name -> GName -> m T.Text
     renderProdDef name gname =
       let Just (C.ProdDef _ ty fields) = DM.lookup gname (Elab.globals elabState)
