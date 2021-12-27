@@ -10,7 +10,7 @@ The problem here is not with the idea itself, but rather the execution. These st
 
 The language is a WIP, so there's numerous nontrivial bugs. However, currently the only barrier to writing "real" programs in it is the lack of IO.
 
-### References
+### References and Inspirations
 
 Prior art on two level type theory.
 
@@ -37,6 +37,21 @@ https://github.com/basilTeam/basil
 **Spiral**
 > Functional language with intensional polymorphism and first-class staging.\
 https://github.com/mrakgr/The-Spiral-Language
+
+Structured editing.
+
+**Sapling**
+> A highly experimental code editor where you edit code, not text.\
+https://github.com/kneasle/sapling
+
+**Alfa**
+> Alfa is a successor of the proof editor ALF, i.e., an editor for direct manipulation of proof objects in a logical framework based on Per Martin-Löf's Type Theory.\
+https://cth.altocumulus.org/~hallgren/Alfa/
+
+**Hazel**
+> Hazel is a live functional programming environment that is able to typecheck, manipulate, and even run incomplete programs, i.e. programs with holes.\
+https://hazel.org/
+
 ### Examples
 
 The type of runtime-relevant pairs. Product types are tuples, not records - fields are not named.
