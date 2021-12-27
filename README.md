@@ -10,13 +10,20 @@ The problem here is not with the idea itself, but rather the execution. These st
 
 The language is a WIP, so there's numerous nontrivial bugs. However, currently the only barrier to writing "real" programs in it is the lack of IO.
 
-### References - 2LTT
+### References
 
-#### Two-Level Type Theory and Applications
+Prior art on two level type theory.
+
+**Two-Level Type Theory and Applications** \
 https://arxiv.org/abs/1705.03307
-#### Staged - Experimental staged language with dependent types
+
+**Staged - Experimental staged language with dependent types** \
 https://github.com/AndrasKovacs/staged
 
+Elaboration of dependent pattern matching.
+
+**Elaborating dependent (co)pattern matching**\
+https://dl.acm.org/doi/10.1145/3236770
 ### Examples
 
 The type of runtime-relevant pairs. Product types are tuples, not records - fields are not named.
