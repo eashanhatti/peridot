@@ -14,16 +14,29 @@ The language is a WIP, so there's numerous nontrivial bugs. However, currently t
 
 Prior art on two level type theory.
 
-**Two-Level Type Theory and Applications** \
+**Two-Level Type Theory and Applications**
+> We define and develop two-level type theory (2LTT), a version of Martin-Löf type theory which combines two different type theories.\
 https://arxiv.org/abs/1705.03307
 
-**Staged - Experimental staged language with dependent types** \
+**Staged**
+> Experimental staged language with dependent types\
 https://github.com/AndrasKovacs/staged
 
 Elaboration of dependent pattern matching.
 
-**Elaborating dependent (co)pattern matching**\
+**Elaborating dependent (co)pattern matching**
+> We present an algorithm elaborating definitions by dependent copattern matching to a core language with inductive datatypes, coinductive record types, an identity type, and constants defined by well-typed case trees.\
 https://dl.acm.org/doi/10.1145/3236770
+
+Projects exploring a similar design space.
+
+**Basil**
+> Lisp dialect featuring highly flexible syntax, arbitrary compile-time evaluation, and static types!\
+https://github.com/basilTeam/basil
+
+**Spiral**
+> Functional language with intensional polymorphism and first-class staging.\
+https://github.com/mrakgr/The-Spiral-Language
 ### Examples
 
 The type of runtime-relevant pairs. Product types are tuples, not records - fields are not named.
@@ -95,13 +108,3 @@ val bar : (b : Bool) -> IsTrue b -> ? = case b of
 * Arity polymorphism for higher order functions
 * Linear/uniqueness types
 * Stage polymorphism
-
-### Other Projects
-
-If you're interested in this area of language design, here's some projects exploring similar stuff. Check them out!
-
-[Basil](https://github.com/basilTeam/basil), by [Elucent](https://github.com/elucent).
-> Lisp dialect featuring highly flexible syntax, arbitrary compile-time evaluation, and static types!
-
-[Spiral](https://github.com/mrakgr/The-Spiral-Language), by [Marko Grdinić](https://github.com/mrakgr).
-> Functional language with intensional polymorphism and first-class staging.
