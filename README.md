@@ -12,45 +12,7 @@ The language is a WIP, so there's numerous nontrivial bugs. However, currently t
 
 ### References and Inspirations
 
-Prior art on two level type theory.
-
-**Two-Level Type Theory and Applications**
-> We define and develop two-level type theory (2LTT), a version of Martin-Löf type theory which combines two different type theories.\
-https://arxiv.org/abs/1705.03307
-
-**Staged**
-> Experimental staged language with dependent types\
-https://github.com/AndrasKovacs/staged
-
-Elaboration of dependent pattern matching.
-
-**Elaborating dependent (co)pattern matching**
-> We present an algorithm elaborating definitions by dependent copattern matching to a core language with inductive datatypes, coinductive record types, an identity type, and constants defined by well-typed case trees.\
-https://dl.acm.org/doi/10.1145/3236770
-
-Projects exploring a similar design space.
-
-**Basil**
-> Lisp dialect featuring highly flexible syntax, arbitrary compile-time evaluation, and static types!\
-https://github.com/basilTeam/basil
-
-**Spiral**
-> Functional language with intensional polymorphism and first-class staging.\
-https://github.com/mrakgr/The-Spiral-Language
-
-Structured editing.
-
-**Sapling**
-> A highly experimental code editor where you edit code, not text.\
-https://github.com/kneasle/sapling
-
-**Alfa**
-> Alfa is a successor of the proof editor ALF, i.e., an editor for direct manipulation of proof objects in a logical framework based on Per Martin-Löf's Type Theory.\
-https://cth.altocumulus.org/~hallgren/Alfa/
-
-**Hazel**
-> Hazel is a live functional programming environment that is able to typecheck, manipulate, and even run incomplete programs, i.e. programs with holes.\
-https://hazel.org/
+A list of prior art that have influence Konna's design and implementation can be found [here](https://github.com/eashanhatti/konna/blob/master/REFERENCES.md).
 
 ### Examples
 
