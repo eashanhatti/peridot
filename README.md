@@ -12,7 +12,7 @@ The language is a WIP, so there's numerous nontrivial bugs. However, currently t
 
 ### References and Inspirations
 
-A list of prior art that have influence Konna's design and implementation can be found [here](https://github.com/eashanhatti/konna/blob/master/REFERENCES.md).
+A list of prior art that have influenced Konna's design and implementation can be found [here](https://github.com/eashanhatti/konna/blob/master/REFERENCES.md).
 
 ### Examples
 
@@ -58,7 +58,7 @@ val max : Nat -> Nat -> Nat = case
     n zero => n
     (succ n) (succ m) => succ (max n m)
 ```
-Dependent pattern matching.
+The bool type, a predicate on bools, and dependent pattern matching.
 ```
 datatype Bool : U1
     true : Bool
