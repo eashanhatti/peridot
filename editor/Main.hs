@@ -302,6 +302,7 @@ parseCommand s (State _ d) = case s of
   "~" -> Just (InsertTerm $ Splice Hole)
   "i#" -> Just (InsertTerm $ MkInd (GName []) [])
   "p#" -> Just (InsertTerm $ MkProd Hole [])
+  "case " -> Just (InsertTerm $ Match [Clause (BindingPat (Name "_")) Hole])
   _ | last s == ' ' && elem '.' s -> Just (SetGName $ reverse $ split (init s) "" '.')
   _ | last s == ' ' -> Just (SetName $ init s)
   _ -> Nothing
@@ -366,13 +367,17 @@ render state elabState item = (text, errs)
       let Just (C.ProdDef _ ty fields) = DM.lookup gname (Elab.globals elabState)
       in combine [greenM "product ", pure $ renderName name, pure " : ", renderTerm ty, indentForced <$> sfields fields]
     renderTerm :: Render sig m => C.Term -> m T.Text
-    renderTerm (C.Term (C.Info side errs) term) = case errs of
+    renderTerm (C.Term (C.Info side cs errs) term) = case errs of
       [] -> tterm
       _ -> combine [redM "[", tterm, redM "]"]
       where
         tterm = case side of
-          Just Left -> SE.put errs >> combine [yellowM "{", go term, yellowM "]"]
-          Just Right -> SE.put errs >> combine [yellowM "[", go term, yellowM "}"]
+          Just Left -> SE.put errs >> combine [yellowM "{", go' term, yellowM "]"]
+          Just Right -> SE.put errs >> combine [yellowM "[", go' term, yellowM "}"]
+          Nothing -> go term
+        go' :: Render sig m => C.TermInner -> m T.Text
+        go' term = case cs of
+          Just cs -> renderMatch cs
           Nothing -> go term
         go :: Render sig m => C.TermInner -> m T.Text
         go term = case term of
@@ -407,6 +412,8 @@ render state elabState item = (text, errs)
         goFunElim (C.FunElim lam arg _) n args = case n of
           1 -> T.intercalate " " <$> mapM renderTerm (lam:arg:args)
           n -> goFunElim (C.unTerm lam) (n - 1) (arg:args)
+    renderMatch :: Render sig m => [(Pattern, C.Term)] -> m T.Text
+    renderMatch = undefined
     renderVar :: Render sig m => C.Term -> T.Text -> m T.Text
     renderVar term s = case C.unTerm term of
       C.FunType _ outTy _ -> renderVar outTy s
@@ -459,6 +466,7 @@ render state elabState item = (text, errs)
       MkProd ty args -> combine [greenM "#", renderSTerm ty, pure $ if null args then "" else " ", T.intercalate " " <$> mapM renderSTerm args]
       MkInd name args -> combine [greenM "#", renderGName name (C.gen C.ElabBlank), pure $ if null args then "" else " ", T.intercalate " " <$> mapM renderSTerm args]
       Hole -> pure "\ESC[7m?\ESC[27m"
+      Match cs -> undefined
       EditorBlank -> pure "\ESC[7m?\ESC[27m"
       EditorFocus term side -> case side of
         Left -> combine [yellowM "{", renderSTerm term, yellowM "]"]
@@ -473,6 +481,14 @@ render state elabState item = (text, errs)
       FocusedName _ _ -> "(" <> renderName name <> " : " <> inTy <> ") -> " <> outTy
       UnfocusedName "_" -> inTy <> " -> " <> outTy
       UnfocusedName _ -> "(" <> renderName name <> " : " <> inTy <> ") -> " <> outTy
+    renderPattern :: Render sig m => Pattern -> m T.Text
+    renderPattern pat = case pat of
+      BindingPat name -> pure $ renderName name
+      ConPat gname ps -> combine [pure "#", renderGName gname (C.gen C.ElabBlank), T.intercalate " " <$> mapM renderPattern ps]
+      AppPat ps -> T.intercalate " " <$> mapM renderPattern ps
+      EditorFocusPat pat side -> case side of
+        Left -> combine [yellowM "{", renderPattern pat, yellowM "]"]
+        Right -> combine [yellowM "[", renderPattern pat, yellowM "}"]
 
     multiline s = length (T.lines s) /= 1
     scons :: Render sig m => [String] -> [String] -> m T.Text

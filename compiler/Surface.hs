@@ -57,7 +57,7 @@ data Pattern
   = BindingPat Name
   | ConPat GName [Pattern]
   | AppPat [Pattern]
-  | EditorFocusPat Pattern
+  | EditorFocusPat Pattern Direction
   deriving (Show, Eq, Data)
 
 data Clause = UnfocusedClause Pattern Term | FocusedClause Pattern Term | EditorBlankClause

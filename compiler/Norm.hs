@@ -67,7 +67,7 @@ data ValueInner
   | ElabBlank
   deriving Eq
 
-gen v = Value (C.Info Nothing []) v
+gen v = Value (C.Info Nothing Nothing []) v
 
 instance Show Value where
   show (Value _ v) = case v of

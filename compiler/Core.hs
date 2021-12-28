@@ -68,7 +68,7 @@ data GVarInfo = GVarInfo [String]
   deriving Eq
 data LetrecInfo = LetrecInfo S.Name
   deriving Eq
-data Info = Info (Maybe S.Direction) [Error]
+data Info = Info (Maybe S.Direction) (Maybe [(S.Pattern, Term)]) [Error]
   deriving Eq
 
 data Term = Term
@@ -76,9 +76,9 @@ data Term = Term
   , unTerm :: TermInner }
   deriving Eq
 
-withErrs errs (Term (Info side es) e) = Term (Info side (errs ++ es)) e
-withErrsGen errs e = Term (Info Nothing errs) e
-gen e = Term (Info Nothing []) e
+withErrs errs (Term (Info side cs es) e) = Term (Info side cs (errs ++ es)) e
+withErrsGen errs e = Term (Info Nothing Nothing errs) e
+gen e = Term (Info Nothing Nothing []) e
 
 data TermInner
   = Var Index Type VarInfo
@@ -179,4 +179,4 @@ instance Show TermInner where
 --     next = insert (Index 0) $ Data.Set.map (\ix -> Index $ unIndex ix + 1) bounds
 
 instance Show Term where
-  show (Term (Info m _) term) = show term
+  show (Term (Info m _ _) term) = show term

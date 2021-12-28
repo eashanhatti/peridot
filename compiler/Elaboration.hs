@@ -4,11 +4,12 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- {-# OPTIONS_GHC -fdefer-type-errors #-}
 
 module Elaboration where
 
-import Data.List(foldl', find, foldr)
+import Data.List(foldl', find, foldr, unzip)
 import qualified Data.Map as Map
 import qualified Norm as N
 import qualified Unification as U
@@ -192,7 +193,7 @@ dependencies items = case items of
       S.BindingPat _ -> mempty
       S.ConPat gname ps -> Map.singleton gname (Set.singleton S.Dec) `combine` searchPats ps
       S.AppPat ps -> searchPats ps
-      S.EditorFocusPat pat' -> searchPat pat'
+      S.EditorFocusPat pat' _ -> searchPat pat'
     searchPats = foldl' (\m p -> searchPat p `combine` m) mempty
     combine :: Map S.GName (Set S.ItemPart) -> Map S.GName (Set S.ItemPart) -> Map S.GName (Set S.ItemPart)
     combine = Map.unionWith Set.union
@@ -327,8 +328,8 @@ check term goal = do
   -- let !() = trace ("CGoal = " ++ show cGoal) ()
   scope case (term, N.unVal goal) of
     (S.EditorFocus term' side, _) -> do
-      C.Term (C.Info _ errs) cTerm' <- check term' goal
-      pure $ C.Term (C.Info (Just side) errs) cTerm'
+      C.Term (C.Info _ cs errs) cTerm' <- check term' goal
+      pure $ C.Term (C.Info (Just side) cs errs) cTerm'
     (S.Ann term' ty, _) -> do
       cTy <- check ty univ
       vTy <- eval cTy
@@ -385,7 +386,9 @@ check term goal = do
           else do
             err <- putError MismatchedFieldNumber
             pure $ C.withErrsGen [err] $ C.ElabError term)
-    (S.Match clauses, _) -> checkMatch mempty (map (\(S.Clause p e) -> ([], p, e)) clauses) goal
+    (S.Match clauses, _) -> do
+      (C.Term (C.Info side _ errs) tree, cs) <- checkMatch mempty (map (\(S.Clause p e) -> ([], p, p, e)) clauses) goal
+      pure $ C.Term (C.Info side (Just cs) errs) tree
     (_, N.QuoteType ty) | N.unVal univ /= N.TypeType1 -> do
       putGoalUniv (N.gen $ N.TypeType0)
       (cTerm, termTy) <- infer term
@@ -399,8 +402,8 @@ check term goal = do
 infer :: HasCallStack => S.Term -> Elab (C.Term, N.Value)
 infer term = getGoalUniv >>= \univ -> scope case term of
   S.EditorFocus term' side -> do
-    (C.Term (C.Info _ errs) cTerm', ty) <- infer term'
-    pure $ (C.Term (C.Info (Just side) errs) cTerm', ty)
+    (C.Term (C.Info _ cs errs) cTerm', ty) <- infer term'
+    pure $ (C.Term (C.Info (Just side) cs errs) cTerm', ty)
   S.Ann term' ty -> do
     vTy <- check ty univ >>= eval
     cTerm' <- check term' vTy
@@ -598,31 +601,34 @@ cpGl cp = case cp of
   BindingPat gl -> gl
 
 -- Partially deconstructed clause
-type PDClause = ([(ConstraintPat, S.Pattern)], S.Pattern, S.Term)
+type PDClause = ([(ConstraintPat, S.Pattern)], S.Pattern, S.Pattern, S.Term)
 type Clauses = [PDClause]
 type PatVars = Map Global (N.Value, Index)
 
-checkMatch :: PatVars -> Clauses -> N.Value -> Elab C.Term
+checkMatch :: PatVars -> Clauses -> N.Value -> Elab (C.Term, [(S.Pattern, C.Term)])
 checkMatch patVars clauses goal = do
   clauses <- removeUnreachable clauses >>= (pure . simplifyConstraints)
   case solved clauses of
-    Just (cts, _, body) -> instantiate patVars cts >> check body goal
+    Just (cts, _, p, body) -> do
+      instantiate patVars cts
+      cBody <- check body goal
+      pure (cBody, [(p, cBody)])
     Nothing -> case N.unVal goal of
       N.FunType inTy outTy _ -> do
         cInTy <- readback inTy
         meta <- freshMeta cInTy
         let C.Term _ (C.InsertedMeta _ gl _) = meta
         vMeta <- eval meta
-        let clauses' = map (\(cts, S.AppPat (p:ps), e) -> (cts ++ [(BindingPat gl, p)], S.AppPat ps, e)) clauses -- TODO: Error reporting
+        let clauses' = map (\(cts, S.AppPat (p:ps), po, e) -> (cts ++ [(BindingPat gl, p)], S.AppPat ps, po, e)) clauses -- TODO: Error reporting
         outTy <- evalClosure outTy vMeta
         cGoal <- readback goal
-        tree <- scope $ checkMatch (bindPatVar patVars gl inTy) clauses' outTy
-        pure $ C.gen $ C.FunIntro tree cGoal (error "TODO")
+        (tree, cs) <- scope $ checkMatch (bindPatVar patVars gl inTy) clauses' outTy
+        pure (C.gen $ C.FunIntro tree cGoal (error "TODO"), cs)
       _ ->
         if null clauses then do
-          pure $ C.gen C.Impossible -- TODO: Exhaustiveness checking
+          pure (C.gen C.Impossible, []) -- TODO: Exhaustiveness checking
         else
-          case (find isConConstraint ((\(cts, _, _) -> cts) (head clauses)), patVars) of
+          case (find isConConstraint ((\(cts, _, _, _) -> cts) (head clauses)), patVars) of
             (Just (BindingPat gl, S.ConPat _ _), Map.lookup gl -> Just (ty, ix)) ->
               readback ty >>= eval >>= \case
                 ty@(N.Value _ (N.IndType nid _)) -> do
@@ -648,14 +654,15 @@ checkMatch patVars clauses goal = do
                     else
                       pure $ Left errs
                   let (ess, bs) = partitionEithers branches
+                  let (bs', cs) = unzip bs
                   forM_ ess (mapM (putError . UnifyError))
                   cTy <- readback ty
-                  pure $ C.gen $ C.IndElim (C.gen $ C.Var ix cTy undefined) bs
+                  pure (C.gen $ C.IndElim (C.gen $ C.Var ix cTy undefined) bs', concat cs)
                 _ -> error "TODO"
             p -> error $ "TODO "
   where
     solved :: Clauses -> Maybe PDClause
-    solved = find (\(cts, p, _) -> all simple cts && p == S.AppPat [])
+    solved = find (\(cts, p, _, _) -> all simple cts && p == S.AppPat [])
     simple :: (ConstraintPat, S.Pattern) -> Bool
     simple pair = case pair of
       (_, S.BindingPat _) -> True
@@ -666,14 +673,14 @@ checkMatch patVars clauses goal = do
       (BindingPat _, S.ConPat _ _) -> True
       _ -> False
     update :: Clauses -> Global -> ConstraintPat -> Clauses
-    update clauses gl cp = map (\(cts, p, e) -> (map (first go) cts, p, e)) clauses where
+    update clauses gl cp = map (\(cts, p, po, e) -> (map (first go) cts, p, po, e)) clauses where
       go :: ConstraintPat -> ConstraintPat
       go cp' = case cp' of
         BindingPat gl' | gl == gl' -> cp
         _ -> cp'
 
     removeUnreachable :: Clauses -> Elab Clauses
-    removeUnreachable = filterM \(cts, _, _) -> allM sensible cts
+    removeUnreachable = filterM \(cts, _, _, _) -> allM sensible cts
     sensible :: (ConstraintPat, S.Pattern) -> Elab Bool
     sensible pair = case pair of
       (ConPat _ nid cts, S.ConPat gname ps) -> do
@@ -687,7 +694,7 @@ checkMatch patVars clauses goal = do
 
     -- Precondition: Constraints must all be sensible
     simplifyConstraints :: Clauses -> Clauses
-    simplifyConstraints = map \(cts, p, e) -> (concatMap go cts, p, e) where
+    simplifyConstraints = map \(cts, p, po, e) -> (concatMap go cts, p, po, e) where
       go :: (ConstraintPat, S.Pattern) -> [(ConstraintPat, S.Pattern)]
       go pair = case pair of
         (ConPat _ _ cts, S.ConPat _ ps) -> concatMap go (zip cts ps)
