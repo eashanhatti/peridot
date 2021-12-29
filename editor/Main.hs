@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -315,10 +316,14 @@ parseCommand s (State _ d) = case s of
         else
           split cs (acc ++ [c]) d
 
+#if darwin_HOST_OS
+getHiddenChar = getChar
+#else
 -- Lol just Ctrl+C + Ctrl+V from StackOverflow. `hSetBuffering stdin NoBuffering` doesn't work on Windows.
 getHiddenChar = fmap (chr.fromEnum) c_getch
 foreign import ccall unsafe "conio.h getch"
   c_getch :: IO CInt
+#endif
 
 getCommand :: String -> State -> IO Command
 getCommand acc state = do
@@ -576,4 +581,8 @@ loop state@(State z d) = do
     _ -> loop (handleInput state cmd)
 
 main :: IO ()
-main = runM @IO $ loop (State (toZipper $ NamespaceDef (Name "main") []) Left)
+main = do
+#if darwin_HOST_OS
+  hSetBuffering stdin NoBuffering
+#endif
+  runM @IO $ loop (State (toZipper $ NamespaceDef (Name "main") []) Left)
