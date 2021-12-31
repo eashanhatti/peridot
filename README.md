@@ -2,6 +2,8 @@
 
 An experimental language for exploring the practical applications of two level type theory.
 
+Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/4Kjt3ZE) - Projects A-M 🠒 #konna.
+
 ### Introduction
 
 A common pattern in languages with performance as a goal is to have some features be compile time only ("static"). C++ templates for instance, eliminate the overhead of polymorphism by statically generating specialized versions of each templated definition. However, another common trend is for these compile time languages - at the start very simple - to accrue more and more features that interact in ad hoc ways, harming ergonomics.
