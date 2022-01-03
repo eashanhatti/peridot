@@ -40,18 +40,18 @@ val Array : Nat -> U0 -> U0 = case
 ```
 A `map` function for arrays. `<_>` indicated quoting, `~_` indicates splicing, and `Code _` is the type of a quoted code fragment. `#T` indicates the construction of or pattern matching on a product value.
 ```
-val map : (n : Nat) -> (a : U0) -> (b : U0) -> Code ((a -> b) -> Array n a -> Array n b) =
+val map : (n : Nat) -> (a b : U0) -> Code ((a -> b) -> Array n a -> Array n b) =
     λn a b => case n
         zero => <λf arr => case arr
             #Unit => #Unit>
         succ n => <λf arr => case arr
             #Pair x arr => #Pair (f x) (~(map n a b) f arr)>
 ```
-Implicit arguments, function definition syntax, and implicit splicing/quoting have not been implemented, hence why this example is rather cluttered. Here's what it would look like with those features:
+Implicit arguments, function definition syntax, and implicit splicing/quoting/`Code` insertion have not been implemented, hence why this example is rather cluttered. Here's what it would look like with those features:
 ```
-fun map (n : Nat) (a b : U0) = case n
-    zero => λf #Unit => #Unit
-    succ n => λf (#Pair x arr) => #Pair (f x) (map n a b f arr)
+fun map {n : Nat} {a b : U0} (f : a -> b) (arr : Array n a) : Array n b = case
+    f #Unit => #Unit
+    f (#Pair x arr) => #Pair (f x) (map f arr)
 ```
 More pattern matching.
 ```
