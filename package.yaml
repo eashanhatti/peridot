@@ -1,14 +1,13 @@
 name:                konna3
 version:             0.1.0.0
-github:              "githubuser/konna3"
-license:             BSD3
-author:              "Author name here"
-maintainer:          "example@example.com"
-copyright:           "2022 Author name here"
+github:              "eashanhatti/konna3"
+license:             MPL-2.0
+author:              "Eashan Hatti"
+maintainer:          "eashanhatti@gmail.com"
+copyright:           "2022 Eashan Hatti"
 
 extra-source-files:
 - README.md
-- ChangeLog.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -19,8 +18,12 @@ extra-source-files:
 # common to point users to the README.md file.
 description:         Please see the README on GitHub at <https://github.com/githubuser/konna3#readme>
 
+default-extensions:
+- GADTs
+
 dependencies:
 - base >= 4.7 && < 5
+- text
 
 library:
   source-dirs: src
