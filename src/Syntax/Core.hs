@@ -1,20 +1,20 @@
 module Syntax.Core where
 
 import Syntax.Variable
+import Syntax.Telescope qualified as T
 
-data Telescope
-  = Empty
-  | Bind Term Telescope
+type Telescope = T.Telescope Term
 
 data Declaration
-  = Datatype Global Telescope
-  | Constr Global Telescope Global [Term]
-  | Definition Term Term
+  = Datatype Id Telescope
+  | Constr Id Telescope Id [Term]
+  | Term Term Term
 
 data Term
   = FunType Term Term
   | FunIntro Term
   | FunElim Term Term
-  | ConstrIntro Global [Term]
+  | ConstrIntro Id [Term]
   | Var Index
   | Let [Declaration] Term
+  | ElabError

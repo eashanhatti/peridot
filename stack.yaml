@@ -42,6 +42,9 @@ packages:
 #
 # extra-deps: []
 
+extra-deps:
+- dependent-hashmap-0.1.0.1@sha256:6d1c20bd79f32d8daebd3cc741f884cc3d093118e3b876eb957defd4c594a966,1892
+
 # Override default flag values for local packages and extra-deps
 # flags: {}
 

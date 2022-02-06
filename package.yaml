@@ -20,10 +20,26 @@ description:         Please see the README on GitHub at <https://github.com/gith
 
 default-extensions:
 - GADTs
+- ImportQualifiedPost
+- GeneralizedNewtypeDeriving
+- DerivingStrategies
+- RoleAnnotations
+- StandaloneDeriving
+- DeriveGeneric
+- FlexibleInstances
+- DeriveFoldable
+- BlockArguments
+- ViewPatterns
 
 dependencies:
 - base >= 4.7 && < 5
 - text
+- mtl
+- containers
+- some
+- dependent-hashmap 
+- dependent-sum
+- hashable
 
 library:
   source-dirs: src
