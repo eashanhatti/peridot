@@ -28,8 +28,11 @@ library
       Elaboration.Query
       Elaboration.Telescope
       Elaboration.Term
+      Elaboration.Unification
+      Normalization
       Syntax.Core
       Syntax.Semantic
+      Syntax.Stage
       Syntax.Surface
       Syntax.Telescope
       Syntax.Variable
@@ -52,12 +55,15 @@ library
       DuplicateRecordFields
       OverloadedLabels
       DisambiguateRecordFields
+      ConstraintKinds
   build-depends:
       base >=4.7 && <5
     , containers
     , dependent-hashmap
     , dependent-sum
+    , fused-effects
     , hashable
+    , logict
     , mtl
     , some
     , text
@@ -84,14 +90,17 @@ executable konna3-exe
       DuplicateRecordFields
       OverloadedLabels
       DisambiguateRecordFields
+      ConstraintKinds
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
     , containers
     , dependent-hashmap
     , dependent-sum
+    , fused-effects
     , hashable
     , konna3
+    , logict
     , mtl
     , some
     , text
@@ -119,14 +128,17 @@ test-suite konna3-test
       DuplicateRecordFields
       OverloadedLabels
       DisambiguateRecordFields
+      ConstraintKinds
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
     , containers
     , dependent-hashmap
     , dependent-sum
+    , fused-effects
     , hashable
     , konna3
+    , logict
     , mtl
     , some
     , text

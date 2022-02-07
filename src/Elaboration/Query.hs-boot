@@ -1,11 +1,19 @@
 module Elaboration.Query where
 
-type role Query nominal
+import Control.Effect.State(State)
+import Control.Effect.Reader(Reader)
+import Control.Algebra(Has)
+import Syntax.Variable
+import Syntax.Core qualified as C
+import Normalization
 
-data Query a
+data QueryState
 
-type role Key nominal
+data QueryContext
 
-data Key a
+type Query sig m = (Has (Reader QueryContext) sig m, Has (State QueryState) sig m, Eval sig m)
 
-query :: Key a -> Query a
+data Key a where
+  ElabDecl :: Id -> Key C.Declaration
+
+query :: Query sig m => Key a -> m a

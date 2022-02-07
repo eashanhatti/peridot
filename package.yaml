@@ -33,6 +33,7 @@ default-extensions:
 - DuplicateRecordFields
 - OverloadedLabels
 - DisambiguateRecordFields
+- ConstraintKinds
 
 dependencies:
 - base >= 4.7 && < 5
@@ -43,6 +44,8 @@ dependencies:
 - dependent-hashmap 
 - dependent-sum
 - hashable
+- logict
+- fused-effects
 
 library:
   source-dirs: src

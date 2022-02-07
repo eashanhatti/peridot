@@ -1,17 +1,16 @@
 module Elaboration.Query where
 
-import Control.Monad.State
-import Control.Monad.State.Class
-import Control.Monad.Reader
-import Control.Monad.Reader.Class
+import Control.Effect.State(State, get, put)
+import Control.Effect.Reader(Reader, ask, local)
+import Control.Algebra(Has)
 import Data.Map(Map, (!), insert)
 import Syntax.Variable hiding (unId)
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Telescope qualified as T
+import Elaboration.Decl as ED
 import Syntax.Surface
 import Data.Some
-import Elaboration.Decl qualified as ED
 import Data.Dependent.HashMap qualified as DMap
 import Data.Dependent.HashMap(DHashMap)
 import Data.Functor.Identity
@@ -19,6 +18,7 @@ import Data.GADT.Compare
 import Data.Type.Equality
 import Data.Hashable
 import GHC.Generics
+import Normalization
 
 data QueryState = QueryState
   { unMemoTable :: DHashMap Key Identity
@@ -29,10 +29,9 @@ data QueryContext = QueryContext
 
 data Error = TooManyParams
 
-data Binding = Local Index N.Term | Global Id
+data Binding = LocalB Index N.Term | GlobalB Id
 
-newtype Query a = Query (ReaderT QueryContext (State QueryState) a)
-  deriving newtype (Functor, Applicative, Monad, MonadState QueryState, MonadReader QueryContext)
+type Query sig m = (Has (Reader QueryContext) sig m, Has (State QueryState) sig m, Eval sig m)
 
 data Key a where
   ElabDecl :: Id -> Key C.Declaration
@@ -43,7 +42,7 @@ instance GEq Key where
 instance Hashable (Some Key) where
   hashWithSalt salt (Some (ElabDecl did)) = salt `hashWithSalt` did
 
-query :: Key a -> Query a
+query :: Query sig m => Key a -> m a
 query key@(ElabDecl did) = do
   state <- get
   case DMap.lookup key (unMemoTable state) of
@@ -52,33 +51,30 @@ query key@(ElabDecl did) = do
       pure decl
     Nothing -> ED.check (unDecls state ! did)
 
-checkDecl :: Id -> Query C.Declaration
-checkDecl did = query (ElabDecl did)
-
-bindLocal :: Name -> N.Term -> Query a -> Query a
-bindLocal name ty act =
+bindLocalB :: Query sig m => Name -> N.Term -> m a -> m a
+bindLocalB name ty act =
   local
-    (\ctx -> ctx { unBindings = insert name (Local (Index 0) ty) (fmap inc (unBindings ctx))})
+    (\ctx -> ctx { unBindings = insert name (LocalB (Index 0) ty) (fmap inc (unBindings ctx))})
     act
   where
-    inc (Local ix ty) = Local (ix + 1) ty
+    inc (LocalB ix ty) = LocalB (ix + 1) ty
     inc b = b
 
-bindAll :: N.Telescope -> [Name] -> Query a -> Query a
+bindAll :: Query sig m => N.Telescope -> [Name] -> m a -> m a
 bindAll T.Empty _ act = act
-bindAll (T.Bind ty tele) (name:names) act = bindLocal name ty (bindAll tele names act)
+bindAll (T.Bind ty tele) (name:names) act = bindLocalB name ty (bindAll tele names act)
 bindAll _ [] act = do
   report TooManyParams
   act
 
-addDecls :: [DeclarationAst] -> Query a -> Query a
+addDecls :: Query sig m => [DeclarationAst] -> m a -> m a
 addDecls [] act = act
 addDecls (decl:decls) act = do
   state <- get
   put (state { unDecls = insert (unId decl) decl (unDecls state) })
   local
-    (\ctx -> ctx { unBindings = insert (unDeclName decl) (Global (unId decl)) (unBindings ctx) })
+    (\ctx -> ctx { unBindings = insert (unDeclName decl) (GlobalB (unId decl)) (unBindings ctx) })
     (addDecls decls act)
 
-report :: Error -> Query ()
+report :: Query sig m => Error -> m ()
 report _ = pure ()

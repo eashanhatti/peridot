@@ -44,6 +44,7 @@ packages:
 
 extra-deps:
 - dependent-hashmap-0.1.0.1@sha256:6d1c20bd79f32d8daebd3cc741f884cc3d093118e3b876eb957defd4c594a966,1892
+- fused-effects-1.1.1.1@sha256:c029c5fb0b2154281221a71ff25709d2a11347fe061fa8c2398e7fe52a16008d,4932
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

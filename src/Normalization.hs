@@ -2,18 +2,26 @@ module Normalization where
 
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Control.Monad.Reader.Class
+import Syntax.Variable
+import Control.Effect.Reader
+import Control.Algebra(Has)
 import Data.Functor.Identity
 
-newtype EvalT m a = EvalT (ReaderT m Level)
-	deriving newtype (MonadReader)
-type Eval = EvalT Identity
+newtype Context = Context Level
 
-appClosure :: N.Closure -> N.Term -> Eval N.Term
+type Eval sig m = Has (Reader Context) sig m
+
+appClosure :: Eval sig m => N.Closure -> N.Term -> m N.Term
 appClosure = undefined
 
-eval :: C.Term -> Eval N.Term
+evalClosure :: Eval sig m => N.Closure -> m N.Term
+evalClosure = undefined
+
+eval :: Eval sig m => C.Term -> m N.Term
 eval = undefined
 
-readback :: N.Term -> Eval C.Term
+readback :: Eval sig m => N.Term -> m C.Term
 readback = undefined
+
+freeVar :: Eval sig m => m N.Term
+freeVar = undefined
