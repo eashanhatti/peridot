@@ -11,6 +11,9 @@ newtype Index = Index { unIndex :: Natural }
 newtype Id = Id { unId :: Natural }
   deriving (Eq, Ord, Generic)
 
+newtype Global = Global { unGlobal :: Natural }
+  deriving newtype (Num)
+
 instance Hashable Id
 
 data Name = UserName Text | MachineName Natural

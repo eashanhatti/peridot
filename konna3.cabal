@@ -49,6 +49,9 @@ library
       DeriveFoldable
       BlockArguments
       ViewPatterns
+      DuplicateRecordFields
+      OverloadedLabels
+      DisambiguateRecordFields
   build-depends:
       base >=4.7 && <5
     , containers
@@ -78,6 +81,9 @@ executable konna3-exe
       DeriveFoldable
       BlockArguments
       ViewPatterns
+      DuplicateRecordFields
+      OverloadedLabels
+      DisambiguateRecordFields
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -110,6 +116,9 @@ test-suite konna3-test
       DeriveFoldable
       BlockArguments
       ViewPatterns
+      DuplicateRecordFields
+      OverloadedLabels
+      DisambiguateRecordFields
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

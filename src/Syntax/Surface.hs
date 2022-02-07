@@ -9,10 +9,18 @@ data Ast a where
   TermAst :: Term -> TermAst
   NameAst :: Name -> NameAst
   DeclAst :: Declaration -> Id -> DeclarationAst
-  ConstrAst :: Constructor -> Id -> ConstructorAst 
+  ConstrAst :: Constructor -> Id -> ConstructorAst
+  TeleAst :: Telescope (Name, TermAst) -> TelescopeAst
 
 unName :: NameAst -> Name
 unName (NameAst name) = name
+
+unDeclName :: DeclarationAst -> Name
+unDeclName (DeclAst (Datatype (unName -> name) _ _) _) = name
+unDeclName (DeclAst (Term (unName -> name) _ _) _) = name
+
+unId :: DeclarationAst -> Id
+unId (DeclAst _ did) = did
 
 type NameAst = Ast Name
 

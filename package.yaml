@@ -30,6 +30,9 @@ default-extensions:
 - DeriveFoldable
 - BlockArguments
 - ViewPatterns
+- DuplicateRecordFields
+- OverloadedLabels
+- DisambiguateRecordFields
 
 dependencies:
 - base >= 4.7 && < 5

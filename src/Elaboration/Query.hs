@@ -5,7 +5,7 @@ import Control.Monad.State.Class
 import Control.Monad.Reader
 import Control.Monad.Reader.Class
 import Data.Map(Map, (!), insert)
-import Syntax.Variable
+import Syntax.Variable hiding (unId)
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Telescope qualified as T
@@ -21,15 +21,15 @@ import Data.Hashable
 import GHC.Generics
 
 data QueryState = QueryState
-  { memoTable :: DHashMap Key Identity
-  , decls :: Map Id DeclarationAst }
+  { unMemoTable :: DHashMap Key Identity
+  , unDecls :: Map Id DeclarationAst }
 
 data QueryContext = QueryContext
-  { bindings :: Map Name Binding }
+  { unBindings :: Map Name Binding }
 
 data Error = TooManyParams
 
-data Binding = Local Index N.Term | Global Id N.Term
+data Binding = Local Index N.Term | Global Id
 
 newtype Query a = Query (ReaderT QueryContext (State QueryState) a)
   deriving newtype (Functor, Applicative, Monad, MonadState QueryState, MonadReader QueryContext)
@@ -43,10 +43,22 @@ instance GEq Key where
 instance Hashable (Some Key) where
   hashWithSalt salt (Some (ElabDecl did)) = salt `hashWithSalt` did
 
+query :: Key a -> Query a
+query key@(ElabDecl did) = do
+  state <- get
+  case DMap.lookup key (unMemoTable state) of
+    Just (Identity decl) -> do
+      put $ state { unMemoTable = DMap.insert key (Identity decl) (unMemoTable state) }
+      pure decl
+    Nothing -> ED.check (unDecls state ! did)
+
+checkDecl :: Id -> Query C.Declaration
+checkDecl did = query (ElabDecl did)
+
 bindLocal :: Name -> N.Term -> Query a -> Query a
 bindLocal name ty act =
   local
-    (\ctx -> ctx { bindings = insert name (Local (Index 0) ty) (fmap inc (bindings ctx))})
+    (\ctx -> ctx { unBindings = insert name (Local (Index 0) ty) (fmap inc (unBindings ctx))})
     act
   where
     inc (Local ix ty) = Local (ix + 1) ty
@@ -59,17 +71,14 @@ bindAll _ [] act = do
   report TooManyParams
   act
 
+addDecls :: [DeclarationAst] -> Query a -> Query a
+addDecls [] act = act
+addDecls (decl:decls) act = do
+  state <- get
+  put (state { unDecls = insert (unId decl) decl (unDecls state) })
+  local
+    (\ctx -> ctx { unBindings = insert (unDeclName decl) (Global (unId decl)) (unBindings ctx) })
+    (addDecls decls act)
+
 report :: Error -> Query ()
 report _ = pure ()
-
-checkDecl :: Id -> Query C.Declaration
-checkDecl did = query (ElabDecl did)
-
-query :: Key a -> Query a
-query key@(ElabDecl did) = do
-  state <- get
-  case DMap.lookup key (memoTable state) of
-    Just (Identity decl) -> do
-      put $ state { memoTable = DMap.insert key (Identity decl) (memoTable state) }
-      pure decl
-    Nothing -> ED.check (decls state ! did)
