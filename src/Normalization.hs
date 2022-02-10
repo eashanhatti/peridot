@@ -22,7 +22,7 @@ closureOf term = do
 appClosure :: Norm sig m => N.Closure -> N.Term -> m N.Term
 appClosure (N.Closure env body) arg = do
   NormContext lvl env <- ask
-  local (const (NormContext lvl (arg:env))) (eval body)
+  local (const (NormContext (lvl + 1) (arg:env))) (eval body)
 
 evalClosure :: Norm sig m => N.Closure -> m N.Term
 evalClosure clo = do
