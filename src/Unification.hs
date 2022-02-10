@@ -106,7 +106,7 @@ repeatedlySimplify cs = do
   else
     repeatedlySimplify cs'
 
-unify :: (Alternative m, MonadPlus m, MonadLogic m, Unify sig m) => Substitution -> [Constraint] -> m (Substitution, [Constraint])
+unify :: (Alternative m, MonadLogic m, Unify sig m) => Substitution -> [Constraint] -> m (Substitution, [Constraint])
 unify subst cs = do
   (flexFlexes, flexRigids) <- partition isFlexFlex <$> repeatedlySimplify cs
   if null flexRigids then
@@ -116,9 +116,9 @@ unify subst cs = do
     trySubsts substss (flexRigids ++ flexFlexes)
   where
     isFlexFlex (e1, e2) = isStuck e1 && isStuck e2
-    trySubsts [] cs = mzero
+    trySubsts [] cs = empty
     trySubsts (act:substss) cs = do
       substs <- act
-      let these = foldr interleave mzero [unify (Map.union subst' subst) cs | subst' <- substs]
+      let these = foldr interleave empty [unify (Map.union subst' subst) cs | subst' <- substs]
       let those = trySubsts substss cs
       interleave these those
