@@ -15,7 +15,7 @@ import Data.Map(Map)
 import Data.Map qualified as Map
 import Data.Set(Set)
 import Data.Set qualified as Set
-import Data.List(foldl')
+import Data.List(foldl', partition)
 import Syntax.Variable
 import Normalization
 import Control.Monad.Extra
@@ -51,6 +51,11 @@ isClosed (TypeType _) = pure True
 isClosed (FreeVar _) = pure False
 isClosed (UniVar _) = pure True
 isClosed (StuckFunElim lam arg) = (&&) <$> isClosed lam <*> isClosed arg
+
+isStuck :: Term -> Bool
+isStuck (StuckFunElim _ _) = True
+isStuck (UniVar _) = True
+isStuck _ = False
 
 simplify :: (Alternative m, Eval sig m) => Constraint -> m [Constraint]
 simplify (e1, e2) | e1 == e2 = pure []
@@ -100,3 +105,20 @@ repeatedlySimplify cs = do
     pure cs
   else
     repeatedlySimplify cs'
+
+unify :: (Alternative m, MonadPlus m, MonadLogic m, Unify sig m) => Substitution -> [Constraint] -> m (Substitution, [Constraint])
+unify subst cs = do
+  (flexFlexes, flexRigids) <- partition isFlexFlex <$> repeatedlySimplify cs
+  if null flexRigids then
+    pure (subst, flexFlexes)
+  else do
+    substss <- tryFlexRigid (head flexRigids)
+    trySubsts substss (flexRigids ++ flexFlexes)
+  where
+    isFlexFlex (e1, e2) = isStuck e1 && isStuck e2
+    trySubsts [] cs = mzero
+    trySubsts (act:substss) cs = do
+      substs <- act
+      let these = foldr interleave mzero [unify (Map.union subst' subst) cs | subst' <- substs]
+      let those = trySubsts substss cs
+      interleave these those
