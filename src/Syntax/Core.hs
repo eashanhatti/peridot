@@ -20,4 +20,5 @@ data Term
   | TypeType Stage
   | Var Index
   | Let [Declaration] Term
+  | UniVar Global
   deriving (Eq)

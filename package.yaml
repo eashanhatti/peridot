@@ -46,6 +46,7 @@ dependencies:
 - hashable
 - logict
 - fused-effects
+- extra
 
 library:
   source-dirs: src

@@ -28,7 +28,6 @@ library
       Elaboration.Query
       Elaboration.Telescope
       Elaboration.Term
-      Elaboration.Unification
       Normalization
       Syntax.Core
       Syntax.Semantic
@@ -36,6 +35,7 @@ library
       Syntax.Surface
       Syntax.Telescope
       Syntax.Variable
+      Unification
   other-modules:
       Paths_konna3
   hs-source-dirs:
@@ -61,6 +61,7 @@ library
     , containers
     , dependent-hashmap
     , dependent-sum
+    , extra
     , fused-effects
     , hashable
     , logict
@@ -97,6 +98,7 @@ executable konna3-exe
     , containers
     , dependent-hashmap
     , dependent-sum
+    , extra
     , fused-effects
     , hashable
     , konna3
@@ -135,6 +137,7 @@ test-suite konna3-test
     , containers
     , dependent-hashmap
     , dependent-sum
+    , extra
     , fused-effects
     , hashable
     , konna3

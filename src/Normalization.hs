@@ -7,9 +7,9 @@ import Control.Effect.Reader
 import Control.Algebra(Has)
 import Data.Functor.Identity
 
-newtype Context = Context Level
+newtype EvalContext = EvalContext Level
 
-type Eval sig m = Has (Reader Context) sig m
+type Eval sig m = Has (Reader EvalContext) sig m
 
 appClosure :: Eval sig m => N.Closure -> N.Term -> m N.Term
 appClosure = undefined
