@@ -13,7 +13,7 @@ import Control.Monad
 check :: Query sig m => TermAst -> N.Term -> m C.Term
 check (TermAst (Pi tele outTy)) goal = undefined  
 check (TermAst (Lam (map unName -> bindings) body)) goal = do
-  (tele, outTy) <- ET.view goal
+  (tele, outTy) <- T.view goal
   bindAll tele bindings (check body outTy)
 check (TermAst Univ) (N.TypeType stage) = pure (C.TypeType stage)
 check (TermAst (Let decls body)) goal = do

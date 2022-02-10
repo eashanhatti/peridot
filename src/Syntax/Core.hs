@@ -2,7 +2,7 @@ module Syntax.Core where
 
 import Syntax.Variable
 import Syntax.Stage
-import Syntax.Telescope qualified as T
+import {-# SOURCE #-} Syntax.Telescope qualified as T
 
 type Telescope = T.Telescope Term
 

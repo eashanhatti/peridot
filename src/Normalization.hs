@@ -38,12 +38,16 @@ eval (C.FunElim lam arg) = do
   case vLam of
     N.FunIntro body -> appClosure body vArg
     _ -> pure (N.StuckFunElim vLam vArg)
+eval (C.Let decls body) = undefined
 eval (C.DatatypeIntro did args) = N.DatatypeIntro did <$> traverse eval args
 eval (C.TypeType s) = pure (N.TypeType s)
 eval (C.Var ix) = do
   NormContext _ env <- ask
   entry ix
 eval (C.UniVar gl) = pure (N.UniVar gl)
+
+evalDecl :: Norm sig m => C.Declaration -> m N.Term
+evalDecl (C.Datatype did tele) = undefined
 
 entry :: Norm sig m => Index -> m N.Term
 entry ix = do
