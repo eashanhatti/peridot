@@ -5,23 +5,65 @@ import Syntax.Semantic qualified as N
 import Syntax.Variable
 import Control.Effect.Reader
 import Control.Algebra(Has)
+import Data.Map(Map)
+import Data.Map qualified as Map
 import Data.Functor.Identity
+import Numeric.Natural
 
-newtype EvalContext = EvalContext Level
+data NormContext = NormContext Level [N.Term]
 
-type Eval sig m = Has (Reader EvalContext) sig m
+type Norm sig m = Has (Reader NormContext) sig m
 
-appClosure :: Eval sig m => N.Closure -> N.Term -> m N.Term
-appClosure = undefined
+closureOf :: Norm sig m => C.Term -> m N.Closure
+closureOf term = do
+  NormContext _ env <- ask
+  pure (N.Closure env term)
 
-evalClosure :: Eval sig m => N.Closure -> m N.Term
-evalClosure = undefined
+appClosure :: Norm sig m => N.Closure -> N.Term -> m N.Term
+appClosure (N.Closure env body) arg = do
+  NormContext lvl env <- ask
+  local (const (NormContext lvl (arg:env))) (eval body)
 
-eval :: Eval sig m => C.Term -> m N.Term
-eval = undefined
+evalClosure :: Norm sig m => N.Closure -> m N.Term
+evalClosure clo = do
+  NormContext lvl _ <- ask
+  appClosure clo (N.FreeVar lvl)
 
-readback :: Eval sig m => N.Term -> m C.Term
-readback = undefined
+eval :: Norm sig m => C.Term -> m N.Term
+eval (C.FunType inTy outTy) = N.FunType <$> eval inTy <*> closureOf outTy
+eval (C.FunIntro body) = N.FunIntro <$> closureOf body
+eval (C.FunElim lam arg) = do
+  vLam <- eval lam
+  vArg <- eval arg
+  case vLam of
+    N.FunIntro body -> appClosure body vArg
+    _ -> pure (N.StuckFunElim vLam vArg)
+eval (C.DatatypeIntro did args) = N.DatatypeIntro did <$> traverse eval args
+eval (C.TypeType s) = pure (N.TypeType s)
+eval (C.Var ix) = do
+  NormContext _ env <- ask
+  entry ix
+eval (C.UniVar gl) = pure (N.UniVar gl)
 
-freeVar :: Eval sig m => m N.Term
-freeVar = undefined
+entry :: Norm sig m => Index -> m N.Term
+entry ix = do
+  NormContext _ env <- ask
+  if fromIntegral ix > length env then
+    pure (env !! fromIntegral ix)
+  else
+    error "TODO"
+
+readback :: Norm sig m => N.Term -> m C.Term
+readback (N.FunType inTy outTy) = C.FunType <$> readback inTy <*> (evalClosure outTy >>= readback)
+readback (N.FunIntro body) = C.FunIntro <$> (evalClosure body >>= readback)
+readback (N.DatatypeIntro did args) = C.DatatypeIntro did <$> traverse readback args
+readback (N.TypeType s) = pure (C.TypeType s)
+readback (N.FreeVar (Level lvl)) = do
+  NormContext (Level lvl') _ <- ask
+  pure (C.Var (Index (lvl - lvl' - 1)))
+readback (N.UniVar gl) = pure (C.UniVar gl)
+readback (N.StuckFunElim lam arg) = C.FunElim <$> readback lam <*> readback arg
+
+
+bind :: Norm sig m => Natural -> m a -> m a
+bind n = local (\(NormContext lvl env) -> NormContext (lvl + Level n) (env ++ [N.FreeVar vlvl | vlvl <- [lvl + 1 .. Level n]]))

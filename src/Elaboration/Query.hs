@@ -31,7 +31,7 @@ data Error = TooManyParams
 
 data Binding = LocalB Index N.Term | GlobalB Id
 
-type Query sig m = (Has (Reader QueryContext) sig m, Has (State QueryState) sig m, Eval sig m)
+type Query sig m = (Has (Reader QueryContext) sig m, Has (State QueryState) sig m, Norm sig m)
 
 data Key a where
   ElabDecl :: Id -> Key C.Declaration

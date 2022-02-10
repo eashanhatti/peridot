@@ -22,7 +22,7 @@ import Control.Monad.Extra
 
 newtype UnifyState = UnifyState Global
 
-type Unify sig m = (Has (Lift Logic) sig m, Has (State UnifyState) sig m, Eval sig m)
+type Unify sig m = (Has (Lift Logic) sig m, Has (State UnifyState) sig m, Norm sig m)
 type Constraint = (Term, Term)
 type Substitution = Map Global Term
 
@@ -32,7 +32,7 @@ freshUniVar = do
   put (UnifyState (gl + 1))
   pure gl
 
-uniVars :: Eval sig m => Term -> m (Set Global)
+uniVars :: Norm sig m => Term -> m (Set Global)
 uniVars (FunType inTy outTy) = do
   vOutTy <- evalClosure outTy
   (<>) <$> uniVars inTy <*> (evalClosure outTy >>= uniVars)
@@ -43,7 +43,7 @@ uniVars (FreeVar _) = pure mempty
 uniVars (UniVar gl) = pure (Set.singleton gl)
 uniVars (StuckFunElim lam arg) = (<>) <$> uniVars lam <*> uniVars arg
 
-isClosed :: Eval sig m => Term -> m Bool
+isClosed :: Norm sig m => Term -> m Bool
 isClosed (FunType inTy outTy) = (&&) <$> isClosed inTy <*> (evalClosure outTy >>= isClosed)
 isClosed (FunIntro body) = evalClosure body >>= isClosed
 isClosed (DatatypeIntro _ args) = andM (map isClosed args)
@@ -57,7 +57,7 @@ isStuck (StuckFunElim _ _) = True
 isStuck (UniVar _) = True
 isStuck _ = False
 
-simplify :: (Alternative m, Eval sig m) => Constraint -> m [Constraint]
+simplify :: (Alternative m, Norm sig m) => Constraint -> m [Constraint]
 simplify (e1, e2) | e1 == e2 = pure []
 simplify (e1, e2)
   | (FreeVar lvl1, args1) <- viewApp e1
@@ -75,7 +75,7 @@ simplify (FunType inTy1 outTy1, FunType inTy2 outTy2) = do
   pure [(inTy1, inTy2), (vOutTy1, vOutTy2)]
 simplify c = pure [c]
 
-tryFlexRigid :: (Eval sig1 m1, Unify sig2 m2) => Constraint -> m1 [m2 [Substitution]]
+tryFlexRigid :: (Norm sig1 m1, Unify sig2 m2) => Constraint -> m1 [m2 [Substitution]]
 tryFlexRigid (e1, e2) = do
   uniVars1 <- uniVars e1
   uniVars2 <- uniVars e2

@@ -6,10 +6,10 @@ import Data.Hashable
 import GHC.Generics
 
 newtype Index = Index { unIndex :: Natural }
-  deriving (Num, Eq)
+  deriving (Num, Eq, Ord, Enum, Real, Integral)
 
 newtype Level = Level { unLevel :: Natural }
-  deriving (Num, Eq)
+  deriving (Num, Eq, Enum)
 
 newtype Id = Id { unId :: Natural }
   deriving (Eq, Ord, Generic)
