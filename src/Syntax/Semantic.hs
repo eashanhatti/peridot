@@ -23,13 +23,16 @@ data Term
   | StuckFunElim Term Term
   deriving (Eq)
 
+data Definition = Simple Term | Recursive [Definition] C.Term
+  deriving (Eq)
+
 viewApp :: Term -> (Term, [Term])
 viewApp (StuckFunElim lam arg) =
   let (lam', args) = viewApp lam
   in (lam, args ++ [arg])
 viewApp e = (e, [])
 
-data Closure = Closure [Term] C.Term
+data Closure = Closure [Definition] C.Term
   deriving (Eq)
 
 type Telescope = T.Telescope Term

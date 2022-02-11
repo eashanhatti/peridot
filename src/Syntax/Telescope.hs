@@ -2,6 +2,7 @@ module Syntax.Telescope where
 
 import Syntax.Semantic qualified as N
 import Normalization
+import Numeric.Natural
 
 data Telescope a
   = Empty
@@ -16,3 +17,7 @@ view (N.FunType inTy outTy) = do
   (tele, outTy') <- view vOutTy
   pure (Bind inTy tele, outTy')
 view ty = pure (Empty, ty)
+
+size :: Telescope a -> Natural
+size Empty = 0
+size (Bind _ tele) = 1 + size tele

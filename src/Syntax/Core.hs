@@ -9,13 +9,14 @@ type Telescope = T.Telescope Term
 data Declaration
   = Datatype Id Telescope
   | Constr Id Telescope Id [Term]
-  | Term Term Term
+  | Term Term Term -- sig, def
   deriving (Eq)
 
 data Term
   = FunType Term Term
   | FunIntro Term
   | FunElim Term Term
+  | DatatypeType Id [Term]
   | DatatypeIntro Id [Term]
   | TypeType Stage
   | Var Index
