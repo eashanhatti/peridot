@@ -25,7 +25,7 @@ source-repository head
 library
   exposed-modules:
       Elaboration.Decl
-      Elaboration.Query
+      Elaboration.Effect
       Elaboration.Telescope
       Elaboration.Term
       Normalization
