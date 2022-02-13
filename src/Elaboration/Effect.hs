@@ -44,10 +44,13 @@ instance Hashable (Some Key) where
 
 memo :: Query sig m => Key a -> m a -> m a
 memo key act = do
-  memoTable <- unMemoTable <$> get
-  case DMap.lookup key memoTable of
+  state <- get
+  case DMap.lookup key (unMemoTable state) of
     Just (Identity result) -> pure result
-    Nothing -> act
+    Nothing -> do
+      result <- act
+      put (state { unMemoTable = DMap.insert key (Identity result) (unMemoTable state) })
+      pure result
 
 data ElabContext = ElabContext
   { unBindings :: Map Name Binding }
