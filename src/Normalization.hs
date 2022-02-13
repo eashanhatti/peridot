@@ -17,6 +17,9 @@ data NormContext = NormContext [N.Definition]
 
 type Norm sig m = Has (Reader NormContext) sig m
 
+define :: Norm sig m => N.Term -> m a -> m a
+define def = local (\(NormContext env) -> NormContext (N.Simple def : env))
+
 closureOf :: Norm sig m => C.Term -> m N.Closure
 closureOf term = do
   NormContext env <- ask
@@ -36,7 +39,7 @@ teleToType :: C.Telescope -> C.Term -> C.Term
 teleToType tele outTy = foldl' (\outTy inTy -> C.FunType inTy outTy) outTy tele
 
 definition :: C.Declaration -> C.Term
-definition (C.Datatype _ tele) = teleToType tele (C.TypeType Object)
+definition (C.Datatype _ tele _) = teleToType tele (C.TypeType Object)
 definition (C.Constr did tele _ _) =
   let vars = if size tele > 0 then map (C.Var . Index) [size tele, size tele - 1 .. 0] else []
   in foldl' (\term _ -> C.FunIntro term) (C.DatatypeIntro did vars) vars

@@ -7,7 +7,7 @@ import Numeric.Natural
 data Telescope a
   = Empty
   | Bind a (Telescope a)
-  deriving (Foldable)
+  deriving (Foldable, Traversable, Functor)
 
 deriving instance Eq a => Eq (Telescope a)
 

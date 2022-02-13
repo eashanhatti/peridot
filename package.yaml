@@ -27,13 +27,13 @@ default-extensions:
 - StandaloneDeriving
 - DeriveGeneric
 - FlexibleInstances
-- DeriveFoldable
 - BlockArguments
 - ViewPatterns
 - DuplicateRecordFields
 - OverloadedLabels
 - DisambiguateRecordFields
 - ConstraintKinds
+- DeriveTraversable
 
 dependencies:
 - base >= 4.7 && < 5

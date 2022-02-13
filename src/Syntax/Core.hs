@@ -7,9 +7,10 @@ import {-# SOURCE #-} Syntax.Telescope qualified as T
 type Telescope = T.Telescope Term
 
 data Declaration
-  = Datatype Id Telescope
+  = Datatype Id Telescope Stage
   | Constr Id Telescope Id [Term]
   | Term Term Term -- sig, def
+  | DElabError
   deriving (Eq)
 
 data Term

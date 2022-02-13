@@ -10,6 +10,10 @@ instance Eq a => Eq (Telescope a)
 
 instance Foldable Telescope
 
+instance Functor Telescope
+
+instance Traversable Telescope
+
 view :: Norm sig m => N.Term -> m (Telescope N.Term, N.Term)
 
 size :: Telescope a -> Natural

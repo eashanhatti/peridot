@@ -1,4 +1,6 @@
 module Syntax.Stage where
 
-data Stage = Meta | Object
+import Syntax.Variable
+
+data Stage = Meta | Object | UniVar Global
   deriving (Eq)

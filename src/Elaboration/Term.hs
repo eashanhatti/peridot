@@ -11,7 +11,7 @@ import Elaboration.Decl qualified as ED
 import Control.Monad
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
-check (TermAst (Pi tele outTy)) goal = undefined  
+check (TermAst (Pi name inTy outTy)) goal = undefined  
 check (TermAst (Lam (map unName -> bindings) body)) goal = do
   (tele, outTy) <- T.view goal
   bindAll tele bindings (check body outTy)

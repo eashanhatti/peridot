@@ -49,13 +49,13 @@ library
       StandaloneDeriving
       DeriveGeneric
       FlexibleInstances
-      DeriveFoldable
       BlockArguments
       ViewPatterns
       DuplicateRecordFields
       OverloadedLabels
       DisambiguateRecordFields
       ConstraintKinds
+      DeriveTraversable
   build-depends:
       base >=4.7 && <5
     , containers
@@ -85,13 +85,13 @@ executable konna3-exe
       StandaloneDeriving
       DeriveGeneric
       FlexibleInstances
-      DeriveFoldable
       BlockArguments
       ViewPatterns
       DuplicateRecordFields
       OverloadedLabels
       DisambiguateRecordFields
       ConstraintKinds
+      DeriveTraversable
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -124,13 +124,13 @@ test-suite konna3-test
       StandaloneDeriving
       DeriveGeneric
       FlexibleInstances
-      DeriveFoldable
       BlockArguments
       ViewPatterns
       DuplicateRecordFields
       OverloadedLabels
       DisambiguateRecordFields
       ConstraintKinds
+      DeriveTraversable
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
