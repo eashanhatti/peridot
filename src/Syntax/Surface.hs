@@ -6,7 +6,7 @@ import Syntax.Variable
 import Syntax.Telescope
 
 data Ast a where
-  TermAst :: Term -> TermAst
+  TermAst :: Term -> Id -> TermAst
   NameAst :: Name -> NameAst
   DeclAst :: Declaration -> Id -> DeclarationAst
   -- .., constr id, datatype id

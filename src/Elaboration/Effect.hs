@@ -4,6 +4,7 @@ import Control.Effect.State(State, get, put)
 import Control.Effect.Reader(Reader, ask, local)
 import Control.Effect.Throw(Throw)
 import Control.Algebra(Has)
+import Data.Set(Set, singleton)
 import Data.Map(Map, (!), insert, union, fromList)
 import Syntax.Variable hiding (unId)
 import Syntax.Core qualified as C
@@ -29,18 +30,21 @@ data Error
   = TooManyParams
   | WrongAppArity Natural Natural
 
-data Binding = LocalB Index N.Term | GlobalB Id
-
 type Query sig m = Has (State QueryState) sig m
 
 data Key a where
-  ElabDecl :: Id -> Key C.Declaration
+  ElabDecl :: Predeclaration -> Key C.Declaration
+  ElabTerm :: TermAst -> Key C.Term
 
 instance GEq Key where
   geq (ElabDecl _) (ElabDecl _) = Just Refl
+  geq (ElabTerm _) (ElabTerm _) = Just Refl
+  geq _ _ = Nothing
 
 instance Hashable (Some Key) where
-  hashWithSalt salt (Some (ElabDecl did)) = salt `hashWithSalt` did
+  hashWithSalt salt (Some (ElabDecl (PDDecl (DeclAst _ did)))) = salt `hashWithSalt` did
+  hashWithSalt salt (Some (ElabDecl (PDDecl (ConstrAst _ did _)))) = salt `hashWithSalt` did
+  hashWithSalt salt (Some (ElabTerm (TermAst _ did))) = salt `hashWithSalt` did
 
 memo :: Query sig m => Key a -> m a -> m a
 memo key act = do
@@ -52,6 +56,8 @@ memo key act = do
       put (state { unMemoTable = DMap.insert key (Identity result) (unMemoTable state) })
       pure result
 
+data Binding = BLocal Index N.Term | BGlobal Id
+
 data ElabContext = ElabContext
   { unBindings :: Map Name Binding }
 
@@ -59,19 +65,24 @@ data Predeclaration = PDDecl DeclarationAst | PDConstr ConstructorAst
 
 data ElabState = ElabState
   { unDecls :: Map Id Predeclaration
+  , unDeclTypes :: Map Id N.Term
   , unUVs :: Map Global N.Term
-  , unStageUVs :: Map Global Stage
+  , unStageUVs :: Map Global (Maybe Stage)
+  , unTypeUVs :: Map Global (Maybe N.Term)
   , unNextUV :: Global }
 
 type Elab sig m = (MonadFail m, Has (Reader ElabContext) sig m, Has (State ElabState) sig m, Norm sig m, Query sig m, Has (Throw ()) sig m)
 
+unify :: Elab sig m => N.Term -> N.Term -> m ()
+unify = undefined
+
 bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =
   local
-    (\ctx -> ctx { unBindings = insert name (LocalB (Index 0) ty) (fmap inc (unBindings ctx))})
+    (\ctx -> ctx { unBindings = insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx))})
     act
   where
-    inc (LocalB ix ty) = LocalB (ix + 1) ty
+    inc (BLocal ix ty) = BLocal (ix + 1) ty
     inc b = b
 
 bindAll :: Elab sig m => N.Telescope -> [Name] -> m a -> m a
@@ -94,14 +105,14 @@ addDecls (decl@(DeclAst (Datatype _ _ constrs) _):decls) act = do
     (\ctx -> ctx
       { unBindings =
         union
-          (insert (unDeclName decl) (GlobalB (unId decl)) (unBindings ctx))
-          (fromList (zip (map unConstrName constrs) (map (GlobalB . unCId) constrs))) })
+          (insert (unDeclName decl) (BGlobal (unId decl)) (unBindings ctx))
+          (fromList (zip (map unConstrName constrs) (map (BGlobal . unCId) constrs))) })
     (addDecls decls act)
 addDecls (decl:decls) act = do
   state <- get
   put (state { unDecls = insert (unId decl) (PDDecl decl) (unDecls state) })
   local
-    (\ctx -> ctx { unBindings = insert (unDeclName decl) (GlobalB (unId decl)) (unBindings ctx) })
+    (\ctx -> ctx { unBindings = insert (unDeclName decl) (BGlobal (unId decl)) (unBindings ctx) })
     (addDecls decls act)
 
 getDecl :: Elab sig m => Id -> m Predeclaration
@@ -109,14 +120,21 @@ getDecl did = do
   decls <- unDecls <$> get
   pure (decls ! did)
 
+freshTypeUV :: Elab sig m => m N.Term
+freshTypeUV = do
+  state <- get
+  put (state
+    { unNextUV = unNextUV state + 1
+    , unTypeUVs = insert (unNextUV state) Nothing (unTypeUVs state) })
+  pure (N.UniVar (unNextUV state))
+
 freshStageUV :: Elab sig m => m Stage
 freshStageUV = do
   state <- get
-  let stage = UniVar (unNextUV state)
   put (state
     { unNextUV = unNextUV state + 1
-    , unStageUVs = insert (unNextUV state) stage (unStageUVs state) })
-  pure stage
+    , unStageUVs = insert (unNextUV state) Nothing (unStageUVs state) })
+  pure (UniVar (unNextUV state))
 
 report :: Elab sig m => Error -> m ()
 report _ = pure ()

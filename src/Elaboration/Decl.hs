@@ -14,21 +14,19 @@ import Normalization
 import Control.Monad
 import Data.Foldable(toList)
 
-check :: Elab sig m => Id -> m C.Declaration
-check did = do
-  decl <- getDecl did
-  memo (ElabDecl did) case decl of
-    PDDecl (DeclAst (Term name sig def) _) -> do
+check :: Elab sig m => Predeclaration -> m C.Declaration
+check decl = memo (ElabDecl decl) case decl of
+    PDDecl (DeclAst (Term name sig def) did) -> do
       stage <- freshStageUV
       cSig <- EE.check sig (N.TypeType stage)
       cDef <- eval cSig >>= EE.check def
       pure (C.Term cSig cDef)
-    PDDecl (DeclAst (Datatype name tele constrs) _) -> do
+    PDDecl (DeclAst (Datatype name tele constrs) did) -> do
       stage <- freshStageUV
       (cTele, _) <- ET.check tele (N.TypeType stage)
       pure (C.Datatype did cTele stage)
-    PDConstr constr@(ConstrAst (Constr _ tele args) _ dtDid) -> do
-      (C.Datatype _ dtTele stage) <- check dtDid
+    PDConstr constr@(ConstrAst (Constr _ tele args) did dtDid) -> do
+      C.Datatype _ dtTele stage <- getDecl dtDid >>= check
       (cTele, names) <- ET.check tele (N.TypeType stage)
       if T.size dtTele /= fromIntegral (length args) then do
         report (WrongAppArity (T.size dtTele) (fromIntegral (length args)))
