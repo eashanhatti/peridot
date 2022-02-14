@@ -4,6 +4,18 @@ import Syntax.Variable
 import Syntax.Stage
 import {-# SOURCE #-} Syntax.Telescope qualified as T
 import Syntax.Core qualified as C
+import Data.Map(Map, insert, size)
+
+data Environment = Env [Term] (Map Id (Environment, C.Term))
+  deriving (Eq)
+
+envSize (Env locals _) = length locals
+
+withLocal :: Term -> Environment -> Environment
+withLocal def (Env locals globals) = Env (def:locals) globals
+
+withGlobal :: Id -> Environment -> C.Term -> Environment -> Environment
+withGlobal did env term (Env locals globals) = Env locals (insert did (env, term) globals)
 
 data Declaration
   = Datatype Id Telescope
@@ -16,23 +28,21 @@ data Term
   | FunIntro Closure
   | DatatypeIntro Id [Term]
   | TypeType Stage
-  | FreeVar Level
   | Let [Declaration] Closure
   -- Stuck terms
   | UniVar Global
-  | StuckFunElim Term Term
-  deriving (Eq)
-
-data Definition = Simple Term | Recursive [Definition] C.Term
+  | FreeVar Level
+  | TopVar Id Environment C.Term
+  | FunElim Term Term
   deriving (Eq)
 
 viewApp :: Term -> (Term, [Term])
-viewApp (StuckFunElim lam arg) =
+viewApp (FunElim lam arg) =
   let (lam', args) = viewApp lam
   in (lam, args ++ [arg])
 viewApp e = (e, [])
 
-data Closure = Closure [Definition] C.Term
+data Closure = Closure Environment C.Term
   deriving (Eq)
 
 type Telescope = T.Telescope Term

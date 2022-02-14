@@ -5,5 +5,3 @@ data Declaration
 data Term
 
 data Closure
-
-data Definition

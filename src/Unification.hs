@@ -41,7 +41,7 @@ uniVars (DatatypeIntro _ args) = foldM (\acc arg -> (acc <>) <$> uniVars arg) me
 uniVars (TypeType _) = pure mempty
 uniVars (FreeVar _) = pure mempty
 uniVars (UniVar gl) = pure (Set.singleton gl)
-uniVars (StuckFunElim lam arg) = (<>) <$> uniVars lam <*> uniVars arg
+uniVars (FunElim lam arg) = (<>) <$> uniVars lam <*> uniVars arg
 
 isClosed :: Norm sig m => Term -> m Bool
 isClosed (FunType inTy outTy) = (&&) <$> isClosed inTy <*> (evalClosure outTy >>= isClosed)
@@ -50,10 +50,10 @@ isClosed (DatatypeIntro _ args) = andM (map isClosed args)
 isClosed (TypeType _) = pure True
 isClosed (FreeVar _) = pure False
 isClosed (UniVar _) = pure True
-isClosed (StuckFunElim lam arg) = (&&) <$> isClosed lam <*> isClosed arg
+isClosed (FunElim lam arg) = (&&) <$> isClosed lam <*> isClosed arg
 
 isStuck :: Term -> Bool
-isStuck (StuckFunElim _ _) = True
+isStuck (FunElim _ _) = True
 isStuck (UniVar _) = True
 isStuck _ = False
 
@@ -89,11 +89,11 @@ proj bvars gl lam nargs = genSubst bvars gl lam nargs : proj bvars gl lam (nargs
 genSubst :: Unify sig m => Int -> Global -> Term -> Int -> m [Substitution]
 genSubst bvars gl lam nargs = do
   let mkLam tm = foldr ($) tm (replicate bvars C.FunIntro)
-  let saturateUV tm = foldl' C.FunElim tm (map (C.Var . Index) [0 .. fromIntegral (bvars - 1)])
+  let saturateUV tm = foldl' C.FunElim tm (map (C.LocalVar . Index) [0 .. fromIntegral (bvars - 1)])
   args <- map saturateUV . map C.UniVar <$> replicateM nargs freshUniVar
   lamIsClosed <- isClosed lam
-  cLam <- readback lam
-  let vars = map (C.Var . Index) [0 .. fromIntegral (bvars - 1)] ++ if lamIsClosed then [cLam] else []
+  cLam <- readback False lam
+  let vars = map (C.LocalVar . Index) [0 .. fromIntegral (bvars - 1)] ++ if lamIsClosed then [cLam] else []
   forM vars \var -> do
     sol <- eval (mkLam (foldl' C.FunElim var args))
     pure (Map.singleton gl sol)

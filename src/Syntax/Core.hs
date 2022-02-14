@@ -9,9 +9,15 @@ type Telescope = T.Telescope Term
 data Declaration
   = Datatype Id Telescope Stage
   | Constr Id Telescope Id [Term]
-  | Term Term Term -- sig, def
+  | Term Id Term Term -- sig, def
   | DElabError
   deriving (Eq)
+
+unId :: Declaration -> Id
+unId (Datatype did _ _) = did
+unId (Constr did _ _ _) = did
+unId (Term did _ _) = did
+unId DElabError = undefined -- FIXME
 
 data Term
   = FunType Term Term
@@ -20,7 +26,8 @@ data Term
   | DatatypeType Id [Term]
   | DatatypeIntro Id [Term]
   | TypeType Stage
-  | Var Index
+  | LocalVar Index
+  | GlobalVar Id
   | Let [Declaration] Term
   | UniVar Global
   | EElabError

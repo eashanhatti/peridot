@@ -20,7 +20,7 @@ check decl = memo (CheckDecl decl) case decl of
     stage <- freshStageUV
     cSig <- EE.check sig (N.TypeType stage)
     cDef <- eval cSig >>= EE.check def
-    pure (C.Term cSig cDef)
+    pure (C.Term did cSig cDef)
   PDDecl (DeclAst (Datatype name tele constrs) did) -> do
     stage <- freshStageUV
     (cTele, _) <- ET.check tele (N.TypeType stage)
