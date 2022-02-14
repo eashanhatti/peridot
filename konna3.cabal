@@ -56,6 +56,7 @@ library
       DisambiguateRecordFields
       ConstraintKinds
       DeriveTraversable
+      TypeApplications
   build-depends:
       base >=4.7 && <5
     , containers
@@ -92,6 +93,7 @@ executable konna3-exe
       DisambiguateRecordFields
       ConstraintKinds
       DeriveTraversable
+      TypeApplications
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -131,6 +133,7 @@ test-suite konna3-test
       DisambiguateRecordFields
       ConstraintKinds
       DeriveTraversable
+      TypeApplications
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

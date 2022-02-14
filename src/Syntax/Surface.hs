@@ -6,7 +6,7 @@ import Syntax.Variable
 import Syntax.Telescope
 
 data Ast a where
-  TermAst :: Term -> Id -> TermAst
+  TermAst :: Term -> TermAst
   NameAst :: Name -> NameAst
   DeclAst :: Declaration -> Id -> DeclarationAst
   -- .., constr id, datatype id
@@ -17,11 +17,11 @@ unName :: NameAst -> Name
 unName (NameAst name) = name
 
 unDeclName :: DeclarationAst -> Name
-unDeclName (DeclAst (Datatype (unName -> name) _ _) _) = name
-unDeclName (DeclAst (Term (unName -> name) _ _) _) = name
+unDeclName (DeclAst (Datatype (NameAst name) _ _) _) = name
+unDeclName (DeclAst (Term (NameAst name) _ _) _) = name
 
 unConstrName :: ConstructorAst -> Name
-unConstrName (ConstrAst (Constr (unName -> name) _ _) _ _) = name
+unConstrName (ConstrAst (Constr (NameAst name) _ _) _ _) = name
 
 unId :: DeclarationAst -> Id
 unId (DeclAst _ did) = did

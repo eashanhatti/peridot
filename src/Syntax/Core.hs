@@ -23,4 +23,5 @@ data Term
   | Var Index
   | Let [Declaration] Term
   | UniVar Global
+  | EElabError
   deriving (Eq)
