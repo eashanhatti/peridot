@@ -25,7 +25,7 @@ import GHC.Generics hiding (Constructor)
 import Normalization
 import Unification
 import Numeric.Natural
-import Data.Foldable(toList)
+import Data.Foldable(toList, foldl')
 import Prelude hiding(lookup)
 
 data QueryState = QueryState
@@ -91,10 +91,14 @@ type Elab sig m =
 unify :: Elab sig m => N.Term -> N.Term -> m ()
 unify = undefined
 
+overloadBinding k s m = case lookup k m of
+  Just s' -> insert k (Set.union s s') m
+  Nothing -> insert k s m
+
 bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =
   local
-    (\ctx -> ctx { unBindings = insert name (singleton (BLocal (Index 0) ty)) (fmap (Set.map inc) (unBindings ctx)) })
+    (\ctx -> ctx { unBindings = overloadBinding name (singleton (BLocal (Index 0) ty)) (fmap (Set.map inc) (unBindings ctx)) })
     act
   where
     inc (BLocal ix ty) = BLocal (ix + 1) ty
@@ -119,15 +123,16 @@ addDecls (decl@(DeclAst (Datatype _ _ constrs) _):decls) act = do
   local
     (\ctx -> ctx
       { unBindings =
-        union
-          (insert (unDeclName decl) (singleton (BGlobal (unId decl))) (unBindings ctx))
-          (fromList (zip (map unConstrName constrs) (map (singleton . BGlobal . unCId) constrs))) })
+        foldl'
+          (\m (n, b) -> overloadBinding n (singleton b) m)
+          (unBindings ctx)
+          ((unDeclName decl, BGlobal (unId decl)) : zip (map unConstrName constrs) (map (BGlobal . unCId) constrs)) })
     (addDecls decls act)
 addDecls (decl:decls) act = do
   state <- get
   put (state { unDecls = insert (unId decl) (PDDecl decl) (unDecls state) })
   local
-    (\ctx -> ctx { unBindings = insert (unDeclName decl) (singleton (BGlobal (unId decl))) (unBindings ctx) })
+    (\ctx -> ctx { unBindings = overloadBinding (unDeclName decl) (singleton (BGlobal (unId decl))) (unBindings ctx) })
     (addDecls decls act)
 
 lookupBinding :: Elab sig m => Name -> m (Maybe [Binding])
