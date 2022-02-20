@@ -22,12 +22,11 @@ check decl = memo (CheckDecl decl) case decl of
     cDef <- eval cSig >>= EE.check def
     pure (C.Term did cSig cDef)
   PDDecl (DeclAst (Datatype name tele constrs) did) -> do
-    stage <- freshStageUV
-    (cTele, _) <- ET.check tele (N.TypeType stage)
-    pure (C.Datatype did cTele stage)
+    (cTele, _) <- ET.check tele (N.TypeType Object)
+    pure (C.Datatype did cTele)
   PDConstr constr@(ConstrAst (Constr _ tele args) did dtDid) -> do
-    C.Datatype _ dtTele stage <- getDecl dtDid >>= check
-    (cTele, names) <- ET.check tele (N.TypeType stage)
+    C.Datatype _ dtTele <- getDecl dtDid >>= check
+    (cTele, names) <- ET.check tele (N.TypeType Object)
     if T.size dtTele /= fromIntegral (length args) then do
       report (WrongAppArity (T.size dtTele) (fromIntegral (length args)))
       pure C.DElabError
@@ -48,7 +47,7 @@ declType :: Elab sig m => Id -> m N.Term
 declType did = memo (DeclType did) do
   cDecl <- getDecl did >>= check
   case cDecl of
-    C.Datatype _ _ stage -> pure (N.TypeType stage)
+    C.Datatype _ _ -> pure (N.TypeType Object)
     C.Constr _ _ did args -> N.DatatypeType did <$> evalArgs args
     C.Term _ sig _ -> eval sig
     C.DElabError -> pure N.EElabError

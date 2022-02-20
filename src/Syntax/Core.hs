@@ -7,14 +7,14 @@ import {-# SOURCE #-} Syntax.Telescope qualified as T
 type Telescope = T.Telescope Term
 
 data Declaration
-  = Datatype Id Telescope Stage
+  = Datatype Id Telescope
   | Constr Id Telescope Id [Term]
   | Term Id Term Term -- sig, def
   | DElabError
   deriving (Eq)
 
 unId :: Declaration -> Id
-unId (Datatype did _ _) = did
+unId (Datatype did _) = did
 unId (Constr did _ _ _) = did
 unId (Term did _ _) = did
 unId DElabError = undefined -- FIXME
