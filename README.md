@@ -6,6 +6,10 @@ An experimental language for exploring the practical applications of two level t
 
 Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/jFZ8JyUNtn) - Projects A-M 🠒 #konna.
 
+### References and Inspiration
+
+A list of prior art that have influenced Konna's design and implementation can be found [here](./REFERENCES.md).
+
 ### Introduction
 
 Konna is a functional/logic language based on 2LTT (two level type theory). It uses a logic language for the meta level, which allows for domain specific, declarative optimizers to be written entirely in userspace - writers of optimizers can focus on purely on the optimizations themselves. Meanwhile, the object language is high-level, dependently typed, and functional. Here's a very simple example of optimizing arithmetic:
@@ -31,7 +35,3 @@ main =
 ```
 
 A more in-depth explanation of the language's rationale can be found [here](./RATIONALE.md). A comparison to the old version of the language can be found [here](./OLD_VS_NEW.md).
-
-### References and Inspiration
-
-A list of prior art that have influenced Konna's design and implementation can be found [here](./REFERENCES.md).
