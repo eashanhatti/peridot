@@ -135,15 +135,23 @@ addDecls (decl:decls) act = do
     (\ctx -> ctx { unBindings = overloadBinding (unDeclName decl) (singleton (BGlobal (unId decl))) (unBindings ctx) })
     (addDecls decls act)
 
-lookupBinding :: Elab sig m => Name -> m (Maybe [Binding])
+lookupBinding :: Elab sig m => Name -> m (Maybe Binding)
 lookupBinding name = do
   bindings <- unBindings <$> ask
-  pure (fmap toList (lookup name bindings))
+  case fmap toList (lookup name bindings) of
+    Nothing -> pure Nothing
+    Just [] -> pure Nothing
+    Just (b:_) -> pure (Just b)
 
 getDecl :: Elab sig m => Id -> m Predeclaration
 getDecl did = do
   decls <- unDecls <$> get
   pure (decls ! did)
+
+getDeclType :: Elab sig m => Id -> m N.Term
+getDeclType did = do
+  declTypes <- unDeclTypes <$> get
+  pure (declTypes ! did)
 
 freshTypeUV :: Elab sig m => m N.Term
 freshTypeUV = do

@@ -46,4 +46,10 @@ infer term = case term of
         vArg <- eval cArg
         (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
         pure (cArg:cArgs, outTy')
-  TermAst (Var name) -> undefined
+  TermAst (Var name) -> do
+    binding <- lookupBinding name
+    case binding of
+      Just (BLocal ix ty) -> pure (C.LocalVar ix, ty)
+      Just (BGlobal did) -> do
+        ty <- getDeclType did
+        pure (C.GlobalVar did, ty)
