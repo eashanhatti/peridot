@@ -39,14 +39,17 @@ type Query sig m = Has (State QueryState) sig m
 
 data Key a where
   CheckDecl :: Predeclaration -> Key C.Declaration
+  DeclType :: Id -> Key N.Term
 
 instance GEq Key where
   geq (CheckDecl _) (CheckDecl _) = Just Refl
+  geq (DeclType _) (DeclType _) = Just Refl
   geq _ _ = Nothing
 
 instance Hashable (Some Key) where
   hashWithSalt salt (Some (CheckDecl (PDDecl (DeclAst _ did)))) = salt `hashWithSalt` did
   hashWithSalt salt (Some (CheckDecl (PDDecl (ConstrAst _ did _)))) = salt `hashWithSalt` did
+  hashWithSalt salt (Some (DeclType did)) = salt `hashWithSalt` did + 1000000
 
 memo :: Query sig m => Key a -> m a -> m a
 memo key act = do
@@ -147,11 +150,6 @@ getDecl :: Elab sig m => Id -> m Predeclaration
 getDecl did = do
   decls <- unDecls <$> get
   pure (decls ! did)
-
-getDeclType :: Elab sig m => Id -> m N.Term
-getDeclType did = do
-  declTypes <- unDeclTypes <$> get
-  pure (declTypes ! did)
 
 freshTypeUV :: Elab sig m => m N.Term
 freshTypeUV = do

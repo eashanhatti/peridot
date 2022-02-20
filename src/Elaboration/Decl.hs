@@ -43,3 +43,19 @@ check decl = memo (CheckDecl decl) case decl of
         vArg <- eval cArg
         cArgs <- define vArg (checkArgs tele args)
         pure (cArg:cArgs)
+
+declType :: Elab sig m => Id -> m N.Term
+declType did = memo (DeclType did) do
+  cDecl <- getDecl did >>= check
+  case cDecl of
+    C.Datatype _ _ stage -> pure (N.TypeType stage)
+    C.Constr _ _ did args -> N.DatatypeType did <$> evalArgs args
+    C.Term _ sig _ -> eval sig
+    C.DElabError -> pure N.EElabError
+  where
+    evalArgs :: Elab sig m => [C.Term] -> m [N.Term]
+    evalArgs [] = pure []
+    evalArgs (arg:args) = do
+      vArg <- eval arg
+      vArgs <- define vArg (evalArgs args)
+      pure (vArg:vArgs)

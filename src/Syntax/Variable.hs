@@ -12,7 +12,7 @@ newtype Level = Level { unLevel :: Natural }
   deriving (Num, Eq, Enum)
 
 newtype Id = Id { unId :: Natural }
-  deriving (Eq, Ord, Generic)
+  deriving (Eq, Ord, Generic, Num)
 
 newtype Global = Global { unGlobal :: Natural }
   deriving (Num, Eq, Ord)

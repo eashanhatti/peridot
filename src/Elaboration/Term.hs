@@ -51,5 +51,13 @@ infer term = case term of
     case binding of
       Just (BLocal ix ty) -> pure (C.LocalVar ix, ty)
       Just (BGlobal did) -> do
-        ty <- getDeclType did
+        ty <- ED.declType did
         pure (C.GlobalVar did, ty)
+  TermAst Univ -> do
+    stage <- freshStageUV
+    pure (C.TypeType stage, N.TypeType stage)
+  TermAst (Let decls body) ->
+    addDecls decls do
+      cDecls <- traverse (ED.check . PDDecl) decls
+      (cBody, bodyTy) <- infer body
+      pure (C.Let cDecls cBody, bodyTy)

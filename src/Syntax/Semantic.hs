@@ -27,8 +27,10 @@ data Term
   = FunType Term Closure
   | FunIntro Closure
   | DatatypeIntro Id [Term]
+  | DatatypeType Id [Term]
   | TypeType Stage
   | Let [Declaration] Closure
+  | EElabError
   -- Stuck terms
   | UniVar Global
   | FreeVar Level
