@@ -30,8 +30,8 @@ main =
     in print ~(select smallest c)
 ```
 
-A more in-depth explanation of the language's rationale can be found [here](./in_depth_explanation.md). A comparison to the old version of the language can be found [here](./comparison.md).
+A more in-depth explanation of the language's rationale can be found [here](./RATIONALE.md). A comparison to the old version of the language can be found [here](./OLD_VS_NEW.md).
 
 ### References and Inspiration
 
-A list of prior art that have influenced Konna's design and implementation can be found [here](./references.md).
+A list of prior art that have influenced Konna's design and implementation can be found [here](./REFERENCES.md).
