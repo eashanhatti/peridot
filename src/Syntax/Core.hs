@@ -6,10 +6,15 @@ import {-# SOURCE #-} Syntax.Telescope qualified as T
 
 type Telescope = T.Telescope Term
 
+type Signature = Term
+
 data Declaration
   = Datatype Id Telescope
   | Constr Id Telescope Id [Term]
-  | Term Id Term Term -- sig, def
+  | Axiom Id Signature
+  | Prove Signature
+  | Fresh Id Signature
+  | Term Id Signature Term -- sig, def
   | DElabError
   deriving (Eq)
 
@@ -25,6 +30,8 @@ data Term
   | FunElim Term Term
   | DatatypeType Id [Term]
   | DatatypeIntro Id [Term]
+  | PropType Id [Term]
+  | ConjType Term Term
   | TypeType Stage
   | LocalVar Index
   | GlobalVar Id

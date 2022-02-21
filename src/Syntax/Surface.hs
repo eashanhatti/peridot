@@ -33,10 +33,15 @@ type NameAst = Ast Name
 
 type TelescopeAst = Ast (Telescope (Name, TermAst))
 
+type SignatureAst = TermAst
+
 type DeclarationAst = Ast Declaration
 data Declaration
   = Datatype NameAst TelescopeAst [ConstructorAst]
-  | Term NameAst TermAst TermAst
+  | Term NameAst SignatureAst TermAst
+  | Axiom NameAst SignatureAst
+  | Prove SignatureAst
+  | Fresh NameAst SignatureAst
 
 type ConstructorAst = Ast Constructor
 data Constructor = Constr NameAst TelescopeAst [TermAst]

@@ -17,19 +17,12 @@ withLocal def (Env locals globals) = Env (def:locals) globals
 withGlobal :: Id -> Environment -> C.Term -> Environment -> Environment
 withGlobal did env term (Env locals globals) = Env locals (insert did (env, term) globals)
 
-data Declaration
-  = Datatype Id Telescope
-  | Constr Id Telescope Id [Term]
-  | Term Term Term
-  deriving (Eq)
-
 data Term
   = FunType Term Closure
   | FunIntro Closure
   | DatatypeIntro Id [Term]
   | DatatypeType Id [Term]
   | TypeType Stage
-  | Let [Declaration] Closure
   | EElabError
   -- Stuck terms
   | UniVar Global
