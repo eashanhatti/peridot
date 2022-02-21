@@ -12,7 +12,7 @@ data Declaration
   = Datatype Id Telescope
   | Constr Id Telescope Id [Term]
   | Axiom Id Signature
-  | Prove Signature
+  | Prove Id Signature
   | Fresh Id Signature
   | Term Id Signature Term -- sig, def
   | DElabError

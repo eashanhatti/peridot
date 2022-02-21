@@ -48,7 +48,7 @@ instance GEq Key where
 
 instance Hashable (Some Key) where
   hashWithSalt salt (Some (CheckDecl (PDDecl (DeclAst _ did)))) = salt `hashWithSalt` did
-  hashWithSalt salt (Some (CheckDecl (PDDecl (ConstrAst _ did _)))) = salt `hashWithSalt` did
+  hashWithSalt salt (Some (CheckDecl (PDConstr (ConstrAst _ did _)))) = salt `hashWithSalt` did
   hashWithSalt salt (Some (DeclType did)) = salt `hashWithSalt` did + 1000000
 
 memo :: Query sig m => Key a -> m a -> m a

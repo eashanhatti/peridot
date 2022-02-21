@@ -19,6 +19,9 @@ unName (NameAst name) = name
 unDeclName :: DeclarationAst -> Name
 unDeclName (DeclAst (Datatype (NameAst name) _ _) _) = name
 unDeclName (DeclAst (Term (NameAst name) _ _) _) = name
+unDeclName (DeclAst (Axiom (NameAst name) _) _) = name
+unDeclName (DeclAst (Prove _) _) = undefined
+unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
 
 unConstrName :: ConstructorAst -> Name
 unConstrName (ConstrAst (Constr (NameAst name) _ _) _ _) = name

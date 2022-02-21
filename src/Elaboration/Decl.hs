@@ -24,6 +24,12 @@ check decl = memo (CheckDecl decl) case decl of
   PDDecl (DeclAst (Datatype name tele constrs) did) -> do
     (cTele, _) <- ET.check tele (N.TypeType Object)
     pure (C.Datatype did cTele)
+  PDDecl (DeclAst (Axiom name sig) did) ->
+    C.Axiom did <$> EE.check sig (N.TypeType Meta)
+  PDDecl (DeclAst (Prove sig) did) ->
+    C.Prove did <$> EE.check sig (N.TypeType Meta)
+  PDDecl (DeclAst (Fresh name sig) did) ->
+    C.Fresh did <$> EE.check sig (N.TypeType Meta)
   PDConstr constr@(ConstrAst (Constr _ tele args) did dtDid) -> do
     C.Datatype _ dtTele <- getDecl dtDid >>= check
     (cTele, names) <- ET.check tele (N.TypeType Object)
@@ -50,6 +56,9 @@ declType did = memo (DeclType did) do
     C.Datatype _ _ -> pure (N.TypeType Object)
     C.Constr _ _ did args -> N.DatatypeType did <$> evalArgs args
     C.Term _ sig _ -> eval sig
+    C.Axiom _ _ -> pure (N.TypeType Meta)
+    C.Prove _ sig -> eval sig
+    C.Fresh _ sig -> eval sig
     C.DElabError -> pure N.EElabError
   where
     evalArgs :: Elab sig m => [C.Term] -> m [N.Term]
