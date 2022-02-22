@@ -106,13 +106,6 @@ bindLocal name ty act =
     inc (BLocal ix ty) = BLocal (ix + 1) ty
     inc b = b
 
-bindAll :: Elab sig m => N.Telescope -> [Name] -> m a -> m a
-bindAll T.Empty _ act = act
-bindAll (T.Bind ty tele) (name:names) act = bindLocal name ty (bindAll tele names act)
-bindAll _ [] act = do
-  report TooManyParams
-  act
-
 addDecls :: Elab sig m => [DeclarationAst] -> m a -> m a
 addDecls [] act = act
 addDecls (decl@(DeclAst (Datatype _ _ constrs) _):decls) act = do

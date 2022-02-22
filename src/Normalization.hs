@@ -84,3 +84,9 @@ readback unf (N.UniVar gl) = pure (C.UniVar gl)
 readback unf (N.FunElim lam arg) = C.FunElim <$> readback unf lam <*> readback unf arg
 readback True (N.TopVar _ env def) = local (const (NormContext env)) (eval def) >>= readback True
 readback False (N.TopVar did _ _) = pure (C.GlobalVar did)
+
+readbackWeak :: Norm sig m => N.Term -> m C.Term
+readbackWeak = readback False
+
+readbackFull :: Norm sig m => N.Term -> m C.Term
+readbackFull = readback True

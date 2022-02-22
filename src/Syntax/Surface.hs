@@ -57,4 +57,4 @@ data Term
   | Var Name
   | Univ
   | Let [DeclarationAst] TermAst
-  | Rule Term Term -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo
+  | Rule TermAst TermAst -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo

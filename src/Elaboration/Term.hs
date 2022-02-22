@@ -10,25 +10,30 @@ import Elaboration.Telescope qualified as ET
 import Elaboration.Decl qualified as ED
 import Control.Monad
 import Normalization
-import Data.List(foldl')
+import Data.Foldable(foldl', foldr, foldrM)
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
-check term goal = case term of
-  TermAst (Lam (map unName -> names) body) -> do
-    (tele, outTy) <- T.view goal
-    if T.size tele /= fromIntegral (length names) then do
-      report TooManyParams
-      pure C.EElabError
-    else do
-      cBody <- bindAll tele names (check body outTy)
-      pure (C.FunIntro cBody)
-  _ -> do
-    (cTerm, ty) <- infer term
-    unify goal ty
-    pure cTerm
+check term goal = do
+  (cTerm, ty) <- infer term
+  unify goal ty
+  pure cTerm
 
 infer :: Elab sig m => TermAst -> m (C.Term, N.Term)
 infer term = case term of
+  TermAst (Lam (map unName -> names) body) -> do
+    inTys <- traverse (const freshTypeUV) names
+    cInTys <- traverse readbackWeak inTys
+    outTy <- freshTypeUV
+    cOutTy <- readbackWeak outTy
+    let ty = foldr (\inTy outTy -> C.FunType Explicit inTy outTy) cOutTy (tail cInTys)
+    vTy <- N.FunType Explicit (head inTys) <$> closureOf ty
+    cBody <- checkBody (zip names inTys) outTy
+    let lam = foldr (\_ body -> C.FunIntro body) cBody [0 .. length names - 1]
+    pure (lam, vTy)
+    where
+      checkBody :: Elab sig m => [(Name, N.Term)] -> N.Term -> m C.Term
+      checkBody [] outTy = check body outTy
+      checkBody ((name, inTy):params) outTy = bindLocal name inTy (checkBody params outTy)
   TermAst (Pi (NameAst name) inTy outTy) -> do
     univ <- N.TypeType <$> freshStageUV
     cInTy <- check inTy univ
@@ -62,6 +67,6 @@ infer term = case term of
       cDecls <- traverse (ED.check . PDDecl) decls
       (cBody, bodyTy) <- infer body
       pure (C.Let cDecls cBody, bodyTy)
-  TermAst (Rule phead pbody) -> do
-    cTerm <- C.FunType Implicit <$> check pbody (N.TypeType Meta) <*> check phead (N.TypeType Meta)
+  TermAst (Rule outTy inTy) -> do
+    cTerm <- C.FunType Implicit <$> check inTy (N.TypeType Meta) <*> check outTy (N.TypeType Meta)
     pure (cTerm, N.TypeType Meta)
