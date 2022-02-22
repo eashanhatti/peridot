@@ -1,9 +1,15 @@
-module Syntax.Variable where
+module Syntax.Extra where
 
 import Numeric.Natural
 import Data.Text
 import Data.Hashable
 import GHC.Generics
+
+data ApplyMethod = Explicit | Implicit
+  deriving (Eq)
+
+data Stage = Meta | Object | UniVar Global
+  deriving (Eq)
 
 newtype Index = Index { unIndex :: Natural }
   deriving (Num, Eq, Ord, Enum, Real, Integral)

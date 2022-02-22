@@ -2,8 +2,7 @@ module Normalization where
 
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Syntax.Stage
-import Syntax.Variable
+import Syntax.Extra
 import {-# SOURCE #-} Syntax.Telescope
 import Control.Effect.Reader
 import Control.Algebra(Has)
@@ -36,7 +35,7 @@ evalClosure clo = do
   appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
 
 teleToType :: C.Telescope -> C.Term -> C.Term
-teleToType tele outTy = foldl' (\outTy inTy -> C.FunType inTy outTy) outTy tele
+teleToType tele outTy = foldl' (\outTy inTy -> C.FunType Explicit inTy outTy) outTy tele
 
 definition :: C.Declaration -> C.Term
 definition (C.Datatype _ tele) = teleToType tele (C.TypeType Object)
@@ -46,7 +45,7 @@ definition (C.Constr did tele _ _) =
 definition (C.Term _ _ def) = def
 
 eval :: Norm sig m => C.Term -> m N.Term
-eval (C.FunType inTy outTy) = N.FunType <$> eval inTy <*> closureOf outTy
+eval (C.FunType am inTy outTy) = N.FunType am <$> eval inTy <*> closureOf outTy
 eval (C.FunIntro body) = N.FunIntro <$> closureOf body
 eval (C.FunElim lam arg) = do
   vLam <- eval lam
@@ -74,7 +73,7 @@ entry ix = do
 type ShouldUnfold = Bool
 
 readback :: Norm sig m => ShouldUnfold -> N.Term -> m C.Term
-readback unf (N.FunType inTy outTy) = C.FunType <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
+readback unf (N.FunType am inTy outTy) = C.FunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
 readback unf (N.FunIntro body) = C.FunIntro <$> (evalClosure body >>= readback unf)
 readback unf (N.DatatypeIntro did args) = C.DatatypeIntro did <$> traverse (readback unf) args
 readback unf (N.TypeType s) = pure (C.TypeType s)

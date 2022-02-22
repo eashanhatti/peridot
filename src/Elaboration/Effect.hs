@@ -8,12 +8,11 @@ import Control.Algebra(Has)
 import Data.Set(Set, singleton)
 import Data.Set qualified as Set
 import Data.Map(Map, (!), insert, union, fromList, lookup)
-import Syntax.Variable hiding (unId)
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Telescope qualified as T
 import Syntax.Surface
-import Syntax.Stage
+import Syntax.Extra hiding(unId)
 import Data.Some
 import Data.Dependent.HashMap qualified as DMap
 import Data.Dependent.HashMap(DHashMap)
@@ -152,20 +151,10 @@ getDecl did = do
   pure (decls ! did)
 
 freshTypeUV :: Elab sig m => m N.Term
-freshTypeUV = do
-  state <- get @ElabState
-  UnifyState uv <- get @UnifyState
-  put (state { unTypeUVs = insert uv Nothing (unTypeUVs state) })
-  put (UnifyState (uv + 1))
-  pure (N.UniVar uv)
+freshTypeUV = undefined
 
 freshStageUV :: Elab sig m => m Stage
-freshStageUV = do
-  state <- get @ElabState
-  UnifyState uv <- get @UnifyState
-  put (state { unStageUVs = insert uv Nothing (unStageUVs state) })
-  put (UnifyState (uv + 1))
-  pure (UniVar uv)
+freshStageUV = undefined
 
 report :: Elab sig m => Error -> m ()
 report _ = pure ()

@@ -2,7 +2,7 @@ module Syntax.Surface where
 
 import Data.Text(Text)
 import Numeric.Natural
-import Syntax.Variable
+import Syntax.Extra
 import Syntax.Telescope
 
 data Ast a where
@@ -57,3 +57,4 @@ data Term
   | Var Name
   | Univ
   | Let [DeclarationAst] TermAst
+  | Rule Term Term -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo

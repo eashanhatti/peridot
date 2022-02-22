@@ -30,11 +30,10 @@ library
       Elaboration.Term
       Normalization
       Syntax.Core
+      Syntax.Extra
       Syntax.Semantic
-      Syntax.Stage
       Syntax.Surface
       Syntax.Telescope
-      Syntax.Variable
       Unification
   other-modules:
       Paths_konna3

@@ -4,7 +4,7 @@ import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Telescope qualified as T
-import Syntax.Stage
+import Syntax.Extra
 import Elaboration.Effect
 import Elaboration.Telescope qualified as ET
 import Elaboration.Decl qualified as ED
@@ -26,6 +26,7 @@ check term goal = case term of
     (cTerm, ty) <- infer term
     unify goal ty
     pure cTerm
+
 infer :: Elab sig m => TermAst -> m (C.Term, N.Term)
 infer term = case term of
   TermAst (Pi (NameAst name) inTy outTy) -> do
@@ -33,7 +34,7 @@ infer term = case term of
     cInTy <- check inTy univ
     vInTy <- eval cInTy
     cOutTy <- bindLocal name vInTy (check outTy univ)
-    pure (C.FunType cInTy cOutTy, univ)
+    pure (C.FunType Explicit cInTy cOutTy, univ)
   TermAst (App lam args) -> do
     (cLam, lamTy) <- infer lam
     (cArgs, outTy) <- checkArgs args lamTy
@@ -41,7 +42,7 @@ infer term = case term of
     where
       checkArgs :: Elab sig m => [TermAst] -> N.Term -> m ([C.Term], N.Term)
       checkArgs [] outTy = pure ([], outTy)
-      checkArgs (arg:args) (N.FunType inTy outTy) = do
+      checkArgs (arg:args) (N.FunType _ inTy outTy) = do
         cArg <- check arg inTy
         vArg <- eval cArg
         (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
@@ -61,3 +62,6 @@ infer term = case term of
       cDecls <- traverse (ED.check . PDDecl) decls
       (cBody, bodyTy) <- infer body
       pure (C.Let cDecls cBody, bodyTy)
+  TermAst (Rule phead pbody) -> do
+    cTerm <- C.FunType Implicit <$> check pbody (N.TypeType Meta) <*> check phead (N.TypeType Meta)
+    pure (cTerm, N.TypeType Meta)

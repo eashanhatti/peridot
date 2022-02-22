@@ -4,8 +4,7 @@ import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Telescope qualified as T
-import Syntax.Variable
-import Syntax.Stage
+import Syntax.Extra
 import Elaboration.Effect
 import Data.Map qualified as Map
 import {-# SOURCE #-} Elaboration.Term qualified as EE

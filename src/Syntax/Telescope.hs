@@ -12,7 +12,7 @@ data Telescope a
 deriving instance Eq a => Eq (Telescope a)
 
 view :: Norm sig m => N.Term -> m (N.Telescope, N.Term)
-view (N.FunType inTy outTy) = do
+view (N.FunType _ inTy outTy) = do
   vOutTy <- evalClosure outTy
   (tele, outTy') <- view vOutTy
   pure (Bind inTy tele, outTy')

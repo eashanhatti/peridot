@@ -1,7 +1,6 @@
 module Syntax.Semantic where
 
-import Syntax.Variable
-import Syntax.Stage
+import Syntax.Extra
 import {-# SOURCE #-} Syntax.Telescope qualified as T
 import Syntax.Core qualified as C
 import Data.Map(Map, insert, size)
@@ -18,7 +17,7 @@ withGlobal :: Id -> Environment -> C.Term -> Environment -> Environment
 withGlobal did env term (Env locals globals) = Env locals (insert did (env, term) globals)
 
 data Term
-  = FunType Term Closure
+  = FunType ApplyMethod Term Closure
   | FunIntro Closure
   | DatatypeIntro Id [Term]
   | DatatypeType Id [Term]

@@ -1,7 +1,6 @@
 module Syntax.Core where
 
-import Syntax.Variable
-import Syntax.Stage
+import Syntax.Extra
 import {-# SOURCE #-} Syntax.Telescope qualified as T
 
 type Telescope = T.Telescope Term
@@ -25,7 +24,7 @@ unId (Term did _ _) = did
 unId DElabError = undefined -- FIXME
 
 data Term
-  = FunType Term Term
+  = FunType ApplyMethod Term Term
   | FunIntro Term
   | FunElim Term Term
   | DatatypeType Id [Term]
