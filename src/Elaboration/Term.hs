@@ -55,7 +55,7 @@ infer term = case term of
     case binding of
       Just (BLocal ix ty) -> pure (C.LocalVar ix, ty)
       Just (BGlobal did) -> do
-        ty <- ED.declType did
+        ty <- ED.declType did >>= eval
         pure (C.GlobalVar did, ty)
   TermAst Univ -> do
     stage <- freshStageUV
@@ -68,3 +68,14 @@ infer term = case term of
   TermAst (Rule outTy inTy) -> do
     cTerm <- C.FunType Implicit <$> check inTy (N.TypeType Meta) <*> check outTy (N.TypeType Meta)
     pure (cTerm, N.TypeType Meta)
+
+checkType :: Elab sig m => TermAst -> m C.Term
+checkType term = do
+  stage <- freshStageUV
+  check term (N.TypeType stage)
+
+checkMetaType :: Elab sig m => TermAst -> m C.Term
+checkMetaType term = check term (N.TypeType Meta)
+
+checkObjectType :: Elab sig m => TermAst -> m C.Term
+checkObjectType term = check term (N.TypeType Object)

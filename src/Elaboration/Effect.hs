@@ -37,7 +37,7 @@ type Query sig m = Has (State QueryState) sig m
 
 data Key a where
   CheckDecl :: Predeclaration -> Key C.Declaration
-  DeclType :: Id -> Key N.Term
+  DeclType :: Id -> Key C.Term
 
 instance GEq Key where
   geq (CheckDecl _) (CheckDecl _) = Just Refl
@@ -72,6 +72,10 @@ data ElabContext = ElabContext
   { unBindings :: Map Name (Set Binding) }
 
 data Predeclaration = PDDecl DeclarationAst | PDConstr ConstructorAst
+
+unPDDeclId :: Predeclaration -> Id
+unPDDeclId (PDDecl (DeclAst _ did)) = did
+unPDDeclId (PDConstr (ConstrAst _ did _)) = did
 
 data ElabState = ElabState
   { unDecls :: Map Id Predeclaration
