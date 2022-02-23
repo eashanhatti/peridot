@@ -27,8 +27,8 @@ data Term
   = FunType ApplyMethod Term Term
   | FunIntro Term
   | FunElim Term Term
-  | DatatypeType Id [Term]
-  | DatatypeIntro Id [Term]
+  | DatatypeType Id
+  | DatatypeIntro Id
   | PropType Id [Term]
   | ConjType Term Term
   | TypeType Stage

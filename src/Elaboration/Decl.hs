@@ -11,7 +11,7 @@ import {-# SOURCE #-} Elaboration.Term qualified as EE
 import Elaboration.Telescope qualified as ET
 import Normalization
 import Control.Monad
-import Data.Foldable(toList)
+import Data.Foldable(toList, foldl')
 
 check :: Elab sig m => Predeclaration -> m C.Declaration
 check decl = memo (CheckDecl decl) case decl of
@@ -53,7 +53,9 @@ declType did = memo (DeclType did) do
   cDecl <- getDecl did >>= check
   case cDecl of
     C.Datatype _ _ -> pure (N.TypeType Object)
-    C.Constr _ _ did args -> N.DatatypeType did <$> evalArgs args
+    C.Constr _ _ did args -> do
+      vArgs <- evalArgs args
+      pure (foldl' (\lam arg -> N.FunElim lam arg) (N.DatatypeType did) vArgs)
     C.Term _ sig _ -> eval sig
     C.Axiom _ _ -> pure (N.TypeType Meta)
     C.Prove _ sig -> eval sig

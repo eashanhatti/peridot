@@ -5,16 +5,23 @@ import Syntax.Semantic qualified as N
 import Syntax.Extra
 import {-# SOURCE #-} Syntax.Telescope
 import Control.Effect.Reader
+import Control.Effect.State
 import Control.Algebra(Has)
-import Data.Map(Map)
+import Data.Map(Map, (!))
 import Data.Map qualified as Map
 import Data.List(foldl')
 import Data.Functor.Identity
 import Numeric.Natural
 
+data MetaEntry = Solved N.Term | Unsolved
+
 data NormContext = NormContext N.Environment
 
-type Norm sig m = Has (Reader NormContext) sig m
+data NormState = NormState (Map Global MetaEntry)
+
+type Norm sig m =
+  ( Has (Reader NormContext) sig m
+  , Has (State NormState) sig m )
 
 define :: Norm sig m => N.Term -> m a -> m a
 define def = local (\(NormContext env) -> NormContext (N.withLocal def env))
@@ -39,9 +46,7 @@ teleToType tele outTy = foldl' (\outTy inTy -> C.FunType Explicit inTy outTy) ou
 
 definition :: C.Declaration -> C.Term
 definition (C.Datatype _ tele) = teleToType tele (C.TypeType Object)
-definition (C.Constr did tele _ _) =
-  let vars = if size tele > 0 then map (C.LocalVar . Index) [size tele, size tele - 1 .. 0] else []
-  in foldl' (\term _ -> C.FunIntro term) (C.DatatypeIntro did vars) vars
+definition (C.Constr did _ _ _) = C.DatatypeIntro did
 definition (C.Term _ _ def) = def
 
 eval :: Norm sig m => C.Term -> m N.Term
@@ -57,9 +62,12 @@ eval (C.Let decls body) = do
   NormContext (N.Env locals globals) <- ask
   let vDefs = Map.fromList ((map (\def -> (C.unId def, (N.Env locals (vDefs <> globals), definition def))) decls))
   local (const (NormContext (N.Env locals (globals <> vDefs)))) (eval body)
-eval (C.DatatypeIntro did args) = N.DatatypeIntro did <$> traverse eval args
+eval (C.DatatypeIntro did) = pure (N.DatatypeIntro did)
 eval (C.TypeType s) = pure (N.TypeType s)
 eval (C.LocalVar ix) = entry ix
+eval (C.GlobalVar did) = do
+  NormContext (N.Env _ ((! did) -> (env, term))) <- ask
+  pure (N.TopVar did env term)
 eval (C.UniVar gl) = pure (N.UniVar gl)
 
 entry :: Norm sig m => Index -> m N.Term
@@ -75,15 +83,20 @@ type ShouldUnfold = Bool
 readback :: Norm sig m => ShouldUnfold -> N.Term -> m C.Term
 readback unf (N.FunType am inTy outTy) = C.FunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
 readback unf (N.FunIntro body) = C.FunIntro <$> (evalClosure body >>= readback unf)
-readback unf (N.DatatypeIntro did args) = C.DatatypeIntro did <$> traverse (readback unf) args
+readback unf (N.DatatypeIntro did) = pure (C.DatatypeIntro did)
 readback unf (N.TypeType s) = pure (C.TypeType s)
 readback unf (N.FreeVar (Level lvl)) = do
   NormContext env <- ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
-readback unf (N.UniVar gl) = pure (C.UniVar gl)
 readback unf (N.FunElim lam arg) = C.FunElim <$> readback unf lam <*> readback unf arg
 readback True (N.TopVar _ env def) = local (const (NormContext env)) (eval def) >>= readback True
 readback False (N.TopVar did _ _) = pure (C.GlobalVar did)
+readback True (N.UniVar gl) = do
+  NormState metas <- get
+  case metas ! gl of
+    Solved sol -> readback True sol
+    Unsolved -> pure (C.UniVar gl)
+readback False (N.UniVar gl) = pure (C.UniVar gl)
 
 readbackWeak :: Norm sig m => N.Term -> m C.Term
 readbackWeak = readback False

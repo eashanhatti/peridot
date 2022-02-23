@@ -22,7 +22,7 @@ import Data.Type.Equality
 import Data.Hashable
 import GHC.Generics hiding (Constructor)
 import Normalization
-import Unification
+import Unification qualified as U
 import Numeric.Natural
 import Data.Foldable(toList, foldl')
 import Prelude hiding(lookup)
@@ -76,9 +76,7 @@ data Predeclaration = PDDecl DeclarationAst | PDConstr ConstructorAst
 
 data ElabState = ElabState
   { unDecls :: Map Id Predeclaration
-  , unDeclTypes :: Map Id N.Term
-  , unStageUVs :: Map Global (Maybe Stage)
-  , unTypeUVs :: Map Global (Maybe N.Term) }
+  , unDeclTypes :: Map Id N.Term }
 
 type Elab sig m =
   ( MonadFail m
@@ -87,8 +85,7 @@ type Elab sig m =
   , Has (Throw ()) sig m
   , Has NonDet sig m
   , Norm sig m
-  , Query sig m
-  , Unify sig m )
+  , Query sig m )
 
 unify :: Elab sig m => N.Term -> N.Term -> m ()
 unify = undefined

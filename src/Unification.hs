@@ -1,124 +1,57 @@
 module Unification where
 
--- Heavily based upon [this implementation](https://github.com/jozefg/higher-order-unification)
-
-import Control.Monad.Logic
-import Control.Applicative
-import Control.Effect.Lift(Lift)
-import Control.Effect.Reader(ask)
-import Control.Effect.State(State, get, put)
-import Control.Algebra(Has)
-import Control.Monad
+import Control.Effect.Throw
+import Control.Carrier.Throw.Either(runThrow)
+import Control.Effect.State
+import Control.Carrier.State.Strict(runState)
 import Syntax.Semantic
-import Syntax.Core qualified as C
+import Syntax.Extra
+import Normalization
 import Data.Map(Map)
 import Data.Map qualified as Map
-import Data.Set(Set)
-import Data.Set qualified as Set
-import Data.List(foldl', partition)
-import Syntax.Variable
-import Normalization
-import Control.Monad.Extra
+import Control.Monad
 
-newtype UnifyState = UnifyState Global
-
-type Unify sig m = (Has (Lift Logic) sig m, Has (State UnifyState) sig m, Norm sig m)
-type Constraint = (Term, Term)
 type Substitution = Map Global Term
 
-freshUniVar :: Unify sig m => m Global
-freshUniVar = do
-  UnifyState gl <- get
-  put (UnifyState (gl + 1))
-  pure gl
+type Unify sig m =
+  ( Norm sig m
+  , Has (Throw ()) sig m
+  , Has (State Substitution) sig m )
 
-uniVars :: Norm sig m => Term -> m (Set Global)
-uniVars (FunType inTy outTy) = do
-  vOutTy <- evalClosure outTy
-  (<>) <$> uniVars inTy <*> (evalClosure outTy >>= uniVars)
-uniVars (FunIntro body) = evalClosure body >>= uniVars
-uniVars (DatatypeIntro _ args) = foldM (\acc arg -> (acc <>) <$> uniVars arg) mempty args
-uniVars (TypeType _) = pure mempty
-uniVars (FreeVar _) = pure mempty
-uniVars (UniVar gl) = pure (Set.singleton gl)
-uniVars (FunElim lam arg) = (<>) <$> uniVars lam <*> uniVars arg
+putSol :: Unify sig m => Global -> Term -> m ()
+putSol gl sol = do
+  sols <- get
+  put (Map.insert gl sol sols)
 
-isClosed :: Norm sig m => Term -> m Bool
-isClosed (FunType inTy outTy) = (&&) <$> isClosed inTy <*> (evalClosure outTy >>= isClosed)
-isClosed (FunIntro body) = evalClosure body >>= isClosed
-isClosed (DatatypeIntro _ args) = andM (map isClosed args)
-isClosed (TypeType _) = pure True
-isClosed (FreeVar _) = pure False
-isClosed (UniVar _) = pure True
-isClosed (FunElim lam arg) = (&&) <$> isClosed lam <*> isClosed arg
+bind2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c
+bind2 f act1 act2 = do
+  x <- act1
+  y <- act2
+  f x y
 
-isStuck :: Term -> Bool
-isStuck (FunElim _ _) = True
-isStuck (UniVar _) = True
-isStuck _ = False
+unify' :: Unify sig m => Term -> Term -> m ()
+unify' term1@(UniVar gl1) term2@(UniVar gl2) = do
+  putSol gl1 term2
+  putSol gl2 term1
+unify' (UniVar gl) term = putSol gl term
+unify' term (UniVar gl) = putSol gl term
+unify' (FunType am1 inTy1 outTy1) (FunType am2 inTy2 outTy2) | am1 == am2 = do
+  unify' inTy1 inTy2
+  bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
+unify' (FunIntro body1) (FunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
+unify' (DatatypeIntro did1) (DatatypeIntro did2) | did1 == did2 = pure ()
+unify' (DatatypeType did1) (DatatypeType did2) | did1 == did2 = pure ()
+unify' (TypeType s1) (TypeType s2) | s1 == s2 = pure ()
+unify' (FreeVar lvl1) (FreeVar lvl2) | lvl1 == lvl2 = pure ()
+unify' (FunElim lam1 arg1) (FunElim lam2 arg2) = do
+  unify' lam1 lam2
+  unify' arg1 arg2
+unify' _ _ = throwError ()
+-- Should be no `TopVar`s
 
-simplify :: (Alternative m, Norm sig m) => Constraint -> m [Constraint]
-simplify (e1, e2) | e1 == e2 = pure []
-simplify (e1, e2)
-  | (FreeVar lvl1, args1) <- viewApp e1
-  , (FreeVar lvl2, args2) <- viewApp e2
-  = do
-    guard (lvl1 == lvl2 && length args1 == length args2)
-    mconcat <$> mapM simplify (zip args1 args2)
-simplify (FunIntro body1, FunIntro body2) = do
-  vBody1 <- evalClosure body1
-  vBody2 <- evalClosure body2
-  pure [(vBody1, vBody2)]
-simplify (FunType inTy1 outTy1, FunType inTy2 outTy2) = do
-  vOutTy1 <- evalClosure outTy1
-  vOutTy2 <- evalClosure outTy2
-  pure [(inTy1, inTy2), (vOutTy1, vOutTy2)]
-simplify c = pure [c]
-
-tryFlexRigid :: (Norm sig1 m1, Unify sig2 m2) => Constraint -> m1 [m2 [Substitution]]
-tryFlexRigid (e1, e2) = do
-  uniVars1 <- uniVars e1
-  uniVars2 <- uniVars e2
-  case (viewApp e1, viewApp e2, uniVars1, uniVars2) of
-    ((UniVar gl, args), (lam, _), _, Set.member gl -> True) -> pure (proj (length args) gl lam 0)
-    ((lam, args), (UniVar gl, _), Set.member gl -> True, _) -> pure (proj (length args) gl lam 0)
-
-proj :: Unify sig m => Int -> Global -> Term -> Int -> [m [Substitution]]
-proj bvars gl lam nargs = genSubst bvars gl lam nargs : proj bvars gl lam (nargs + 1)
-
-genSubst :: Unify sig m => Int -> Global -> Term -> Int -> m [Substitution]
-genSubst bvars gl lam nargs = do
-  let mkLam tm = foldr ($) tm (replicate bvars C.FunIntro)
-  let saturateUV tm = foldl' C.FunElim tm (map (C.LocalVar . Index) [0 .. fromIntegral (bvars - 1)])
-  args <- map saturateUV . map C.UniVar <$> replicateM nargs freshUniVar
-  lamIsClosed <- isClosed lam
-  cLam <- readback False lam
-  let vars = map (C.LocalVar . Index) [0 .. fromIntegral (bvars - 1)] ++ if lamIsClosed then [cLam] else []
-  forM vars \var -> do
-    sol <- eval (mkLam (foldl' C.FunElim var args))
-    pure (Map.singleton gl sol)
-
-repeatedlySimplify :: (Alternative m, Unify sig m) => [Constraint] -> m [Constraint]
-repeatedlySimplify cs = do
-  cs' <- mconcat <$> traverse simplify cs
-  if cs' == cs then
-    pure cs
-  else
-    repeatedlySimplify cs'
-
-unify :: (Alternative m, MonadLogic m, Unify sig m) => Substitution -> [Constraint] -> m (Substitution, [Constraint])
-unify subst cs = do
-  (flexFlexes, flexRigids) <- partition isFlexFlex <$> repeatedlySimplify cs
-  if null flexRigids then
-    pure (subst, flexFlexes)
-  else do
-    substss <- tryFlexRigid (head flexRigids)
-    trySubsts substss (flexRigids ++ flexFlexes)
-  where
-    isFlexFlex (e1, e2) = isStuck e1 && isStuck e2
-    trySubsts [] cs = empty
-    trySubsts (act:substss) cs = do
-      substs <- act
-      let these = foldr interleave empty [unify (Map.union subst' subst) cs | subst' <- substs]
-      let those = trySubsts substss cs
-      interleave these those
+unify :: Norm sig m => Term -> Term -> m (Maybe Substitution)
+unify term1 term2 = do
+  r <- runThrow @() . runState mempty $ unify' term1 term2
+  case r of
+    Right (subst, _) -> pure (Just subst)
+    Left _ -> pure Nothing

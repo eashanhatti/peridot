@@ -8,7 +8,7 @@ import GHC.Generics
 data ApplyMethod = Explicit | Implicit
   deriving (Eq)
 
-data Stage = Meta | Object | UniVar Global
+data Stage = Meta | Object | SUniVar Global
   deriving (Eq)
 
 newtype Index = Index { unIndex :: Natural }
