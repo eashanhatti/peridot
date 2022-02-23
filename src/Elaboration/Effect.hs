@@ -10,7 +10,6 @@ import Data.Set qualified as Set
 import Data.Map(Map, (!), insert, union, fromList, lookup)
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Syntax.Telescope qualified as T
 import Syntax.Surface
 import Syntax.Extra hiding(unId)
 import Data.Some

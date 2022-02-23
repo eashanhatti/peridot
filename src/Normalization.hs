@@ -3,7 +3,6 @@ module Normalization where
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Extra
-import {-# SOURCE #-} Syntax.Telescope
 import Control.Effect.Reader
 import Control.Effect.State
 import Control.Algebra(Has)
@@ -41,12 +40,9 @@ evalClosure clo = do
   NormContext env <- ask
   appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
 
-teleToType :: C.Telescope -> C.Term -> C.Term
-teleToType tele outTy = foldl' (\outTy inTy -> C.FunType Explicit inTy outTy) outTy tele
-
 definition :: C.Declaration -> C.Term
-definition (C.Datatype _ tele) = teleToType tele (C.TypeType Object)
-definition (C.Constr did _ _ _) = C.DatatypeIntro did
+definition (C.Datatype did _) = C.DatatypeType did
+definition (C.Constr did _) = C.DatatypeIntro did
 definition (C.Term _ _ def) = def
 
 eval :: Norm sig m => C.Term -> m N.Term

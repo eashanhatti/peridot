@@ -3,10 +3,8 @@ module Elaboration.Term where
 import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Syntax.Telescope qualified as T
 import Syntax.Extra
 import Elaboration.Effect
-import Elaboration.Telescope qualified as ET
 import Elaboration.Decl qualified as ED
 import Control.Monad
 import Normalization

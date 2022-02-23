@@ -26,14 +26,12 @@ library
   exposed-modules:
       Elaboration.Decl
       Elaboration.Effect
-      Elaboration.Telescope
       Elaboration.Term
       Normalization
       Syntax.Core
       Syntax.Extra
       Syntax.Semantic
       Syntax.Surface
-      Syntax.Telescope
       Unification
   other-modules:
       Paths_konna3

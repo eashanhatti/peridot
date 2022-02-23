@@ -1,7 +1,6 @@
 module Syntax.Semantic where
 
 import Syntax.Extra
-import {-# SOURCE #-} Syntax.Telescope qualified as T
 import Syntax.Core qualified as C
 import Data.Map(Map, insert, size)
 
@@ -38,5 +37,3 @@ viewApp e = (e, [])
 
 data Closure = Closure Environment C.Term
   deriving (Eq)
-
-type Telescope = T.Telescope Term

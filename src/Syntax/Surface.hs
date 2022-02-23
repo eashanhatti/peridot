@@ -3,7 +3,6 @@ module Syntax.Surface where
 import Data.Text(Text)
 import Numeric.Natural
 import Syntax.Extra
-import Syntax.Telescope
 
 data Ast a where
   TermAst :: Term -> TermAst
@@ -11,7 +10,6 @@ data Ast a where
   DeclAst :: Declaration -> Id -> DeclarationAst
   -- .., constr id, datatype id
   ConstrAst :: Constructor -> Id -> Id -> ConstructorAst
-  TeleAst :: Telescope (Name, TermAst) -> TelescopeAst
 
 unName :: NameAst -> Name
 unName (NameAst name) = name
@@ -20,11 +18,11 @@ unDeclName :: DeclarationAst -> Name
 unDeclName (DeclAst (Datatype (NameAst name) _ _) _) = name
 unDeclName (DeclAst (Term (NameAst name) _ _) _) = name
 unDeclName (DeclAst (Axiom (NameAst name) _) _) = name
-unDeclName (DeclAst (Prove _) _) = undefined
+unDeclName (DeclAst (Prove _) did) = MachineName (fromIntegral did)
 unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
 
 unConstrName :: ConstructorAst -> Name
-unConstrName (ConstrAst (Constr (NameAst name) _ _) _ _) = name
+unConstrName (ConstrAst (Constr (NameAst name) _) _ _) = name
 
 unId :: DeclarationAst -> Id
 unId (DeclAst _ did) = did
@@ -34,20 +32,18 @@ unCId (ConstrAst _ did _) = did
 
 type NameAst = Ast Name
 
-type TelescopeAst = Ast (Telescope (Name, TermAst))
-
 type SignatureAst = TermAst
 
 type DeclarationAst = Ast Declaration
 data Declaration
-  = Datatype NameAst TelescopeAst [ConstructorAst]
+  = Datatype NameAst SignatureAst [ConstructorAst]
   | Term NameAst SignatureAst TermAst
   | Axiom NameAst SignatureAst
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
 
 type ConstructorAst = Ast Constructor
-data Constructor = Constr NameAst TelescopeAst [TermAst]
+data Constructor = Constr NameAst SignatureAst
 
 type TermAst = Ast Term
 data Term

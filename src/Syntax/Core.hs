@@ -1,17 +1,13 @@
 module Syntax.Core where
 
 import Syntax.Extra
-import {-# SOURCE #-} Syntax.Telescope qualified as T
-
-type Telescope = T.Telescope Term
 
 type Signature = Term
 
 data Declaration
-  = Datatype Id Telescope
-  | Constr Id Telescope Id [Term]
+  = Datatype Id Signature
+  | Constr Id Signature
   | Axiom Id Signature
-  | Prove Id Signature
   | Fresh Id Signature
   | Term Id Signature Term -- sig, def
   | DElabError
@@ -19,7 +15,7 @@ data Declaration
 
 unId :: Declaration -> Id
 unId (Datatype did _) = did
-unId (Constr did _ _ _) = did
+unId (Constr did _) = did
 unId (Term did _ _) = did
 unId DElabError = undefined -- FIXME
 
