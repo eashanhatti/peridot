@@ -13,6 +13,7 @@ import Syntax.Semantic qualified as N
 import Syntax.Surface
 import Syntax.Extra hiding(unId)
 import Data.Some
+import Data.Maybe(isJust)
 import Data.Dependent.HashMap qualified as DMap
 import Data.Dependent.HashMap(DHashMap)
 import Data.Functor.Identity
@@ -32,6 +33,7 @@ data QueryState = QueryState
 data Error
   = TooManyParams
   | WrongAppArity Natural Natural
+  | FailedUnify N.Term N.Term
 
 type Query sig m = Has (State QueryState) sig m
 
@@ -78,7 +80,9 @@ unPDDeclId (PDDecl (DeclAst _ did)) = did
 unPDDeclId (PDConstr (ConstrAst _ did _)) = did
 
 data ElabState = ElabState
-  { unDecls :: Map Id Predeclaration }
+  { unDecls :: Map Id Predeclaration
+  , unNextUV :: Global
+  , unTypeUVs :: Map Global (Maybe N.Term) }
 
 type Elab sig m =
   ( MonadFail m
@@ -90,7 +94,16 @@ type Elab sig m =
   , Query sig m )
 
 unify :: Elab sig m => N.Term -> N.Term -> m ()
-unify = undefined
+unify term1 term2 = do
+  subst <- U.unify term1 term2
+  case subst of
+    Just subst -> do
+      state <- get
+      put (state { unTypeUVs = fmap Just subst <> unTypeUVs state })
+    Nothing -> report (FailedUnify term1 term2)
+
+convertible :: Elab sig m => N.Term -> N.Term -> m Bool
+convertible term1 term2 = isJust <$> U.unify term1 term2
 
 overloadBinding k s m = case lookup k m of
   Just s' -> insert k (Set.union s s') m
@@ -143,7 +156,12 @@ getDecl did = do
   pure (decls ! did)
 
 freshTypeUV :: Elab sig m => m N.Term
-freshTypeUV = undefined
+freshTypeUV = do
+  state <- get
+  put (state
+    { unTypeUVs = insert (unNextUV state) Nothing (unTypeUVs state)
+    , unNextUV = unNextUV state + 1 })
+  pure (N.UniVar (unNextUV state))
 
 freshStageUV :: Elab sig m => m Stage
 freshStageUV = undefined

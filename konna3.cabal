@@ -24,6 +24,7 @@ source-repository head
 
 library
   exposed-modules:
+      Codegen.EvalStatic
       Elaboration.Decl
       Elaboration.Effect
       Elaboration.Term

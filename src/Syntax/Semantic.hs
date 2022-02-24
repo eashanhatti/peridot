@@ -20,6 +20,9 @@ data Term
   | FunIntro Closure
   | MetaConstantIntro Id
   | ObjectConstantIntro Id
+  | IOType Term
+  | IOIntro1 Term -- `pure`
+  | IOIntro2 Term Term -- `>>=`
   | TypeType Stage
   | EElabError
   -- Stuck terms
@@ -34,6 +37,10 @@ viewApp (FunElim lam arg) =
   let (lam', args) = viewApp lam
   in (lam, args ++ [arg])
 viewApp e = (e, [])
+
+viewMC :: Term -> Maybe (Id, [Term])
+viewMC (viewApp -> (MetaConstantIntro did, args)) = Just (did, args)
+viewMC _ = Nothing
 
 data Closure = Closure Environment C.Term
   deriving (Eq)

@@ -66,8 +66,22 @@ infer term = case term of
       (cBody, bodyTy) <- infer body
       pure (C.Let cDecls cBody, bodyTy)
   TermAst (Rule outTy inTy) -> do
-    cTerm <- C.FunType Implicit <$> check inTy (N.TypeType Meta) <*> check outTy (N.TypeType Meta)
+    cTerm <- C.FunType Implicit <$> checkMetaType inTy <*> checkMetaType outTy
     pure (cTerm, N.TypeType Meta)
+  TermAst (IOType ty) -> do
+    cTy <- checkObjectType ty
+    pure (C.IOType cTy, N.TypeType Object)
+  TermAst (IOPure term) -> do
+    ty <- freshTypeUV
+    cTerm <- check term (N.IOType ty)
+    pure (C.IOIntro1 cTerm, N.IOType ty)
+  TermAst (IOBind act k) -> do
+    inTy <- freshTypeUV
+    cAct <- check act (N.IOType inTy)
+    outTy <- N.IOType <$> freshTypeUV
+    outTyClo <- readbackWeak outTy >>= closureOf
+    cK <- check k (N.FunType Explicit inTy outTyClo)
+    pure (C.IOIntro2 cAct cK, outTy)
 
 checkType :: Elab sig m => TermAst -> m C.Term
 checkType term = do

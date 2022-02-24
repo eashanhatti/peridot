@@ -3,6 +3,7 @@ module Normalization where
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Extra
+import Control.Monad
 import Control.Effect.Reader
 import Control.Effect.State
 import Control.Algebra(Has)
@@ -68,6 +69,9 @@ eval (C.GlobalVar did) = do
   NormContext (N.Env _ ((! did) -> (env, term))) <- ask
   pure (N.TopVar did env term)
 eval (C.UniVar gl) = pure (N.UniVar gl)
+eval (C.IOType ty) = N.IOType <$> eval ty
+eval (C.IOIntro1 term) = N.IOIntro1 <$> eval term
+eval (C.IOIntro2 act k) = N.IOIntro2 <$> eval act <*> eval k
 
 entry :: Norm sig m => Index -> m N.Term
 entry ix = do
@@ -97,9 +101,15 @@ readback True (N.UniVar gl) = do
     Solved sol -> readback True sol
     Unsolved -> pure (C.UniVar gl)
 readback False (N.UniVar gl) = pure (C.UniVar gl)
+readback unf (N.IOType ty) = C.IOType <$> readback unf ty
+readback unf (N.IOIntro1 term) = C.IOIntro1 <$> readback unf term
+readback unf (N.IOIntro2 act k) = C.IOIntro2 <$> readback unf act <*> readback unf k
 
 readbackWeak :: Norm sig m => N.Term -> m C.Term
 readbackWeak = readback False
 
 readbackFull :: Norm sig m => N.Term -> m C.Term
 readbackFull = readback True
+
+normalize :: Norm sig m => N.Term -> m N.Term
+normalize = readbackFull >=> eval
