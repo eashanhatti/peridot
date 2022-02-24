@@ -19,16 +19,16 @@ check decl = memo (CheckDecl decl) do
       cDef <- eval cSig >>= EE.check def
       pure (C.Term did cSig cDef)
     PDDecl (DeclAst (Datatype name sig _) did) ->
-      pure (C.Datatype did cSig)
+      pure (C.ObjectConstant did cSig)
     PDDecl (DeclAst (Axiom name sig) did) ->
-      pure (C.Axiom did cSig)
+      pure (C.MetaConstant did cSig)
     PDDecl (DeclAst (Prove sig) did) -> do
       proof <- eval cSig >>= buildProof
       pure (C.Term did cSig proof)
     PDDecl (DeclAst (Fresh name sig) did) ->
       pure (C.Fresh did cSig)
     PDConstr constr@(ConstrAst (Constr _ sig) did dtDid) ->
-      pure (C.Constr did cSig)
+      pure (C.ObjectConstant did cSig)
 
 buildProof :: Elab sig m => N.Term -> m C.Term
 buildProof = undefined
@@ -42,4 +42,4 @@ declType did = memo (DeclType did) do
     PDDecl (DeclAst (Axiom name sig) did) -> EE.checkMetaType sig
     PDDecl (DeclAst (Prove sig) did) -> EE.checkMetaType sig
     PDDecl (DeclAst (Fresh name sig) did) -> EE.checkMetaType sig
-    PDConstr constr@(ConstrAst (Constr _ sig) did dtDid) -> EE.checkObjectType sig
+    PDConstr constr@(ConstrAst (Constr _ sig) did dtDid) -> EE.checkObjectType sig -- TODO: Form check

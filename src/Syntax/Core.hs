@@ -5,26 +5,26 @@ import Syntax.Extra
 type Signature = Term
 
 data Declaration
-  = Datatype Id Signature
-  | Constr Id Signature
-  | Axiom Id Signature
+  = MetaConstant Id Signature
+  | ObjectConstant Id Signature
   | Fresh Id Signature
   | Term Id Signature Term -- sig, def
   | DElabError
   deriving (Eq)
 
 unId :: Declaration -> Id
-unId (Datatype did _) = did
-unId (Constr did _) = did
+unId (ObjectConstant did _) = did
+unId (MetaConstant did _) = did
 unId (Term did _ _) = did
-unId DElabError = undefined -- FIXME
+unId (Fresh did _) = did
+unId DElabError = error "FIXME"
 
 data Term
   = FunType ApplyMethod Term Term
   | FunIntro Term
   | FunElim Term Term
-  | DatatypeType Id
-  | DatatypeIntro Id
+  | MetaConstantIntro Id
+  | ObjectConstantIntro Id
   | PropType Id [Term]
   | ConjType Term Term
   | TypeType Stage

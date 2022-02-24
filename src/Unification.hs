@@ -39,8 +39,8 @@ unify' (FunType am1 inTy1 outTy1) (FunType am2 inTy2 outTy2) | am1 == am2 = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (FunIntro body1) (FunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
-unify' (DatatypeIntro did1) (DatatypeIntro did2) | did1 == did2 = pure ()
-unify' (DatatypeType did1) (DatatypeType did2) | did1 == did2 = pure ()
+unify' (MetaConstantIntro did1) (MetaConstantIntro did2) | did1 == did2 = pure ()
+unify' (ObjectConstantIntro did1) (ObjectConstantIntro did2) | did1 == did2 = pure ()
 unify' (TypeType s1) (TypeType s2) | s1 == s2 = pure ()
 unify' (FreeVar lvl1) (FreeVar lvl2) | lvl1 == lvl2 = pure ()
 unify' (FunElim lam1 arg1) (FunElim lam2 arg2) = do

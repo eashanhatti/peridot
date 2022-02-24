@@ -41,9 +41,11 @@ evalClosure clo = do
   appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
 
 definition :: C.Declaration -> C.Term
-definition (C.Datatype did _) = C.DatatypeType did
-definition (C.Constr did _) = C.DatatypeIntro did
+definition (C.MetaConstant did _) = C.MetaConstantIntro did
+definition (C.ObjectConstant did _) = C.ObjectConstantIntro did
 definition (C.Term _ _ def) = def
+definition (C.Fresh _ _) = undefined
+definition (C.DElabError) = error "FIXME"
 
 eval :: Norm sig m => C.Term -> m N.Term
 eval (C.FunType am inTy outTy) = N.FunType am <$> eval inTy <*> closureOf outTy
@@ -58,7 +60,8 @@ eval (C.Let decls body) = do
   NormContext (N.Env locals globals) <- ask
   let vDefs = Map.fromList ((map (\def -> (C.unId def, (N.Env locals (vDefs <> globals), definition def))) decls))
   local (const (NormContext (N.Env locals (globals <> vDefs)))) (eval body)
-eval (C.DatatypeIntro did) = pure (N.DatatypeIntro did)
+eval (C.MetaConstantIntro did) = pure (N.MetaConstantIntro did)
+eval (C.ObjectConstantIntro did) = pure (N.ObjectConstantIntro did)
 eval (C.TypeType s) = pure (N.TypeType s)
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) = do
@@ -79,7 +82,8 @@ type ShouldUnfold = Bool
 readback :: Norm sig m => ShouldUnfold -> N.Term -> m C.Term
 readback unf (N.FunType am inTy outTy) = C.FunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
 readback unf (N.FunIntro body) = C.FunIntro <$> (evalClosure body >>= readback unf)
-readback unf (N.DatatypeIntro did) = pure (C.DatatypeIntro did)
+readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
+readback unf (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
 readback unf (N.TypeType s) = pure (C.TypeType s)
 readback unf (N.FreeVar (Level lvl)) = do
   NormContext env <- ask

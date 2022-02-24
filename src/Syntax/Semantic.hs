@@ -18,8 +18,8 @@ withGlobal did env term (Env locals globals) = Env locals (insert did (env, term
 data Term
   = FunType ApplyMethod Term Closure
   | FunIntro Closure
-  | DatatypeIntro Id
-  | DatatypeType Id
+  | MetaConstantIntro Id
+  | ObjectConstantIntro Id
   | TypeType Stage
   | EElabError
   -- Stuck terms

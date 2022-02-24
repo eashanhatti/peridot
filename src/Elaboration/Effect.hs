@@ -78,8 +78,7 @@ unPDDeclId (PDDecl (DeclAst _ did)) = did
 unPDDeclId (PDConstr (ConstrAst _ did _)) = did
 
 data ElabState = ElabState
-  { unDecls :: Map Id Predeclaration
-  , unDeclTypes :: Map Id N.Term }
+  { unDecls :: Map Id Predeclaration }
 
 type Elab sig m =
   ( MonadFail m
