@@ -35,7 +35,7 @@ declType :: Elab sig m => Id -> m C.Term
 declType did = memo (DeclType did) do
   decl <- getDecl did
   case decl of
-    PDDecl (DeclAst (Term name sig def) did) -> EE.checkType sig
+    PDDecl (DeclAst (Term name sig def) did) -> EE.checkObjectType sig
     PDDecl (DeclAst (Datatype name sig _) did) -> EE.checkObjectType sig
     PDDecl (DeclAst (Axiom name sig) did) -> EE.checkMetaType sig
     PDDecl (DeclAst (Prove sig) did) -> EE.checkMetaType sig

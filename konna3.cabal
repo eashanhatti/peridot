@@ -24,13 +24,14 @@ source-repository head
 
 library
   exposed-modules:
-      Codegen.EvalStatic
+      Codegen.NormMeta
       Elaboration.Decl
       Elaboration.Effect
       Elaboration.Term
       Normalization
       Syntax.Core
       Syntax.Extra
+      Syntax.Object
       Syntax.Semantic
       Syntax.Surface
       Unification

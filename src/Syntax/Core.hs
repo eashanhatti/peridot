@@ -30,8 +30,6 @@ data Term
   | IOType Term
   | IOIntro1 Term -- `pure`
   | IOIntro2 Term Term -- `>>=`
-  | PropType Id [Term]
-  | ConjType Term Term
   | TypeType Stage
   | LocalVar Index
   | GlobalVar Id
