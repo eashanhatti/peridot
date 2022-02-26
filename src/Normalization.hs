@@ -93,7 +93,7 @@ readback unf (N.FreeVar (Level lvl)) = do
   NormContext env <- ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
 readback unf (N.FunElim lam arg) = C.FunElim <$> readback unf lam <*> readback unf arg
-readback True (N.TopVar _ env def) = local (const (NormContext env)) (eval def) >>= readback True
+readback True (N.TopVar _ env def) = local (const (NormContext env)) (eval def) >>= readback False
 readback False (N.TopVar did _ _) = pure (C.GlobalVar did)
 readback True (N.UniVar gl) = do
   NormState metas <- get
@@ -104,6 +104,9 @@ readback False (N.UniVar gl) = pure (C.UniVar gl)
 readback unf (N.IOType ty) = C.IOType <$> readback unf ty
 readback unf (N.IOIntro1 term) = C.IOIntro1 <$> readback unf term
 readback unf (N.IOIntro2 act k) = C.IOIntro2 <$> readback unf act <*> readback unf k
+
+evalTop :: Norm sig m => N.Environment -> C.Term -> m N.Term
+evalTop env term = local (const (NormContext env)) (eval term)
 
 readbackWeak :: Norm sig m => N.Term -> m C.Term
 readbackWeak = readback False

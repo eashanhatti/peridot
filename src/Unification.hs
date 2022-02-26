@@ -43,21 +43,31 @@ unify' (MetaConstantIntro did1) (MetaConstantIntro did2) | did1 == did2 = pure (
 unify' (ObjectConstantIntro did1) (ObjectConstantIntro did2) | did1 == did2 = pure ()
 unify' (TypeType s1) (TypeType s2) | s1 == s2 = pure ()
 unify' (FreeVar lvl1) (FreeVar lvl2) | lvl1 == lvl2 = pure ()
-unify' (FunElim lam1 arg1) (FunElim lam2 arg2) = do
-  unify' lam1 lam2
-  unify' arg1 arg2
+unify' term1@(FunElim lam1 arg1) term2@(FunElim lam2 arg2) = do
+  r1 <- unify lam1 lam2
+  case r1 of
+    Just subst -> do
+      modify (subst <>)
+      unify arg1 arg2
+    Nothing -> do
+      term1 <- normalize term1
+      term2 <- normalize term2
+      r2 <- unify term1 term2
+      case r2 of
+        Just subst -> modify (subst <>)
+        Nothing -> throwError ()
 unify' (IOType ty1) (IOType ty2) = unify' ty1 ty2
 unify' (IOIntro1 term1) (term2) = unify' term1 term2
 unify' (IOIntro2 act1 k1) (IOIntro2 act2 k2) = do
   unify' act1 act2
   unify' k1 k2
+unify' (TopVar did1 _ _) (TopVar did2 _ _) | did1 == did2 = pure ()
+unify' (TopVar _ env term1) term2 = bind2 unify' (evalTop env term1) term2
+unify' term1 (TopVar _ env term2) = bind2 unify' term1 (evalTop env term2)
 unify' _ _ = throwError ()
--- Should be no `TopVar`s
 
 unify :: Norm sig m => Term -> Term -> m (Maybe Substitution)
 unify term1 term2 = do
-  term1 <- normalize term1
-  term2 <- normalize term2
   r <- runThrow @() . runState mempty $ unify' term1 term2
   case r of
     Right (subst, _) -> pure (Just subst)
