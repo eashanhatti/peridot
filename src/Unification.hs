@@ -61,6 +61,9 @@ unify' (IOIntro1 term1) (term2) = unify' term1 term2
 unify' (IOIntro2 act1 k1) (IOIntro2 act2 k2) = do
   unify' act1 act2
   unify' k1 k2
+unify' (IOIntro3 op1) (IOIntro3 op2) | op1 == op2 = pure ()
+unify' UnitType UnitType = pure ()
+unify' UnitIntro UnitIntro = pure ()
 unify' (TopVar did1 _ _) (TopVar did2 _ _) | did1 == did2 = pure ()
 unify' (TopVar _ env1 term1) (TopVar _ env2 term2) = bind2 unify' (evalTop env1 term1) (evalTop env2 term2)
 unify' (TopVar _ env term1) term2 = bind2 unify' (evalTop env term1) (pure term2)

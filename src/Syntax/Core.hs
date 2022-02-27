@@ -30,6 +30,9 @@ data Term
   | IOType Term
   | IOIntro1 Term -- `pure`
   | IOIntro2 Term Term -- `>>=`
+  | IOIntro3 IOOperation
+  | UnitType
+  | UnitIntro
   | TypeType Stage
   | LocalVar Index
   | GlobalVar Id

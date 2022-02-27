@@ -72,6 +72,9 @@ eval (C.UniVar gl) = pure (N.UniVar gl)
 eval (C.IOType ty) = N.IOType <$> eval ty
 eval (C.IOIntro1 term) = N.IOIntro1 <$> eval term
 eval (C.IOIntro2 act k) = N.IOIntro2 <$> eval act <*> eval k
+eval (C.IOIntro3 op) = pure (N.IOIntro3 op)
+eval C.UnitType = pure N.UnitType
+eval C.UnitIntro = pure N.UnitIntro
 
 entry :: Norm sig m => Index -> m N.Term
 entry ix = do
@@ -104,6 +107,9 @@ readback False (N.UniVar gl) = pure (C.UniVar gl)
 readback unf (N.IOType ty) = C.IOType <$> readback unf ty
 readback unf (N.IOIntro1 term) = C.IOIntro1 <$> readback unf term
 readback unf (N.IOIntro2 act k) = C.IOIntro2 <$> readback unf act <*> readback unf k
+readback unf (N.IOIntro3 op) = pure (C.IOIntro3 op)
+readback unf N.UnitType = pure C.UnitType
+readback unf N.UnitIntro = pure C.UnitIntro
 
 evalTop :: Norm sig m => N.Environment -> C.Term -> m N.Term
 evalTop env term = local (const (NormContext env)) (eval term)

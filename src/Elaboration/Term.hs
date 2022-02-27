@@ -82,6 +82,9 @@ infer term = case term of
     outTyClo <- readbackWeak outTy >>= closureOf
     cK <- check k (N.FunType Explicit inTy outTyClo)
     pure (C.IOIntro2 cAct cK, outTy)
+  TermAst (PrintChar c) -> pure (C.IOIntro3 (PutChar c), N.IOType (N.UnitType))
+  TermAst UnitType -> pure (C.UnitType, N.TypeType Object)
+  TermAst Unit -> pure (C.UnitIntro, N.UnitType)
 
 checkType :: Elab sig m => TermAst -> m C.Term
 checkType term = do

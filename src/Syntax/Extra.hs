@@ -27,3 +27,6 @@ instance Hashable Id
 
 data Name = UserName Text | MachineName Natural
   deriving (Eq, Ord)
+
+data IOOperation = PutChar Char
+  deriving (Eq)

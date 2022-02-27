@@ -57,3 +57,6 @@ data Term
   | IOPure TermAst
   | IOType TermAst
   | IOBind TermAst TermAst
+  | PrintChar Char
+  | UnitType
+  | Unit
