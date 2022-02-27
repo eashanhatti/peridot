@@ -24,7 +24,7 @@ source-repository head
 
 library
   exposed-modules:
-      Codegen.NormMeta
+      Codegen.Stage
       Elaboration.Decl
       Elaboration.Effect
       Elaboration.Term

@@ -116,3 +116,7 @@ readbackFull = readback True
 
 normalize :: Norm sig m => N.Term -> m N.Term
 normalize = readbackFull >=> eval
+
+withGlobals :: Norm sig m => Map Id (N.Environment, C.Term) -> m a -> m a
+withGlobals globals =
+  local (\(NormContext (N.Env locals globals')) -> NormContext (N.Env locals (globals <> globals')))

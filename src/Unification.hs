@@ -48,7 +48,7 @@ unify' term1@(FunElim lam1 arg1) term2@(FunElim lam2 arg2) = do
   case r1 of
     Just subst -> do
       modify (subst <>)
-      unify arg1 arg2
+      unify' arg1 arg2
     Nothing -> do
       term1 <- normalize term1
       term2 <- normalize term2
@@ -62,8 +62,9 @@ unify' (IOIntro2 act1 k1) (IOIntro2 act2 k2) = do
   unify' act1 act2
   unify' k1 k2
 unify' (TopVar did1 _ _) (TopVar did2 _ _) | did1 == did2 = pure ()
-unify' (TopVar _ env term1) term2 = bind2 unify' (evalTop env term1) term2
-unify' term1 (TopVar _ env term2) = bind2 unify' term1 (evalTop env term2)
+unify' (TopVar _ env1 term1) (TopVar _ env2 term2) = bind2 unify' (evalTop env1 term1) (evalTop env2 term2)
+unify' (TopVar _ env term1) term2 = bind2 unify' (evalTop env term1) (pure term2)
+unify' term1 (TopVar _ env term2) = bind2 unify' (pure term1) (evalTop env term2)
 unify' _ _ = throwError ()
 
 unify :: Norm sig m => Term -> Term -> m (Maybe Substitution)
