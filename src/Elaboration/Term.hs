@@ -70,7 +70,7 @@ infer term = case term of
     pure (cTerm, N.TypeType Meta)
   TermAst (IOType ty) -> do
     cTy <- checkObjectType ty
-    pure (C.IOType cTy, N.TypeType Object)
+    pure (C.IOType cTy, N.TypeType (Object (Ptr Unlifted)))
   TermAst (IOPure term) -> do
     ty <- freshTypeUV
     cTerm <- check term (N.IOType ty)
@@ -83,7 +83,7 @@ infer term = case term of
     cK <- check k (N.FunType Explicit inTy outTyClo)
     pure (C.IOIntro2 cAct cK, outTy)
   TermAst (PrintChar c) -> pure (C.IOIntro3 (PutChar c), N.IOType (N.UnitType))
-  TermAst UnitType -> pure (C.UnitType, N.TypeType Object)
+  TermAst UnitType -> pure (C.UnitType, N.TypeType (Object Erased))
   TermAst Unit -> pure (C.UnitIntro, N.UnitType)
 
 checkType :: Elab sig m => TermAst -> m C.Term
@@ -95,4 +95,6 @@ checkMetaType :: Elab sig m => TermAst -> m C.Term
 checkMetaType term = check term (N.TypeType Meta)
 
 checkObjectType :: Elab sig m => TermAst -> m C.Term
-checkObjectType term = check term (N.TypeType Object)
+checkObjectType term = do
+  rep <- freshRepUV
+  check term (N.TypeType (Object rep))

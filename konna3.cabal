@@ -33,6 +33,7 @@ library
       Syntax.Extra
       Syntax.Object
       Syntax.Semantic
+      Syntax.STG
       Syntax.Surface
       Unification
   other-modules:

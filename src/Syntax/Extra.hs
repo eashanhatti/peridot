@@ -8,7 +8,7 @@ import GHC.Generics
 data ApplyMethod = Explicit | Implicit
   deriving (Eq)
 
-data Stage = Meta | Object | SUniVar Global
+data Stage = Meta | Object RuntimeRep | SUniVar Global
   deriving (Eq)
 
 newtype Index = Index { unIndex :: Natural }
@@ -29,4 +29,16 @@ data Name = UserName Text | MachineName Natural
   deriving (Eq, Ord)
 
 data IOOperation = PutChar Char
+  deriving (Eq)
+
+data Levity = Lifted | Unlifted
+  deriving (Eq)
+
+data RuntimeRep
+  = Ptr Levity
+  | Word
+  | Prod [RuntimeRep]
+  | Sum [RuntimeRep]
+  | Erased
+  | RUniVar Global
   deriving (Eq)

@@ -82,7 +82,8 @@ unPDDeclId (PDConstr (ConstrAst _ did _)) = did
 data ElabState = ElabState
   { unDecls :: Map Id Predeclaration
   , unNextUV :: Global
-  , unTypeUVs :: Map Global (Maybe N.Term) }
+  , unTypeUVs :: Map Global (Maybe N.Term)
+  , unRepUVs :: Map Global (Maybe RuntimeRep) }
 
 type Elab sig m =
   ( MonadFail m
@@ -165,6 +166,9 @@ freshTypeUV = do
 
 freshStageUV :: Elab sig m => m Stage
 freshStageUV = undefined
+
+freshRepUV :: Elab sig m => m RuntimeRep
+freshRepUV = undefined
 
 report :: Elab sig m => Error -> m ()
 report _ = pure ()
