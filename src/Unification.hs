@@ -10,18 +10,38 @@ import Normalization
 import Data.Map(Map)
 import Data.Map qualified as Map
 import Control.Monad
+import Data.Foldable
 
-type Substitution = Map Global Term
+data Substitution = Subst
+  { unTypeSols :: Map Global Term
+  , unStageSols :: Map Global Stage
+  , unRepSols :: Map Global RuntimeRep }
+
+instance Semigroup Substitution where
+  Subst ts1 ss1 rs1 <> Subst ts2 ss2 rs2 = Subst (ts1 <> ts2) (ss1 <> ss2) (rs1 <> rs2)
+
+instance Monoid Substitution where
+  mempty = Subst mempty mempty mempty
 
 type Unify sig m =
   ( Norm sig m
   , Has (Throw ()) sig m
   , Has (State Substitution) sig m )
 
-putSol :: Unify sig m => Global -> Term -> m ()
-putSol gl sol = do
+putRepSol :: Unify sig m => Global -> RuntimeRep -> m ()
+putRepSol gl sol = do
   sols <- get
-  put (Map.insert gl sol sols)
+  put (sols { unRepSols = Map.insert gl sol (unRepSols sols) })
+
+putStageSol :: Unify sig m => Global -> Stage -> m ()
+putStageSol gl sol = do
+  sols <- get
+  put (sols { unStageSols = Map.insert gl sol (unStageSols sols) })
+
+putTypeSol :: Unify sig m => Global -> Term -> m ()
+putTypeSol gl sol = do
+  sols <- get
+  put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
 
 bind2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c
 bind2 f act1 act2 = do
@@ -29,19 +49,41 @@ bind2 f act1 act2 = do
   y <- act2
   f x y
 
+unifyReps :: Unify sig m => RuntimeRep -> RuntimeRep -> m ()
+unifyReps (RUniVar gl1) (RUniVar gl2) | gl1 == gl2 = pure ()
+unifyReps rep1@(RUniVar gl1) rep2@(RUniVar gl2) = do
+  putRepSol gl1 rep2
+  putRepSol gl2 rep1
+unifyReps (Ptr l1) (Ptr l2) | l1 == l2 = pure ()
+unifyReps Word Word = pure ()
+unifyReps Erased Erased = pure ()
+unifyReps (Prod reps1) (Prod reps2) | length reps1 == length reps2 = traverse_ (uncurry unifyReps) (zip reps1 reps2)
+unifyReps (Sum reps1) (Sum reps2) | length reps1 == length reps2 = traverse_ (uncurry unifyReps) (zip reps1 reps2)
+unifyReps _ _ = throwError ()
+
+unifyStages :: Unify sig m => Stage -> Stage -> m ()
+unifyStages (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
+unifyStages s1@(SUniVar gl1) s2@(SUniVar gl2) = do
+  putStageSol gl1 s2
+  putStageSol gl2 s1
+unifyStages Meta Meta = pure ()
+unifyStages (Object rep1) (Object rep2) = unifyReps rep1 rep2
+unifyStages _ _ = throwError ()
+
 unify' :: Unify sig m => Term -> Term -> m ()
+unify' (UniVar gl1) (UniVar gl2) | gl1 == gl2 = pure ()
 unify' term1@(UniVar gl1) term2@(UniVar gl2) = do
-  putSol gl1 term2
-  putSol gl2 term1
-unify' (UniVar gl) term = putSol gl term
-unify' term (UniVar gl) = putSol gl term
+  putTypeSol gl1 term2
+  putTypeSol gl2 term1
+unify' (UniVar gl) term = putTypeSol gl term
+unify' term (UniVar gl) = putTypeSol gl term
 unify' (FunType am1 inTy1 outTy1) (FunType am2 inTy2 outTy2) | am1 == am2 = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (FunIntro body1) (FunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (MetaConstantIntro did1) (MetaConstantIntro did2) | did1 == did2 = pure ()
 unify' (ObjectConstantIntro did1) (ObjectConstantIntro did2) | did1 == did2 = pure ()
-unify' (TypeType s1) (TypeType s2) | s1 == s2 = pure ()
+unify' (TypeType s1) (TypeType s2) = unifyStages s1 s2
 unify' (FreeVar lvl1) (FreeVar lvl2) | lvl1 == lvl2 = pure ()
 unify' term1@(FunElim lam1 arg1) term2@(FunElim lam2 arg2) = do
   r1 <- unify lam1 lam2

@@ -83,6 +83,7 @@ data ElabState = ElabState
   { unDecls :: Map Id Predeclaration
   , unNextUV :: Global
   , unTypeUVs :: Map Global (Maybe N.Term)
+  , unStageUVs :: Map Global (Maybe Stage)
   , unRepUVs :: Map Global (Maybe RuntimeRep) }
 
 type Elab sig m =
@@ -98,9 +99,12 @@ unify :: Elab sig m => N.Term -> N.Term -> m ()
 unify term1 term2 = do
   subst <- U.unify term1 term2
   case subst of
-    Just subst -> do
+    Just (U.Subst ts ss rs) -> do
       state <- get
-      put (state { unTypeUVs = fmap Just subst <> unTypeUVs state })
+      put (state
+        { unTypeUVs = fmap Just ts <> unTypeUVs state
+        , unStageUVs = fmap Just ss <> unStageUVs state
+        , unRepUVs = fmap Just rs <> unRepUVs state })
     Nothing -> report (FailedUnify term1 term2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool

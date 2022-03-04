@@ -82,7 +82,7 @@ subgoals goal = do
       r <- unify goal rule
       case r of
         Just subst -> do
-          putSols (Map.toList subst)
+          putSols (Map.toList (unTypeSols subst))
           pure []
         Nothing -> empty
 
