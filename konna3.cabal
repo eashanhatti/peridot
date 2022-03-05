@@ -24,6 +24,7 @@ source-repository head
 
 library
   exposed-modules:
+      Codegen.Lower
       Codegen.Stage
       Elaboration.Decl
       Elaboration.Effect

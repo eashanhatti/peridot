@@ -59,7 +59,7 @@ stageDecl (C.Prove _ goal) = do
   globals <- unGlobals <$> get
   withGlobals (fmap ((,) (N.Env [] mempty)) globals) (eval goal >>= solve)
   pure Nothing
-stageDecl (C.ObjectConstant did sig) = Just . O.ObjectConstant did <$> stage sig
+stageDecl (C.ObjectConstant did sig) = pure Nothing -- Just . O.ObjectConstant did <$> stage sig
 stageDecl (C.MetaConstant did sig) = do
   state <- get
   vSig <- eval sig

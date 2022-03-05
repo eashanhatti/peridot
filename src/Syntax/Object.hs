@@ -6,7 +6,6 @@ type Signature = Term
 
 data Declaration
   = Term Id Signature Term
-  | ObjectConstant Id Signature
 
 data Term
   = FunType Term Term

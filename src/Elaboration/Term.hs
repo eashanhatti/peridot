@@ -70,7 +70,7 @@ infer term = case term of
     pure (cTerm, N.TypeType Meta)
   TermAst (IOType ty) -> do
     cTy <- checkObjectType ty
-    pure (C.IOType cTy, N.TypeType (Object (Ptr Unlifted)))
+    pure (C.IOType cTy, N.TypeType (Object Ptr))
   TermAst (IOPure term) -> do
     ty <- freshTypeUV
     cTerm <- check term (N.IOType ty)

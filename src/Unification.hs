@@ -54,7 +54,8 @@ unifyReps (RUniVar gl1) (RUniVar gl2) | gl1 == gl2 = pure ()
 unifyReps rep1@(RUniVar gl1) rep2@(RUniVar gl2) = do
   putRepSol gl1 rep2
   putRepSol gl2 rep1
-unifyReps (Ptr l1) (Ptr l2) | l1 == l2 = pure ()
+unifyReps Ptr Ptr = pure ()
+unifyReps Lazy Lazy = pure ()
 unifyReps Word Word = pure ()
 unifyReps Erased Erased = pure ()
 unifyReps (Prod reps1) (Prod reps2) | length reps1 == length reps2 = traverse_ (uncurry unifyReps) (zip reps1 reps2)

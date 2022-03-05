@@ -31,11 +31,9 @@ data Name = UserName Text | MachineName Natural
 data IOOperation = PutChar Char
   deriving (Eq)
 
-data Levity = Lifted | Unlifted
-  deriving (Eq)
-
 data RuntimeRep
-  = Ptr Levity
+  = Ptr
+  | Lazy
   | Word
   | Prod [RuntimeRep]
   | Sum [RuntimeRep]
