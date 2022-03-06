@@ -9,6 +9,7 @@ import Control.Effect.State
 import Control.Effect.Reader
 import Control.Algebra(Has)
 import Control.Monad
+import Data.Foldable
 
 data LowerState = LowerState
   { unBindingReps :: Map.Map Id RuntimeRep -- reps from bound names
@@ -85,21 +86,21 @@ funDecl bs (O.FunIntro ty body) = do
   funDecl (bs ++ [L.Binding rep name]) body
 
 addDecls :: Lower sig m => [O.Declaration] -> m ()
-addDecls = fmap go where
+addDecls decls = traverse_ go decls where
   go :: Lower sig m => O.Declaration -> m ()
-  go (O.Term _ _ (O.FunIntro _ _)) = do
+  go (O.Term did _ (O.FunIntro _ _)) = do
     state <- get
     name <- freshId
     put (state
       { unBindingReps = Map.insert name Ptr (unBindingReps state)
       , unGlobals = Map.insert did name (unGlobals state) })
-  go (O.Term _ _ _) = do
+  go (O.Term did _ _) = do
     state <- get
     name <- freshId
     put (state
       { unBindingReps = Map.insert name Lazy (unBindingReps state)
       , unGlobals = Map.insert did name (unGlobals state) })
-  go (O.ObjectConstant did (funElims -> (O.TypeType rep, _))) = do
+  go (O.ObjectConstant did (funElims -> (O.TypeType (Object rep), _))) = do
     state <- get
     name <- freshId
     put (state
@@ -116,17 +117,17 @@ repOf (funElims -> (O.ObjectConstantIntro did, _)) = do
 
 -- get rep from term
 repOfTerm :: Lower sig m => L.Term -> m RuntimeRep
-repOfTerm (L.Var name) = do
+repOfTerm (L.Val (L.Var name)) = do
   reps <- unBindingReps <$> get
   pure (reps Map.! name)
-repOfTerm (L.Con name) = do
+repOfTerm (L.Val (L.Con name _)) = do
   reps <- unBindingReps <$> get
   pure (reps Map.! name)
-repOfTerm (L.Arrow _ _) = pure Ptr
-repOfTerm L.Unit = pure Erased
-repOfTerm L.UnitType = pure Ptr
-repOfTerm (L.IOType _) = pure Ptr
-repOfTerm (L.Univ _) = pure Ptr
+repOfTerm (L.Val (L.Arrow _ _)) = pure Ptr
+repOfTerm (L.Val L.Unit) = pure Erased
+repOfTerm (L.Val L.UnitType) = pure Ptr
+repOfTerm (L.Val (L.IOType _)) = pure Ptr
+repOfTerm (L.Val (L.Univ _)) = pure Ptr
 
 repOfDecl :: L.Declaration -> RuntimeRep
 repOfDecl (L.Fun _ _ _ _) = Ptr

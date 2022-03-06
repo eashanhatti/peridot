@@ -22,7 +22,10 @@ data StageState = StageState
   , unRules :: [N.Term]
   , unLogvars :: Map.Map Global Id
   , unNextUV :: Global
-  , unGlobals :: Map.Map Id C.Term }
+  , unGlobals :: Map.Map Id C.Term
+  , unTypeUVs :: Map.Map Global (Maybe N.Term)
+  , unStageUVs :: Map.Map Global (Maybe E.Stage)
+  , unRepUVs :: Map.Map Global (Maybe RuntimeRep) }
 
 type Stage sig m =
   ( Has NonDet sig m
@@ -47,10 +50,25 @@ stage (C.GlobalVar did) = do
     Just Nothing -> empty
     Nothing -> pure (O.GlobalVar did)
 stage (C.Let decls body) = O.Let <$> fmap (map fromJust . filter isJust) (traverse stageDecl decls) <*> stage body
-stage (C.UniVar gl) = undefined
+stage (C.UniVar gl) = do
+  uvs <- unTypeUVs <$> get
+  case uvs Map.! gl of
+    Just sol -> readbackWeak sol >>= stage
+    Nothing -> error "TODO"
 
 normalizeStage :: Stage sig m => E.Stage -> m E.Stage
-normalizeStage = undefined
+normalizeStage (Object rep) = Object <$> normalizeRep rep
+normalizeStage Meta = pure Meta
+
+normalizeRep :: Stage sig m => RuntimeRep -> m RuntimeRep
+normalizeRep (RUniVar gl) = do
+  uvs <- unRepUVs <$> get
+  case uvs Map.! gl of
+    Just rep -> normalizeRep rep
+    Nothing -> error "TODO"
+normalizeRep (Prod reps) = Prod <$> traverse normalizeRep reps
+normalizeRep (Sum reps) = Sum <$> traverse normalizeRep reps
+normalizeRep rep = pure rep
 
 stageDecl :: Stage sig m => C.Declaration -> m (Maybe O.Declaration)
 stageDecl (C.Fresh did _) = do
