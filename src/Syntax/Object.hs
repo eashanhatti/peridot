@@ -8,6 +8,10 @@ data Declaration
   = Term Id Signature Term
   | ObjectConstant Id Signature
 
+unId :: Declaration -> Id
+unId (Term did _ _) = did
+unId (ObjectConstant did _) = did
+
 unSig :: Declaration -> Signature
 unSig (Term _ sig _) = sig
 unSig (ObjectConstant _ sig) = sig
