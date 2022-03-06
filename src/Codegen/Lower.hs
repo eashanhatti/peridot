@@ -11,8 +11,8 @@ import Control.Algebra(Has)
 import Control.Monad
 
 data LowerState = LowerState
-  { unSTGReps :: Map.Map Id RuntimeRep
-  , unObjReps :: Map.Map Id RuntimeRep
+  { unBindingReps :: Map.Map Id RuntimeRep -- reps from bound names
+  , unTypeReps :: Map.Map Id RuntimeRep -- reps from type decl names - how the type's values are represented
   , unDecls :: [([L.Declaration], [(L.Binding, L.Term)])]
   , unNextId :: Id
   , unGlobals :: Map.Map Id Id }
@@ -85,22 +85,48 @@ funDecl bs (O.FunIntro ty body) = do
   funDecl (bs ++ [L.Binding rep name]) body
 
 addDecls :: Lower sig m => [O.Declaration] -> m ()
-addDecls [] = pure ()
-addDecls (decl : decls) = do
-  rep <- repOf (O.unSig decl)
-  name <- freshId
-  state <- get
-  put (state
-    { unSTGReps = Map.insert name rep (unSTGReps state)
-    , unObjReps = Map.insert (O.unId decl) rep (unObjReps state)
-    , unGlobals = Map.insert (O.unId decl) name (unGlobals state) })
-  addDecls decls
+addDecls = fmap go where
+  go :: Lower sig m => O.Declaration -> m ()
+  go (O.Term _ _ (O.FunIntro _ _)) = do
+    state <- get
+    name <- freshId
+    put (state
+      { unBindingReps = Map.insert name Ptr (unBindingReps state)
+      , unGlobals = Map.insert did name (unGlobals state) })
+  go (O.Term _ _ _) = do
+    state <- get
+    name <- freshId
+    put (state
+      { unBindingReps = Map.insert name Lazy (unBindingReps state)
+      , unGlobals = Map.insert did name (unGlobals state) })
+  go (O.ObjectConstant did (funElims -> (O.TypeType rep, _))) = do
+    state <- get
+    name <- freshId
+    put (state
+      { unTypeReps = Map.insert name rep (unTypeReps state)
+      , unGlobals = Map.insert did name (unGlobals state) })
+  go _ = pure ()
 
+-- get rep from type
 repOf :: Lower sig m => O.Signature -> m RuntimeRep
-repOf = undefined
+repOf (O.FunType _ _) = pure Ptr
+repOf (funElims -> (O.ObjectConstantIntro did, _)) = do
+  reps <- unTypeReps <$> get
+  pure (reps Map.! did)
 
+-- get rep from term
 repOfTerm :: Lower sig m => L.Term -> m RuntimeRep
-repOfTerm = undefined
+repOfTerm (L.Var name) = do
+  reps <- unBindingReps <$> get
+  pure (reps Map.! name)
+repOfTerm (L.Con name) = do
+  reps <- unBindingReps <$> get
+  pure (reps Map.! name)
+repOfTerm (L.Arrow _ _) = pure Ptr
+repOfTerm L.Unit = pure Erased
+repOfTerm L.UnitType = pure Ptr
+repOfTerm (L.IOType _) = pure Ptr
+repOfTerm (L.Univ _) = pure Ptr
 
 repOfDecl :: L.Declaration -> RuntimeRep
 repOfDecl (L.Fun _ _ _ _) = Ptr
