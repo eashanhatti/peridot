@@ -21,16 +21,17 @@ unId (Fresh did _) = did
 unId (Prove did _) = did
 unId DElabError = error "FIXME"
 
+type Type = Term
+
 data Term
   = FunType ApplyMethod Term Term
-  | FunIntro Term
+  | FunIntro Type Term
   | FunElim Term Term
   | MetaConstantIntro Id
   | ObjectConstantIntro Id
   | IOType Term
   | IOIntro1 Term -- `pure`
-  | IOIntro2 Term Term -- `>>=`
-  | IOIntro3 IOOperation
+  | IOIntro2 IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
   | TypeType Stage

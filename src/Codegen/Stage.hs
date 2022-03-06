@@ -4,6 +4,7 @@ import Syntax.Core qualified as C
 import Syntax.Object qualified as O
 import Syntax.Semantic qualified as N
 import Syntax.Extra hiding(Stage)
+import Syntax.Extra qualified as E
 import Control.Effect.NonDet
 import Control.Effect.State
 import Control.Effect.Throw
@@ -31,12 +32,12 @@ type Stage sig m =
 
 stage :: Stage sig m => C.Term -> m O.Term
 stage (C.FunType Explicit inTy outTy) = O.FunType <$> stage inTy <*> stage outTy
-stage (C.FunIntro body) = O.FunIntro <$> stage body
+stage (C.FunIntro ty body) = O.FunIntro <$> stage ty <*> stage body
 stage (C.FunElim lam arg) = O.FunElim <$> stage lam <*> stage arg
 stage (C.IOType ty) = O.IOType <$> stage ty
 stage (C.IOIntro1 term) = O.IOIntro1 <$> stage term
-stage (C.IOIntro2 act k) = O.IOIntro2 <$> stage act <*> stage k
-stage (C.TypeType s) = pure (O.TypeType s)
+stage (C.IOIntro2 act k) = O.IOIntro2 act <$> stage k
+stage (C.TypeType s) = O.TypeType <$> normalizeStage s
 stage (C.LocalVar ix) = pure (O.LocalVar ix)
 stage (C.GlobalVar did) = do
   sols <- unSolutions <$> get
@@ -45,6 +46,10 @@ stage (C.GlobalVar did) = do
     Just Nothing -> empty
     Nothing -> pure (O.GlobalVar did)
 stage (C.Let decls body) = O.Let <$> fmap (map fromJust . filter isJust) (traverse stageDecl decls) <*> stage body
+stage (C.UniVar gl) = undefined
+
+normalizeStage :: Stage sig m => E.Stage -> m E.Stage
+normalizeStage = undefined
 
 stageDecl :: Stage sig m => C.Declaration -> m (Maybe O.Declaration)
 stageDecl (C.Fresh did _) = do
@@ -59,7 +64,7 @@ stageDecl (C.Prove _ goal) = do
   globals <- unGlobals <$> get
   withGlobals (fmap ((,) (N.Env [] mempty)) globals) (eval goal >>= solve)
   pure Nothing
-stageDecl (C.ObjectConstant did sig) = pure Nothing -- Just . O.ObjectConstant did <$> stage sig
+stageDecl (C.ObjectConstant did sig) = Just . O.ObjectConstant did <$> stage sig
 stageDecl (C.MetaConstant did sig) = do
   state <- get
   vSig <- eval sig

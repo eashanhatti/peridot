@@ -81,7 +81,7 @@ unify' term (UniVar gl) = putTypeSol gl term
 unify' (FunType am1 inTy1 outTy1) (FunType am2 inTy2 outTy2) | am1 == am2 = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
-unify' (FunIntro body1) (FunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
+unify' (FunIntro _ body1) (FunIntro _ body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (MetaConstantIntro did1) (MetaConstantIntro did2) | did1 == did2 = pure ()
 unify' (ObjectConstantIntro did1) (ObjectConstantIntro did2) | did1 == did2 = pure ()
 unify' (TypeType s1) (TypeType s2) = unifyStages s1 s2
@@ -101,10 +101,7 @@ unify' term1@(FunElim lam1 arg1) term2@(FunElim lam2 arg2) = do
         Nothing -> throwError ()
 unify' (IOType ty1) (IOType ty2) = unify' ty1 ty2
 unify' (IOIntro1 term1) (term2) = unify' term1 term2
-unify' (IOIntro2 act1 k1) (IOIntro2 act2 k2) = do
-  unify' act1 act2
-  unify' k1 k2
-unify' (IOIntro3 op1) (IOIntro3 op2) | op1 == op2 = pure ()
+unify' (IOIntro2 act1 k1) (IOIntro2 act2 k2) | act1 == act2 = unify' k1 k2
 unify' UnitType UnitType = pure ()
 unify' UnitIntro UnitIntro = pure ()
 unify' (TopVar did1 _ _) (TopVar did2 _ _) | did1 == did2 = pure ()

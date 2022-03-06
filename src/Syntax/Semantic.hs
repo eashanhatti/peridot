@@ -15,15 +15,16 @@ withLocal def (Env locals globals) = Env (def:locals) globals
 withGlobal :: Id -> Environment -> C.Term -> Environment -> Environment
 withGlobal did env term (Env locals globals) = Env locals (insert did (env, term) globals)
 
+type Type = Term
+
 data Term
   = FunType ApplyMethod Term Closure
-  | FunIntro Closure
+  | FunIntro Type Closure
   | MetaConstantIntro Id
   | ObjectConstantIntro Id
   | IOType Term
   | IOIntro1 Term -- `pure`
-  | IOIntro2 Term Term -- `>>=`
-  | IOIntro3 IOOperation
+  | IOIntro2 IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
   | TypeType Stage

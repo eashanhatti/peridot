@@ -56,7 +56,6 @@ data Term
   | Rule TermAst TermAst -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo
   | IOPure TermAst
   | IOType TermAst
-  | IOBind TermAst TermAst
-  | PrintChar Char
+  | IOBind IOOperation TermAst
   | UnitType
   | Unit

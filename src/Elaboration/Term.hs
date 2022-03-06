@@ -26,7 +26,7 @@ infer term = case term of
     let ty = foldr (\inTy outTy -> C.FunType Explicit inTy outTy) cOutTy (tail cInTys)
     vTy <- N.FunType Explicit (head inTys) <$> closureOf ty
     cBody <- checkBody (zip names inTys) outTy
-    let lam = foldr (\_ body -> C.FunIntro body) cBody [0 .. length names - 1]
+    let lam = foldr (\inTy body -> C.FunIntro inTy body) cBody cInTys
     pure (lam, vTy)
     where
       checkBody :: Elab sig m => [(Name, N.Term)] -> N.Term -> m C.Term
@@ -77,12 +77,10 @@ infer term = case term of
     pure (C.IOIntro1 cTerm, N.IOType ty)
   TermAst (IOBind act k) -> do
     inTy <- freshTypeUV
-    cAct <- check act (N.IOType inTy)
     outTy <- N.IOType <$> freshTypeUV
     outTyClo <- readbackWeak outTy >>= closureOf
     cK <- check k (N.FunType Explicit inTy outTyClo)
-    pure (C.IOIntro2 cAct cK, outTy)
-  TermAst (PrintChar c) -> pure (C.IOIntro3 (PutChar c), N.IOType (N.UnitType))
+    pure (C.IOIntro2 act cK, outTy)
   TermAst UnitType -> pure (C.UnitType, N.TypeType (Object Erased))
   TermAst Unit -> pure (C.UnitIntro, N.UnitType)
 

@@ -50,12 +50,12 @@ definition (C.DElabError) = error "FIXME"
 
 eval :: Norm sig m => C.Term -> m N.Term
 eval (C.FunType am inTy outTy) = N.FunType am <$> eval inTy <*> closureOf outTy
-eval (C.FunIntro body) = N.FunIntro <$> closureOf body
+eval (C.FunIntro ty body) = N.FunIntro <$> eval ty <*> closureOf body
 eval (C.FunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
   case vLam of
-    N.FunIntro body -> appClosure body vArg
+    N.FunIntro _ body -> appClosure body vArg
     _ -> pure (N.FunElim vLam vArg)
 eval (C.Let decls body) = do
   NormContext (N.Env locals globals) <- ask
@@ -71,8 +71,7 @@ eval (C.GlobalVar did) = do
 eval (C.UniVar gl) = pure (N.UniVar gl)
 eval (C.IOType ty) = N.IOType <$> eval ty
 eval (C.IOIntro1 term) = N.IOIntro1 <$> eval term
-eval (C.IOIntro2 act k) = N.IOIntro2 <$> eval act <*> eval k
-eval (C.IOIntro3 op) = pure (N.IOIntro3 op)
+eval (C.IOIntro2 act k) = N.IOIntro2 act <$> eval k
 eval C.UnitType = pure N.UnitType
 eval C.UnitIntro = pure N.UnitIntro
 
@@ -88,7 +87,7 @@ type ShouldUnfold = Bool
 
 readback :: Norm sig m => ShouldUnfold -> N.Term -> m C.Term
 readback unf (N.FunType am inTy outTy) = C.FunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
-readback unf (N.FunIntro body) = C.FunIntro <$> (evalClosure body >>= readback unf)
+readback unf (N.FunIntro ty body) = C.FunIntro <$> readback unf ty <*> (evalClosure body >>= readback unf)
 readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
 readback unf (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
 readback unf (N.TypeType s) = pure (C.TypeType s)
@@ -106,8 +105,7 @@ readback True (N.UniVar gl) = do
 readback False (N.UniVar gl) = pure (C.UniVar gl)
 readback unf (N.IOType ty) = C.IOType <$> readback unf ty
 readback unf (N.IOIntro1 term) = C.IOIntro1 <$> readback unf term
-readback unf (N.IOIntro2 act k) = C.IOIntro2 <$> readback unf act <*> readback unf k
-readback unf (N.IOIntro3 op) = pure (C.IOIntro3 op)
+readback unf (N.IOIntro2 act k) = C.IOIntro2 act <$> readback unf k
 readback unf N.UnitType = pure C.UnitType
 readback unf N.UnitIntro = pure C.UnitIntro
 
