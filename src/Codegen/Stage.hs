@@ -38,6 +38,7 @@ stage (C.IOType ty) = O.IOType <$> stage ty
 stage (C.IOIntro1 term) = O.IOIntro1 <$> stage term
 stage (C.IOIntro2 act k) = O.IOIntro2 act <$> stage k
 stage (C.TypeType s) = O.TypeType <$> normalizeStage s
+stage (C.ObjectConstantIntro did) = pure (O.ObjectConstantIntro did)
 stage (C.LocalVar ix) = pure (O.LocalVar ix)
 stage (C.GlobalVar did) = do
   sols <- unSolutions <$> get

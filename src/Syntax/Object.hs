@@ -23,6 +23,7 @@ data Term
   | IOIntro2 IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
+  | ObjectConstantIntro Id
   | TypeType Stage
   | LocalVar Index
   | GlobalVar Id

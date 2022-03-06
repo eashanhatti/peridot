@@ -23,6 +23,7 @@ lower (funIntro -> (tys@(null -> False), body)) = do
   lBody <- lower body
   vs <- freeVars lBody
   L.Val <$> bindDecl (L.Fun name vs bs lBody)
+lower (con -> Just (did, args)) = L.Val <$> (L.Con did <$> traverse lowerBind args)
 lower (funElim -> (lam, args@(null -> False))) =
   L.App <$> lowerBind lam <*> traverse lowerBind args
 lower (O.IOType ty) = L.Val <$> (L.IOType <$> lowerBind ty)
@@ -39,6 +40,13 @@ lower (O.Let decls body) = do
 
 lowerBind :: Lower sig m => O.Term -> m L.Value
 lowerBind = lower >=> bindTerm
+
+con :: O.Term -> Maybe (Id, [O.Term])
+con (O.FunElim lam arg) = do
+  (did, args) <- con lam
+  pure (did, args ++ [arg])
+con (O.ObjectConstantIntro did) = pure (did, [])
+con _ = Nothing
 
 funElim :: O.Term -> (O.Term, [O.Term])
 funElim (O.FunElim lam arg) =
