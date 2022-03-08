@@ -4,7 +4,7 @@
 
 An experimental language for exploring the practical applications of two level type theory.
 
-Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/jFZ8JyUNtn) - Projects A-M 🠒 #konna.
+Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/jFZ8JyUNtn) - Projects J-O 🠒 #konna.
 
 ### References and Inspiration
 
