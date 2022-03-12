@@ -16,9 +16,9 @@ elaborate = fst . elaborate'
 elaborate' :: S.TermAst -> (ElabState, C.Term)
 elaborate' term =
   run $
-  runState (ElabState mempty 0 mempty mempty mempty) $
+  runState ElabState $
   runReader (NormContext (N.Env mempty mempty)) $
   evalState (NormState mempty) $
-  evalState (QueryState mempty mempty) $
+  evalState (QueryState mempty mempty 0 mempty mempty mempty) $
   runReader (ElabContext mempty) $
   EE.check term (N.IOType N.UnitType)

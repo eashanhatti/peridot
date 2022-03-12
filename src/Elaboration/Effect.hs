@@ -34,7 +34,11 @@ import Extra
 
 data QueryState = QueryState
   { unMemoTable :: DHashMap Key Identity
-  , unPredecls :: Map Id (AllState, Predeclaration) }
+  , unPredecls :: Map Id (AllState, Predeclaration)
+  , unNextUV :: Global
+  , unTypeUVs :: Map Global (Maybe N.Term)
+  , unStageUVs :: Map Global (Maybe Stage)
+  , unRepUVs :: Map Global (Maybe RuntimeRep) }
 
 data Error
   = TooManyParams
@@ -94,7 +98,7 @@ instance Ord Binding where
   compare (BGlobal _) (BLocal _ _) = GT
 
 data ElabContext = ElabContext
-  { unBindings :: Map Name (Set Binding) }
+  { unBindings :: Map Name Binding }
 
 data Predeclaration = PDDecl DeclarationAst | PDConstr ConstructorAst
   deriving (Show)
@@ -103,12 +107,9 @@ unPDDeclId :: Predeclaration -> Id
 unPDDeclId (PDDecl (DeclAst _ did)) = did
 unPDDeclId (PDConstr (ConstrAst _ did _)) = did
 
+-- Move unification stuff to `QueryState`, but I'll leave this around just in case
 data ElabState = ElabState
-  { unDecls :: Map Id Predeclaration
-  , unNextUV :: Global
-  , unTypeUVs :: Map Global (Maybe N.Term)
-  , unStageUVs :: Map Global (Maybe Stage)
-  , unRepUVs :: Map Global (Maybe RuntimeRep) }
+  {  }
   deriving (Show)
 
 type Elab sig m =
@@ -133,50 +134,77 @@ unify term1 term2 = do
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
 convertible term1 term2 = isJust <$> U.unify term1 term2
 
-overloadBinding k s m = case lookup k m of
-  Just s' -> insert k (Set.union s s') m
-  Nothing -> insert k s m
-
 bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =
   local
-    (\ctx -> ctx { unBindings = overloadBinding name (singleton (BLocal (Index 0) ty)) (fmap (Set.map inc) (unBindings ctx)) })
+    (\ctx -> ctx { unBindings = insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) })
     act
   where
     inc (BLocal ix ty) = BLocal (ix + 1) ty
     inc b = b
 
-addDecls :: Elab sig m => [DeclarationAst] -> m a -> m a
-addDecls [] act = act
-addDecls (decl@(DeclAst (Datatype _ _ constrs) _):decls) act = do
-  state <- get
-  put (state
-    { unDecls =
-      union
-        (insert (unId decl) (PDDecl decl) (unDecls state))
-        (fromList (zip (map unCId constrs) (map PDConstr constrs))) })
-  local
-    (\ctx -> ctx
-      { unBindings =
-        foldl'
-          (\m (n, b) -> overloadBinding n (singleton b) m)
-          (unBindings ctx)
-          ((unDeclName decl, BGlobal (unId decl)) : zip (map unConstrName constrs) (map (BGlobal . unCId) constrs)) })
-    (addDecls decls act)
-addDecls (decl:decls) act = do
-  state <- get
-  put (state { unDecls = insert (unId decl) (PDDecl decl) (unDecls state) })
-  local
-    (\ctx -> ctx { unBindings = overloadBinding (unDeclName decl) (singleton (BGlobal (unId decl))) (unBindings ctx) })
-    (addDecls decls act)
+withDecls :: forall sig m a. Elab sig m => [DeclarationAst] -> m a -> m a
+withDecls decls act = do
+  elabState <- get
+  normState <- get
+  elabContext <- ask
+  normContext <- ask
+  let
+    allState = AllState elabState elabContext normState normContext
+
+    go :: Elab sig m => [DeclarationAst] -> m a
+    go [] = act
+    go (decl@(DeclAst (Datatype _ _ constrs) _):decls) = do
+      state <- get
+      put (state
+        { unPredecls =
+            union
+              (insert (unId decl) (allState, PDDecl decl) (unPredecls state))
+              (fromList (zip (map unCId constrs) (map (\c -> (allState, PDConstr c)) constrs))) })
+      local
+        (\ctx -> ctx
+          { unBindings =
+              foldl'
+                (\m (n, b) -> insert n b m)
+                (unBindings ctx)
+                ((unDeclName decl, BGlobal (unId decl)) : zip (map unConstrName constrs) (map (BGlobal . unCId) constrs)) })
+        (go decls)
+    go (decl:decls) = do
+      state <- get
+      put (state { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })
+      local
+        (\ctx -> ctx { unBindings = insert (unDeclName decl) (BGlobal (unId decl)) (unBindings ctx) })
+        (go decls)
+  go decls
+
+-- addDecls :: Elab sig m => [DeclarationAst] -> m a -> m a
+-- addDecls [] act = act
+-- addDecls (decl@(DeclAst (Datatype _ _ constrs) _):decls) act = do
+--   state <- get
+--   put (state
+--     { unDecls =
+--       union
+--         (insert (unId decl) (PDDecl decl) (unDecls state))
+--         (fromList (zip (map unCId constrs) (map PDConstr constrs))) })
+--   local
+--     (\ctx -> ctx
+--       { unBindings =
+--         foldl'
+--           (\m (n, b) -> overloadBinding n (singleton b) m)
+--           (unBindings ctx)
+--           ((unDeclName decl, BGlobal (unId decl)) : zip (map unConstrName constrs) (map (BGlobal . unCId) constrs)) })
+--     (addDecls decls act)
+-- addDecls (decl:decls) act = do
+--   state <- get
+--   put (state { unDecls = insert (unId decl) (PDDecl decl) (unDecls state) })
+--   local
+--     (\ctx -> ctx { unBindings = overloadBinding (unDeclName decl) (singleton (BGlobal (unId decl))) (unBindings ctx) })
+--     (addDecls decls act)
 
 lookupBinding :: Elab sig m => Name -> m (Maybe Binding)
 lookupBinding name = do
   bindings <- unBindings <$> ask
-  case fmap toList (lookup name bindings) of
-    Nothing -> pure Nothing
-    Just [] -> pure Nothing
-    Just (b:_) -> pure (Just b)
+  pure (lookup name bindings)
 
 withDecl :: Query sig m => Id -> (Predeclaration -> C m a) -> m a
 withDecl did act = do

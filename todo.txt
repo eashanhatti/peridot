@@ -1,1 +1,2 @@
-Add Lam case to infer
+add comments
+add export lists to all modules

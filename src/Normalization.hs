@@ -45,8 +45,8 @@ evalClosure clo = do
   appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
 
 definition :: C.Declaration -> C.Term
-definition (C.MetaConstant did _) = C.MetaConstantIntro did
-definition (C.ObjectConstant did _) = C.ObjectConstantIntro did
+definition (C.MetaConstant did _) = undefined
+definition (C.ObjectConstant did _) = undefined
 definition (C.Term _ _ def) = def
 definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"

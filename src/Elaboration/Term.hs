@@ -61,7 +61,7 @@ infer term = case term of
     stage <- freshStageUV
     pure (C.TypeType stage, N.TypeType stage)
   TermAst (Let decls body) ->
-    addDecls decls do
+    withDecls decls do
       cDecls <- traverse ED.check (map unId decls)
       (cBody, bodyTy) <- infer body
       pure (C.Let cDecls cBody, bodyTy)
