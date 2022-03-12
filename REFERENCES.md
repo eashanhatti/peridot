@@ -1,6 +1,6 @@
 # References and Inspiration
 
-This is a list of resources that have influenced Konna's design and implementation in major ways.
+This is a list of prior art that have influenced Konna's design and implementation in major ways.
 
 ### Two Level Type Theory and Staging
 
