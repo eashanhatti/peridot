@@ -2,7 +2,8 @@ module Syntax.Surface where
 
 import Data.Text(Text)
 import Numeric.Natural
-import Syntax.Extra
+import Syntax.Extra hiding(unId)
+import Text.Megaparsec(SourcePos)
 
 data Ast a where
   TermAst :: Term -> TermAst
@@ -10,10 +11,16 @@ data Ast a where
   DeclAst :: Declaration -> Id -> DeclarationAst
   -- .., constr id, datatype id
   ConstrAst :: Constructor -> Id -> Id -> ConstructorAst
+  SourcePos :: Ast a -> SourcePos -> Ast a
 deriving instance Show (Ast a)
 
 unName :: NameAst -> Name
 unName (NameAst name) = name
+
+viewConstrs :: DeclarationAst -> Maybe ([ConstructorAst])
+viewConstrs (SourcePos ast _) = viewConstrs ast
+viewConstrs (DeclAst (Datatype _ _ cs) _) = Just cs
+viewConstrs _ = Nothing
 
 unDeclName :: DeclarationAst -> Name
 unDeclName (DeclAst (Datatype (NameAst name) _ _) _) = name
@@ -21,15 +28,19 @@ unDeclName (DeclAst (Term (NameAst name) _ _) _) = name
 unDeclName (DeclAst (Axiom (NameAst name) _) _) = name
 unDeclName (DeclAst (Prove _) did) = MachineName (fromIntegral did)
 unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
+unDeclName (SourcePos ast _) = unDeclName ast
 
 unConstrName :: ConstructorAst -> Name
 unConstrName (ConstrAst (Constr (NameAst name) _) _ _) = name
+unConstrName (SourcePos ast _) = unConstrName ast
 
 unId :: DeclarationAst -> Id
 unId (DeclAst _ did) = did
+unId (SourcePos ast _) = unId ast
 
 unCId :: ConstructorAst -> Id
 unCId (ConstrAst _ did _) = did
+unCId (SourcePos ast _) = unCId ast
 
 type NameAst = Ast Name
 

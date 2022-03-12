@@ -17,6 +17,7 @@ import Data.Maybe
 import Control.Applicative
 import Data.Foldable
 import GHC.Stack
+import Extra
 
 data StageState = StageState
   { unSolutions :: (Map.Map Id (Maybe C.Term))

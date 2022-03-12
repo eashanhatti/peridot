@@ -11,14 +11,14 @@ import Control.Carrier.State.Strict
 import Control.Carrier.Throw.Either
 import Extra
 
-elaborate = fst . elaborate'
+elaborate = snd . elaborate'
 
-elaborate' :: S.TermAst -> (ElabState, C.Term)
+elaborate' :: S.TermAst -> (QueryState, C.Term)
 elaborate' term =
   run $
-  runState ElabState $
+  runState (QueryState mempty mempty 0 mempty mempty mempty mempty) $
+  evalState ElabState $
   runReader (NormContext (N.Env mempty mempty)) $
   evalState (NormState mempty) $
-  evalState (QueryState mempty mempty 0 mempty mempty mempty) $
-  runReader (ElabContext mempty) $
+  runReader (ElabContext mempty undefined) $
   EE.check term (N.IOType N.UnitType)

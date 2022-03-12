@@ -29,5 +29,5 @@ goldenTests = do
 testSurfaceToSTG :: BL.ByteString -> BL.ByteString
 testSurfaceToSTG bs =
   case P.parse . T.decodeUtf8 . B.concat . BL.toChunks $ bs of
-    Right term -> fromString . shower $ elaborate term
-    Left err -> fromString err
+    Right term -> "RIGHT{" <> (fromString . shower $ elaborate' term) <> "}"
+    Left err -> "LEFT{" <> fromString err <> "}"

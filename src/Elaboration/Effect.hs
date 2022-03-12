@@ -31,23 +31,32 @@ import Data.Foldable(toList, foldl')
 import Prelude hiding(lookup)
 import GHC.Stack
 import Extra
+import Text.Megaparsec(SourcePos)
 
+-- Contains query state *and* general global state
 data QueryState = QueryState
   { unMemoTable :: DHashMap Key Identity
   , unPredecls :: Map Id (AllState, Predeclaration)
   , unNextUV :: Global
   , unTypeUVs :: Map Global (Maybe N.Term)
   , unStageUVs :: Map Global (Maybe Stage)
-  , unRepUVs :: Map Global (Maybe RuntimeRep) }
+  , unRepUVs :: Map Global (Maybe RuntimeRep)
+  , unErrors :: [(SourcePos, Error)] }
+
+instance Show QueryState where
+  show (QueryState _ _ _ _ _ _ errs) = show errs
 
 data Error
   = TooManyParams
   | WrongAppArity Natural Natural
   | FailedUnify N.Term N.Term
+  | UnboundVariable Name
+  deriving (Show)
 
 type Query sig m = Has (State QueryState) sig m
 
 data AllState = AllState ElabState ElabContext NormState NormContext
+  deriving (Show)
 
 type C m a =
   ReaderC
@@ -67,6 +76,7 @@ data Key a where
   CheckDecl :: Id -> Key C.Declaration
   GetDecl :: Id -> Key (AllState, Predeclaration)
   DeclType :: Id -> Key C.Term
+
 
 instance GEq Key where
   geq (CheckDecl _) (CheckDecl _) = Just Refl
@@ -89,7 +99,7 @@ memo key act = do
       pure result
 
 data Binding = BLocal Index N.Term | BGlobal Id
-  deriving (Eq)
+  deriving (Eq, Show)
 
 instance Ord Binding where
   compare (BLocal ix1 _) (BLocal ix2 _) = compare ix1 ix2
@@ -98,7 +108,9 @@ instance Ord Binding where
   compare (BGlobal _) (BLocal _ _) = GT
 
 data ElabContext = ElabContext
-  { unBindings :: Map Name Binding }
+  { unBindings :: Map Name Binding
+  , unSourcePos :: SourcePos }
+  deriving (Show)
 
 data Predeclaration = PDDecl DeclarationAst | PDConstr ConstructorAst
   deriving (Show)
@@ -106,6 +118,8 @@ data Predeclaration = PDDecl DeclarationAst | PDConstr ConstructorAst
 unPDDeclId :: Predeclaration -> Id
 unPDDeclId (PDDecl (DeclAst _ did)) = did
 unPDDeclId (PDConstr (ConstrAst _ did _)) = did
+unPDDeclId (PDDecl (SourcePos (DeclAst _ did) _)) = did
+unPDDeclId (PDConstr (SourcePos (ConstrAst _ did _) _)) = did
 
 -- Move unification stuff to `QueryState`, but I'll leave this around just in case
 data ElabState = ElabState
@@ -143,6 +157,9 @@ bindLocal name ty act =
     inc (BLocal ix ty) = BLocal (ix + 1) ty
     inc b = b
 
+withPos :: Elab sig m => SourcePos -> m a -> m a
+withPos pos = local (\ctx -> ctx { unSourcePos = pos })
+
 withDecls :: forall sig m a. Elab sig m => [DeclarationAst] -> m a -> m a
 withDecls decls act = do
   elabState <- get
@@ -154,7 +171,7 @@ withDecls decls act = do
 
     go :: Elab sig m => [DeclarationAst] -> m a
     go [] = act
-    go (decl@(DeclAst (Datatype _ _ constrs) _):decls) = do
+    go (decl@(viewConstrs -> Just constrs):decls) = do
       state <- get
       put (state
         { unPredecls =
@@ -236,4 +253,12 @@ freshRepUV = do
   pure (RUniVar (unNextUV state))
 
 report :: Elab sig m => Error -> m ()
-report _ = pure ()
+report err = do
+  state <- get
+  pos <- unSourcePos <$> ask
+  put (state { unErrors = (pos, err) : unErrors state })
+
+errorTerm :: Elab sig m => Error -> m (C.Term, N.Term)
+errorTerm err = do
+  report err
+  pure (C.EElabError, N.EElabError)

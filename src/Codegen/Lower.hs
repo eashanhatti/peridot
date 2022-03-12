@@ -11,6 +11,7 @@ import Control.Algebra(Has)
 import Control.Monad
 import Data.Foldable
 import GHC.Stack
+import Extra
 
 data LowerState = LowerState
   { unBindingReps :: Map.Map Id RuntimeRep -- reps from bound names

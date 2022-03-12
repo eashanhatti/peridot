@@ -15,12 +15,16 @@ import Data.List(foldl')
 import Data.Functor.Identity
 import Numeric.Natural
 import GHC.Stack
+import Extra
 
 data MetaEntry = Solved N.Term | Unsolved
+  deriving (Show)
 
 data NormContext = NormContext N.Environment
+  deriving (Show)
 
 data NormState = NormState (Map Global MetaEntry)
+  deriving (Show)
 
 type Norm sig m =
   ( Has (Reader NormContext) sig m
@@ -77,6 +81,7 @@ eval (C.IOIntro1 term) = N.IOIntro1 <$> eval term
 eval (C.IOIntro2 act k) = N.IOIntro2 act <$> eval k
 eval C.UnitType = pure N.UnitType
 eval C.UnitIntro = pure N.UnitIntro
+eval C.EElabError = pure N.EElabError
 
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
 entry ix = do
@@ -111,6 +116,7 @@ readback unf (N.IOIntro1 term) = C.IOIntro1 <$> readback unf term
 readback unf (N.IOIntro2 act k) = C.IOIntro2 act <$> readback unf k
 readback unf N.UnitType = pure C.UnitType
 readback unf N.UnitIntro = pure C.UnitIntro
+readback unf N.EElabError = pure C.EElabError
 
 evalTop :: Norm sig m => N.Environment -> C.Term -> m N.Term
 evalTop env term = local (const (NormContext env)) (eval term)

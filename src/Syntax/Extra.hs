@@ -41,8 +41,3 @@ data RuntimeRep
   | Erased
   | RUniVar Global
   deriving (Eq, Show)
-
-(!) :: Ord k => Map.Map k v -> k -> v
-(!) m k = case Map.lookup k m of
-  Just v -> v
-  Nothing -> error "MAP LOOKUP"

@@ -1,6 +1,6 @@
 module Parser where
 
-import Text.Megaparsec hiding(State)
+import Text.Megaparsec hiding(State, SourcePos)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Error
 import Syntax.Surface
@@ -121,7 +121,10 @@ unit = do
   pure (TermAst Unit)
 
 decl :: Parser DeclarationAst
-decl = try datatype <|> try val <|> try axiom <|> try prove <|> fresh
+decl = do
+  d <- try datatype <|> try val <|> try axiom <|> try prove <|> fresh
+  pos <- getSourcePos
+  pure (SourcePos d pos)
 
 datatype :: Parser DeclarationAst
 datatype = do
@@ -191,19 +194,22 @@ op = do
   pure (PutChar c)
 
 term :: Parser TermAst
-term = 
-  try lam <|>
-  try app <|>
-  try univ <|>
-  try letB <|>
-  try ioPure <|>
-  try ioTy <|>
-  try ioBind <|>
-  try unitTy <|>
-  try unit <|>
-  try piTy <|>
-  try var <|>
-  ruleTy
+term = do
+  e <-
+    try lam <|>
+    try app <|>
+    try univ <|>
+    try letB <|>
+    try ioPure <|>
+    try ioTy <|>
+    try ioBind <|>
+    try unitTy <|>
+    try unit <|>
+    try piTy <|>
+    try var <|>
+    ruleTy
+  pos <- getSourcePos
+  pure (SourcePos e pos)
 
 freshId :: Parser Id
 freshId = do

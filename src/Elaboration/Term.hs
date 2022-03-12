@@ -18,6 +18,7 @@ check term goal = do
 
 infer :: Elab sig m => TermAst -> m (C.Term, N.Term)
 infer term = case term of
+  SourcePos term pos -> withPos pos (infer term)
   TermAst (Lam (map unName -> names) body) -> do
     inTys <- traverse (const freshTypeUV) names
     cInTys <- traverse readbackWeak inTys
@@ -57,12 +58,13 @@ infer term = case term of
       Just (BGlobal did) -> do
         ty <- ED.declType did >>= eval
         pure (C.GlobalVar did, ty)
+      Nothing -> errorTerm (UnboundVariable name)
   TermAst Univ -> do
     stage <- freshStageUV
     pure (C.TypeType stage, N.TypeType stage)
   TermAst (Let decls body) ->
     withDecls decls do
-      cDecls <- traverse ED.check (map unId decls)
+      cDecls <- traverse ED.check (declsIds decls)
       (cBody, bodyTy) <- infer body
       pure (C.Let cDecls cBody, bodyTy)
   TermAst (Rule outTy inTy) -> do
@@ -96,3 +98,10 @@ checkObjectType :: Elab sig m => TermAst -> m C.Term
 checkObjectType term = do
   rep <- freshRepUV
   check term (N.TypeType (Object rep))
+
+declsIds :: [DeclarationAst] -> [Id]
+declsIds = concatMap go where
+  go :: DeclarationAst -> [Id]
+  go (SourcePos decl _) = go decl
+  go (DeclAst (Datatype _ _ constrs) did) = did : map unCId constrs
+  go decl = [unId decl]
