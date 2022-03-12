@@ -122,8 +122,8 @@ unit = do
 
 decl :: Parser DeclarationAst
 decl = do
-  d <- try datatype <|> try val <|> try axiom <|> try prove <|> fresh
   pos <- getSourcePos
+  d <- try datatype <|> try val <|> try axiom <|> try prove <|> fresh
   pure (SourcePos d pos)
 
 datatype :: Parser DeclarationAst
@@ -195,6 +195,7 @@ op = do
 
 term :: Parser TermAst
 term = do
+  pos <- getSourcePos
   e <-
     try lam <|>
     try app <|>
@@ -208,7 +209,6 @@ term = do
     try piTy <|>
     try var <|>
     ruleTy
-  pos <- getSourcePos
   pure (SourcePos e pos)
 
 freshId :: Parser Id

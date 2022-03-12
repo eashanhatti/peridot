@@ -54,6 +54,8 @@ unifyReps (RUniVar gl1) (RUniVar gl2) | gl1 == gl2 = pure ()
 unifyReps rep1@(RUniVar gl1) rep2@(RUniVar gl2) = do
   putRepSol gl1 rep2
   putRepSol gl2 rep1
+unifyReps (RUniVar gl) rep = putRepSol gl rep
+unifyReps rep (RUniVar gl) = putRepSol gl rep
 unifyReps Ptr Ptr = pure ()
 unifyReps Lazy Lazy = pure ()
 unifyReps Word Word = pure ()
@@ -67,6 +69,8 @@ unifyStages (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
 unifyStages s1@(SUniVar gl1) s2@(SUniVar gl2) = do
   putStageSol gl1 s2
   putStageSol gl2 s1
+unifyStages (SUniVar gl) s = putStageSol gl s
+unifyStages s (SUniVar gl) = putStageSol gl s
 unifyStages Meta Meta = pure ()
 unifyStages (Object rep1) (Object rep2) = unifyReps rep1 rep2
 unifyStages _ _ = throwError ()
@@ -108,6 +112,8 @@ unify' (TopVar did1 _ _) (TopVar did2 _ _) | did1 == did2 = pure ()
 unify' (TopVar _ env1 term1) (TopVar _ env2 term2) = bind2 unify' (evalTop env1 term1) (evalTop env2 term2)
 unify' (TopVar _ env term1) term2 = bind2 unify' (evalTop env term1) (pure term2)
 unify' term1 (TopVar _ env term2) = bind2 unify' (pure term1) (evalTop env term2)
+unify' EElabError _ = pure ()
+unify' _ EElabError = pure ()
 unify' _ _ = throwError ()
 
 unify :: Norm sig m => Term -> Term -> m (Maybe Substitution)

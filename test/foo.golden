@@ -1,45 +1,23 @@
 RIGHT{([(SourcePos
      {sourceName = "<TODO>",
-      sourceLine = Pos 7,
-      sourceColumn = Pos 20},
-   FailedUnify
-     (IOType (UniVar (Global {unGlobal = 4}))) UnitType),
-  (SourcePos
-     {sourceName = "<TODO>",
-      sourceLine = Pos 8,
-      sourceColumn = Pos 2},
-   FailedUnify
-     (TypeType (Object (RUniVar (Global {unGlobal = 3}))))
-     EElabError),
+      sourceLine = Pos 3,
+      sourceColumn = Pos 25},
+   UnboundVariable (UserName "Bool")),
   (SourcePos
      {sourceName = "<TODO>",
       sourceLine = Pos 4,
-      sourceColumn = Pos 29},
+      sourceColumn = Pos 25},
    UnboundVariable (UserName "Bool")),
-  (SourcePos
-     {sourceName = "<TODO>",
-      sourceLine = Pos 8,
-      sourceColumn = Pos 2},
-   FailedUnify
-     (TypeType (Object (RUniVar (Global {unGlobal = 2}))))
-     EElabError),
   (SourcePos
      {sourceName = "<TODO>",
       sourceLine = Pos 3,
-      sourceColumn = Pos 29},
-   UnboundVariable (UserName "Bool")),
-  (SourcePos
-     {sourceName = "<TODO>",
-      sourceLine = Pos 5,
-      sourceColumn = Pos 10},
-   FailedUnify
-     (TypeType (Object (RUniVar (Global {unGlobal = 0}))))
-     (TypeType (SUniVar (Global {unGlobal = 1}))))],
+      sourceColumn = Pos 25},
+   UnboundVariable (UserName "Bool"))],
  Let
    [ObjectConstant
       (Id {unId = 0})
       (TypeType (SUniVar (Global {unGlobal = 1}))),
     ObjectConstant (Id {unId = 1}) EElabError,
     ObjectConstant (Id {unId = 2}) EElabError]
-   (IOIntro1 UnitIntro))
+   (GlobalVar (Id {unId = 1})))
 }

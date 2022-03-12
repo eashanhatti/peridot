@@ -10,6 +10,7 @@ import Control.Carrier.Reader
 import Control.Carrier.State.Strict
 import Control.Carrier.Throw.Either
 import Extra
+import Text.Megaparsec.Pos
 
 elaborate = snd . elaborate'
 
@@ -20,5 +21,5 @@ elaborate' term =
   evalState ElabState $
   runReader (NormContext (N.Env mempty mempty)) $
   evalState (NormState mempty) $
-  runReader (ElabContext mempty undefined) $
+  runReader (ElabContext mempty (initialPos "<TODO>")) $
   EE.check term (N.IOType N.UnitType)
