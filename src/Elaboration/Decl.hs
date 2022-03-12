@@ -13,8 +13,8 @@ import Control.Monad
 import Control.Monad.Extra
 import Data.Foldable(toList, foldl')
 
-check :: Elab sig m => Predeclaration -> m C.Declaration
-check decl = memo (CheckDecl decl) do
+check :: Elab sig m => Id -> m C.Declaration
+check did = memo (CheckDecl did) $ withDecl did $ \decl -> do
   cSig <- declType (unPDDeclId decl)
   case decl of
     PDDecl (DeclAst (Term name _ def) did) -> do
@@ -31,10 +31,9 @@ check decl = memo (CheckDecl decl) do
     PDConstr constr@(ConstrAst (Constr _ _) did dtDid) ->
       pure (C.ObjectConstant did cSig)
 
-declType :: Elab sig m => Id -> m C.Term
-declType did = memo (DeclType did) do
-  decl <- getDecl did
-  case decl of
+declType :: Query sig m => Id -> m C.Term
+declType did = memo (DeclType did) $ withDecl did $
+  \case
     PDDecl (DeclAst (Term name sig def) did) -> EE.checkObjectType sig
     PDDecl (DeclAst (Datatype name sig _) did) -> EE.checkObjectType sig
     PDDecl (DeclAst (Axiom name sig) did) -> EE.checkMetaType sig

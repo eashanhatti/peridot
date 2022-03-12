@@ -3,7 +3,7 @@ module Elaboration.Term where
 import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Syntax.Extra
+import Syntax.Extra hiding(unId)
 import Elaboration.Effect
 import Elaboration.Decl qualified as ED
 import Control.Monad
@@ -62,7 +62,7 @@ infer term = case term of
     pure (C.TypeType stage, N.TypeType stage)
   TermAst (Let decls body) ->
     addDecls decls do
-      cDecls <- traverse (ED.check . PDDecl) decls
+      cDecls <- traverse ED.check (map unId decls)
       (cBody, bodyTy) <- infer body
       pure (C.Let cDecls cBody, bodyTy)
   TermAst (Rule outTy inTy) -> do

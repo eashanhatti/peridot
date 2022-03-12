@@ -1,0 +1,8 @@
+let {
+	datatype Bool : Type {
+		true  : Bool;
+		false : Bool;
+	};
+} in {
+	true
+}

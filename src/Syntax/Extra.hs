@@ -4,32 +4,33 @@ import Numeric.Natural
 import Data.Text
 import Data.Hashable
 import GHC.Generics
+import Data.Map qualified as Map
 
 data ApplyMethod = Explicit | Implicit
-  deriving (Eq)
+  deriving (Eq, Show)
 
 data Stage = Meta | Object RuntimeRep | SUniVar Global
-  deriving (Eq)
+  deriving (Eq, Show)
 
 newtype Index = Index { unIndex :: Natural }
-  deriving (Num, Eq, Ord, Enum, Real, Integral)
+  deriving (Num, Eq, Ord, Enum, Real, Integral, Show)
 
 newtype Level = Level { unLevel :: Natural }
-  deriving (Num, Eq, Enum)
+  deriving (Num, Eq, Enum, Show)
 
 newtype Id = Id { unId :: Natural }
-  deriving (Eq, Ord, Generic, Num, Enum, Real, Integral)
+  deriving (Eq, Ord, Generic, Num, Enum, Real, Integral, Show)
 
 newtype Global = Global { unGlobal :: Natural }
-  deriving (Num, Eq, Ord)
+  deriving (Num, Eq, Ord, Show)
 
 instance Hashable Id
 
 data Name = UserName Text | MachineName Natural
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Show)
 
 data IOOperation = PutChar Char
-  deriving (Eq)
+  deriving (Eq, Show)
 
 data RuntimeRep
   = Ptr
@@ -39,4 +40,9 @@ data RuntimeRep
   | Sum [RuntimeRep]
   | Erased
   | RUniVar Global
-  deriving (Eq)
+  deriving (Eq, Show)
+
+(!) :: Ord k => Map.Map k v -> k -> v
+(!) m k = case Map.lookup k m of
+  Just v -> v
+  Nothing -> error "MAP LOOKUP"

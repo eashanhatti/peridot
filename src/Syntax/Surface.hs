@@ -10,6 +10,7 @@ data Ast a where
   DeclAst :: Declaration -> Id -> DeclarationAst
   -- .., constr id, datatype id
   ConstrAst :: Constructor -> Id -> Id -> ConstructorAst
+deriving instance Show (Ast a)
 
 unName :: NameAst -> Name
 unName (NameAst name) = name
@@ -41,9 +42,11 @@ data Declaration
   | Axiom NameAst SignatureAst
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
+  deriving (Show)
 
 type ConstructorAst = Ast Constructor
 data Constructor = Constr NameAst SignatureAst
+  deriving (Show)
 
 type TermAst = Ast Term
 data Term
@@ -59,3 +62,4 @@ data Term
   | IOBind IOOperation TermAst
   | UnitType
   | Unit
+  deriving (Show)

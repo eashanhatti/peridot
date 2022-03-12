@@ -10,6 +10,7 @@ import Control.Effect.Reader
 import Control.Algebra(Has)
 import Control.Monad
 import Data.Foldable
+import GHC.Stack
 
 data LowerState = LowerState
   { unBindingReps :: Map.Map Id RuntimeRep -- reps from bound names
@@ -23,7 +24,7 @@ data LowerContext = LowerContext
 
 type Lower sig m = (Has (State LowerState) sig m, Has (Reader LowerContext) sig m)
 
-lower :: Lower sig m => O.Term -> m L.Term
+lower :: HasCallStack => Lower sig m => O.Term -> m L.Term
 lower (O.FunType inTy outTy) = L.Val <$> (L.Arrow <$> lowerBind inTy <*> lowerBind outTy)
 lower (funIntros -> (tys@(null -> False), body)) = do
   name <- freshId
@@ -46,7 +47,7 @@ lower (O.Let decls body) = do
   addDecls decls
   L.Letrec <$> filterMapM lowerDecl decls <*> lower body
 
-lowerBind :: Lower sig m => O.Term -> m L.Value
+lowerBind :: HasCallStack => Lower sig m => O.Term -> m L.Value
 lowerBind = lower >=> bindTerm
 
 con :: O.Term -> Maybe (Id, [O.Term])
@@ -109,20 +110,20 @@ addDecls decls = traverse_ go decls where
   go _ = pure ()
 
 -- get rep from type
-repOf :: Lower sig m => O.Signature -> m RuntimeRep
+repOf :: HasCallStack => Lower sig m => O.Signature -> m RuntimeRep
 repOf (O.FunType _ _) = pure Ptr
 repOf (funElims -> (O.ObjectConstantIntro did, _)) = do
   reps <- unTypeReps <$> get
-  pure (reps Map.! did)
+  pure (reps ! did)
 
 -- get rep from term
-repOfTerm :: Lower sig m => L.Term -> m RuntimeRep
+repOfTerm :: HasCallStack => Lower sig m => L.Term -> m RuntimeRep
 repOfTerm (L.Val (L.Var name)) = do
   reps <- unBindingReps <$> get
-  pure (reps Map.! name)
+  pure (reps ! name)
 repOfTerm (L.Val (L.Con name _)) = do
   reps <- unBindingReps <$> get
-  pure (reps Map.! name)
+  pure (reps ! name)
 repOfTerm (L.Val (L.Arrow _ _)) = pure Ptr
 repOfTerm (L.Val L.Unit) = pure Erased
 repOfTerm (L.Val L.UnitType) = pure Ptr
@@ -189,15 +190,15 @@ bindDecl decl = do
   put (state { unDecls = (decl:decls, terms):scopes })
   pure (L.Var (L.unName decl))
 
-localVar :: Lower sig m => Index -> m L.Value
+localVar :: HasCallStack => Lower sig m => Index -> m L.Value
 localVar ix = do
   locals <- unLocals <$> ask
-  pure (L.Var (locals Map.! ix))
+  pure (L.Var (locals ! ix))
 
-globalVar :: Lower sig m => Id -> m L.Value
+globalVar :: HasCallStack => Lower sig m => Id -> m L.Value
 globalVar did = do
   globals <- unGlobals <$> get
-  pure (L.Var (globals Map.! did))
+  pure (L.Var (globals ! did))
 
 scope :: Lower sig m => m L.Term -> m L.Term
 scope act = do

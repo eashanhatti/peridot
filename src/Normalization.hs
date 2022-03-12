@@ -5,13 +5,16 @@ import Syntax.Semantic qualified as N
 import Syntax.Extra
 import Control.Monad
 import Control.Effect.Reader
+import Control.Carrier.Reader
 import Control.Effect.State
-import Control.Algebra(Has)
-import Data.Map(Map, (!))
+import Control.Carrier.State.Strict
+import Control.Algebra(Has, run)
+import Data.Map(Map)
 import Data.Map qualified as Map
 import Data.List(foldl')
 import Data.Functor.Identity
 import Numeric.Natural
+import GHC.Stack
 
 data MetaEntry = Solved N.Term | Unsolved
 
@@ -48,7 +51,7 @@ definition (C.Term _ _ def) = def
 definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"
 
-eval :: Norm sig m => C.Term -> m N.Term
+eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
 eval (C.FunType am inTy outTy) = N.FunType am <$> eval inTy <*> closureOf outTy
 eval (C.FunIntro ty body) = N.FunIntro <$> eval ty <*> closureOf body
 eval (C.FunElim lam arg) = do
@@ -75,7 +78,7 @@ eval (C.IOIntro2 act k) = N.IOIntro2 act <$> eval k
 eval C.UnitType = pure N.UnitType
 eval C.UnitIntro = pure N.UnitIntro
 
-entry :: Norm sig m => Index -> m N.Term
+entry :: HasCallStack => Norm sig m => Index -> m N.Term
 entry ix = do
   NormContext env@(N.Env locals _) <- ask
   if fromIntegral ix > N.envSize env then
@@ -85,7 +88,7 @@ entry ix = do
 
 type ShouldUnfold = Bool
 
-readback :: Norm sig m => ShouldUnfold -> N.Term -> m C.Term
+readback :: HasCallStack => Norm sig m => ShouldUnfold -> N.Term -> m C.Term
 readback unf (N.FunType am inTy outTy) = C.FunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
 readback unf (N.FunIntro ty body) = C.FunIntro <$> readback unf ty <*> (evalClosure body >>= readback unf)
 readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)

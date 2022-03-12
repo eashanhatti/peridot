@@ -16,6 +16,7 @@ import Unification
 import Data.Maybe
 import Control.Applicative
 import Data.Foldable
+import GHC.Stack
 
 data StageState = StageState
   { unSolutions :: (Map.Map Id (Maybe C.Term))
@@ -33,7 +34,7 @@ type Stage sig m =
   , Has (State StageState) sig m
   , Norm sig m )
 
-stage :: Stage sig m => C.Term -> m O.Term
+stage :: HasCallStack => Stage sig m => C.Term -> m O.Term
 stage (C.FunType Explicit inTy outTy) = O.FunType <$> stage inTy <*> stage outTy
 stage (C.FunIntro ty body) = O.FunIntro <$> stage ty <*> stage body
 stage (C.FunElim lam arg) = O.FunElim <$> stage lam <*> stage arg
@@ -52,18 +53,18 @@ stage (C.GlobalVar did) = do
 stage (C.Let decls body) = O.Let <$> fmap (map fromJust . filter isJust) (traverse stageDecl decls) <*> stage body
 stage (C.UniVar gl) = do
   uvs <- unTypeUVs <$> get
-  case uvs Map.! gl of
+  case uvs ! gl of
     Just sol -> readbackWeak sol >>= stage
     Nothing -> error "TODO"
 
-normalizeStage :: Stage sig m => E.Stage -> m E.Stage
+normalizeStage :: HasCallStack => Stage sig m => E.Stage -> m E.Stage
 normalizeStage (Object rep) = Object <$> normalizeRep rep
 normalizeStage Meta = pure Meta
 
-normalizeRep :: Stage sig m => RuntimeRep -> m RuntimeRep
+normalizeRep :: HasCallStack => Stage sig m => RuntimeRep -> m RuntimeRep
 normalizeRep (RUniVar gl) = do
   uvs <- unRepUVs <$> get
-  case uvs Map.! gl of
+  case uvs ! gl of
     Just rep -> normalizeRep rep
     Nothing -> error "TODO"
 normalizeRep (Prod reps) = Prod <$> traverse normalizeRep reps

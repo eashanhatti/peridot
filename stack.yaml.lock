@@ -10,14 +10,28 @@ packages:
       size: 334
       sha256: 817b36b81735d96696c5b165357c431e0b396dcf45afb8b4384fbfd4f4499cbb
   original:
-    hackage: dependent-hashmap-0.1.0.1@sha256:6d1c20bd79f32d8daebd3cc741f884cc3d093118e3b876eb957defd4c594a966,1892
+    hackage: dependent-hashmap-0.1.0.1
 - completed:
     hackage: fused-effects-1.1.1.1@sha256:c029c5fb0b2154281221a71ff25709d2a11347fe061fa8c2398e7fe52a16008d,4932
     pantry-tree:
       size: 6345
       sha256: 7d09ba6d70fc49a5fd2feef0e6b06122589b9f5e4539680c9d7933773e7273d7
   original:
-    hackage: fused-effects-1.1.1.1@sha256:c029c5fb0b2154281221a71ff25709d2a11347fe061fa8c2398e7fe52a16008d,4932
+    hackage: fused-effects-1.1.1.1
+- completed:
+    hackage: shower-0.2.0.2@sha256:2c2b1cd25e4330f03ba68631b37d4346bf42644bc8e9a7a819ce605acc72bb34,1473
+    pantry-tree:
+      size: 2034
+      sha256: e076f733749bf052117febc8f8b68500cc35a466534ef011da42833cbf38d29e
+  original:
+    hackage: shower-0.2.0.2
+- completed:
+    hackage: haskell-stack-trace-plugin-0.1.3.0@sha256:b7f05707849dda721ed466df769ca9a3fb41de996c9cea1e568af85687489362,2121
+    pantry-tree:
+      size: 465
+      sha256: aadc335cee4b3fceaab0e00db0a2e29447af2015608b431558faa167381e9bd9
+  original:
+    hackage: haskell-stack-trace-plugin-0.1.3.0
 snapshots:
 - completed:
     size: 587821

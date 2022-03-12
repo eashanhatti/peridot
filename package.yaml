@@ -36,6 +36,8 @@ default-extensions:
 - DeriveTraversable
 - TypeApplications
 - OverloadedStrings
+- FlexibleContexts
+- LambdaCase
 
 dependencies:
 - base >= 4.7 && < 5
@@ -51,6 +53,15 @@ dependencies:
 - extra
 - megaparsec
 - parser-combinators
+- tasty-golden
+- tasty
+- bytestring
+- filepath
+- shower
+- haskell-stack-trace-plugin
+
+ghc-options:
+  -fplugin=StackTrace.Plugin
 
 library:
   source-dirs: src
@@ -68,7 +79,7 @@ executables:
 
 tests:
   konna3-test:
-    main:                Spec.hs
+    main:                Main.hs
     source-dirs:         test
     ghc-options:
     - -threaded

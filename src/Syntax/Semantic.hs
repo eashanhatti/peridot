@@ -5,7 +5,7 @@ import Syntax.Core qualified as C
 import Data.Map(Map, insert, size)
 
 data Environment = Env [Term] (Map Id (Environment, C.Term))
-  deriving (Eq)
+  deriving (Eq, Show)
 
 envSize (Env locals _) = length locals
 
@@ -34,7 +34,7 @@ data Term
   | FreeVar Level
   | TopVar Id Environment C.Term
   | FunElim Term Term
-  deriving (Eq)
+  deriving (Eq, Show)
 
 viewApp :: Term -> (Term, [Term])
 viewApp (FunElim lam arg) =
@@ -47,4 +47,4 @@ viewMC (viewApp -> (MetaConstantIntro did, args)) = Just (did, args)
 viewMC _ = Nothing
 
 data Closure = Closure Environment C.Term
-  deriving (Eq)
+  deriving (Eq, Show)

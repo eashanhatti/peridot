@@ -11,7 +11,7 @@ data Declaration
   | Prove Id Signature
   | Term Id Signature Term -- sig, def
   | DElabError
-  deriving (Eq)
+  deriving (Eq, Show)
 
 unId :: Declaration -> Id
 unId (ObjectConstant did _) = did
@@ -40,4 +40,4 @@ data Term
   | Let [Declaration] Term
   | UniVar Global
   | EElabError
-  deriving (Eq)
+  deriving (Eq, Show)

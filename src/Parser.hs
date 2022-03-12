@@ -10,22 +10,24 @@ import Data.Text
 import Control.Monad.Combinators
 import Control.Monad.State
 
-ws = many (char ' ' <|> newline)
+keywords = ["let", "in", "Type"]
+
+ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
 type Parser a = ParsecT Void Text (State Id) a
 
 name :: Parser NameAst
 name = do
-  s <- many alphaNumChar
+  s <- some alphaNumChar
   pure (NameAst (UserName (pack s)))
 
 piTy :: Parser TermAst
 piTy = do
-  char '('; ws
+  char '['; ws
   n <- name; ws
   char ':'; ws
   inTy <- term; ws
-  char ')'; ws
+  char ']'; ws
   string "->"; ws
   outTy <- term
   pure (TermAst (Pi n inTy outTy))
@@ -33,7 +35,7 @@ piTy = do
 lam :: Parser TermAst
 lam = do
   char '\\'; ws
-  ns <- many name; ws
+  ns <- some name; ws
   char '{'; ws
   body <- term; ws
   char '}'
@@ -41,17 +43,18 @@ lam = do
 
 app :: Parser TermAst
 app = do
-  char '('; ws
+  char '<'; ws
   lam <- term; ws
-  args <- many do
+  args <- some do
     arg <- term; ws
     pure arg
-  char ')'
+  char '>'
   pure (TermAst (App lam args))
 
 var :: Parser TermAst
 var = do
-  s <- many alphaNumChar
+  s <- some alphaNumChar
+  when (elem s keywords) (fail "keyword")
   pure (TermAst (Var (UserName (pack s))))
 
 univ :: Parser TermAst
@@ -76,6 +79,7 @@ letB = do
 
 ruleTy :: Parser TermAst
 ruleTy = do
+  string "rule"; ws
   outTy <- term; ws
   string ":-"; ws
   inTy <- term
@@ -117,7 +121,7 @@ unit = do
   pure (TermAst Unit)
 
 decl :: Parser DeclarationAst
-decl = datatype <|> val <|> axiom <|> prove <|> fresh
+decl = try datatype <|> try val <|> try axiom <|> try prove <|> fresh
 
 datatype :: Parser DeclarationAst
 datatype = do
@@ -126,7 +130,6 @@ datatype = do
   n <- name; ws
   char ':'; ws
   sig <- term; ws
-  string "where"; ws
   char '{'; ws
   cs <- many do
     c <- fmap ($ did) con; ws
@@ -189,7 +192,6 @@ op = do
 
 term :: Parser TermAst
 term = 
-  try piTy <|>
   try lam <|>
   try app <|>
   try univ <|>
@@ -199,9 +201,9 @@ term =
   try ioBind <|>
   try unitTy <|>
   try unit <|>
+  try piTy <|>
   try var <|>
   ruleTy
-
 
 freshId :: Parser Id
 freshId = do
@@ -211,6 +213,6 @@ freshId = do
 
 parse :: Text -> Either String TermAst
 parse text =
-  case fst . flip runState 0 . runParserT term "<TODO>" $ text of
+  case fst . flip runState 0 . runParserT (term >>= \e -> ws *> eof *> pure e) "<TODO>" $ text of
     Right term -> Right term
     Left err -> Left (errorBundlePretty err)
