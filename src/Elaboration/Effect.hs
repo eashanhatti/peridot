@@ -150,9 +150,9 @@ convertible term1 term2 = isJust <$> Uni.unify term1 term2
 
 bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =
-  local
-    (\ctx -> ctx { unBindings = insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) })
-    act
+  local (\ctx -> ctx { unBindings = insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
+  bind $
+  act
   where
     inc (BLocal ix ty) = BLocal (ix + 1) ty
     inc b = b

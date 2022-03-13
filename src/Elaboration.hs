@@ -11,6 +11,8 @@ import Control.Carrier.State.Strict
 import Control.Carrier.Throw.Either
 import Extra
 import Text.Megaparsec.Pos
+import Data.Text(pack)
+import Parser
 
 elaborate = snd . elaborate'
 
@@ -23,3 +25,8 @@ elaborate' term =
   evalState (NormState mempty) $
   runReader (ElabContext mempty (initialPos "<TODO>")) $
   EE.check term (N.IOType N.UnitType)
+
+elaborateFile :: String -> IO (Either String C.Term)
+elaborateFile f = do
+  s <- pack <$> readFile f
+  pure (fmap elaborate (parse s))

@@ -16,6 +16,7 @@ import Data.Functor.Identity
 import Numeric.Natural
 import GHC.Stack
 import Extra
+import Shower
 
 data MetaEntry = Solved N.Term | Unsolved
   deriving (Show)
@@ -29,6 +30,9 @@ data NormState = NormState (Map Global MetaEntry)
 type Norm sig m =
   ( Has (Reader NormContext) sig m
   , Has (State NormState) sig m )
+
+bind :: Norm sig m => m a -> m a
+bind = local (\(NormContext env) -> NormContext (N.withLocal (N.FreeVar (fromIntegral (N.envSize env))) env))
 
 define :: Norm sig m => N.Term -> m a -> m a
 define def = local (\(NormContext env) -> NormContext (N.withLocal def env))
@@ -90,10 +94,7 @@ eval C.EElabError = pure N.EElabError
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
 entry ix = do
   NormContext env@(N.Env locals _) <- ask
-  if fromIntegral ix > N.envSize env then
-    pure (locals !! fromIntegral ix)
-  else
-    error "TODO"
+  pure (locals !! fromIntegral ix)
 
 type ShouldUnfold = Bool
 

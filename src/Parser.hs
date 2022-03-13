@@ -14,11 +14,13 @@ keywords = ["let", "in", "Type"]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
+nameChar = (try alphaNumChar <|> char '_')
+
 type Parser a = ParsecT Void Text (State Id) a
 
 name :: Parser NameAst
 name = do
-  s <- some alphaNumChar
+  s <- some nameChar
   pure (NameAst (UserName (pack s)))
 
 piTy :: Parser TermAst
@@ -53,7 +55,7 @@ app = do
 
 var :: Parser TermAst
 var = do
-  s <- some alphaNumChar
+  s <- some nameChar
   when (elem s keywords) (fail "keyword")
   pure (TermAst (Var (UserName (pack s))))
 

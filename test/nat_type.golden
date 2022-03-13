@@ -1,0 +1,7 @@
+LEFT{<TODO>:2:9:
+  |
+2 |         datatype Nat : Type {
+  |         ^
+unexpected 'd'
+expecting '}', carriage return, newline, space, or tab
+}
