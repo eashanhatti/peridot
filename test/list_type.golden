@@ -1,0 +1,34 @@
+RIGHT{([],
+ Let
+   [ObjectConstant
+      (Id {unId = 0})
+      (FunType
+         Explicit
+         (TypeType (SUniVar (Global {unGlobal = 2})))
+         (TypeType (SUniVar (Global {unGlobal = 3})))),
+    ObjectConstant
+      (Id {unId = 1})
+      (FunType
+         Explicit
+         (TypeType (SUniVar (Global {unGlobal = 6})))
+         (FunElim
+            (GlobalVar (Id {unId = 0}))
+            (LocalVar (Index {unIndex = 0})))),
+    ObjectConstant
+      (Id {unId = 2})
+      (FunType
+         Explicit
+         (TypeType (SUniVar (Global {unGlobal = 13})))
+         (FunType
+            Explicit
+            (LocalVar (Index {unIndex = 0}))
+            (FunType
+               Explicit
+               (FunElim
+                  (GlobalVar (Id {unId = 0}))
+                  (LocalVar (Index {unIndex = 1})))
+               (FunElim
+                  (GlobalVar (Id {unId = 0}))
+                  (LocalVar (Index {unIndex = 2}))))))]
+   (IOIntro1 UnitIntro))
+}

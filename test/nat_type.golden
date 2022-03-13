@@ -1,7 +1,15 @@
-LEFT{<TODO>:2:9:
-  |
-2 |         datatype Nat : Type {
-  |         ^
-unexpected 'd'
-expecting '}', carriage return, newline, space, or tab
+RIGHT{([],
+ Let
+   [ObjectConstant
+      (Id {unId = 0})
+      (TypeType (SUniVar (Global {unGlobal = 1}))),
+    ObjectConstant
+      (Id {unId = 1}) (GlobalVar (Id {unId = 0})),
+    ObjectConstant
+      (Id {unId = 2})
+      (FunType
+         Explicit
+         (GlobalVar (Id {unId = 0}))
+         (GlobalVar (Id {unId = 0})))]
+   (IOIntro1 UnitIntro))
 }
