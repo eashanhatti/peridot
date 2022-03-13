@@ -48,9 +48,13 @@ evalClosure clo = do
   NormContext env <- ask
   appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
 
+funIntros :: C.Term -> (C.Term -> C.Term)
+funIntros (C.FunType _ inTy outTy) = C.FunIntro inTy . funIntros outTy
+funIntros _ = id
+
 definition :: C.Declaration -> C.Term
-definition (C.MetaConstant did _) = undefined
-definition (C.ObjectConstant did _) = undefined
+definition (C.MetaConstant did sig) = funIntros sig (C.MetaConstantIntro did)
+definition (C.ObjectConstant did sig) = funIntros sig (C.ObjectConstantIntro did)
 definition (C.Term _ _ def) = def
 definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"

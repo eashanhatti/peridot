@@ -32,7 +32,6 @@ library
       Elaboration.Term
       Extra
       Normalization
-      Normalization.Effect
       Parser
       Syntax.Core
       Syntax.Extra

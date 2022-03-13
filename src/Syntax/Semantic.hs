@@ -5,7 +5,10 @@ import Syntax.Core qualified as C
 import Data.Map(Map, insert, size)
 
 data Environment = Env [Term] (Map Id (Environment, C.Term))
-  deriving (Eq, Show)
+  deriving (Eq)
+
+instance Show Environment where
+  show _ = "<env>"
 
 envSize (Env locals _) = length locals
 

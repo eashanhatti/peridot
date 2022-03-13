@@ -24,14 +24,16 @@ import Data.GADT.Compare
 import Data.Type.Equality
 import Data.Hashable
 import GHC.Generics hiding (Constructor, C)
-import Normalization
-import Unification qualified as U
+import Normalization hiding (eval)
+import Normalization qualified as Norm
+import Unification qualified as Uni
 import Numeric.Natural
 import Data.Foldable(toList, foldl')
 import Prelude hiding(lookup)
 import GHC.Stack
 import Extra
 import Text.Megaparsec(SourcePos)
+import Debug.Trace
 
 -- Contains query state *and* general global state
 data QueryState = QueryState
@@ -74,7 +76,6 @@ restore (AllState es ec ns nc) act =
 
 data Key a where
   CheckDecl :: Id -> Key C.Declaration
-  GetDecl :: Id -> Key (AllState, Predeclaration)
   DeclType :: Id -> Key C.Term
 
 
@@ -86,7 +87,6 @@ instance GEq Key where
 instance Hashable (Some Key) where
   hashWithSalt salt (Some (CheckDecl did)) = salt `hashWithSalt` did
   hashWithSalt salt (Some (DeclType did)) = salt `hashWithSalt` (did + 1000000)
-  hashWithSalt salt (Some (GetDecl did)) = salt `hashWithSalt` (did + 2000000)
 
 memo :: Query sig m => Key a -> StateC QueryState Identity a -> m a
 memo key act = do
@@ -135,9 +135,9 @@ type Elab sig m =
 
 unify :: Elab sig m => N.Term -> N.Term -> m ()
 unify term1 term2 = do
-  subst <- U.unify term1 term2
+  subst <- Uni.unify term1 term2
   case subst of
-    Just (U.Subst ts ss rs) -> do
+    Just (Uni.Subst ts ss rs) -> do
       state <- get
       put (state
         { unTypeUVs = fmap Just ts <> unTypeUVs state
@@ -146,7 +146,7 @@ unify term1 term2 = do
     Nothing -> report (FailedUnify term1 term2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
-convertible term1 term2 = isJust <$> U.unify term1 term2
+convertible term1 term2 = isJust <$> Uni.unify term1 term2
 
 bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =
@@ -167,7 +167,18 @@ withDecls decls act = do
   elabContext <- ask
   normContext <- ask
   let
-    allState = AllState elabState elabContext normState normContext
+    bindings' = toBindings decls `union` unBindings elabContext
+    allState = AllState elabState (elabContext { unBindings = bindings' }) normState normContext
+
+    toBindings :: [DeclarationAst] -> Map Name Binding
+    toBindings [] = mempty
+    toBindings (decl@(viewConstrs -> Just constrs):decls) = 
+      foldl'
+        (\m (n, b) -> insert n b m)
+        (toBindings decls)
+        ((unDeclName decl, BGlobal (unId decl)) : zip (map unConstrName constrs) (map (BGlobal . unCId) constrs))
+    toBindings (decl:decls) =
+      insert (unDeclName decl) (BGlobal (unId decl)) (toBindings decls)
 
     go :: Elab sig m => [DeclarationAst] -> m a
     go [] = act
@@ -178,45 +189,12 @@ withDecls decls act = do
             union
               (insert (unId decl) (allState, PDDecl decl) (unPredecls state))
               (fromList (zip (map unCId constrs) (map (\c -> (allState, PDConstr c)) constrs))) })
-      local
-        (\ctx -> ctx
-          { unBindings =
-              foldl'
-                (\m (n, b) -> insert n b m)
-                (unBindings ctx)
-                ((unDeclName decl, BGlobal (unId decl)) : zip (map unConstrName constrs) (map (BGlobal . unCId) constrs)) })
-        (go decls)
+      go decls
     go (decl:decls) = do
       state <- get
       put (state { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })
-      local
-        (\ctx -> ctx { unBindings = insert (unDeclName decl) (BGlobal (unId decl)) (unBindings ctx) })
-        (go decls)
-  go decls
-
--- addDecls :: Elab sig m => [DeclarationAst] -> m a -> m a
--- addDecls [] act = act
--- addDecls (decl@(DeclAst (Datatype _ _ constrs) _):decls) act = do
---   state <- get
---   put (state
---     { unDecls =
---       union
---         (insert (unId decl) (PDDecl decl) (unDecls state))
---         (fromList (zip (map unCId constrs) (map PDConstr constrs))) })
---   local
---     (\ctx -> ctx
---       { unBindings =
---         foldl'
---           (\m (n, b) -> overloadBinding n (singleton b) m)
---           (unBindings ctx)
---           ((unDeclName decl, BGlobal (unId decl)) : zip (map unConstrName constrs) (map (BGlobal . unCId) constrs)) })
---     (addDecls decls act)
--- addDecls (decl:decls) act = do
---   state <- get
---   put (state { unDecls = insert (unId decl) (PDDecl decl) (unDecls state) })
---   local
---     (\ctx -> ctx { unBindings = overloadBinding (unDeclName decl) (singleton (BGlobal (unId decl))) (unBindings ctx) })
---     (addDecls decls act)
+      go decls
+  local (\ctx -> ctx { unBindings = bindings' }) (go decls)
 
 lookupBinding :: Elab sig m => Name -> m (Maybe Binding)
 lookupBinding name = do
@@ -262,3 +240,20 @@ errorTerm :: Elab sig m => Error -> m (C.Term, N.Term)
 errorTerm err = do
   report err
   pure (C.EElabError, N.EElabError)
+
+eval :: Elab sig m => C.Term -> m N.Term
+eval term = do
+  memoTable <- unMemoTable <$> get
+  let
+    f = \case
+      CheckDecl _ DMap.:=> _ -> True
+      _ -> False
+    decls :: [C.Declaration]
+    decls =
+      map (\case CheckDecl _ DMap.:=> Identity gl -> gl) .
+      filter f .
+      DMap.toList $
+      memoTable
+  NormContext (N.Env locals globals) <- ask
+  let vDefs = fromList ((map (\def -> (C.unId def, (N.Env locals (vDefs <> globals), Norm.definition def))) decls))
+  local (const (NormContext (N.Env locals (globals `union` vDefs)))) (Norm.eval term)

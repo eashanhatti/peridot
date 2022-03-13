@@ -8,7 +8,7 @@ import Elaboration.Effect
 import Control.Effect.Reader
 import Data.Map qualified as Map
 import {-# SOURCE #-} Elaboration.Term qualified as EE
-import Normalization
+import Normalization hiding(eval)
 import Control.Monad
 import Control.Monad.Extra
 import Data.Foldable(toList, foldl')

@@ -7,7 +7,7 @@ import Syntax.Extra hiding(unId)
 import Elaboration.Effect
 import Elaboration.Decl qualified as ED
 import Control.Monad
-import Normalization
+import Normalization hiding(eval)
 import Data.Foldable(foldl', foldr, foldrM)
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
