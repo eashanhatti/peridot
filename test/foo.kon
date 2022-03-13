@@ -4,5 +4,5 @@ let {
 		false : Bool;
 	};
 } in {
-	true
+	(pure unit)
 }

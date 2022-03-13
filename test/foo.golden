@@ -1,0 +1,11 @@
+RIGHT{([],
+ Let
+   [ObjectConstant
+      (Id {unId = 0})
+      (TypeType (SUniVar (Global {unGlobal = 1}))),
+    ObjectConstant
+      (Id {unId = 1}) (GlobalVar (Id {unId = 0})),
+    ObjectConstant
+      (Id {unId = 2}) (GlobalVar (Id {unId = 0}))]
+   (IOIntro1 UnitIntro))
+}

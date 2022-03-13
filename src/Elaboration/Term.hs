@@ -75,7 +75,7 @@ infer term = case term of
     pure (C.IOType cTy, N.TypeType (Object Ptr))
   TermAst (IOPure term) -> do
     ty <- freshTypeUV
-    cTerm <- check term (N.IOType ty)
+    cTerm <- check term ty
     pure (C.IOIntro1 cTerm, N.IOType ty)
   TermAst (IOBind act k) -> do
     inTy <- freshTypeUV
