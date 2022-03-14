@@ -1,0 +1,16 @@
+RIGHT{([],
+ Let
+   [Term
+      (Id {unId = 1})
+      (IOType UnitType)
+      (IOIntro2
+         (PutChar 'x')
+         (FunIntro
+            (UniVar (Global {unGlobal = 4}))
+            (IOIntro2
+               (PutChar 'y')
+               (FunIntro
+                  (UniVar (Global {unGlobal = 8}))
+                  (IOIntro1 UnitIntro)))))]
+   (GlobalVar (Id {unId = 1})))
+}

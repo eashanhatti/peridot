@@ -1,0 +1,10 @@
+let {
+	lazy print_xy : (IO Unit) =
+		(bind
+			(print x)
+			\ _ { (bind
+				(print y)
+				\ _ { (pure unit) })});
+} in {
+	print_xy
+}
