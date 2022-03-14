@@ -7,6 +7,7 @@ import Syntax.Extra hiding(Stage)
 import Syntax.Extra qualified as E
 import Control.Effect.NonDet
 import Control.Effect.State
+import Control.Effect.Reader
 import Control.Effect.Throw
 import Data.Map qualified as Map
 import Data.Set qualified as Set
@@ -24,8 +25,10 @@ data StageState = StageState
   , unRules :: [N.Term]
   , unLogvars :: Map.Map Global Id
   , unNextUV :: Global
-  , unGlobals :: Map.Map Id C.Term
-  , unTypeUVs :: Map.Map Global (Maybe N.Term)
+  , unGlobals :: Map.Map Id C.Term }
+
+data StageContext = StageContext
+  { unTypeUVs :: Map.Map Global (Maybe N.Term)
   , unStageUVs :: Map.Map Global (Maybe E.Stage)
   , unRepUVs :: Map.Map Global (Maybe RuntimeRep) }
 
@@ -33,6 +36,7 @@ type Stage sig m =
   ( Has NonDet sig m
   , Alternative m
   , Has (State StageState) sig m
+  , Has (Reader StageContext) sig m
   , Norm sig m )
 
 stage :: HasCallStack => Stage sig m => C.Term -> m O.Term
@@ -53,21 +57,28 @@ stage (C.GlobalVar did) = do
     Nothing -> pure (O.GlobalVar did)
 stage (C.Let decls body) = O.Let <$> fmap (map fromJust . filter isJust) (traverse stageDecl decls) <*> stage body
 stage (C.UniVar gl) = do
-  uvs <- unTypeUVs <$> get
+  uvs <- unTypeUVs <$> ask
   case uvs ! gl of
     Just sol -> readbackWeak sol >>= stage
-    Nothing -> error "TODO"
+    Nothing -> error "Unsolved type UV"
+stage C.UnitType = pure O.UnitType
+stage C.UnitIntro = pure O.UnitIntro
 
 normalizeStage :: HasCallStack => Stage sig m => E.Stage -> m E.Stage
 normalizeStage (Object rep) = Object <$> normalizeRep rep
 normalizeStage Meta = pure Meta
+normalizeStage (SUniVar gl) = do
+  uvs <- unStageUVs <$> ask
+  case uvs ! gl of
+    Just s -> normalizeStage s
+    Nothing -> error "Unsolved stage UV"
 
 normalizeRep :: HasCallStack => Stage sig m => RuntimeRep -> m RuntimeRep
 normalizeRep (RUniVar gl) = do
-  uvs <- unRepUVs <$> get
+  uvs <- unRepUVs <$> ask
   case uvs ! gl of
     Just rep -> normalizeRep rep
-    Nothing -> error "TODO"
+    Nothing -> error "Unsolved rep UV"
 normalizeRep (Prod reps) = Prod <$> traverse normalizeRep reps
 normalizeRep (Sum reps) = Sum <$> traverse normalizeRep reps
 normalizeRep rep = pure rep

@@ -7,6 +7,7 @@ type Signature = Term
 data Declaration
   = Term Id Signature Term
   | ObjectConstant Id Signature
+  deriving (Show)
 
 unId :: Declaration -> Id
 unId (Term did _ _) = did
@@ -32,3 +33,4 @@ data Term
   | LocalVar Index
   | GlobalVar Id
   | Let [Declaration] Term
+  deriving (Show)

@@ -6,6 +6,7 @@ import Data.Set qualified as Set
 data Declaration
   = Fun Id (Set.Set Id) [Binding] Term
   | Thunk Id Term
+  deriving (Show)
 
 unName :: Declaration -> Id
 unName (Fun name _ _ _) = name
@@ -19,10 +20,12 @@ data Value
   | UnitType
   | IOType Value
   | Univ RuntimeRep
+  deriving (Show)
 
 -- data Branch = Branch [Binding] Term
 
 data Binding = Binding RuntimeRep Id
+  deriving (Show)
 
 data Term
   = App Value [Value]
@@ -31,3 +34,4 @@ data Term
   | Let [(Binding, Term)] Term
   | DoIO IOOperation Term
   | Val Value
+  deriving (Show)

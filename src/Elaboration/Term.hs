@@ -79,13 +79,16 @@ infer term = case term of
     cTerm <- check term ty
     pure (C.IOIntro1 cTerm, N.IOType ty)
   TermAst (IOBind act k) -> do
-    inTy <- freshTypeUV
+    let inTy = opTy act
     outTy <- N.IOType <$> freshTypeUV
     outTyClo <- readbackWeak outTy >>= closureOf
     cK <- check k (N.FunType Explicit inTy outTyClo)
     pure (C.IOIntro2 act cK, outTy)
   TermAst UnitType -> pure (C.UnitType, N.TypeType (Object Erased))
   TermAst Unit -> pure (C.UnitIntro, N.UnitType)
+
+opTy :: IOOperation -> N.Term
+opTy (PutChar _) = N.UnitType
 
 checkType :: Elab sig m => TermAst -> m C.Term
 checkType term = do
@@ -98,7 +101,7 @@ checkMetaType term = check term (N.TypeType Meta)
 checkObjectType :: Elab sig m => TermAst -> m C.Term
 checkObjectType term = do
   rep <- freshRepUV
-  check term (N.TypeType (Object rep))
+  check term (N.TypeType (Object {-rep-}Ptr)) -- FIXME
 
 declsIds :: [DeclarationAst] -> [Id]
 declsIds = concatMap go where

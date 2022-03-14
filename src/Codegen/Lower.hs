@@ -23,7 +23,9 @@ data LowerState = LowerState
 data LowerContext = LowerContext
   { unLocals :: Map.Map Index Id }
 
-type Lower sig m = (Has (State LowerState) sig m, Has (Reader LowerContext) sig m)
+type Lower sig m =
+  ( Has (State LowerState) sig m
+  , Has (Reader LowerContext) sig m)
 
 lower :: HasCallStack => Lower sig m => O.Term -> m L.Term
 lower (O.FunType inTy outTy) = L.Val <$> (L.Arrow <$> lowerBind inTy <*> lowerBind outTy)
@@ -62,11 +64,13 @@ funElims :: O.Term -> (O.Term, [O.Term])
 funElims (O.FunElim lam arg) =
   let (lam', args) = funElims lam
   in (lam', args ++ [arg])
+funElims lam = (lam, [])
 
 funIntros :: O.Term -> ([O.Type], O.Term)
 funIntros (O.FunIntro ty body) =
   let (tys, body') = funIntros body
   in (ty:tys, body')
+funIntros ty = ([], ty)
 
 lowerDecl :: Lower sig m => O.Declaration -> m (Maybe L.Declaration)
 lowerDecl (O.Term _ sig def@(O.FunIntro _ _)) = Just <$> funDecl [] def
@@ -116,6 +120,9 @@ repOf (O.FunType _ _) = pure Ptr
 repOf (funElims -> (O.ObjectConstantIntro did, _)) = do
   reps <- unTypeReps <$> get
   pure (reps ! did)
+repOf O.UnitType = pure Erased
+repOf (O.IOType _) = pure Ptr
+repOf (O.TypeType _) = pure Ptr
 
 -- get rep from term
 repOfTerm :: HasCallStack => Lower sig m => L.Term -> m RuntimeRep

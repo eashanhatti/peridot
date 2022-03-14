@@ -28,5 +28,12 @@ elaborate' term =
 
 elaborateFile :: String -> IO (Either String C.Term)
 elaborateFile f = do
+  r <- elaborateFile' f
+  case r of
+    Right r -> pure (Right (snd r))
+    Left r -> pure (Left r)
+
+elaborateFile' :: String -> IO (Either String (QueryState, C.Term))
+elaborateFile' f = do
   s <- pack <$> readFile f
-  pure (fmap elaborate (parse s))
+  pure (fmap elaborate' (parse s))
