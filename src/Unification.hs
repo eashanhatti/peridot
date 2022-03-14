@@ -11,6 +11,8 @@ import Data.Map(Map)
 import Data.Map qualified as Map
 import Control.Monad
 import Data.Foldable
+import GHC.Stack
+import Debug.Trace
 
 data Substitution = Subst
   { unTypeSols :: Map Global Term
@@ -75,7 +77,7 @@ unifyStages Meta Meta = pure ()
 unifyStages (Object rep1) (Object rep2) = unifyReps rep1 rep2
 unifyStages _ _ = throwError ()
 
-unify' :: Unify sig m => Term -> Term -> m ()
+unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unify' (UniVar gl1) (UniVar gl2) | gl1 == gl2 = pure ()
 unify' term1@(UniVar gl1) term2@(UniVar gl2) = do
   putTypeSol gl1 term2
@@ -84,7 +86,7 @@ unify' (UniVar gl) term = putTypeSol gl term
 unify' term (UniVar gl) = putTypeSol gl term
 unify' (FunType am1 inTy1 outTy1) (FunType am2 inTy2 outTy2) | am1 == am2 = do
   unify' inTy1 inTy2
-  bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
+  bind2 unify' (bind (evalClosure outTy1)) (bind (evalClosure outTy2))
 unify' (FunIntro _ body1) (FunIntro _ body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (MetaConstantIntro did1) (MetaConstantIntro did2) | did1 == did2 = pure ()
 unify' (ObjectConstantIntro did1) (ObjectConstantIntro did2) | did1 == did2 = pure ()
@@ -116,7 +118,7 @@ unify' EElabError _ = pure ()
 unify' _ EElabError = pure ()
 unify' _ _ = throwError ()
 
-unify :: Norm sig m => Term -> Term -> m (Maybe Substitution)
+unify :: HasCallStack => Norm sig m => Term -> Term -> m (Maybe Substitution)
 unify term1 term2 = do
   r <- runThrow @() . runState mempty $ unify' term1 term2
   case r of

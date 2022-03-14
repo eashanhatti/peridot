@@ -9,6 +9,7 @@ import Elaboration.Decl qualified as ED
 import Control.Monad
 import Normalization hiding(eval)
 import Data.Foldable(foldl', foldr, foldrM)
+import Debug.Trace
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check term goal = do

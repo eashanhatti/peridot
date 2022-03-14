@@ -37,7 +37,9 @@ piTy = do
 lam :: Parser TermAst
 lam = do
   char '\\'; ws
-  ns <- some name; ws
+  ns <- some do
+    n <- name; ws
+    pure n
   char '{'; ws
   body <- term; ws
   char '}'

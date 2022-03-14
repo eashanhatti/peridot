@@ -65,6 +65,7 @@ library
       FlexibleContexts
       LambdaCase
       ScopedTypeVariables
+      BangPatterns
   ghc-options: -fplugin=StackTrace.Plugin
   build-depends:
       base >=4.7 && <5
@@ -115,6 +116,7 @@ executable konna3-exe
       FlexibleContexts
       LambdaCase
       ScopedTypeVariables
+      BangPatterns
   ghc-options: -fplugin=StackTrace.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -167,6 +169,7 @@ test-suite konna3-test
       FlexibleContexts
       LambdaCase
       ScopedTypeVariables
+      BangPatterns
   ghc-options: -fplugin=StackTrace.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

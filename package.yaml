@@ -39,6 +39,7 @@ default-extensions:
 - FlexibleContexts
 - LambdaCase
 - ScopedTypeVariables
+- BangPatterns
 
 dependencies:
 - base >= 4.7 && < 5

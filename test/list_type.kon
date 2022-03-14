@@ -1,6 +1,6 @@
 let {
 	datatype List : [_ : Type] -> Type {
-		nil : [A : Type] -> <List A>;
+		nil  : [A : Type] -> <List A>;
 		cons : [A : Type] -> [_ : A] -> [_ : <List A>] -> <List A>;
 	};
 } in {

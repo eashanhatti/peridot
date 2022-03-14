@@ -8,7 +8,7 @@ data Environment = Env [Term] (Map Id (Environment, C.Term))
   deriving (Eq)
 
 instance Show Environment where
-  show _ = "<env>"
+  show (Env locals _) = show locals
 
 envSize (Env locals _) = length locals
 

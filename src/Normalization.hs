@@ -17,6 +17,7 @@ import Numeric.Natural
 import GHC.Stack
 import Extra
 import Shower
+import Debug.Trace
 
 data MetaEntry = Solved N.Term | Unsolved
   deriving (Show)
@@ -31,23 +32,21 @@ type Norm sig m =
   ( Has (Reader NormContext) sig m
   , Has (State NormState) sig m )
 
-bind :: Norm sig m => m a -> m a
+bind :: HasCallStack => Norm sig m => m a -> m a
 bind = local (\(NormContext env) -> NormContext (N.withLocal (N.FreeVar (fromIntegral (N.envSize env))) env))
 
-define :: Norm sig m => N.Term -> m a -> m a
+define :: HasCallStack => Norm sig m => N.Term -> m a -> m a
 define def = local (\(NormContext env) -> NormContext (N.withLocal def env))
 
-closureOf :: Norm sig m => C.Term -> m N.Closure
+closureOf :: HasCallStack => Norm sig m => C.Term -> m N.Closure
 closureOf term = do
   NormContext env <- ask
   pure (N.Closure env term)
 
-appClosure :: Norm sig m => N.Closure -> N.Term -> m N.Term
-appClosure (N.Closure env body) arg = do
-  NormContext env <- ask
-  local (const (NormContext (N.withLocal arg env))) (eval body)
+appClosure :: HasCallStack => Norm sig m => N.Closure -> N.Term -> m N.Term
+appClosure (N.Closure env body) arg = local (const (NormContext (N.withLocal arg env))) (eval body)
 
-evalClosure :: Norm sig m => N.Closure -> m N.Term
+evalClosure :: HasCallStack => Norm sig m => N.Closure -> m N.Term
 evalClosure clo = do
   NormContext env <- ask
   appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
@@ -93,8 +92,11 @@ eval C.EElabError = pure N.EElabError
 
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
 entry ix = do
-  NormContext env@(N.Env locals _) <- ask
-  pure (locals !! fromIntegral ix)
+  NormContext (N.Env locals _) <- ask
+  if fromIntegral ix >= length locals then
+    error $ "`entry`:" ++ shower (ix, locals)
+  else 
+    pure (locals !! fromIntegral ix)
 
 type ShouldUnfold = Bool
 
@@ -123,16 +125,16 @@ readback unf N.UnitType = pure C.UnitType
 readback unf N.UnitIntro = pure C.UnitIntro
 readback unf N.EElabError = pure C.EElabError
 
-evalTop :: Norm sig m => N.Environment -> C.Term -> m N.Term
+evalTop :: HasCallStack => Norm sig m => N.Environment -> C.Term -> m N.Term
 evalTop env term = local (const (NormContext env)) (eval term)
 
-readbackWeak :: Norm sig m => N.Term -> m C.Term
+readbackWeak :: HasCallStack => Norm sig m => N.Term -> m C.Term
 readbackWeak = readback False
 
-readbackFull :: Norm sig m => N.Term -> m C.Term
+readbackFull :: HasCallStack => Norm sig m => N.Term -> m C.Term
 readbackFull = readback True
 
-normalize :: Norm sig m => N.Term -> m N.Term
+normalize :: HasCallStack => Norm sig m => N.Term -> m N.Term
 normalize = readbackFull >=> eval
 
 withGlobals :: Norm sig m => Map Id (N.Environment, C.Term) -> m a -> m a

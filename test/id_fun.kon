@@ -1,0 +1,10 @@
+let {
+	datatype Bool : Type {
+		true  : Bool;
+		false : Bool;
+	};
+	lazy id : [A : Type] -> [_ : A] -> A = \A x { x };
+	lazy foo : Bool = <id Bool true>;
+} in {
+	(pure unit)
+}

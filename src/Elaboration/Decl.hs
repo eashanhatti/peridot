@@ -12,8 +12,9 @@ import Normalization hiding(eval)
 import Control.Monad
 import Control.Monad.Extra
 import Data.Foldable(toList, foldl')
+import GHC.Stack
 
-check :: Elab sig m => Id -> m C.Declaration
+check :: HasCallStack => Elab sig m => Id -> m C.Declaration
 check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
   cSig <- declType (unPDDeclId decl)
   case decl of
@@ -31,12 +32,12 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
     PDConstr constr@(ConstrAst (Constr _ _) did dtDid) ->
       pure (C.ObjectConstant did cSig)
 
-withPos' :: Elab sig m => (Predeclaration -> m a) -> (Predeclaration -> m a)
+withPos' :: HasCallStack => Elab sig m => (Predeclaration -> m a) -> (Predeclaration -> m a)
 withPos' act (PDDecl (SourcePos ast pos)) = withPos pos (act (PDDecl ast))
 withPos' act (PDConstr (SourcePos ast pos)) = withPos pos (act (PDConstr ast))
 withPos' act pd = act pd
 
-declType :: Query sig m => Id -> m C.Term
+declType :: HasCallStack => Query sig m => Id -> m C.Term
 declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
   case decl of
     PDDecl (DeclAst (Term name sig def) did) -> EE.checkObjectType sig
