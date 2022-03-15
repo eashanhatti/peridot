@@ -51,20 +51,20 @@ bind2 f act1 act2 = do
   y <- act2
   f x y
 
--- unifyReps :: Unify sig m => RuntimeRep -> RuntimeRep -> m ()
--- unifyReps (RUniVar gl1) (RUniVar gl2) | gl1 == gl2 = pure ()
--- -- unifyReps rep1@(RUniVar gl1) rep2@(RUniVar gl2) = do
--- --   putRepSol gl1 rep2
--- --   putRepSol gl2 rep1
--- unifyReps (RUniVar gl) rep = putRepSol gl rep
--- unifyReps rep (RUniVar gl) = putRepSol gl rep
--- unifyReps Ptr Ptr = pure ()
--- unifyReps Lazy Lazy = pure ()
--- unifyReps Word Word = pure ()
--- unifyReps Erased Erased = pure ()
--- unifyReps (Prod reps1) (Prod reps2) | length reps1 == length reps2 = traverse_ (uncurry unifyReps) (zip reps1 reps2)
--- unifyReps (Sum reps1) (Sum reps2) | length reps1 == length reps2 = traverse_ (uncurry unifyReps) (zip reps1 reps2)
--- unifyReps _ _ = throwError ()
+unifyReps :: Unify sig m => RuntimeRep -> RuntimeRep -> m ()
+unifyReps (RUniVar gl1) (RUniVar gl2) | gl1 == gl2 = pure ()
+-- unifyReps rep1@(RUniVar gl1) rep2@(RUniVar gl2) = do
+--   putRepSol gl1 rep2
+--   putRepSol gl2 rep1
+unifyReps (RUniVar gl) rep = putRepSol gl rep
+unifyReps rep (RUniVar gl) = putRepSol gl rep
+unifyReps Ptr Ptr = pure ()
+unifyReps Lazy Lazy = pure ()
+unifyReps Word Word = pure ()
+unifyReps Erased Erased = pure ()
+unifyReps (Prod reps1) (Prod reps2) | length reps1 == length reps2 = traverse_ (uncurry unifyReps) (zip reps1 reps2)
+unifyReps (Sum reps1) (Sum reps2) | length reps1 == length reps2 = traverse_ (uncurry unifyReps) (zip reps1 reps2)
+unifyReps _ _ = throwError ()
 
 unifyStages :: Unify sig m => Stage -> Stage -> m ()
 unifyStages (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
@@ -74,7 +74,7 @@ unifyStages (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
 unifyStages (SUniVar gl) s = putStageSol gl s
 unifyStages s (SUniVar gl) = putStageSol gl s
 unifyStages Meta Meta = pure ()
-unifyStages (Object rep1) (Object rep2) = unify' rep1 rep2
+unifyStages (Object rep1) (Object rep2) = unifyReps rep1 rep2
 unifyStages _ _ = throwError ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()

@@ -43,7 +43,7 @@ lower (O.IOIntro1 term) = lower term
 lower (O.IOIntro2 act k) = L.DoIO act <$> lower k
 lower O.UnitIntro = pure (L.Val L.Unit)
 lower O.UnitType = pure (L.Val L.UnitType)
-lower (O.TypeType rep) = pure (L.Val (L.Univ rep))
+lower (O.TypeType (Object rep)) = pure (L.Val (L.Univ rep))
 lower (O.LocalVar ix) = L.Val <$> localVar ix
 lower (O.GlobalVar did) = flip L.App [] <$> globalVar did
 lower (O.Let decls body) = do
@@ -107,7 +107,7 @@ addDecls decls = traverse_ go decls where
     put (state
       { unBindingReps = Map.insert name Lazy (unBindingReps state)
       , unGlobals = Map.insert did name (unGlobals state) })
-  go (O.ObjectConstant did (funElims -> (O.TypeType rep, _))) = do
+  go (O.ObjectConstant did (funElims -> (O.TypeType (Object rep), _))) = do
     state <- get
     name <- freshId
     put (state

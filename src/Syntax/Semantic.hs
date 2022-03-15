@@ -18,9 +18,6 @@ withLocal def (Env locals globals) = Env (def:locals) globals
 withGlobal :: Id -> Environment -> C.Term -> Environment -> Environment
 withGlobal did env term (Env locals globals) = Env locals (insert did (env, term) globals)
 
-data Stage = Meta | Object Term | SUniVar Global
-  deriving (Eq, Show)
-
 type Type = Term
 
 data Term
@@ -34,13 +31,6 @@ data Term
   | UnitType
   | UnitIntro
   | TypeType Stage
-  | RepType
-  | RepIntroPtr
-  | RepIntroLazy
-  | RepIntroWord
-  | RepIntroProd [Term]
-  | RepIntroSum [Term]
-  | RepIntroErased
   | EElabError
   -- Stuck terms
   | UniVar Global

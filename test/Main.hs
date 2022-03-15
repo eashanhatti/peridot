@@ -8,7 +8,7 @@ import Data.ByteString qualified as B
 import Data.Text.Encoding qualified as T
 import Elaboration
 import Codegen
-import Elaboration.Effect(unTypeUVs, unStageUVs, unRepUVs, unErrors)
+import Elaboration.Effect(unTypeUVs, unStageUVs, unRepUVs)
 import Codegen.Stage(StageContext(StageContext))
 import Parser qualified as P
 import Data.String(fromString)
@@ -35,9 +35,5 @@ testSurfaceToSTG bs =
       let
         (qs, cTerm) = elaborate' term
         ctx = StageContext (unTypeUVs qs) (unStageUVs qs) (unRepUVs qs)
-      in
-        if (not . null) (unErrors qs) then
-          "ELAB ERRORS\n" <> (fromString . shower $ unErrors qs)
-        else
-          "STG\n" <> (fromString . shower $ (qs, stgify ctx cTerm))
-    Left err -> "PARSE ERRORS\n" <> fromString err
+      in "RIGHT{" <> (fromString . shower $ (qs, stgify ctx cTerm)) <> "}"
+    Left err -> "LEFT{" <> fromString err <> "}"

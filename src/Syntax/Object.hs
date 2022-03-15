@@ -29,7 +29,7 @@ data Term
   | UnitType
   | UnitIntro
   | ObjectConstantIntro Id
-  | TypeType RuntimeRep
+  | TypeType Stage
   | LocalVar Index
   | GlobalVar Id
   | Let [Declaration] Term

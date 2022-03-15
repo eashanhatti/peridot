@@ -9,6 +9,9 @@ import Data.Map qualified as Map
 data ApplyMethod = Explicit | Implicit
   deriving (Eq, Show)
 
+data Stage = Meta | Object RuntimeRep | SUniVar Global
+  deriving (Eq, Show)
+
 newtype Index = Index { unIndex :: Natural }
   deriving (Num, Eq, Ord, Enum, Real, Integral, Show)
 
@@ -36,4 +39,5 @@ data RuntimeRep
   | Prod [RuntimeRep]
   | Sum [RuntimeRep]
   | Erased
+  | RUniVar Global
   deriving (Eq, Show)
