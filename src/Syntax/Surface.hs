@@ -24,7 +24,8 @@ viewConstrs _ = Nothing
 
 unDeclName :: DeclarationAst -> Name
 unDeclName (DeclAst (Datatype (NameAst name) _ _) _) = name
-unDeclName (DeclAst (Term (NameAst name) _ _) _) = name
+unDeclName (DeclAst (MetaTerm (NameAst name) _ _) _) = name
+unDeclName (DeclAst (ObjTerm (NameAst name) _ _) _) = name
 unDeclName (DeclAst (Axiom (NameAst name) _) _) = name
 unDeclName (DeclAst (Prove _) did) = MachineName (fromIntegral did)
 unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
@@ -49,7 +50,8 @@ type SignatureAst = TermAst
 type DeclarationAst = Ast Declaration
 data Declaration
   = Datatype NameAst SignatureAst [ConstructorAst]
-  | Term NameAst SignatureAst TermAst
+  | MetaTerm NameAst SignatureAst TermAst
+  | ObjTerm NameAst SignatureAst TermAst
   | Axiom NameAst SignatureAst
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
@@ -61,8 +63,10 @@ data Constructor = Constr NameAst SignatureAst
 
 type TermAst = Ast Term
 data Term
-  = Pi NameAst TermAst TermAst
-  | Lam [NameAst] TermAst
+  = MetaPi NameAst TermAst TermAst
+  | MetaLam [NameAst] TermAst
+  | ObjPi NameAst TermAst TermAst
+  | ObjLam [NameAst] TermAst
   | App TermAst [TermAst]
   | Var Name
   | Univ

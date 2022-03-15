@@ -23,19 +23,30 @@ name = do
   s <- some nameChar
   pure (NameAst (UserName (pack s)))
 
-piTy :: Parser TermAst
-piTy = do
-  char '['; ws
+objPiTy :: Parser TermAst
+objPiTy = do
+  string "'["; ws
   n <- name; ws
   char ':'; ws
   inTy <- term; ws
   char ']'; ws
   string "->"; ws
   outTy <- term
-  pure (TermAst (Pi n inTy outTy))
+  pure (TermAst (ObjPi n inTy outTy))
 
-lam :: Parser TermAst
-lam = do
+metaPiTy :: Parser TermAst
+metaPiTy = do
+  string "["; ws
+  n <- name; ws
+  char ':'; ws
+  inTy <- term; ws
+  char ']'; ws
+  string "->"; ws
+  outTy <- term
+  pure (TermAst (ObjPi n inTy outTy))
+
+metaLam :: Parser TermAst
+metaLam = do
   char '\\'; ws
   ns <- some do
     n <- name; ws
@@ -43,7 +54,18 @@ lam = do
   char '{'; ws
   body <- term; ws
   char '}'
-  pure (TermAst (Lam ns body))
+  pure (TermAst (MetaLam ns body))
+
+objLam :: Parser TermAst
+objLam = do
+  string "'\\"; ws
+  ns <- some do
+    n <- name; ws
+    pure n
+  char '{'; ws
+  body <- term; ws
+  char '}'
+  pure (TermAst (ObjLam ns body))
 
 app :: Parser TermAst
 app = do
@@ -127,7 +149,7 @@ unit = do
 decl :: Parser DeclarationAst
 decl = do
   pos <- getSourcePos
-  d <- try datatype <|> try val <|> try axiom <|> try prove <|> fresh
+  d <- try datatype <|> try metaVal <|> try objVal <|> try axiom <|> try prove <|> fresh
   pure (SourcePos d pos)
 
 datatype :: Parser DeclarationAst
@@ -145,16 +167,27 @@ datatype = do
   char '}'; ws
   pure (DeclAst (Datatype n sig cs) did)
 
-val :: Parser DeclarationAst
-val = do
+metaVal :: Parser DeclarationAst
+metaVal = do
   did <- freshId
-  string "lazy"; ws
+  string "val"; ws
   n <- name; ws
   char ':'; ws
   sig <- term; ws
   char '='; ws
   def <- term
-  pure (DeclAst (Term n sig def) did)
+  pure (DeclAst (MetaTerm n sig def) did)
+
+objVal :: Parser DeclarationAst
+objVal = do
+  did <- freshId
+  string "'val"; ws
+  n <- name; ws
+  char ':'; ws
+  sig <- term; ws
+  char '='; ws
+  def <- term
+  pure (DeclAst (ObjTerm n sig def) did)
 
 axiom :: Parser DeclarationAst
 axiom = do
@@ -201,7 +234,8 @@ term :: Parser TermAst
 term = do
   pos <- getSourcePos
   e <-
-    try lam <|>
+    try metaLam <|>
+    try objLam <|>
     try app <|>
     try univ <|>
     try letB <|>
@@ -210,7 +244,8 @@ term = do
     try ioBind <|>
     try unitTy <|>
     try unit <|>
-    try piTy <|>
+    try metaPiTy <|>
+    try objPiTy <|>
     try var <|>
     ruleTy
   pure (SourcePos e pos)
