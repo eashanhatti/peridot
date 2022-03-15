@@ -23,6 +23,9 @@ unId DElabError = error "FIXME"
 
 type Type = Term
 
+data Stage = Meta | Object Term | SUniVar Global
+  deriving (Eq, Show)
+
 data Term
   = FunType ApplyMethod Term Term
   | FunIntro Type Term
@@ -30,11 +33,18 @@ data Term
   | MetaConstantIntro Id
   | ObjectConstantIntro Id
   | IOType Term
-  | IOIntro1 Term -- `pure`
-  | IOIntro2 IOOperation Term -- `>>=`
+  | IOIntroPure Term -- `pure`
+  | IOIntroBind IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
   | TypeType Stage
+  | RepType
+  | RepIntroPtr
+  | RepIntroLazy
+  | RepIntroWord
+  | RepIntroProd [Term]
+  | RepIntroSum [Term]
+  | RepIntroErased
   | LocalVar Index
   | GlobalVar Id
   | Let [Declaration] Term

@@ -27,16 +27,10 @@ data StageState = StageState
   , unNextUV :: Global
   , unGlobals :: Map.Map Id C.Term }
 
-data StageContext = StageContext
-  { unTypeUVs :: Map.Map Global (Maybe N.Term)
-  , unStageUVs :: Map.Map Global (Maybe E.Stage)
-  , unRepUVs :: Map.Map Global (Maybe RuntimeRep) }
-
 type Stage sig m =
   ( Has NonDet sig m
   , Alternative m
   , Has (State StageState) sig m
-  , Has (Reader StageContext) sig m
   , Norm sig m )
 
 stage :: HasCallStack => Stage sig m => C.Term -> m O.Term
@@ -44,9 +38,10 @@ stage (C.FunType Explicit inTy outTy) = O.FunType <$> stage inTy <*> stage outTy
 stage (C.FunIntro ty body) = O.FunIntro <$> stage ty <*> stage body
 stage (C.FunElim lam arg) = O.FunElim <$> stage lam <*> stage arg
 stage (C.IOType ty) = O.IOType <$> stage ty
-stage (C.IOIntro1 term) = O.IOIntro1 <$> stage term
-stage (C.IOIntro2 act k) = O.IOIntro2 act <$> stage k
-stage (C.TypeType s) = O.TypeType <$> normalizeStage s
+stage (C.IOIntroPure term) = O.IOIntro1 <$> stage term
+stage (C.IOIntroBind act k) = O.IOIntro2 act <$> stage k
+stage (C.TypeType C.Meta) = undefined
+stage (C.TypeType s) = O.TypeType <$> stageStage s
 stage (C.ObjectConstantIntro did) = pure (O.ObjectConstantIntro did)
 stage (C.LocalVar ix) = pure (O.LocalVar ix)
 stage (C.GlobalVar did) = do
@@ -60,28 +55,12 @@ stage (C.UniVar gl) = do
   uvs <- unTypeUVs <$> ask
   case uvs ! gl of
     Just sol -> readbackWeak sol >>= stage
-    Nothing -> error "Unsolved type UV"
+    Nothing -> error $ "Unsolved type UV" ++ show gl
 stage C.UnitType = pure O.UnitType
 stage C.UnitIntro = pure O.UnitIntro
 
-normalizeStage :: HasCallStack => Stage sig m => E.Stage -> m E.Stage
-normalizeStage (Object rep) = Object <$> normalizeRep rep
-normalizeStage Meta = pure Meta
-normalizeStage (SUniVar gl) = do
-  uvs <- unStageUVs <$> ask
-  case uvs ! gl of
-    Just s -> normalizeStage s
-    Nothing -> error "Unsolved stage UV"
-
-normalizeRep :: HasCallStack => Stage sig m => RuntimeRep -> m RuntimeRep
-normalizeRep (RUniVar gl) = do
-  uvs <- unRepUVs <$> ask
-  case uvs ! gl of
-    Just rep -> normalizeRep rep
-    Nothing -> error "Unsolved rep UV"
-normalizeRep (Prod reps) = Prod <$> traverse normalizeRep reps
-normalizeRep (Sum reps) = Sum <$> traverse normalizeRep reps
-normalizeRep rep = pure rep
+stageStage :: HasCallStack => Stage sig m => C.Stage -> m RuntimeRep
+stageStage = undefined
 
 stageDecl :: Stage sig m => C.Declaration -> m (Maybe O.Declaration)
 stageDecl (C.Fresh did _) = do

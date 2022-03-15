@@ -1,32 +1,13 @@
-RIGHT{([(SourcePos
-     {sourceName = "<TODO>",
-      sourceLine = Pos 2,
-      sourceColumn = Pos 25},
-   FailedUnify
-     (TypeType (Object Ptr)) (TypeType (Object Erased))),
-  (SourcePos
-     {sourceName = "<TODO>",
-      sourceLine = Pos 2,
-      sourceColumn = Pos 25},
-   FailedUnify
-     (TypeType (Object Ptr)) (TypeType (Object Erased)))],
- Just
-   (Letrec
-      [Thunk
-         (Id {unId = 0})
-         (Letrec
-            [Fun
-               (Id {unId = 1})
-               (fromList [Id {unId = 3}])
-               [Binding Erased (Id {unId = 2})]
-               (DoIO (PutChar 'y') (Val (Var (Id {unId = 3})))),
-             Fun
-               (Id {unId = 3})
-               (fromList [])
-               [Binding Erased (Id {unId = 4})]
-               (Val Unit)]
-            (Let
-               []
-               (DoIO (PutChar 'x') (Val (Var (Id {unId = 1}))))))]
-      (Val (Var (Id {unId = 0})))))
-}
+ELAB ERRORS
+[(SourcePos
+    {sourceName = "<TODO>",
+     sourceLine = Pos 2,
+     sourceColumn = Pos 25},
+  FailedUnify
+    (TypeType (Object Ptr)) (TypeType (Object Erased))),
+ (SourcePos
+    {sourceName = "<TODO>",
+     sourceLine = Pos 2,
+     sourceColumn = Pos 25},
+  FailedUnify
+    (TypeType (Object Ptr)) (TypeType (Object Erased)))]

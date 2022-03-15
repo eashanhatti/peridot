@@ -24,7 +24,7 @@ import Data.GADT.Compare
 import Data.Type.Equality
 import Data.Hashable
 import GHC.Generics hiding (Constructor, C)
-import Normalization hiding (eval)
+import Normalization hiding (eval, unTypeUVs, unStageUVs)
 import Normalization qualified as Norm
 import Unification qualified as Uni
 import Numeric.Natural
@@ -41,12 +41,12 @@ data QueryState = QueryState
   , unPredecls :: Map Id (AllState, Predeclaration)
   , unNextUV :: Global
   , unTypeUVs :: Map Global (Maybe N.Term)
-  , unStageUVs :: Map Global (Maybe Stage)
+  , unStageUVs :: Map Global (Maybe N.Stage)
   , unRepUVs :: Map Global (Maybe RuntimeRep)
   , unErrors :: [(SourcePos, Error)] }
 
 instance Show QueryState where
-  show (QueryState _ _ _ _ _ _ errs) = show errs
+  show (QueryState _ _ _ tuvs suvs ruvs errs) = show (tuvs, suvs, ruvs, errs)
 
 data Error
   = TooManyParams
@@ -57,20 +57,19 @@ data Error
 
 type Query sig m = Has (State QueryState) sig m
 
-data AllState = AllState ElabState ElabContext NormState NormContext
+data AllState = AllState ElabState ElabContext NormContext
   deriving (Show)
 
 type C m a =
   ReaderC
     NormContext
-    (StateC NormState (ReaderC ElabContext (StateC ElabState m)))
+      (ReaderC ElabContext (StateC ElabState m))
     a
 
 restore :: Query sig m => AllState -> C m a -> m a
-restore (AllState es ec ns nc) act =
+restore (AllState es ec nc) act =
   evalState es $
   runReader ec $
-  evalState ns $
   runReader nc $
   act
 
@@ -163,12 +162,11 @@ withPos pos = local (\ctx -> ctx { unSourcePos = pos })
 withDecls :: forall sig m a. Elab sig m => [DeclarationAst] -> m a -> m a
 withDecls decls act = do
   elabState <- get
-  normState <- get
   elabContext <- ask
   normContext <- ask
   let
     bindings' = toBindings decls `union` unBindings elabContext
-    allState = AllState elabState (elabContext { unBindings = bindings' }) normState normContext
+    allState = AllState elabState (elabContext { unBindings = bindings' }) normContext
 
     toBindings :: [DeclarationAst] -> Map Name Binding
     toBindings [] = mempty
@@ -214,21 +212,13 @@ freshTypeUV = do
     , unNextUV = unNextUV state + 1 })
   pure (N.UniVar (unNextUV state))
 
-freshStageUV :: Elab sig m => m Stage
+freshStageUV :: Elab sig m => m N.Stage
 freshStageUV = do
   state <- get
   put (state
     { unStageUVs = insert (unNextUV state) Nothing (unStageUVs state)
     , unNextUV = unNextUV state + 1 })
-  pure (SUniVar (unNextUV state))
-
-freshRepUV :: Elab sig m => m RuntimeRep
-freshRepUV = do
-  state <- get
-  put (state
-    { unRepUVs = insert (unNextUV state) Nothing (unRepUVs state)
-    , unNextUV = unNextUV state + 1 })
-  pure (RUniVar (unNextUV state))
+  pure (N.SUniVar (unNextUV state))
 
 report :: Elab sig m => Error -> m ()
 report err = do
@@ -254,6 +244,6 @@ eval term = do
       filter f .
       DMap.toList $
       memoTable
-  NormContext (N.Env locals globals) <- ask
+  ctx@(unEnv -> N.Env locals globals) <- ask
   let vDefs = fromList ((map (\def -> (C.unId def, (N.Env locals (vDefs <> globals), Norm.definition def))) decls))
-  local (const (NormContext (N.Env locals (globals `union` vDefs)))) (Norm.eval term)
+  local (\ctx -> ctx { unEnv = N.Env locals (globals `union` vDefs) }) (Norm.eval term)

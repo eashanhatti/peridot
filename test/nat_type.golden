@@ -1,2 +1,15 @@
-RIGHT{([], Just (Letrec [] (Val Unit)))
-}
+STG
+((fromList [(Global {unGlobal = 9}, Just UnitType)],
+  fromList
+    [(Global {unGlobal = 1}, Just (Object Ptr)),
+     (Global {unGlobal = 4}, Just (Object Ptr)),
+     (Global {unGlobal = 6}, Just (Object Ptr)),
+     (Global {unGlobal = 8}, Just (Object Ptr))],
+  fromList
+    [(Global {unGlobal = 0}, Nothing),
+     (Global {unGlobal = 2}, Nothing),
+     (Global {unGlobal = 3}, Nothing),
+     (Global {unGlobal = 5}, Nothing),
+     (Global {unGlobal = 7}, Nothing)],
+  []),
+ Just (Letrec [] (Val Unit)))

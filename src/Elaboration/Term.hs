@@ -62,7 +62,8 @@ infer term = case term of
       Nothing -> errorTerm (UnboundVariable name)
   TermAst Univ -> do
     stage <- freshStageUV
-    pure (C.TypeType stage, N.TypeType stage)
+    cStage <- readbackStage False stage
+    pure (C.TypeType cStage, N.TypeType stage)
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
@@ -70,22 +71,33 @@ infer term = case term of
       pure (C.Let cDecls cBody, bodyTy)
   TermAst (Rule outTy inTy) -> do
     cTerm <- C.FunType Implicit <$> checkMetaType inTy <*> checkMetaType outTy
-    pure (cTerm, N.TypeType Meta)
+    pure (cTerm, N.TypeType N.Meta)
   TermAst (IOType ty) -> do
     cTy <- checkObjectType ty
-    pure (C.IOType cTy, N.TypeType (Object Ptr))
+    pure (C.IOType cTy, N.TypeType (N.Object N.RepIntroPtr))
   TermAst (IOPure term) -> do
     ty <- freshTypeUV
     cTerm <- check term ty
-    pure (C.IOIntro1 cTerm, N.IOType ty)
+    pure (C.IOIntroPure cTerm, N.IOType ty)
   TermAst (IOBind act k) -> do
     let inTy = opTy act
     outTy <- N.IOType <$> freshTypeUV
     outTyClo <- readbackWeak outTy >>= closureOf
     cK <- check k (N.FunType Explicit inTy outTyClo)
-    pure (C.IOIntro2 act cK, outTy)
-  TermAst UnitType -> pure (C.UnitType, N.TypeType (Object Erased))
+    pure (C.IOIntroBind act cK, outTy)
+  TermAst UnitType -> pure (C.UnitType, N.TypeType (N.Object N.RepIntroErased))
   TermAst Unit -> pure (C.UnitIntro, N.UnitType)
+  TermAst RepType -> pure (C.RepType, N.TypeType N.Meta)
+  TermAst PtrRep -> pure (C.RepIntroPtr, N.RepType)
+  TermAst LazyRep -> pure (C.RepIntroLazy, N.RepType)
+  TermAst WordRep -> pure (C.RepIntroWord, N.RepType)
+  TermAst (ProdRep rs) -> do
+    cRs <- traverse (flip check N.RepType) rs
+    pure (C.RepIntroProd cRs, N.RepType)
+  TermAst (SumRep rs) -> do
+    cRs <- traverse (flip check N.RepType) rs
+    pure (C.RepIntroSum cRs, N.RepType)
+  TermAst ErasedRep -> pure (C.RepIntroErased, N.RepType)
 
 opTy :: IOOperation -> N.Term
 opTy (PutChar _) = N.UnitType
@@ -96,12 +108,12 @@ checkType term = do
   check term (N.TypeType stage)
 
 checkMetaType :: Elab sig m => TermAst -> m C.Term
-checkMetaType term = check term (N.TypeType Meta)
+checkMetaType term = check term (N.TypeType N.Meta)
 
 checkObjectType :: Elab sig m => TermAst -> m C.Term
 checkObjectType term = do
-  rep <- freshRepUV
-  check term (N.TypeType (Object {-rep-}Ptr)) -- FIXME
+  rep <- freshTypeUV
+  check term (N.TypeType (N.Object rep)) -- FIXME
 
 declsIds :: [DeclarationAst] -> [Id]
 declsIds = concatMap go where

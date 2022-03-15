@@ -73,4 +73,11 @@ data Term
   | IOBind IOOperation TermAst
   | UnitType
   | Unit
+  | RepType
+  | PtrRep
+  | LazyRep
+  | WordRep
+  | ProdRep [TermAst]
+  | SumRep [TermAst]
+  | ErasedRep
   deriving (Show)
