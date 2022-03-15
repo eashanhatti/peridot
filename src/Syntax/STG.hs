@@ -5,12 +5,10 @@ import Data.Set qualified as Set
 
 data Declaration
   = Fun Id (Set.Set Id) [Binding] Term
-  | Thunk Id Term
   deriving (Show)
 
 unName :: Declaration -> Id
 unName (Fun name _ _ _) = name
-unName (Thunk name _) = name
 
 data Value
   = Var Id

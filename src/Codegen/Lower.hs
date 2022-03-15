@@ -45,7 +45,7 @@ lower O.UnitIntro = pure (L.Val L.Unit)
 lower O.UnitType = pure (L.Val L.UnitType)
 lower (O.TypeType (Object rep)) = pure (L.Val (L.Univ rep))
 lower (O.LocalVar ix) = L.Val <$> localVar ix
-lower (O.GlobalVar did) = L.Val <$> globalVar did
+lower (O.GlobalVar did) = flip L.App [] <$> globalVar did
 lower (O.Let decls body) = do
   addDecls decls
   L.Letrec <$> filterMapM lowerDecl decls <*> lower body
@@ -77,7 +77,8 @@ lowerDecl (O.Term _ sig def@(O.FunIntro _ _)) = Just <$> funDecl [] def
 lowerDecl (O.Term _ _ def) = do
   name <- freshId
   lDef <- scope (lower def)
-  pure (Just (L.Thunk name lDef))
+  vs <- freeVars lDef
+  pure (Just (L.Fun name vs [] lDef))
 lowerDecl (O.ObjectConstant _ _) = pure Nothing
 
 funDecl :: Lower sig m => [L.Binding] -> O.Term -> m L.Declaration
@@ -140,7 +141,6 @@ repOfTerm (L.Val (L.Univ _)) = pure Ptr
 
 repOfDecl :: L.Declaration -> RuntimeRep
 repOfDecl (L.Fun _ _ _ _) = Ptr
-repOfDecl (L.Thunk _ _) = Lazy
 
 filterMapM :: Monad m => (a -> m (Maybe b)) -> [a] -> m [b]
 filterMapM f [] = pure []
@@ -167,7 +167,6 @@ freeVars term = goTerm term mempty where
 
   goDecl :: Lower sig m => L.Declaration -> Set.Set Id -> m (Set.Set Id)
   goDecl (L.Fun _ _ _ body) bound = goTerm body bound
-  goDecl (L.Thunk _ body) bound = goTerm body bound
 
   goVal :: Lower sig m => L.Value -> Set.Set Id -> m (Set.Set Id)
   goVal (L.Var name) bound = do
