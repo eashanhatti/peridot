@@ -51,26 +51,35 @@ evalClosure clo = do
   NormContext env <- ask
   appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
 
-funIntros :: C.Term -> (C.Term -> C.Term)
-funIntros (C.FunType _ inTy outTy) = C.FunIntro inTy . funIntros outTy
-funIntros _ = id
+-- funIntros :: C.Term -> (C.Term -> C.Term)
+-- funIntros (C.MetaFunType _ _ outTy) = C.MetaFunIntro . funIntros outTy
+-- funIntros (C.ObjectFunType _ outTy) = C.ObjectFunIntro . funIntros outTy
+-- funIntros _ = id
 
 definition :: C.Declaration -> C.Term
-definition (C.MetaConstant did sig) = funIntros sig (C.MetaConstantIntro did)
-definition (C.ObjectConstant did sig) = funIntros sig (C.ObjectConstantIntro did)
-definition (C.Term _ _ def) = def
+definition (C.MetaConstant did sig) = undefined
+definition (C.ObjectConstant did _ sig) = undefined
+definition (C.Term _ _ _ def) = def
 definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"
 
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
-eval (C.FunType am inTy outTy) = N.FunType am <$> eval inTy <*> closureOf outTy
-eval (C.FunIntro ty body) = N.FunIntro <$> eval ty <*> closureOf body
-eval (C.FunElim lam arg) = do
+eval (C.MetaFunType am inTy outTy) = N.MetaFunType am <$> eval inTy <*> closureOf outTy
+eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
+eval (C.ObjectFunType inTy outTy) = N.ObjectFunType <$> eval inTy <*> closureOf outTy
+eval (C.ObjectFunIntro rep body) = N.ObjectFunIntro rep <$> closureOf body
+eval (C.ObjectFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
   case vLam of
-    N.FunIntro _ body -> appClosure body vArg
-    _ -> pure (N.FunElim vLam vArg)
+    N.ObjectFunIntro _ body -> appClosure body vArg
+    _ -> pure (N.ObjectFunElim vLam vArg)
+eval (C.MetaFunElim lam arg) = do
+  vLam <- eval lam
+  vArg <- eval arg
+  case vLam of
+    N.MetaFunIntro body -> appClosure body vArg
+    _ -> pure (N.MetaFunElim vLam vArg)
 eval (C.Let decls body) = do
   NormContext (N.Env locals globals) <- ask
   let vDefs = Map.fromList ((map (\def -> (C.unId def, (N.Env locals (vDefs <> globals), definition def))) decls))
@@ -101,15 +110,15 @@ entry ix = do
 type ShouldUnfold = Bool
 
 readback :: HasCallStack => Norm sig m => ShouldUnfold -> N.Term -> m C.Term
-readback unf (N.FunType am inTy outTy) = C.FunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
-readback unf (N.FunIntro ty body) = C.FunIntro <$> readback unf ty <*> (evalClosure body >>= readback unf)
+readback unf (N.MetaFunType am inTy outTy) = C.MetaFunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
+readback unf (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback unf)
+readback unf (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback unf lam <*> readback unf arg
 readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
 readback unf (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
 readback unf (N.TypeType s) = pure (C.TypeType s)
 readback unf (N.FreeVar (Level lvl)) = do
   NormContext env <- ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
-readback unf (N.FunElim lam arg) = C.FunElim <$> readback unf lam <*> readback unf arg
 readback True (N.TopVar _ env def) = local (const (NormContext env)) (eval def) >>= readback False
 readback False (N.TopVar did _ _) = pure (C.GlobalVar did)
 readback True (N.UniVar gl) = do

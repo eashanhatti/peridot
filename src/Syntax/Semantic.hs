@@ -21,8 +21,10 @@ withGlobal did env term (Env locals globals) = Env locals (insert did (env, term
 type Type = Term
 
 data Term
-  = FunType ApplyMethod Term Closure
-  | FunIntro Type Closure
+  = MetaFunType ApplyMethod Term Closure
+  | MetaFunIntro Closure
+  | ObjectFunType Term Closure
+  | ObjectFunIntro RuntimeRep Closure
   | MetaConstantIntro Id
   | ObjectConstantIntro Id
   | IOType Term
@@ -36,11 +38,15 @@ data Term
   | UniVar Global
   | FreeVar Level
   | TopVar Id Environment C.Term
-  | FunElim Term Term
+  | ObjectFunElim Term Term
+  | MetaFunElim Term Term
   deriving (Eq, Show)
 
 viewApp :: Term -> (Term, [Term])
-viewApp (FunElim lam arg) =
+viewApp (MetaFunElim lam arg) =
+  let (lam', args) = viewApp lam
+  in (lam, args ++ [arg])
+viewApp (ObjectFunElim lam arg) =
   let (lam', args) = viewApp lam
   in (lam, args ++ [arg])
 viewApp e = (e, [])
