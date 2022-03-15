@@ -12,8 +12,10 @@ RIGHT{([(SourcePos
      (TypeType (Object Ptr)) (TypeType (Object Erased)))],
  Just
    (Letrec
-      [Thunk
+      [Fun
          (Id {unId = 0})
+         (fromList [Id {unId = 1}, Id {unId = 3}])
+         []
          (Letrec
             [Fun
                (Id {unId = 1})
@@ -28,5 +30,5 @@ RIGHT{([(SourcePos
             (Let
                []
                (DoIO (PutChar 'x') (Val (Var (Id {unId = 1}))))))]
-      (Val (Var (Id {unId = 0})))))
+      (App (Var (Id {unId = 0})) [])))
 }

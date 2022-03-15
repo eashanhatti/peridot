@@ -124,6 +124,7 @@ repOf (funElims -> (O.ObjectConstantIntro did, _)) = do
 repOf O.UnitType = pure Erased
 repOf (O.IOType _) = pure Ptr
 repOf (O.TypeType _) = pure Ptr
+repOf e = error (show e)
 
 -- get rep from term
 repOfTerm :: HasCallStack => Lower sig m => L.Term -> m RuntimeRep

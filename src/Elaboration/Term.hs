@@ -61,8 +61,8 @@ infer term = case term of
         pure (C.GlobalVar did, ty)
       Nothing -> errorTerm (UnboundVariable name)
   TermAst Univ -> do
-    stage <- freshStageUV
-    pure (C.TypeType stage, N.TypeType stage)
+    -- stage <- freshStageUV
+    pure (C.TypeType (Object Ptr), N.TypeType (Object Ptr))
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
@@ -100,7 +100,7 @@ checkMetaType term = check term (N.TypeType Meta)
 
 checkObjectType :: Elab sig m => TermAst -> m C.Term
 checkObjectType term = do
-  rep <- freshRepUV
+  -- rep <- freshRepUV
   check term (N.TypeType (Object {-rep-}Ptr)) -- FIXME
 
 declsIds :: [DeclarationAst] -> [Id]
