@@ -76,7 +76,7 @@ restore (AllState es ec ns nc) act =
 
 data Key a where
   CheckDecl :: Id -> Key C.Declaration
-  DeclType :: Id -> Key C.Term
+  DeclType :: Id -> Key (C.Term, N.Term)
 
 
 instance GEq Key where

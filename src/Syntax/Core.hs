@@ -27,7 +27,7 @@ data Term
   = MetaFunType ApplyMethod Term Term
   | MetaFunIntro Term
   | MetaFunElim Term Term
-  | ObjectFunType Term Term
+  | ObjectFunType RuntimeRep Term Term
   | ObjectFunIntro RuntimeRep Term
   | ObjectFunElim Term Term
   | MetaConstantIntro Id

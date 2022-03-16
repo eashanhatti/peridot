@@ -66,7 +66,7 @@ definition (C.DElabError) = error "FIXME"
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
 eval (C.MetaFunType am inTy outTy) = N.MetaFunType am <$> eval inTy <*> closureOf outTy
 eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
-eval (C.ObjectFunType inTy outTy) = N.ObjectFunType <$> eval inTy <*> closureOf outTy
+eval (C.ObjectFunType rep inTy outTy) = N.ObjectFunType rep <$> eval inTy <*> closureOf outTy
 eval (C.ObjectFunIntro rep body) = N.ObjectFunIntro rep <$> closureOf body
 eval (C.ObjectFunElim lam arg) = do
   vLam <- eval lam

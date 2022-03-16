@@ -20,44 +20,54 @@ check term goal = do
 infer :: Elab sig m => TermAst -> m (C.Term, N.Term)
 infer term = case term of
   SourcePos term pos -> withPos pos (infer term)
-  TermAst (Lam (map unName -> names) body) -> do
+  TermAst (MetaLam (map unName -> names) body) -> do
     inTys <- traverse (const freshTypeUV) names
     cInTys <- traverse readbackWeak inTys
     outTy <- freshTypeUV
     cOutTy <- readbackWeak outTy
-    let ty = foldr (\inTy outTy -> C.FunType Explicit inTy outTy) cOutTy (tail cInTys)
-    vTy <- N.FunType Explicit (head inTys) <$> closureOf ty
+    let ty = foldr (\inTy outTy -> C.MetaFunType Explicit inTy outTy) cOutTy (tail cInTys)
+    vTy <- N.MetaFunType Explicit (head inTys) <$> closureOf ty
     cBody <- checkBody (zip names inTys) outTy
-    let lam = foldr (\inTy body -> C.FunIntro inTy body) cBody cInTys
+    let lam = foldr (\_ body -> C.MetaFunIntro body) cBody cInTys
     pure (lam, vTy)
     where
       checkBody :: Elab sig m => [(Name, N.Term)] -> N.Term -> m C.Term
       checkBody [] outTy = check body outTy
       checkBody ((name, inTy):params) outTy = bindLocal name inTy (checkBody params outTy)
-  TermAst (Pi (NameAst name) inTy outTy) -> do
-    univ <- N.TypeType <$> freshStageUV
-    cInTy <- check inTy univ
+  -- TermAst (ObjLam (map unName -> names) body) -> 
+  TermAst (MetaPi (NameAst name) inTy outTy) -> do
+    cInTy <- check inTy (N.TypeType Meta)
     vInTy <- eval cInTy
-    cOutTy <- bindLocal name vInTy (check outTy univ)
-    pure (C.FunType Explicit cInTy cOutTy, univ)
+    cOutTy <- bindLocal name vInTy (check outTy (N.TypeType Meta))
+    pure (C.MetaFunType Explicit cInTy cOutTy, N.TypeType Meta)
+  TermAst (ObjPi (NameAst name) inTy outTy) -> do
+    inTyRep <- freshRepUV
+    cInTy <- check inTy (N.TypeType (Object inTyRep))
+    vInTy <- eval cInTy
+    outTyRep <- freshRepUV
+    cOutTy <- bindLocal name vInTy (check outTy (N.TypeType (Object outTyRep)))
+    pure (C.ObjectFunType inTyRep cInTy cOutTy, N.TypeType (Object Ptr))
   TermAst (App lam args) -> do
     (cLam, lamTy) <- infer lam
-    (cArgs, outTy) <- checkArgs args lamTy
-    pure (foldl' (\lam arg -> C.FunElim lam arg) cLam cArgs, outTy)
-    where
-      checkArgs :: Elab sig m => [TermAst] -> N.Term -> m ([C.Term], N.Term)
-      checkArgs [] outTy = pure ([], outTy)
-      checkArgs (arg:args) (N.FunType _ inTy outTy) = do
-        cArg <- check arg inTy
-        vArg <- eval cArg
-        (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
-        pure (cArg:cArgs, outTy')
+    case lamTy of
+      N.ObjectFunType _ _ _ -> undefined
+      N.MetaFunType _ _ _ -> do
+        (cArgs, outTy) <- checkArgs args lamTy
+        pure (foldl' (\lam arg -> C.MetaFunElim lam arg) cLam cArgs, outTy)
+        where
+          checkArgs :: Elab sig m => [TermAst] -> N.Term -> m ([C.Term], N.Term)
+          checkArgs [] outTy = pure ([], outTy)
+          checkArgs (arg:args) (N.MetaFunType _ inTy outTy) = do
+            cArg <- check arg inTy
+            vArg <- eval cArg
+            (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
+            pure (cArg:cArgs, outTy')
   TermAst (Var name) -> do
     binding <- lookupBinding name
     case binding of
       Just (BLocal ix ty) -> pure (C.LocalVar ix, ty)
       Just (BGlobal did) -> do
-        ty <- ED.declType did >>= eval
+        ty <- fst <$> ED.declType did >>= eval
         pure (C.GlobalVar did, ty)
       Nothing -> errorTerm (UnboundVariable name)
   TermAst Univ -> do
@@ -69,39 +79,45 @@ infer term = case term of
       (cBody, bodyTy) <- infer body
       pure (C.Let cDecls cBody, bodyTy)
   TermAst (Rule outTy inTy) -> do
-    cTerm <- C.FunType Implicit <$> checkMetaType inTy <*> checkMetaType outTy
+    cTerm <- C.MetaFunType Implicit <$> checkMetaType' inTy <*> checkMetaType' outTy
     pure (cTerm, N.TypeType Meta)
   TermAst (IOType ty) -> do
-    cTy <- checkObjectType ty
+    cTy <- checkObjectType' ty
     pure (C.IOType cTy, N.TypeType (Object Ptr))
   TermAst (IOPure term) -> do
     ty <- freshTypeUV
     cTerm <- check term ty
     pure (C.IOIntro1 cTerm, N.IOType ty)
   TermAst (IOBind act k) -> do
-    let inTy = opTy act
+    let (inTy, rep) = opTy act
     outTy <- N.IOType <$> freshTypeUV
     outTyClo <- readbackWeak outTy >>= closureOf
-    cK <- check k (N.FunType Explicit inTy outTyClo)
+    cK <- check k (N.ObjectFunType rep inTy outTyClo)
     pure (C.IOIntro2 act cK, outTy)
   TermAst UnitType -> pure (C.UnitType, N.TypeType (Object Erased))
   TermAst Unit -> pure (C.UnitIntro, N.UnitType)
 
-opTy :: IOOperation -> N.Term
-opTy (PutChar _) = N.UnitType
+opTy :: IOOperation -> (N.Term, RuntimeRep)
+opTy (PutChar _) = (N.UnitType, Erased)
 
-checkType :: Elab sig m => TermAst -> m C.Term
+checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkType term = do
   stage <- freshStageUV
-  check term (N.TypeType stage)
+  (,) <$> check term (N.TypeType stage) <*> pure (N.TypeType stage)
 
-checkMetaType :: Elab sig m => TermAst -> m C.Term
-checkMetaType term = check term (N.TypeType Meta)
+checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
+checkMetaType term = (,) <$> check term (N.TypeType Meta) <*> pure (N.TypeType Meta)
 
-checkObjectType :: Elab sig m => TermAst -> m C.Term
+checkMetaType' :: Elab sig m => TermAst -> m C.Term
+checkMetaType' ty = fst <$> checkMetaType ty
+
+checkObjectType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkObjectType term = do
   -- rep <- freshRepUV
-  check term (N.TypeType (Object {-rep-}Ptr)) -- FIXME
+  (,) <$> check term (N.TypeType (Object {-rep-}Ptr)) <*> pure (N.TypeType (Object {-rep-}Ptr)) -- FIXME
+
+checkObjectType' :: Elab sig m => TermAst -> m C.Term
+checkObjectType' ty = fst <$> checkObjectType ty
 
 declsIds :: [DeclarationAst] -> [Id]
 declsIds = concatMap go where

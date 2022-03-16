@@ -23,7 +23,7 @@ type Type = Term
 data Term
   = MetaFunType ApplyMethod Term Closure
   | MetaFunIntro Closure
-  | ObjectFunType Term Closure
+  | ObjectFunType RuntimeRep Term Closure
   | ObjectFunIntro RuntimeRep Closure
   | MetaConstantIntro Id
   | ObjectConstantIntro Id
