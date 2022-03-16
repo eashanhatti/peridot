@@ -34,7 +34,21 @@ infer term = case term of
       checkBody :: Elab sig m => [(Name, N.Term)] -> N.Term -> m C.Term
       checkBody [] outTy = check body outTy
       checkBody ((name, inTy):params) outTy = bindLocal name inTy (checkBody params outTy)
-  -- TermAst (ObjLam (map unName -> names) body) -> 
+  TermAst (ObjLam (map unName -> names) body) -> do
+    inTys <- traverse (const freshTypeUV) names
+    inTyReps <- traverse (const freshRepUV) names
+    cInTys <- traverse readbackWeak inTys
+    outTy <- freshTypeUV
+    cOutTy <- readbackWeak outTy
+    let ty = foldr (\(rep, inTy) outTy -> C.ObjectFunType rep inTy outTy) cOutTy (zip (tail inTyReps) (tail cInTys))
+    vTy <- N.ObjectFunType (head inTyReps) (head inTys) <$> closureOf ty
+    cBody <- checkBody (zip names inTys) outTy
+    let lam = foldr (\rep body -> C.ObjectFunIntro rep body) cBody inTyReps
+    pure (lam, vTy)
+    where
+      checkBody :: Elab sig m => [(Name, N.Term)] -> N.Term -> m C.Term
+      checkBody [] outTy = check body outTy
+      checkBody ((name, inTy):params) outTy = bindLocal name inTy (checkBody params outTy)    
   TermAst (MetaPi (NameAst name) inTy outTy) -> do
     cInTy <- check inTy (N.TypeType Meta)
     vInTy <- eval cInTy
@@ -49,19 +63,20 @@ infer term = case term of
     pure (C.ObjectFunType inTyRep cInTy cOutTy, N.TypeType (Object Ptr))
   TermAst (App lam args) -> do
     (cLam, lamTy) <- infer lam
-    case lamTy of
-      N.ObjectFunType _ _ _ -> undefined
-      N.MetaFunType _ _ _ -> do
-        (cArgs, outTy) <- checkArgs args lamTy
-        pure (foldl' (\lam arg -> C.MetaFunElim lam arg) cLam cArgs, outTy)
-        where
-          checkArgs :: Elab sig m => [TermAst] -> N.Term -> m ([C.Term], N.Term)
-          checkArgs [] outTy = pure ([], outTy)
-          checkArgs (arg:args) (N.MetaFunType _ inTy outTy) = do
-            cArg <- check arg inTy
-            vArg <- eval cArg
-            (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
-            pure (cArg:cArgs, outTy')
+    (cArgs, outTy) <- checkArgs args lamTy
+    let
+      elim = case lamTy of
+        N.MetaFunType _ _ _ -> C.MetaFunElim
+        N.ObjectFunType _ _ _ -> C.ObjectFunElim
+    pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
+    where
+      checkArgs :: Elab sig m => [TermAst] -> N.Term -> m ([C.Term], N.Term)
+      checkArgs [] outTy = pure ([], outTy)
+      checkArgs (arg:args) (N.FunType inTy outTy) = do
+        cArg <- check arg inTy
+        vArg <- eval cArg
+        (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
+        pure (cArg:cArgs, outTy')
   TermAst (Var name) -> do
     binding <- lookupBinding name
     case binding of

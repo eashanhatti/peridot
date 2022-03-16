@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 module Syntax.Semantic where
 
 import Syntax.Extra
@@ -41,6 +42,13 @@ data Term
   | ObjectFunElim Term Term
   | MetaFunElim Term Term
   deriving (Eq, Show)
+
+viewFunType :: Term -> Maybe (Term, Closure)
+viewFunType (MetaFunType _ inTy outTy) = Just (inTy, outTy)
+viewFunType (ObjectFunType _ inTy outTy) = Just (inTy, outTy)
+viewFunType _ = Nothing
+
+pattern FunType inTy outTy <- (viewFunType -> Just (inTy, outTy))
 
 viewApp :: Term -> (Term, [Term])
 viewApp (MetaFunElim lam arg) =

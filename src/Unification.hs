@@ -89,7 +89,7 @@ unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (MetaFunIntro body1) (MetaFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (ObjectFunType rep1 inTy1 outTy1) (ObjectFunType rep2 inTy2 outTy2) = do
-  unifyReps rep1 rep2
+  unifyReps rep1 rep2 -- FIXME?
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (ObjectFunIntro _ body1) (ObjectFunIntro _ body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
