@@ -24,15 +24,13 @@ data MetaEntry = Solved N.Term | Unsolved
 
 data NormContext = NormContext
   { unEnv :: N.Environment
-  , unVisited :: Set.Set Global }
-  deriving (Show)
-
-data NormState = NormState (Map.Map Global MetaEntry)
+  , unVisited :: Set.Set Global
+  , unRepUVs :: Map.Map Global RuntimeRep
+  , unTypeUVs :: Map.Map Global N.Term }
   deriving (Show)
 
 type Norm sig m =
-  ( Has (Reader NormContext) sig m
-  , Has (State NormState) sig m )
+  ( Has (Reader NormContext) sig m )
 
 bind :: HasCallStack => Norm sig m => m a -> m a
 bind = local (\ctx -> ctx { unEnv = N.withLocal (N.FreeVar (fromIntegral (N.envSize (unEnv ctx)))) (unEnv ctx) })
@@ -46,7 +44,7 @@ closureOf term = do
   pure (N.Closure env term)
 
 appClosure :: HasCallStack => Norm sig m => N.Closure -> N.Term -> m N.Term
-appClosure (N.Closure env body) arg = local (\ctx -> ctx { unEnv = N.withLocal arg (unEnv ctx) }) (eval body)
+appClosure (N.Closure env body) arg = local (\ctx -> ctx { unEnv = N.withLocal arg env }) (eval body)
 
 evalClosure :: HasCallStack => Norm sig m => N.Closure -> m N.Term
 evalClosure clo = do
@@ -118,6 +116,7 @@ readback unf (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback unf lam <*> re
 readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
 readback unf (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
 readback unf (N.TypeType s) = pure (C.TypeType s)
+readback True (N.TypeType (Object rep)) = C.TypeType . Object <$> readbackRep rep
 readback unf (N.FreeVar (Level lvl)) = do
   env <- unEnv <$> ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
@@ -128,10 +127,10 @@ readback True (N.UniVar gl) = do
   if Set.member gl visited then
     pure (C.UniVar gl)
   else do
-    NormState metas <- get
-    case metas ! gl of
-      Solved sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (readback True sol)
-      Unsolved -> pure (C.UniVar gl)
+    uvs <- unTypeUVs <$> ask
+    case Map.lookup gl uvs of
+      Just sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (readback True sol)
+      Nothing -> pure (C.UniVar gl)
 readback False (N.UniVar gl) = pure (C.UniVar gl)
 readback unf (N.IOType ty) = C.IOType <$> readback unf ty
 readback unf (N.IOIntro1 term) = C.IOIntro1 <$> readback unf term
@@ -139,6 +138,17 @@ readback unf (N.IOIntro2 act k) = C.IOIntro2 act <$> readback unf k
 readback unf N.UnitType = pure C.UnitType
 readback unf N.UnitIntro = pure C.UnitIntro
 readback unf N.EElabError = pure C.EElabError
+
+readbackRep :: HasCallStack => Norm sig m => RuntimeRep -> m RuntimeRep
+readbackRep (RUniVar gl) = do
+  visited <- unVisited <$> ask
+  if Set.member gl visited then
+    pure (RUniVar gl)
+  else do
+    uvs <- unRepUVs <$> ask
+    case Map.lookup gl uvs of
+      Just sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (readbackRep sol)
+      Nothing -> pure (RUniVar gl)
 
 evalTop :: HasCallStack => Norm sig m => N.Environment -> C.Term -> m N.Term
 evalTop env term = local (\ctx -> ctx { unEnv = env }) (eval term)

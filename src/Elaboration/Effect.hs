@@ -11,12 +11,13 @@ import Control.Algebra(Has, Algebra)
 import Data.Set(Set, singleton)
 import Data.Set qualified as Set
 import Data.Map(Map, insert, union, fromList, lookup)
+import Data.Map qualified as Map
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Surface
 import Syntax.Extra hiding(unId)
 import Data.Some
-import Data.Maybe(isJust, fromMaybe)
+import Data.Maybe(isJust, fromMaybe, fromJust)
 import Data.Dependent.HashMap qualified as DMap
 import Data.Dependent.HashMap(DHashMap)
 import Data.Functor.Identity
@@ -24,7 +25,7 @@ import Data.GADT.Compare
 import Data.Type.Equality
 import Data.Hashable
 import GHC.Generics hiding (Constructor, C)
-import Normalization hiding (eval)
+import Normalization hiding (eval, unTypeUVs, unRepUVs, readback)
 import Normalization qualified as Norm
 import Unification qualified as Uni
 import Numeric.Natural
@@ -57,20 +58,19 @@ data Error
 
 type Query sig m = Has (State QueryState) sig m
 
-data AllState = AllState ElabState ElabContext NormState NormContext
+data AllState = AllState ElabState ElabContext NormContext
   deriving (Show)
 
 type C m a =
   ReaderC
     NormContext
-    (StateC NormState (ReaderC ElabContext (StateC ElabState m)))
+      (ReaderC ElabContext (StateC ElabState m))
     a
 
 restore :: Query sig m => AllState -> C m a -> m a
-restore (AllState es ec ns nc) act =
+restore (AllState es ec nc) act =
   evalState es $
   runReader ec $
-  evalState ns $
   runReader nc $
   act
 
@@ -163,12 +163,11 @@ withPos pos = local (\ctx -> ctx { unSourcePos = pos })
 withDecls :: forall sig m a. Elab sig m => [DeclarationAst] -> m a -> m a
 withDecls decls act = do
   elabState <- get
-  normState <- get
   elabContext <- ask
   normContext <- ask
   let
     bindings' = toBindings decls `union` unBindings elabContext
-    allState = AllState elabState (elabContext { unBindings = bindings' }) normState normContext
+    allState = AllState elabState (elabContext { unBindings = bindings' }) normContext
 
     toBindings :: [DeclarationAst] -> Map Name Binding
     toBindings [] = mempty
@@ -257,3 +256,18 @@ eval term = do
   ctx@(unEnv -> N.Env locals globals) <- ask
   let vDefs = fromList ((map (\def -> (C.unId def, (N.Env locals (vDefs <> globals), Norm.definition def))) decls))
   local (\ctx -> ctx { unEnv = N.Env locals (globals `union` vDefs) }) (Norm.eval term)
+
+readback :: Elab sig m => Bool -> N.Term -> m C.Term
+readback unf term = do
+  typeUVs <- unTypeUVs <$> get
+  repUVs <- unRepUVs <$> get
+  local (\ctx -> ctx
+    { Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
+    , Norm.unRepUVs = fmap fromJust . Map.filter isJust $ repUVs })
+    (Norm.readback unf term)
+
+readbackFull :: Elab sig m => N.Term -> m C.Term
+readbackFull = readback True
+
+readbackWeak :: Elab sig m => N.Term -> m C.Term
+readbackWeak = readback False

@@ -7,7 +7,7 @@ import Syntax.Extra hiding(unId)
 import Elaboration.Effect
 import Elaboration.Decl qualified as ED
 import Control.Monad
-import Normalization hiding(eval)
+import Normalization hiding(eval, readbackWeak)
 import Data.Foldable(foldl', foldr, foldrM)
 import Debug.Trace
 

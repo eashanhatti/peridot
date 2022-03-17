@@ -7,6 +7,7 @@ import Control.Carrier.State.Strict(runState)
 import Syntax.Semantic
 import Syntax.Extra
 import Normalization
+import Data.Set qualified as Set
 import Data.Map(Map)
 import Data.Map qualified as Map
 import Control.Monad
@@ -33,17 +34,23 @@ type Unify sig m =
 putRepSol :: Unify sig m => Global -> RuntimeRep -> m ()
 putRepSol gl sol = do
   sols <- get
-  put (sols { unRepSols = Map.insert gl sol (unRepSols sols) })
+  case Map.lookup gl (unRepSols sols) of
+    Nothing -> put (sols { unRepSols = Map.insert gl sol (unRepSols sols) })
+    Just sol' -> pure ()-- unifyReps sol sol'
 
 putStageSol :: Unify sig m => Global -> Stage -> m ()
 putStageSol gl sol = do
   sols <- get
-  put (sols { unStageSols = Map.insert gl sol (unStageSols sols) })
+  case Map.lookup gl (unStageSols sols) of
+    Nothing -> put (sols { unStageSols = Map.insert gl sol (unStageSols sols) })
+    Just sol' -> pure ()-- unifyStages sol sol'
 
 putTypeSol :: Unify sig m => Global -> Term -> m ()
 putTypeSol gl sol = do
   sols <- get
-  put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
+  case Map.lookup gl (unTypeSols sols) of
+    Nothing -> put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
+    Just sol' -> pure ()-- unify' sol sol'
 
 bind2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c
 bind2 f act1 act2 = do
@@ -53,11 +60,11 @@ bind2 f act1 act2 = do
 
 unifyReps :: Unify sig m => RuntimeRep -> RuntimeRep -> m ()
 unifyReps (RUniVar gl1) (RUniVar gl2) | gl1 == gl2 = pure ()
-unifyReps rep1@(RUniVar gl1) rep2@(RUniVar gl2) = do
-  putRepSol gl1 rep2
-  putRepSol gl2 rep1
-unifyReps (RUniVar gl) rep = putRepSol gl rep
-unifyReps rep (RUniVar gl) = putRepSol gl rep
+unifyReps rep1@(RUniVar gl1) rep2@(RUniVar gl2) = pure ()--do
+  -- putRepSol gl1 rep2
+  -- putRepSol gl2 rep1
+unifyReps (RUniVar gl) rep = trace (if gl == 3 then "HEY _____ " ++ show rep else "") $ putRepSol gl rep
+unifyReps rep (RUniVar gl) = trace (if gl == 3 then "HEY _____ " ++ show rep else "") $ putRepSol gl rep
 unifyReps Ptr Ptr = pure ()
 unifyReps Lazy Lazy = pure ()
 unifyReps Word Word = pure ()
@@ -68,9 +75,9 @@ unifyReps _ _ = throwError ()
 
 unifyStages :: Unify sig m => Stage -> Stage -> m ()
 unifyStages (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
-unifyStages s1@(SUniVar gl1) s2@(SUniVar gl2) = do
-  putStageSol gl1 s2
-  putStageSol gl2 s1
+unifyStages s1@(SUniVar gl1) s2@(SUniVar gl2) = pure ()--do
+  -- putStageSol gl1 s2
+  -- putStageSol gl2 s1
 unifyStages (SUniVar gl) s = putStageSol gl s
 unifyStages s (SUniVar gl) = putStageSol gl s
 unifyStages Meta Meta = pure ()
@@ -79,9 +86,9 @@ unifyStages _ _ = throwError ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unify' (UniVar gl1) (UniVar gl2) | gl1 == gl2 = pure ()
-unify' term1@(UniVar gl1) term2@(UniVar gl2) = do
-  putTypeSol gl1 term2
-  putTypeSol gl2 term1
+unify' term1@(UniVar gl1) term2@(UniVar gl2) = pure ()--do
+  -- putTypeSol gl1 term2
+  -- putTypeSol gl2 term1
 unify' (UniVar gl) term = putTypeSol gl term
 unify' term (UniVar gl) = putTypeSol gl term
 unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am2 = do

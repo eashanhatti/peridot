@@ -1,10 +1,10 @@
 let {
-	lazy print_xy : (IO Unit) =
+	'val print_xy : (IO Unit) =
 		(bind
 			(print x)
-			\ _ { (bind
+			'\ _ { (bind
 				(print y)
-				\ _ { (pure unit) })});
+				'\ _ { (pure unit) })});
 } in {
 	print_xy
 }
