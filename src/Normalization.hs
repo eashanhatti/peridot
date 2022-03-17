@@ -9,7 +9,7 @@ import Control.Carrier.Reader
 import Control.Effect.State
 import Control.Carrier.State.Strict
 import Control.Algebra(Has, run)
-import Data.Map(Map)
+import Data.Set qualified as Set
 import Data.Map qualified as Map
 import Data.List(foldl')
 import Data.Functor.Identity
@@ -22,10 +22,12 @@ import Debug.Trace
 data MetaEntry = Solved N.Term | Unsolved
   deriving (Show)
 
-data NormContext = NormContext N.Environment
+data NormContext = NormContext
+  { unEnv :: N.Environment
+  , unVisited :: Set.Set Global }
   deriving (Show)
 
-data NormState = NormState (Map Global MetaEntry)
+data NormState = NormState (Map.Map Global MetaEntry)
   deriving (Show)
 
 type Norm sig m =
@@ -33,22 +35,22 @@ type Norm sig m =
   , Has (State NormState) sig m )
 
 bind :: HasCallStack => Norm sig m => m a -> m a
-bind = local (\(NormContext env) -> NormContext (N.withLocal (N.FreeVar (fromIntegral (N.envSize env))) env))
+bind = local (\ctx -> ctx { unEnv = N.withLocal (N.FreeVar (fromIntegral (N.envSize (unEnv ctx)))) (unEnv ctx) })
 
 define :: HasCallStack => Norm sig m => N.Term -> m a -> m a
-define def = local (\(NormContext env) -> NormContext (N.withLocal def env))
+define def = local (\ctx -> ctx { unEnv = N.withLocal def (unEnv ctx) })
 
 closureOf :: HasCallStack => Norm sig m => C.Term -> m N.Closure
 closureOf term = do
-  NormContext env <- ask
+  env <- unEnv <$> ask
   pure (N.Closure env term)
 
 appClosure :: HasCallStack => Norm sig m => N.Closure -> N.Term -> m N.Term
-appClosure (N.Closure env body) arg = local (const (NormContext (N.withLocal arg env))) (eval body)
+appClosure (N.Closure env body) arg = local (\ctx -> ctx { unEnv = N.withLocal arg (unEnv ctx) }) (eval body)
 
 evalClosure :: HasCallStack => Norm sig m => N.Closure -> m N.Term
 evalClosure clo = do
-  NormContext env <- ask
+  env <- unEnv <$> ask
   appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
 
 -- funIntros :: C.Term -> (C.Term -> C.Term)
@@ -81,15 +83,15 @@ eval (C.MetaFunElim lam arg) = do
     N.MetaFunIntro body -> appClosure body vArg
     _ -> pure (N.MetaFunElim vLam vArg)
 eval (C.Let decls body) = do
-  NormContext (N.Env locals globals) <- ask
+  N.Env locals globals <- unEnv <$> ask
   let vDefs = Map.fromList ((map (\def -> (C.unId def, (N.Env locals (vDefs <> globals), definition def))) decls))
-  local (const (NormContext (N.Env locals (globals <> vDefs)))) (eval body)
+  local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (eval body)
 eval (C.MetaConstantIntro did) = pure (N.MetaConstantIntro did)
 eval (C.ObjectConstantIntro did) = pure (N.ObjectConstantIntro did)
 eval (C.TypeType s) = pure (N.TypeType s)
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) = do
-  NormContext (N.Env _ ((! did) -> (env, term))) <- ask
+  N.Env _ ((! did) -> (env, term)) <- unEnv <$> ask
   pure (N.TopVar did env term)
 eval (C.UniVar gl) = pure (N.UniVar gl)
 eval (C.IOType ty) = N.IOType <$> eval ty
@@ -101,7 +103,7 @@ eval C.EElabError = pure N.EElabError
 
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
 entry ix = do
-  NormContext (N.Env locals _) <- ask
+  N.Env locals _ <- unEnv <$> ask
   if fromIntegral ix >= length locals then
     error $ "`entry`:" ++ shower (ix, locals)
   else 
@@ -117,15 +119,19 @@ readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
 readback unf (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
 readback unf (N.TypeType s) = pure (C.TypeType s)
 readback unf (N.FreeVar (Level lvl)) = do
-  NormContext env <- ask
+  env <- unEnv <$> ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
-readback True (N.TopVar _ env def) = local (const (NormContext env)) (eval def) >>= readback False
+readback True (N.TopVar _ env def) = local (\ctx -> ctx { unEnv = env }) (eval def) >>= readback False
 readback False (N.TopVar did _ _) = pure (C.GlobalVar did)
 readback True (N.UniVar gl) = do
-  NormState metas <- get
-  case metas ! gl of
-    Solved sol -> readback True sol
-    Unsolved -> pure (C.UniVar gl)
+  visited <- unVisited <$> ask
+  if Set.member gl visited then
+    pure (C.UniVar gl)
+  else do
+    NormState metas <- get
+    case metas ! gl of
+      Solved sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (readback True sol)
+      Unsolved -> pure (C.UniVar gl)
 readback False (N.UniVar gl) = pure (C.UniVar gl)
 readback unf (N.IOType ty) = C.IOType <$> readback unf ty
 readback unf (N.IOIntro1 term) = C.IOIntro1 <$> readback unf term
@@ -135,7 +141,7 @@ readback unf N.UnitIntro = pure C.UnitIntro
 readback unf N.EElabError = pure C.EElabError
 
 evalTop :: HasCallStack => Norm sig m => N.Environment -> C.Term -> m N.Term
-evalTop env term = local (const (NormContext env)) (eval term)
+evalTop env term = local (\ctx -> ctx { unEnv = env }) (eval term)
 
 readbackWeak :: HasCallStack => Norm sig m => N.Term -> m C.Term
 readbackWeak = readback False
@@ -146,6 +152,6 @@ readbackFull = readback True
 normalize :: HasCallStack => Norm sig m => N.Term -> m N.Term
 normalize = readbackFull >=> eval
 
-withGlobals :: Norm sig m => Map Id (N.Environment, C.Term) -> m a -> m a
+withGlobals :: Norm sig m => Map.Map Id (N.Environment, C.Term) -> m a -> m a
 withGlobals globals =
-  local (\(NormContext (N.Env locals globals')) -> NormContext (N.Env locals (globals <> globals')))
+  local (\ctx@(unEnv -> N.Env locals globals') -> ctx { unEnv = N.Env locals (globals <> globals') })

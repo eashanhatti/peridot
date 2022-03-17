@@ -53,9 +53,9 @@ bind2 f act1 act2 = do
 
 unifyReps :: Unify sig m => RuntimeRep -> RuntimeRep -> m ()
 unifyReps (RUniVar gl1) (RUniVar gl2) | gl1 == gl2 = pure ()
--- unifyReps rep1@(RUniVar gl1) rep2@(RUniVar gl2) = do
---   putRepSol gl1 rep2
---   putRepSol gl2 rep1
+unifyReps rep1@(RUniVar gl1) rep2@(RUniVar gl2) = do
+  putRepSol gl1 rep2
+  putRepSol gl2 rep1
 unifyReps (RUniVar gl) rep = putRepSol gl rep
 unifyReps rep (RUniVar gl) = putRepSol gl rep
 unifyReps Ptr Ptr = pure ()
@@ -68,9 +68,9 @@ unifyReps _ _ = throwError ()
 
 unifyStages :: Unify sig m => Stage -> Stage -> m ()
 unifyStages (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
--- unifyStages s1@(SUniVar gl1) s2@(SUniVar gl2) = do
---   putStageSol gl1 s2
---   putStageSol gl2 s1
+unifyStages s1@(SUniVar gl1) s2@(SUniVar gl2) = do
+  putStageSol gl1 s2
+  putStageSol gl2 s1
 unifyStages (SUniVar gl) s = putStageSol gl s
 unifyStages s (SUniVar gl) = putStageSol gl s
 unifyStages Meta Meta = pure ()
@@ -79,9 +79,9 @@ unifyStages _ _ = throwError ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unify' (UniVar gl1) (UniVar gl2) | gl1 == gl2 = pure ()
--- unify' term1@(UniVar gl1) term2@(UniVar gl2) = do
---   putTypeSol gl1 term2
---   putTypeSol gl2 term1
+unify' term1@(UniVar gl1) term2@(UniVar gl2) = do
+  putTypeSol gl1 term2
+  putTypeSol gl2 term1
 unify' (UniVar gl) term = putTypeSol gl term
 unify' term (UniVar gl) = putTypeSol gl term
 unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am2 = do
@@ -89,10 +89,12 @@ unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (MetaFunIntro body1) (MetaFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (ObjectFunType rep1 inTy1 outTy1) (ObjectFunType rep2 inTy2 outTy2) = do
-  unifyReps rep1 rep2 -- FIXME?
+  unifyReps rep1 rep2
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
-unify' (ObjectFunIntro _ body1) (ObjectFunIntro _ body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
+unify' (ObjectFunIntro rep1 body1) (ObjectFunIntro rep2 body2) = do
+  unifyReps rep1 rep2
+  bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (MetaConstantIntro did1) (MetaConstantIntro did2) | did1 == did2 = pure ()
 unify' (ObjectConstantIntro did1) (ObjectConstantIntro did2) | did1 == did2 = pure ()
 unify' (TypeType s1) (TypeType s2) = unifyStages s1 s2

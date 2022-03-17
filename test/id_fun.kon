@@ -3,8 +3,8 @@ let {
 		true  : Bool;
 		false : Bool;
 	};
-	lazy id : [A : Type] -> [_ : A] -> A = \A x { x };
-	lazy foo : Bool = <id Bool true>;
+	'val id : '[A : Type] -> '[_ : A] -> A = '\A x { x };
+	'val foo : Bool = <id Bool true>;
 } in {
 	(pure unit)
 }

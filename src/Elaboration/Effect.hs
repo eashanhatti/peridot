@@ -46,7 +46,7 @@ data QueryState = QueryState
   , unErrors :: [(SourcePos, Error)] }
 
 instance Show QueryState where
-  show (QueryState _ _ _ _ _ _ errs) = show errs
+  show (QueryState _ _ _ tuvs suvs ruvs errs) = show (tuvs, suvs, ruvs, errs)
 
 data Error
   = TooManyParams
@@ -254,6 +254,6 @@ eval term = do
       filter f .
       DMap.toList $
       memoTable
-  NormContext (N.Env locals globals) <- ask
+  ctx@(unEnv -> N.Env locals globals) <- ask
   let vDefs = fromList ((map (\def -> (C.unId def, (N.Env locals (vDefs <> globals), Norm.definition def))) decls))
-  local (const (NormContext (N.Env locals (globals `union` vDefs)))) (Norm.eval term)
+  local (\ctx -> ctx { unEnv = N.Env locals (globals `union` vDefs) }) (Norm.eval term)
