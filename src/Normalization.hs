@@ -26,7 +26,8 @@ data NormContext = NormContext
   { unEnv :: N.Environment
   , unVisited :: Set.Set Global
   , unRepUVs :: Map.Map Global RuntimeRep
-  , unTypeUVs :: Map.Map Global N.Term }
+  , unTypeUVs :: Map.Map Global N.Term
+  , unUVEqs :: Map.Map Global Global } -- FIXME? `Map Global (Set Global)`
   deriving (Show)
 
 type Norm sig m =
@@ -115,8 +116,8 @@ readback unf (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= re
 readback unf (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback unf lam <*> readback unf arg
 readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
 readback unf (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
-readback unf (N.TypeType s) = pure (C.TypeType s)
-readback True (N.TypeType (Object rep)) = C.TypeType . Object <$> readbackRep rep
+readback unf (N.TypeType Meta) = pure (C.TypeType Meta)
+readback True (N.TypeType (Object rep)) = C.TypeType . Object <$> normalizeRep rep
 readback unf (N.FreeVar (Level lvl)) = do
   env <- unEnv <$> ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
@@ -130,7 +131,11 @@ readback True (N.UniVar gl) = do
     uvs <- unTypeUVs <$> ask
     case Map.lookup gl uvs of
       Just sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (readback True sol)
-      Nothing -> pure (C.UniVar gl)
+      Nothing -> do
+        eqs <- unUVEqs <$> ask
+        case Map.lookup gl eqs of
+          Just gl' -> readback True (N.UniVar gl')
+          Nothing -> pure (C.UniVar gl)
 readback False (N.UniVar gl) = pure (C.UniVar gl)
 readback unf (N.IOType ty) = C.IOType <$> readback unf ty
 readback unf (N.IOIntro1 term) = C.IOIntro1 <$> readback unf term
@@ -139,16 +144,20 @@ readback unf N.UnitType = pure C.UnitType
 readback unf N.UnitIntro = pure C.UnitIntro
 readback unf N.EElabError = pure C.EElabError
 
-readbackRep :: HasCallStack => Norm sig m => RuntimeRep -> m RuntimeRep
-readbackRep (RUniVar gl) = do
+normalizeRep :: HasCallStack => Norm sig m => RuntimeRep -> m RuntimeRep
+normalizeRep (RUniVar gl) = do
   visited <- unVisited <$> ask
   if Set.member gl visited then
     pure (RUniVar gl)
   else do
     uvs <- unRepUVs <$> ask
     case Map.lookup gl uvs of
-      Just sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (readbackRep sol)
-      Nothing -> pure (RUniVar gl)
+      Just sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (normalizeRep sol)
+      Nothing -> do
+        eqs <- unUVEqs <$> ask
+        case Map.lookup gl eqs of
+          Just gl' -> normalizeRep (RUniVar gl')
+          Nothing -> pure (RUniVar gl)
 
 evalTop :: HasCallStack => Norm sig m => N.Environment -> C.Term -> m N.Term
 evalTop env term = local (\ctx -> ctx { unEnv = env }) (eval term)
