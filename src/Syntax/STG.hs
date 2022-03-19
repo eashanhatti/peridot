@@ -12,8 +12,7 @@ unName (Fun name _ _ _) = name
 
 data Value
   = Var Id
-  | Con Id [Value]
-  | Arrow Value Value
+  | Arrow Value
   | Unit
   | UnitType
   | IOType Value

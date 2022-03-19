@@ -27,26 +27,20 @@ data StageState = StageState
   , unNextUV :: Global
   , unGlobals :: Map.Map Id C.Term }
 
-data StageContext = StageContext
-  { unTypeUVs :: Map.Map Global (Maybe N.Term)
-  , unStageUVs :: Map.Map Global (Maybe E.Stage)
-  , unRepUVs :: Map.Map Global (Maybe RuntimeRep) }
-
 type Stage sig m =
   ( Has NonDet sig m
   , Alternative m
   , Has (State StageState) sig m
-  , Has (Reader StageContext) sig m
   , Norm sig m )
 
 stage :: HasCallStack => Stage sig m => C.Term -> m O.Term
-stage (C.FunType Explicit inTy outTy) = O.FunType <$> stage inTy <*> stage outTy
-stage (C.FunIntro ty body) = O.FunIntro <$> stage ty <*> stage body
-stage (C.FunElim lam arg) = O.FunElim <$> stage lam <*> stage arg
+stage (C.ObjectFunType _ inTy outTy _) = O.FunType <$> stage inTy <*> stage outTy
+stage (C.ObjectFunIntro rep body) = O.FunIntro <$> normalizeRep rep <*> stage body
+stage (C.ObjectFunElim lam arg rep) = O.FunElim <$> stage lam <*> stage arg <*> normalizeRep rep
 stage (C.IOType ty) = O.IOType <$> stage ty
-stage (C.IOIntro1 term) = O.IOIntro1 <$> stage term
-stage (C.IOIntro2 act k) = O.IOIntro2 act <$> stage k
-stage (C.TypeType s) = O.TypeType <$> normalizeStage s
+stage (C.IOIntroPure term) = O.IOIntroPure <$> stage term
+stage (C.IOIntroBind act k) = O.IOIntroBind act <$> stage k
+stage (C.TypeType (Object rep)) = O.TypeType <$> normalizeRep rep
 stage (C.ObjectConstantIntro did) = pure (O.ObjectConstantIntro did)
 stage (C.LocalVar ix) = pure (O.LocalVar ix)
 stage (C.GlobalVar did) = do
@@ -58,30 +52,11 @@ stage (C.GlobalVar did) = do
 stage (C.Let decls body) = O.Let <$> fmap (map fromJust . filter isJust) (traverse stageDecl decls) <*> stage body
 stage (C.UniVar gl) = do
   uvs <- unTypeUVs <$> ask
-  case uvs ! gl of
+  case Map.lookup gl uvs of
     Just sol -> readbackWeak sol >>= stage
     Nothing -> error "Unsolved type UV"
 stage C.UnitType = pure O.UnitType
 stage C.UnitIntro = pure O.UnitIntro
-
-normalizeStage :: HasCallStack => Stage sig m => E.Stage -> m E.Stage
-normalizeStage (Object rep) = Object <$> normalizeRep rep
-normalizeStage Meta = pure Meta
-normalizeStage (SUniVar gl) = do
-  uvs <- unStageUVs <$> ask
-  case uvs ! gl of
-    Just s -> normalizeStage s
-    Nothing -> error "Unsolved stage UV"
-
-normalizeRep :: HasCallStack => Stage sig m => RuntimeRep -> m RuntimeRep
-normalizeRep (RUniVar gl) = do
-  uvs <- unRepUVs <$> ask
-  case uvs ! gl of
-    Just rep -> normalizeRep rep
-    Nothing -> error "Unsolved rep UV"
-normalizeRep (Prod reps) = Prod <$> traverse normalizeRep reps
-normalizeRep (Sum reps) = Sum <$> traverse normalizeRep reps
-normalizeRep rep = pure rep
 
 stageDecl :: Stage sig m => C.Declaration -> m (Maybe O.Declaration)
 stageDecl (C.Fresh did _) = do
@@ -96,13 +71,13 @@ stageDecl (C.Prove _ goal) = do
   globals <- unGlobals <$> get
   withGlobals (fmap ((,) (N.Env [] mempty)) globals) (eval goal >>= solve)
   pure Nothing
-stageDecl (C.ObjectConstant did sig) = Just . O.ObjectConstant did <$> stage sig
+stageDecl (C.ObjectConstant did rep sig) = Just <$> (O.ObjectConstant did <$> normalizeRep rep <*> stage sig)
 stageDecl (C.MetaConstant did sig) = do
   state <- get
   vSig <- eval sig
   put (state { unRules = vSig:(unRules state) })
   pure Nothing
-stageDecl (C.Term did sig def) = Just <$> (O.Term did <$> stage sig <*> stage def)
+stageDecl (C.Term did rep sig def) = Just <$> (O.Term did <$> normalizeRep rep <*> stage sig <*> stage def)
 
 solve :: Stage sig m => N.Term -> m ()
 solve goal = subgoals goal >>= traverse_ solve
@@ -112,7 +87,7 @@ subgoals goal = do
   rules <- unRules <$> get
   rule <- oneOf rules
   case rule of
-    N.FunType Implicit inTy outTy -> do
+    N.MetaFunType Implicit inTy outTy -> do
       sgs <- evalClosure outTy >>= subgoals
       pure (inTy:sgs)
     _ -> do

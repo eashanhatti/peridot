@@ -24,13 +24,13 @@ type Type = Term
 data Term
   = MetaFunType ApplyMethod Term Closure
   | MetaFunIntro Closure
-  | ObjectFunType RuntimeRep Term Closure
+  | ObjectFunType RuntimeRep Term Closure RuntimeRep
   | ObjectFunIntro RuntimeRep Closure
   | MetaConstantIntro Id
   | ObjectConstantIntro Id
   | IOType Term
-  | IOIntro1 Term -- `pure`
-  | IOIntro2 IOOperation Term -- `>>=`
+  | IOIntroPure Term -- `pure`
+  | IOIntroBind IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
   | TypeType Stage
@@ -39,13 +39,13 @@ data Term
   | UniVar Global
   | FreeVar Level
   | TopVar Id Environment C.Term
-  | ObjectFunElim Term Term
+  | ObjectFunElim Term Term RuntimeRep
   | MetaFunElim Term Term
   deriving (Eq, Show)
 
 viewFunType :: Term -> Maybe (Term, Closure)
 viewFunType (MetaFunType _ inTy outTy) = Just (inTy, outTy)
-viewFunType (ObjectFunType _ inTy outTy) = Just (inTy, outTy)
+viewFunType (ObjectFunType _ inTy outTy _) = Just (inTy, outTy)
 viewFunType _ = Nothing
 
 pattern FunType inTy outTy <- (viewFunType -> Just (inTy, outTy))
@@ -54,7 +54,7 @@ viewApp :: Term -> (Term, [Term])
 viewApp (MetaFunElim lam arg) =
   let (lam', args) = viewApp lam
   in (lam, args ++ [arg])
-viewApp (ObjectFunElim lam arg) =
+viewApp (ObjectFunElim lam arg _) =
   let (lam', args) = viewApp lam
   in (lam, args ++ [arg])
 viewApp e = (e, [])

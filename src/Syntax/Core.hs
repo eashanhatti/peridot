@@ -27,14 +27,14 @@ data Term
   = MetaFunType ApplyMethod Term Term
   | MetaFunIntro Term
   | MetaFunElim Term Term
-  | ObjectFunType RuntimeRep Term Term
+  | ObjectFunType RuntimeRep Term Term RuntimeRep
   | ObjectFunIntro RuntimeRep Term
-  | ObjectFunElim Term Term
+  | ObjectFunElim Term Term RuntimeRep
   | MetaConstantIntro Id
   | ObjectConstantIntro Id
   | IOType Term
-  | IOIntro1 Term -- `pure`
-  | IOIntro2 IOOperation Term -- `>>=`
+  | IOIntroPure Term -- `pure`
+  | IOIntroBind IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
   | TypeType Stage

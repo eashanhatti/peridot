@@ -14,131 +14,124 @@ import GHC.Stack
 import Extra
 
 data LowerState = LowerState
-  { unBindingReps :: Map.Map Id RuntimeRep -- reps from bound names
-  , unTypeReps :: Map.Map Id RuntimeRep -- reps from type decl names - how the type's values are represented
-  , unDecls :: [([L.Declaration], [(L.Binding, L.Term)])]
+  { unDecls :: [([L.Declaration], [(L.Binding, L.Term)])]
   , unNextId :: Id
-  , unGlobals :: Map.Map Id Id }
+  , unThunks :: Set.Set Id }
 
 data LowerContext = LowerContext
-  { unLocals :: Map.Map Index Id }
+  { unLocals :: Map.Map Index Id
+  , unGlobals :: Map.Map Id Id
+  , unReps :: Map.Map Index RuntimeRep }
 
 type Lower sig m =
   ( Has (State LowerState) sig m
   , Has (Reader LowerContext) sig m)
 
 lower :: HasCallStack => Lower sig m => O.Term -> m L.Term
-lower (O.FunType inTy outTy) = L.Val <$> (L.Arrow <$> lowerBind inTy <*> lowerBind outTy)
-lower (funIntros -> (tys@(null -> False), body)) = do
+lower (O.FunType inTy outTy) = L.Val <$> (L.Arrow <$> lowerBind inTy)
+lower (funIntros -> (reps@(null -> False), body)) = do
   name <- freshId
-  bs <- traverse (\ty -> L.Binding <$> repOf ty <*> freshId) tys
-  lBody <- lower body
-  vs <- freeVars lBody
+  params <- traverse (const freshId) reps
+  let bs = map (\(rep, param) -> L.Binding rep param) (zip reps params)
+  lBody <- withLocals bs (lower body)
+  vs <- Set.difference <$> freeVars lBody <*> pure (Set.fromList params)
   L.Val <$> bindDecl (L.Fun name vs bs lBody)
-lower (con -> Just (did, args)) = L.Val <$> (L.Con did <$> traverse lowerBind args)
 lower (funElims -> (lam, args@(null -> False))) =
   scope (L.App <$> lowerBind lam <*> traverse lowerBind args)
 lower (O.IOType ty) = L.Val <$> (L.IOType <$> lowerBind ty)
-lower (O.IOIntro1 term) = lower term
-lower (O.IOIntro2 act k) = L.DoIO act <$> lower k
+lower (O.IOIntroPure term) = lower term
+lower (O.IOIntroBind act k) = L.DoIO act <$> lower k
 lower O.UnitIntro = pure (L.Val L.Unit)
 lower O.UnitType = pure (L.Val L.UnitType)
-lower (O.TypeType (Object rep)) = pure (L.Val (L.Univ rep))
+lower (O.TypeType rep) = pure (L.Val (L.Univ rep))
 lower (O.LocalVar ix) = L.Val <$> localVar ix
-lower (O.GlobalVar did) = flip L.App [] <$> globalVar did
-lower (O.Let decls body) = do
-  addDecls decls
-  L.Letrec <$> filterMapM lowerDecl decls <*> lower body
+lower (O.GlobalVar did) = do
+  thunks <- unThunks <$> get
+  if Set.member did thunks then
+    flip L.App [] <$> globalVar did
+  else
+    L.Val <$> globalVar did
+lower (O.Let decls body) = withDecls decls \gls -> L.Letrec <$> lowerDecls decls gls <*> lower body
+
+withDecls :: forall sig m a. Lower sig m => [O.Declaration] -> (Map.Map Id Id -> m a) -> m a
+withDecls decls act = go decls mempty where
+  go :: Lower sig m => [O.Declaration] -> Map.Map Id Id -> m a
+  go [] acc = act acc
+  go ((O.unId -> did):decls) acc = do
+    name <- freshId
+    local (\ctx -> ctx { unGlobals = Map.insert did name (unGlobals ctx) }) (go decls (Map.insert did name acc))
+
+lowerDecls :: Lower sig m => [O.Declaration] -> Map.Map Id Id -> m [L.Declaration]
+lowerDecls [] _ = pure []
+lowerDecls (O.Term did _ _ def@(O.FunIntro _ _) : decls) gls@((! did) -> name) = do
+  decl <- funDecl [] name def
+  (decl :) <$> lowerDecls decls gls
+lowerDecls (O.Term did _ _ def : decls) gls@((! did) -> name) = do
+  lDef <- scope (lower def)
+  vs <- freeVars lDef
+  modify (\st -> st { unThunks = Set.insert did (unThunks st) })
+  (L.Fun name vs [] lDef :) <$> lowerDecls decls gls
+lowerDecls (O.ObjectConstant _ _ _ : decls) gls = lowerDecls decls gls
+
+funDecl :: Lower sig m => [L.Binding] -> Id -> O.Term -> m L.Declaration
+funDecl bs name (O.FunIntro rep body) = do
+  param <- freshId
+  funDecl (bs ++ [L.Binding rep param]) name body
+funDecl bs name body = do
+  lBody <- withLocals bs (scope (lower body))
+  let params = map (\(L.Binding _ param) -> param) bs
+  vs <- Set.difference <$> freeVars lBody <*> pure (Set.fromList params)
+  pure (L.Fun name vs bs lBody)
 
 lowerBind :: HasCallStack => Lower sig m => O.Term -> m L.Value
-lowerBind = lower >=> bindTerm
+lowerBind term = do
+  lTerm <- lower term
+  rep <- repOf term
+  bindTerm lTerm rep
 
-con :: O.Term -> Maybe (Id, [O.Term])
-con (O.FunElim lam arg) = do
-  (did, args) <- con lam
-  pure (did, args ++ [arg])
-con (O.ObjectConstantIntro did) = pure (did, [])
-con _ = Nothing
+repOf :: HasCallStack => Lower sig m => O.Term -> m RuntimeRep
+repOf (O.FunType _ _) = pure Ptr
+repOf (O.FunIntro _ _) = pure Ptr
+repOf (O.FunElim _ _ rep) = pure rep
+repOf (O.IOType _) = pure Ptr
+repOf (O.IOIntroPure _) = pure Ptr
+repOf (O.IOIntroBind _ _) = pure Ptr
+repOf O.UnitType = pure Ptr
+repOf O.UnitIntro = pure Erased
+repOf (O.TypeType _) = pure Ptr
+repOf (O.LocalVar ix) = (! ix) <$> (unReps <$> ask)
+repOf (O.GlobalVar _) = pure Ptr
+
+withLocals :: Lower sig m => [L.Binding] -> m a -> m a
+withLocals [] act = act
+withLocals (L.Binding rep did : bs) act =
+  local
+    (\ctx -> ctx
+      { unReps = Map.insert 0 rep (Map.mapKeys (\k -> k + 1) (unReps ctx))
+      , unLocals = Map.insert 0 did (Map.mapKeys (\k -> k + 1) (unLocals ctx)) })
+    (withLocals bs act)
+
+withGlobals :: Lower sig m => [(Id, Id)] -> m a -> m a
+withGlobals [] act = act
+withGlobals ((did, name):ds) act = local (\ctx -> ctx { unGlobals = Map.insert did name (unGlobals ctx) }) (withGlobals ds act)
+-- con :: O.Term -> Maybe (Id, [O.Term])
+-- con (O.FunElim lam arg) = do
+--   (did, args) <- con lam
+--   pure (did, args ++ [arg])
+-- con (O.ObjectConstantIntro did) = pure (did, [])
+-- con _ = Nothing
 
 funElims :: O.Term -> (O.Term, [O.Term])
-funElims (O.FunElim lam arg) =
+funElims (O.FunElim lam arg _) =
   let (lam', args) = funElims lam
   in (lam', args ++ [arg])
 funElims lam = (lam, [])
 
-funIntros :: O.Term -> ([O.Type], O.Term)
-funIntros (O.FunIntro ty body) =
-  let (tys, body') = funIntros body
-  in (ty:tys, body')
-funIntros ty = ([], ty)
-
-lowerDecl :: Lower sig m => O.Declaration -> m (Maybe L.Declaration)
-lowerDecl (O.Term _ sig def@(O.FunIntro _ _)) = Just <$> funDecl [] def
-lowerDecl (O.Term _ _ def) = do
-  name <- freshId
-  lDef <- scope (lower def)
-  vs <- freeVars lDef
-  pure (Just (L.Fun name vs [] lDef))
-lowerDecl (O.ObjectConstant _ _) = pure Nothing
-
-funDecl :: Lower sig m => [L.Binding] -> O.Term -> m L.Declaration
-funDecl bs body = do
-  name <- freshId
-  lBody <- scope (lower body)
-  vs <- freeVars lBody
-  pure (L.Fun name vs bs lBody)
-funDecl bs (O.FunIntro ty body) = do
-  name <- freshId
-  rep <- repOf ty
-  funDecl (bs ++ [L.Binding rep name]) body
-
-addDecls :: Lower sig m => [O.Declaration] -> m ()
-addDecls decls = traverse_ go decls where
-  go :: Lower sig m => O.Declaration -> m ()
-  go (O.Term did _ (O.FunIntro _ _)) = do
-    state <- get
-    name <- freshId
-    put (state
-      { unBindingReps = Map.insert name Ptr (unBindingReps state)
-      , unGlobals = Map.insert did name (unGlobals state) })
-  go (O.Term did _ _) = do
-    state <- get
-    name <- freshId
-    put (state
-      { unBindingReps = Map.insert name Lazy (unBindingReps state)
-      , unGlobals = Map.insert did name (unGlobals state) })
-  go (O.ObjectConstant did (funElims -> (O.TypeType (Object rep), _))) = do
-    state <- get
-    name <- freshId
-    put (state
-      { unTypeReps = Map.insert name rep (unTypeReps state)
-      , unGlobals = Map.insert did name (unGlobals state) })
-  go _ = pure ()
-
--- get rep from type
-repOf :: HasCallStack => Lower sig m => O.Signature -> m RuntimeRep
-repOf (O.FunType _ _) = pure Ptr
-repOf (funElims -> (O.ObjectConstantIntro did, _)) = do
-  reps <- unTypeReps <$> get
-  pure (reps ! did)
-repOf O.UnitType = pure Erased
-repOf (O.IOType _) = pure Ptr
-repOf (O.TypeType _) = pure Ptr
-repOf e = error (show e)
-
--- get rep from term
-repOfTerm :: HasCallStack => Lower sig m => L.Term -> m RuntimeRep
-repOfTerm (L.Val (L.Var name)) = do
-  reps <- unBindingReps <$> get
-  pure (reps ! name)
-repOfTerm (L.Val (L.Con name _)) = do
-  reps <- unBindingReps <$> get
-  pure (reps ! name)
-repOfTerm (L.Val (L.Arrow _ _)) = pure Ptr
-repOfTerm (L.Val L.Unit) = pure Erased
-repOfTerm (L.Val L.UnitType) = pure Ptr
-repOfTerm (L.Val (L.IOType _)) = pure Ptr
-repOfTerm (L.Val (L.Univ _)) = pure Ptr
+funIntros :: O.Term -> ([RuntimeRep], O.Term)
+funIntros (O.FunIntro rep body) =
+  let (reps, body') = funIntros body
+  in (rep:reps, body')
+funIntros body = ([], body)
 
 repOfDecl :: L.Declaration -> RuntimeRep
 repOfDecl (L.Fun _ _ _ _) = Ptr
@@ -175,17 +168,15 @@ freeVars term = goTerm term mempty where
       pure mempty
     else
       pure (Set.singleton name)
-  goVal (L.Con _ vals) bound = Set.unions <$> traverse (flip goVal bound) vals
-  goVal (L.Arrow inTy outTy) bound = Set.union <$> goVal inTy bound <*> goVal outTy bound
+  goVal (L.Arrow inTy) bound = goVal inTy bound
   goVal L.Unit _ = pure mempty
   goVal L.UnitType _ = pure mempty
   goVal (L.IOType ty) bound = goVal ty bound
   goVal (L.Univ _) _ = pure mempty
 
-bindTerm :: Lower sig m => L.Term -> m L.Value
-bindTerm term = do
+bindTerm :: Lower sig m => L.Term -> RuntimeRep -> m L.Value
+bindTerm term rep = do
   state <- get
-  rep <- repOfTerm term
   let (decls, terms):scopes = unDecls state
   name <- freshId
   put (state { unDecls = (decls, (L.Binding rep name, term):terms):scopes })
@@ -205,7 +196,7 @@ localVar ix = do
 
 globalVar :: HasCallStack => Lower sig m => Id -> m L.Value
 globalVar did = do
-  globals <- unGlobals <$> get
+  globals <- unGlobals <$> ask
   pure (L.Var (globals ! did))
 
 scope :: Lower sig m => m L.Term -> m L.Term

@@ -67,14 +67,14 @@ definition (C.DElabError) = error "FIXME"
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
 eval (C.MetaFunType am inTy outTy) = N.MetaFunType am <$> eval inTy <*> closureOf outTy
 eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
-eval (C.ObjectFunType rep inTy outTy) = N.ObjectFunType rep <$> eval inTy <*> closureOf outTy
+eval (C.ObjectFunType inTyRep inTy outTy outTyRep) = N.ObjectFunType inTyRep <$> eval inTy <*> closureOf outTy <*> pure outTyRep
 eval (C.ObjectFunIntro rep body) = N.ObjectFunIntro rep <$> closureOf body
-eval (C.ObjectFunElim lam arg) = do
+eval (C.ObjectFunElim lam arg rep) = do
   vLam <- eval lam
   vArg <- eval arg
   case vLam of
     N.ObjectFunIntro _ body -> appClosure body vArg
-    _ -> pure (N.ObjectFunElim vLam vArg)
+    _ -> pure (N.ObjectFunElim vLam vArg rep)
 eval (C.MetaFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
@@ -94,8 +94,8 @@ eval (C.GlobalVar did) = do
   pure (N.TopVar did env term)
 eval (C.UniVar gl) = pure (N.UniVar gl)
 eval (C.IOType ty) = N.IOType <$> eval ty
-eval (C.IOIntro1 term) = N.IOIntro1 <$> eval term
-eval (C.IOIntro2 act k) = N.IOIntro2 act <$> eval k
+eval (C.IOIntroPure term) = N.IOIntroPure <$> eval term
+eval (C.IOIntroBind act k) = N.IOIntroBind act <$> eval k
 eval C.UnitType = pure N.UnitType
 eval C.UnitIntro = pure N.UnitIntro
 eval C.EElabError = pure N.EElabError
@@ -114,6 +114,10 @@ readback :: HasCallStack => Norm sig m => ShouldUnfold -> N.Term -> m C.Term
 readback unf (N.MetaFunType am inTy outTy) = C.MetaFunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
 readback unf (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback unf)
 readback unf (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback unf lam <*> readback unf arg
+readback unf (N.ObjectFunType inTyRep inTy outTy outTyRep) =
+  C.ObjectFunType <$> normalizeRep inTyRep <*> readback unf inTy <*> (evalClosure outTy >>= readback unf) <*> normalizeRep outTyRep
+readback unf (N.ObjectFunIntro rep body) = C.ObjectFunIntro <$> normalizeRep rep <*> (evalClosure body >>= readback unf)
+readback unf (N.ObjectFunElim lam arg rep) = C.ObjectFunElim <$> readback unf lam <*> readback unf arg <*> normalizeRep rep
 readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
 readback unf (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
 readback unf (N.TypeType Meta) = pure (C.TypeType Meta)
@@ -138,8 +142,8 @@ readback True (N.UniVar gl) = do
           Nothing -> pure (C.UniVar gl)
 readback False (N.UniVar gl) = pure (C.UniVar gl)
 readback unf (N.IOType ty) = C.IOType <$> readback unf ty
-readback unf (N.IOIntro1 term) = C.IOIntro1 <$> readback unf term
-readback unf (N.IOIntro2 act k) = C.IOIntro2 act <$> readback unf k
+readback unf (N.IOIntroPure term) = C.IOIntroPure <$> readback unf term
+readback unf (N.IOIntroBind act k) = C.IOIntroBind act <$> readback unf k
 readback unf N.UnitType = pure C.UnitType
 readback unf N.UnitIntro = pure C.UnitIntro
 readback unf N.EElabError = pure C.EElabError
@@ -158,6 +162,9 @@ normalizeRep (RUniVar gl) = do
         case Map.lookup gl eqs of
           Just gl' -> normalizeRep (RUniVar gl')
           Nothing -> pure (RUniVar gl)
+normalizeRep Ptr = pure Ptr
+normalizeRep Lazy = pure Lazy
+normalizeRep Erased = pure Erased
 
 evalTop :: HasCallStack => Norm sig m => N.Environment -> C.Term -> m N.Term
 evalTop env term = local (\ctx -> ctx { unEnv = env }) (eval term)

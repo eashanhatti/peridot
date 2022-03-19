@@ -93,8 +93,9 @@ unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (MetaFunIntro body1) (MetaFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
-unify' (ObjectFunType rep1 inTy1 outTy1) (ObjectFunType rep2 inTy2 outTy2) = do
-  unifyReps rep1 rep2
+unify' (ObjectFunType inTyRep1 inTy1 outTy1 outTyRep1) (ObjectFunType inTyRep2 inTy2 outTy2 outTyRep2) = do
+  unifyReps inTyRep1 inTyRep2
+  unifyReps outTyRep1 outTyRep1
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (ObjectFunIntro rep1 body1) (ObjectFunIntro rep2 body2) = do
@@ -106,11 +107,12 @@ unify' (TypeType s1) (TypeType s2) = unifyStages s1 s2
 unify' (FreeVar lvl1) (FreeVar lvl2) | lvl1 == lvl2 = pure ()
 unify' term1@(MetaFunElim lam1 arg1) term2@(MetaFunElim lam2 arg2) =
   unifyFunElims term1 lam1 arg1 term2 lam2 arg2
-unify' term1@(ObjectFunElim lam1 arg1) term2@(ObjectFunElim lam2 arg2) =
+unify' term1@(ObjectFunElim lam1 arg1 rep1) term2@(ObjectFunElim lam2 arg2 rep2) = do
+  unifyReps rep1 rep2
   unifyFunElims term1 lam1 arg1 term2 lam2 arg2
 unify' (IOType ty1) (IOType ty2) = unify' ty1 ty2
-unify' (IOIntro1 term1) (term2) = unify' term1 term2
-unify' (IOIntro2 act1 k1) (IOIntro2 act2 k2) | act1 == act2 = unify' k1 k2
+unify' (IOIntroPure term1) (term2) = unify' term1 term2
+unify' (IOIntroBind act1 k1) (IOIntroBind act2 k2) | act1 == act2 = unify' k1 k2
 unify' UnitType UnitType = pure ()
 unify' UnitIntro UnitIntro = pure ()
 unify' (TopVar did1 _ _) (TopVar did2 _ _) | did1 == did2 = pure ()
