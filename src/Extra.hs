@@ -2,6 +2,7 @@ module Extra where
 
 import Data.Map qualified as Map
 import Shower
+import Data.Maybe
 
 fromRight :: Either () a -> a
 fromRight (Right x) = x
@@ -10,3 +11,5 @@ fromRight (Right x) = x
 (!) m k = case Map.lookup k m of
   Just v -> v
   Nothing -> error $ "MAP LOOKUP: " ++ shower (k, m)
+
+justs = Map.map fromJust . Map.filter isJust

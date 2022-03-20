@@ -1,2 +1,27 @@
-RIGHT{([], Just (Letrec [] (Val Unit)))
+RIGHT{((fromList [(Global {unGlobal = 3}, Just UnitType)],
+  fromList [],
+  fromList
+    [(Global {unGlobal = 0}, Just Ptr),
+     (Global {unGlobal = 1}, Just Ptr),
+     (Global {unGlobal = 2}, Just Ptr)],
+  fromList [],
+  []),
+ Just
+   (Letrec
+      [Fun
+         (Id {unId = 0})
+         (fromList [])
+         []
+         (Val (Con (Id {unId = 0}) [])),
+       Fun
+         (Id {unId = 1})
+         (fromList [])
+         []
+         (Val (Con (Id {unId = 1}) [])),
+       Fun
+         (Id {unId = 2})
+         (fromList [])
+         []
+         (Val (Con (Id {unId = 2}) []))]
+      (Val Unit)))
 }

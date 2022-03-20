@@ -12,6 +12,7 @@ import Codegen.Stage(stage, StageState(StageState))
 import Codegen.Lower
 import Elaboration.Effect
 import Syntax.Extra
+import Extra
 import Elaboration
 import Debug.Trace
 import Data.Maybe
@@ -49,5 +50,3 @@ stgifyFile f = do
             (unUVEqs qs)
       in pure (Right (stgify ctx cTerm))
     Left err -> pure (Left err)
-
-justs = Map.map fromJust . Map.filter isJust

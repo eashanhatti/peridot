@@ -1,1 +1,75 @@
-RIGHT{
+RIGHT{((fromList
+    [(Global {unGlobal = 7},
+      Just (TypeType (Object Ptr))),
+     (Global {unGlobal = 8},
+      Just (FreeVar (Level {unLevel = 0}))),
+     (Global {unGlobal = 13},
+      Just (FreeVar (Level {unLevel = 0}))),
+     (Global {unGlobal = 20}, Just UnitType)],
+  fromList [],
+  fromList
+    [(Global {unGlobal = 0}, Just Ptr),
+     (Global {unGlobal = 1}, Just Ptr),
+     (Global {unGlobal = 2}, Just Ptr),
+     (Global {unGlobal = 3}, Just Ptr),
+     (Global {unGlobal = 4}, Just Ptr),
+     (Global {unGlobal = 5}, Just Ptr),
+     (Global {unGlobal = 6}, Just Ptr),
+     (Global {unGlobal = 9}, Just Ptr),
+     (Global {unGlobal = 10}, Just Ptr),
+     (Global {unGlobal = 11}, Nothing),
+     (Global {unGlobal = 12}, Nothing),
+     (Global {unGlobal = 14}, Just Ptr),
+     (Global {unGlobal = 15}, Just Ptr),
+     (Global {unGlobal = 16}, Just Ptr),
+     (Global {unGlobal = 17}, Just Ptr),
+     (Global {unGlobal = 18}, Just Ptr),
+     (Global {unGlobal = 19}, Just Ptr)],
+  fromList
+    [(Global {unGlobal = 3}, Global {unGlobal = 9}),
+     (Global {unGlobal = 5}, Global {unGlobal = 10}),
+     (Global {unGlobal = 8}, Global {unGlobal = 13}),
+     (Global {unGlobal = 9}, Global {unGlobal = 3}),
+     (Global {unGlobal = 10}, Global {unGlobal = 5}),
+     (Global {unGlobal = 13}, Global {unGlobal = 8})],
+  []),
+ Just
+   (Letrec
+      [Fun
+         (Id {unId = 0})
+         (fromList [])
+         []
+         (Val (Con (Id {unId = 0}) [])),
+       Fun
+         (Id {unId = 1})
+         (fromList [])
+         []
+         (Val (Con (Id {unId = 1}) [])),
+       Fun
+         (Id {unId = 2})
+         (fromList [])
+         []
+         (Val (Con (Id {unId = 2}) [])),
+       Fun
+         (Id {unId = 3})
+         (fromList [])
+         [Binding Ptr (Id {unId = 5}),
+          Binding Ptr (Id {unId = 6})]
+         (Val (Var (Id {unId = 6}))),
+       Fun
+         (Id {unId = 4})
+         (fromList
+            [Id {unId = 0}, Id {unId = 1}, Id {unId = 3}])
+         []
+         (Let
+            [(Binding Ptr (Id {unId = 9}),
+              App (Var (Id {unId = 1})) []),
+             (Binding Ptr (Id {unId = 8}),
+              App (Var (Id {unId = 0})) []),
+             (Binding Ptr (Id {unId = 7}),
+              Val (Var (Id {unId = 3})))]
+            (App
+               (Var (Id {unId = 7}))
+               [Var (Id {unId = 8}), Var (Id {unId = 9})]))]
+      (Val Unit)))
+}

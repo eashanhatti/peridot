@@ -8,11 +8,15 @@ import Data.ByteString qualified as B
 import Data.Text.Encoding qualified as T
 import Elaboration
 import Codegen
-import Elaboration.Effect(unTypeUVs, unStageUVs, unRepUVs)
-import Codegen.Stage(StageContext(StageContext))
+import Syntax.Semantic
+import Data.Map qualified as Map
+import Normalization hiding(unTypeUVs, unUVEqs, unRepUVs)
+import Elaboration.Effect
+import Codegen.Stage()
 import Parser qualified as P
 import Data.String(fromString)
 import Shower
+import Data.Maybe
 
 main :: IO ()
 main = goldenTests >>= defaultMain
@@ -34,6 +38,14 @@ testSurfaceToSTG bs =
     Right term ->
       let
         (qs, cTerm) = elaborate' term
-        ctx = StageContext (unTypeUVs qs) (unStageUVs qs) (unRepUVs qs)
+        ctx =
+          NormContext
+            (Env mempty mempty)
+            mempty
+            (justs (unRepUVs qs))
+            (justs (unTypeUVs qs))
+            (unUVEqs qs)
       in "RIGHT{" <> (fromString . shower $ (qs, stgify ctx cTerm)) <> "}"
     Left err -> "LEFT{" <> fromString err <> "}"
+
+justs = Map.map fromJust . Map.filter isJust

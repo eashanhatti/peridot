@@ -1,1 +1,157 @@
-RIGHT{
+RIGHT{((fromList [(Global {unGlobal = 35}, Just UnitType)],
+  fromList [],
+  fromList
+    [(Global {unGlobal = 0}, Just Ptr),
+     (Global {unGlobal = 1}, Just Ptr),
+     (Global {unGlobal = 2}, Just Ptr),
+     (Global {unGlobal = 3}, Just Ptr),
+     (Global {unGlobal = 4}, Just Ptr),
+     (Global {unGlobal = 5}, Nothing),
+     (Global {unGlobal = 6}, Just Ptr),
+     (Global {unGlobal = 7}, Just Ptr),
+     (Global {unGlobal = 8}, Just Ptr),
+     (Global {unGlobal = 9}, Just Ptr),
+     (Global {unGlobal = 10}, Just Ptr),
+     (Global {unGlobal = 11}, Just Ptr),
+     (Global {unGlobal = 12}, Just Ptr),
+     (Global {unGlobal = 13}, Just Ptr),
+     (Global {unGlobal = 14}, Just Ptr),
+     (Global {unGlobal = 15}, Just Ptr),
+     (Global {unGlobal = 16}, Just Ptr),
+     (Global {unGlobal = 17}, Just Ptr),
+     (Global {unGlobal = 18}, Just Ptr),
+     (Global {unGlobal = 19}, Just Ptr),
+     (Global {unGlobal = 20}, Just Ptr),
+     (Global {unGlobal = 21}, Just Ptr),
+     (Global {unGlobal = 22}, Just Ptr),
+     (Global {unGlobal = 23}, Just Ptr),
+     (Global {unGlobal = 24}, Just Ptr),
+     (Global {unGlobal = 25}, Just Ptr),
+     (Global {unGlobal = 26}, Just Ptr),
+     (Global {unGlobal = 27}, Just Ptr),
+     (Global {unGlobal = 28}, Just Ptr),
+     (Global {unGlobal = 29}, Just Ptr),
+     (Global {unGlobal = 30}, Just Ptr),
+     (Global {unGlobal = 31}, Just Ptr),
+     (Global {unGlobal = 32}, Just Ptr),
+     (Global {unGlobal = 33}, Just Ptr),
+     (Global {unGlobal = 34}, Just Ptr)],
+  fromList
+    [(Global {unGlobal = 21}, Global {unGlobal = 28}),
+     (Global {unGlobal = 28}, Global {unGlobal = 21})],
+  [(SourcePos
+      {sourceName = "<TODO>",
+       sourceLine = Pos 10,
+       sourceColumn = Pos 50},
+    FailedUnify
+      (ObjectFunElim
+         (TopVar
+            (Id {unId = 4})
+            []
+            (ObjectFunIntro
+               (RUniVar (Global {unGlobal = 3}))
+               (ObjectConstantIntro (Id {unId = 4}))))
+         (TopVar
+            (Id {unId = 0})
+            []
+            (ObjectConstantIntro (Id {unId = 0})))
+         (RUniVar (Global {unGlobal = 28})))
+      (ObjectFunType
+         (RUniVar (Global {unGlobal = 30}))
+         (TypeType (Object Ptr))
+         (Closure
+            []
+            (ObjectFunElim
+               (GlobalVar (Id {unId = 4}))
+               (LocalVar (Index {unIndex = 0}))
+               (RUniVar (Global {unGlobal = 33}))))
+         (RUniVar (Global {unGlobal = 31})))),
+   (SourcePos
+      {sourceName = "<TODO>",
+       sourceLine = Pos 6,
+       sourceColumn = Pos 9},
+    FailedUnify
+      (ObjectFunType
+         (RUniVar (Global {unGlobal = 3}))
+         (TypeType (Object Ptr))
+         (Closure [] (TypeType (Object Ptr)))
+         (RUniVar (Global {unGlobal = 4})))
+      (TypeType
+         (Object (RUniVar (Global {unGlobal = 5})))))]),
+ Just
+   (Letrec
+      [Fun
+         (Id {unId = 0})
+         (fromList [])
+         []
+         (Val (Con (Id {unId = 0}) [])),
+       Fun
+         (Id {unId = 1})
+         (fromList [])
+         []
+         (Val (Con (Id {unId = 1}) [])),
+       Fun
+         (Id {unId = 2})
+         (fromList [])
+         []
+         (Val (Con (Id {unId = 2}) [])),
+       Fun
+         (Id {unId = 3})
+         (fromList [])
+         [Binding Ptr (Id {unId = 7})]
+         (Val (Con (Id {unId = 3}) [Var (Id {unId = 7})])),
+       Fun
+         (Id {unId = 4})
+         (fromList [])
+         [Binding Ptr (Id {unId = 8})]
+         (Val (Con (Id {unId = 4}) [Var (Id {unId = 8})])),
+       Fun
+         (Id {unId = 5})
+         (fromList [])
+         [Binding Ptr (Id {unId = 9}),
+          Binding Ptr (Id {unId = 10}),
+          Binding Ptr (Id {unId = 11})]
+         (Val
+            (Con
+               (Id {unId = 5})
+               [Var (Id {unId = 9}),
+                Var (Id {unId = 10}),
+                Var (Id {unId = 11})])),
+       Fun
+         (Id {unId = 6})
+         (fromList
+            [Id {unId = 0},
+             Id {unId = 1},
+             Id {unId = 2},
+             Id {unId = 4},
+             Id {unId = 5}])
+         []
+         (Let
+            [(Binding Ptr (Id {unId = 19}),
+              Let
+                [(Binding Ptr (Id {unId = 18}),
+                  Val (Var (Id {unId = 4}))),
+                 (Binding Ptr (Id {unId = 17}),
+                  App (Var (Id {unId = 2})) []),
+                 (Binding Ptr (Id {unId = 16}),
+                  App (Var (Id {unId = 0})) []),
+                 (Binding Ptr (Id {unId = 15}),
+                  Val (Var (Id {unId = 5})))]
+                (App
+                   (Var (Id {unId = 15}))
+                   [Var (Id {unId = 16}),
+                    Var (Id {unId = 17}),
+                    Var (Id {unId = 18})])),
+             (Binding Ptr (Id {unId = 14}),
+              App (Var (Id {unId = 1})) []),
+             (Binding Ptr (Id {unId = 13}),
+              App (Var (Id {unId = 0})) []),
+             (Binding Ptr (Id {unId = 12}),
+              Val (Var (Id {unId = 5})))]
+            (App
+               (Var (Id {unId = 12}))
+               [Var (Id {unId = 13}),
+                Var (Id {unId = 14}),
+                Var (Id {unId = 19})]))]
+      (Val Unit)))
+}
