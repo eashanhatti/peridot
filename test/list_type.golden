@@ -127,31 +127,25 @@ RIGHT{((fromList [(Global {unGlobal = 35}, Just UnitType)],
              Id {unId = 5}])
          []
          (Let
-            [(Binding Ptr (Id {unId = 19}),
+            [(Binding Ptr (Id {unId = 16}),
               Let
-                [(Binding Ptr (Id {unId = 18}),
-                  Val (Var (Id {unId = 4}))),
-                 (Binding Ptr (Id {unId = 17}),
+                [(Binding Ptr (Id {unId = 15}),
                   App (Var (Id {unId = 2})) []),
-                 (Binding Ptr (Id {unId = 16}),
-                  App (Var (Id {unId = 0})) []),
-                 (Binding Ptr (Id {unId = 15}),
-                  Val (Var (Id {unId = 5})))]
+                 (Binding Ptr (Id {unId = 14}),
+                  App (Var (Id {unId = 0})) [])]
                 (App
-                   (Var (Id {unId = 15}))
-                   [Var (Id {unId = 16}),
-                    Var (Id {unId = 17}),
-                    Var (Id {unId = 18})])),
-             (Binding Ptr (Id {unId = 14}),
-              App (Var (Id {unId = 1})) []),
+                   (Var (Id {unId = 5}))
+                   [Var (Id {unId = 14}),
+                    Var (Id {unId = 15}),
+                    Var (Id {unId = 4})])),
              (Binding Ptr (Id {unId = 13}),
-              App (Var (Id {unId = 0})) []),
+              App (Var (Id {unId = 1})) []),
              (Binding Ptr (Id {unId = 12}),
-              Val (Var (Id {unId = 5})))]
+              App (Var (Id {unId = 0})) [])]
             (App
-               (Var (Id {unId = 12}))
-               [Var (Id {unId = 13}),
-                Var (Id {unId = 14}),
-                Var (Id {unId = 19})]))]
+               (Var (Id {unId = 5}))
+               [Var (Id {unId = 12}),
+                Var (Id {unId = 13}),
+                Var (Id {unId = 16})]))]
       (Val Unit)))
 }

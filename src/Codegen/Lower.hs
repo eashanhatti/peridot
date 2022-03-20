@@ -77,11 +77,6 @@ lowerDecl (O.ObjectConstant did rep (funTypes -> (reps, _))) gls@((! did) -> nam
 
 bindings :: Lower sig m => [RuntimeRep] -> m ([Id], [L.Binding])
 bindings reps = unzip <$> traverse (\rep -> freshId >>= \name -> pure (name, L.Binding rep name)) reps
-
-typeDecl = undefined
-
-conDecl = undefined
-
 funDecl :: Lower sig m => [L.Binding] -> Id -> O.Term -> m L.Declaration
 funDecl bs name (O.FunIntro rep body) = do
   param <- freshId
@@ -208,6 +203,7 @@ freeVars term = goTerm term mempty where
   goVal (L.Univ _) _ = pure mempty
 
 bindTerm :: Lower sig m => L.Term -> RuntimeRep -> m L.Value
+bindTerm (L.Val val) _ = pure val
 bindTerm term rep = do
   state <- get
   let (decls, terms):scopes = unDecls state

@@ -62,14 +62,12 @@ RIGHT{((fromList
             [Id {unId = 0}, Id {unId = 1}, Id {unId = 3}])
          []
          (Let
-            [(Binding Ptr (Id {unId = 9}),
+            [(Binding Ptr (Id {unId = 8}),
               App (Var (Id {unId = 1})) []),
-             (Binding Ptr (Id {unId = 8}),
-              App (Var (Id {unId = 0})) []),
              (Binding Ptr (Id {unId = 7}),
-              Val (Var (Id {unId = 3})))]
+              App (Var (Id {unId = 0})) [])]
             (App
-               (Var (Id {unId = 7}))
-               [Var (Id {unId = 8}), Var (Id {unId = 9})]))]
+               (Var (Id {unId = 3}))
+               [Var (Id {unId = 7}), Var (Id {unId = 8})]))]
       (Val Unit)))
 }
