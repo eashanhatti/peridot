@@ -52,14 +52,14 @@ evalClosure clo = do
   env <- unEnv <$> ask
   appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
 
--- funIntros :: C.Term -> (C.Term -> C.Term)
--- funIntros (C.MetaFunType _ _ outTy) = C.MetaFunIntro . funIntros outTy
--- funIntros (C.ObjectFunType _ outTy) = C.ObjectFunIntro . funIntros outTy
--- funIntros _ = id
+funIntros :: C.Term -> (C.Term -> C.Term)
+funIntros (C.MetaFunType _ _ outTy) = C.MetaFunIntro . funIntros outTy
+funIntros (C.ObjectFunType inTyRep _ outTy _) = C.ObjectFunIntro inTyRep . funIntros outTy
+funIntros _ = id
 
 definition :: C.Declaration -> C.Term
-definition (C.MetaConstant did sig) = undefined
-definition (C.ObjectConstant did _ sig) = undefined
+definition (C.MetaConstant did sig) = funIntros sig (C.MetaConstantIntro did)
+definition (C.ObjectConstant did _ sig) = funIntros sig (C.ObjectConstantIntro did)
 definition (C.Term _ _ _ def) = def
 definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"
