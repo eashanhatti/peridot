@@ -11,11 +11,12 @@ import Control.Algebra(Has)
 import Control.Monad
 import Data.Foldable
 import GHC.Stack
+import Debug.Trace
 import Extra
 
 data LowerState = LowerState
   { unDecls :: [([L.Declaration], [(L.Binding, L.Term)])]
-  , unNextId :: Id
+  -- , unNextId :: Id
   , unThunks :: Set.Set Id }
 
 data LowerContext = LowerContext
@@ -25,10 +26,11 @@ data LowerContext = LowerContext
 
 type Lower sig m =
   ( Has (State LowerState) sig m
-  , Has (Reader LowerContext) sig m)
+  , Has (Reader LowerContext) sig m
+  , Has (State Id) sig m) -- This is a hack
 
 lower :: HasCallStack => Lower sig m => O.Term -> m L.Term
-lower (O.FunType inTy outTy) = L.Val <$> (L.Arrow <$> lowerBind inTy)
+lower (O.FunType _ inTy outTy) = L.Val <$> (L.Arrow <$> lowerBind inTy)
 lower (funIntros -> (reps@(null -> False), body)) = do
   name <- freshId
   params <- traverse (const freshId) reps
@@ -51,7 +53,7 @@ lower (O.GlobalVar did) = do
     flip L.App [] <$> globalVar did
   else
     L.Val <$> globalVar did
-lower (O.Let decls body) = withDecls decls \gls -> L.Letrec <$> lowerDecls decls gls <*> lower body
+lower (O.Let decls body) = withDecls decls \gls -> L.Letrec <$> traverse (flip lowerDecl gls) decls <*> lower body
 
 withDecls :: forall sig m a. Lower sig m => [O.Declaration] -> (Map.Map Id Id -> m a) -> m a
 withDecls decls act = go decls mempty where
@@ -61,17 +63,24 @@ withDecls decls act = go decls mempty where
     name <- freshId
     local (\ctx -> ctx { unGlobals = Map.insert did name (unGlobals ctx) }) (go decls (Map.insert did name acc))
 
-lowerDecls :: Lower sig m => [O.Declaration] -> Map.Map Id Id -> m [L.Declaration]
-lowerDecls [] _ = pure []
-lowerDecls (O.Term did _ _ def@(O.FunIntro _ _) : decls) gls@((! did) -> name) = do
-  decl <- funDecl [] name def
-  (decl :) <$> lowerDecls decls gls
-lowerDecls (O.Term did _ _ def : decls) gls@((! did) -> name) = do
+lowerDecl :: Lower sig m => O.Declaration -> Map.Map Id Id -> m L.Declaration
+lowerDecl (O.Term did _ _ def@(O.FunIntro _ _)) gls@((! did) -> name) = funDecl [] name def
+lowerDecl (O.Term did _ _ def) gls@((! did) -> name) = do
   lDef <- scope (lower def)
   vs <- freeVars lDef
   modify (\st -> st { unThunks = Set.insert did (unThunks st) })
-  (L.Fun name vs [] lDef :) <$> lowerDecls decls gls
-lowerDecls (O.ObjectConstant _ _ _ : decls) gls = lowerDecls decls gls
+  pure (L.Fun name vs [] lDef)
+lowerDecl (O.ObjectConstant did rep (funTypes -> (reps, _))) gls@((! did) -> name) = do
+  (params, bs) <- bindings reps
+  when (null reps) (modify (\st -> st { unThunks = Set.insert did (unThunks st) }))
+  pure (L.Fun name mempty bs (L.Val (L.Con name (map L.Var params))))
+
+bindings :: Lower sig m => [RuntimeRep] -> m ([Id], [L.Binding])
+bindings reps = unzip <$> traverse (\rep -> freshId >>= \name -> pure (name, L.Binding rep name)) reps
+
+typeDecl = undefined
+
+conDecl = undefined
 
 funDecl :: Lower sig m => [L.Binding] -> Id -> O.Term -> m L.Declaration
 funDecl bs name (O.FunIntro rep body) = do
@@ -90,7 +99,7 @@ lowerBind term = do
   bindTerm lTerm rep
 
 repOf :: HasCallStack => Lower sig m => O.Term -> m RuntimeRep
-repOf (O.FunType _ _) = pure Ptr
+repOf (O.FunType _ _ _) = pure Ptr
 repOf (O.FunIntro _ _) = pure Ptr
 repOf (O.FunElim _ _ rep) = pure rep
 repOf (O.IOType _) = pure Ptr
@@ -127,6 +136,12 @@ funElims (O.FunElim lam arg _) =
   in (lam', args ++ [arg])
 funElims lam = (lam, [])
 
+funTypes :: O.Term -> ([RuntimeRep], O.Term)
+funTypes (O.FunType rep _ outTy) =
+  let (reps, outTy') = funTypes outTy
+  in (rep:reps, outTy')
+funTypes ty = ([], ty)
+
 funIntros :: O.Term -> ([RuntimeRep], O.Term)
 funIntros (O.FunIntro rep body) =
   let (reps, body') = funIntros body
@@ -144,18 +159,36 @@ filterMapM f (x:xs) = do
     Just mx -> (mx :) <$> filterMapM f xs
     Nothing -> filterMapM f xs
 
+-- freshId :: Lower sig m => m Id
+-- freshId = do
+--   state <- get
+--   put (state { unNextId = unNextId state + 1 })
+--   pure (traceShowId $ unNextId state)
+
 freshId :: Lower sig m => m Id
 freshId = do
-  state <- get
-  put (state { unNextId = unNextId state + 1 })
-  pure (unNextId state)
+  name <- get
+  put (name + 1)
+  pure name
+
+declNames :: [L.Declaration] -> Set.Set Id
+declNames [] = mempty
+declNames (L.Fun name _ _ _ : decls) = Set.insert name (declNames decls)
+
+bindingNames :: [(L.Binding, L.Term)] -> Set.Set Id
+bindingNames [] = mempty
+bindingNames ((L.Binding _ name, _) : bs) = Set.insert name (bindingNames bs)
 
 freeVars :: Lower sig m => L.Term -> m (Set.Set Id)
 freeVars term = goTerm term mempty where
   goTerm :: Lower sig m => L.Term -> Set.Set Id -> m (Set.Set Id)
   goTerm (L.App lam args) bound = Set.union <$> goVal lam bound <*> (Set.unions <$> traverse (flip goVal bound) args)
-  goTerm (L.Letrec decls body) bound = Set.union <$> (Set.unions <$> traverse (flip goDecl bound) decls) <*> goTerm body bound
-  goTerm (L.Let bs body) bound = Set.union <$> (Set.unions <$> traverse (flip goTerm bound) (map snd bs)) <*> goTerm body bound
+  goTerm (L.Letrec decls body) bound =
+    let bound' = Set.union bound (declNames decls)
+    in Set.union <$> (Set.unions <$> traverse (flip goDecl bound') decls) <*> goTerm body bound'
+  goTerm (L.Let bs body) bound =
+    let bound' = Set.union bound (bindingNames bs)
+    in Set.union <$> (Set.unions <$> traverse (flip goTerm bound') (map snd bs)) <*> goTerm body bound'
   goTerm (L.DoIO _ k) bound = goTerm k bound
   goTerm (L.Val val) bound = goVal val bound
 
@@ -208,4 +241,8 @@ scope act = do
   when (length (unDecls state') /= 1 + length (unDecls state)) (error "Bug: `scope`")
   let (decls, bs):scopes = unDecls state'
   put (state' { unDecls = tail (unDecls state') })
-  pure (L.Letrec decls (L.Let bs term))
+  case (decls, bs) of
+    ([], []) -> pure term
+    ([], _) -> pure (L.Let bs term)
+    (_, []) -> pure (L.Letrec decls term)
+    (_, _) -> pure (L.Letrec decls (L.Let bs term))

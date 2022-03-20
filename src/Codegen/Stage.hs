@@ -34,7 +34,7 @@ type Stage sig m =
   , Norm sig m )
 
 stage :: HasCallStack => Stage sig m => C.Term -> m O.Term
-stage (C.ObjectFunType _ inTy outTy _) = O.FunType <$> stage inTy <*> stage outTy
+stage (C.ObjectFunType rep inTy outTy _) = O.FunType <$> normalizeRep rep <*> stage inTy <*> stage outTy
 stage (C.ObjectFunIntro rep body) = O.FunIntro <$> normalizeRep rep <*> stage body
 stage (C.ObjectFunElim lam arg rep) = O.FunElim <$> stage lam <*> stage arg <*> normalizeRep rep
 stage (C.IOType ty) = O.IOType <$> stage ty

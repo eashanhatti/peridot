@@ -20,7 +20,7 @@ unSig (ObjectConstant _ _ sig) = sig
 type Type = Term
 
 data Term
-  = FunType Term Term
+  = FunType RuntimeRep Term Term
   | FunIntro RuntimeRep Term
   | FunElim Term Term RuntimeRep
   | IOType Term

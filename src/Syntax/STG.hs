@@ -17,6 +17,7 @@ data Value
   | UnitType
   | IOType Value
   | Univ RuntimeRep
+  | Con Id [Value]
   deriving (Show)
 
 -- data Branch = Branch [Binding] Term

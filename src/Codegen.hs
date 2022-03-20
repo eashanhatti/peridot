@@ -11,6 +11,7 @@ import Normalization hiding(unTypeUVs, unStageUVs, unRepUVs, unUVEqs)
 import Codegen.Stage(stage, StageState(StageState))
 import Codegen.Lower
 import Elaboration.Effect
+import Syntax.Extra
 import Elaboration
 import Debug.Trace
 import Data.Maybe
@@ -27,7 +28,8 @@ stgify ctx term =
     [oTerm] ->
       Just .
       run .
-      evalState (LowerState mempty 0 mempty) .
+      evalState (Id 0) .
+      evalState (LowerState mempty mempty) .
       runReader (LowerContext mempty mempty mempty) $
       lower oTerm
     _ -> Nothing
