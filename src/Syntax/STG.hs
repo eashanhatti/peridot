@@ -5,10 +5,12 @@ import Data.Set qualified as Set
 
 data Declaration
   = Fun Id (Set.Set Id) [Binding] Term
+  | Con Id [RuntimeRep]
   deriving (Show)
 
 unName :: Declaration -> Id
 unName (Fun name _ _ _) = name
+unName (Con name _) = name
 
 data Value
   = Var Id
@@ -17,7 +19,6 @@ data Value
   | UnitType
   | IOType Value
   | Univ RuntimeRep
-  | Con Id [Value]
   deriving (Show)
 
 -- data Branch = Branch [Binding] Term

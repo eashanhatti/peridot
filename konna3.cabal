@@ -25,6 +25,7 @@ source-repository head
 library
   exposed-modules:
       Codegen
+      Codegen.Generate
       Codegen.Lower
       Codegen.Stage
       Elaboration
@@ -80,7 +81,6 @@ library
     , fused-effects
     , hashable
     , haskell-stack-trace-plugin
-    , logict
     , megaparsec
     , mtl
     , parser-combinators
@@ -133,7 +133,6 @@ executable konna3-exe
     , hashable
     , haskell-stack-trace-plugin
     , konna3
-    , logict
     , megaparsec
     , mtl
     , parser-combinators
@@ -187,7 +186,6 @@ test-suite konna3-test
     , hashable
     , haskell-stack-trace-plugin
     , konna3
-    , logict
     , megaparsec
     , mtl
     , parser-combinators

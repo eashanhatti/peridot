@@ -51,7 +51,6 @@ dependencies:
 - dependent-hashmap 
 - dependent-sum
 - hashable
-- logict
 - fused-effects
 - extra
 - megaparsec

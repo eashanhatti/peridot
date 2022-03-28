@@ -73,7 +73,7 @@ lowerDecl (O.Term did _ _ def) gls@((! did) -> name) = do
 lowerDecl (O.ObjectConstant did rep (funTypes -> (reps, _))) gls@((! did) -> name) = do
   (params, bs) <- bindings reps
   when (null reps) (modify (\st -> st { unThunks = Set.insert did (unThunks st) }))
-  pure (L.Fun name mempty bs (L.Val (L.Con name (map L.Var params))))
+  pure (L.Con name reps)
 
 bindings :: Lower sig m => [RuntimeRep] -> m ([Id], [L.Binding])
 bindings reps = unzip <$> traverse (\rep -> freshId >>= \name -> pure (name, L.Binding rep name)) reps
