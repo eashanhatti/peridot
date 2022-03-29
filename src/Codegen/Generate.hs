@@ -15,6 +15,13 @@ type Statement = Text
 data Procedure = Proc Type Name [(Type, Name)] [Statement]
 type Term = Text
 
+{-
+struct type {
+  unsigned char tag;
+  struct type* data[];
+};
+-}
+
 data GenerateState = GenerateState
   { unProcs :: [Procedure]
   , unStmts :: [Statement] }
@@ -48,27 +55,27 @@ genValue (L.Var name) = pure (genId name)
 genValue (L.Arrow inTy) = do
   gInTy <- genValue inTy
   addStmts
-    [ "void* ty = malloc(sizeof(void*) * 2);"
-    , "ty[0] = 0;"
-    , "ty[1] = " <> gInTy <> ";" ]
+    [ "struct type* ty = malloc(sizeof(struct type) + sizeof(struct type*));"
+    , "ty->tag = 0;"
+    , "ty->data[0] = " <> gInTy <> ";" ]
   pure "ty"
 genValue L.Unit = pure "0"
 genValue L.UnitType = do
   addStmts
-    [ "void* ty = malloc(sizeof(void*));"
-    , "ty[0] = 1;" ]
+    [ "struct type* ty = malloc(sizeof(type));"
+    , "ty->tag = 1;" ]
   pure "ty"
 genValue (L.IOType ty) = do
   gTy <- genValue ty
   addStmts
-    [ "void* ty = malloc(sizeof(void*) * 2);"
-    , "ty[0] = 2;"
-    , "ty[1] = " <> gTy <> ";" ]
+    [ "void* ty = malloc(sizeof(type) + sizeof(void*));"
+    , "ty->tag = 2;"
+    , "ty->data[0] = " <> gTy <> ";" ]
   pure "ty"
 genValue (L.Univ _) = do
   addStmts
-    [ "void* ty = malloc(sizeof(void*));"
-    , "ty[0] = 3;" ]
+    [ "void* ty = malloc(sizeof(type));"
+    , "ty->tag = 3;" ]
   pure "ty"
 
 genDecl :: Generate sig m => L.Declaration -> m ()
