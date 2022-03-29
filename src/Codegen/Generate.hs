@@ -82,7 +82,7 @@ genDecl (L.Fun name vs params body) = do
   addStmts (
     [ "void* caps = malloc(sizeof(void*) * " <> (pack . show) (size vs + length params) ] <> -- FIXME: `void*`
     map (\(v, i) -> "caps[" <> (pack . show) i <> "] = " <> genId v <> ";") (zip (toList vs) ([0 .. size vs])) <>
-    [ "struct closure clo " <> genId name <> ";"
+    [ "struct closure clo;"
     , "clo.arity = " <> (pack . show) (length params) <> ";"
     , "clo.caps = caps;"
     , "clo.caps_size = " <> (pack . show) (size vs) <> ";"
