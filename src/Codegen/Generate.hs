@@ -4,12 +4,15 @@ import Syntax.STG qualified as L
 import Syntax.Extra(IOOperation(..), RuntimeRep, Id(..))
 import Control.Effect.State
 import Control.Algebra
-import Data.Text
+import Data.Text hiding(length, zip, map)
+import Data.Set(size)
+import Control.Monad
+import Data.Foldable
 
 type Type = Text
 type Name = Text
 type Statement = Text
-data Procedure = Name [(Type, Name)] [Statement] Type
+data Procedure = Proc Type Name [(Type, Name)] [Statement]
 type Term = Text
 
 data GenerateState = GenerateState
@@ -70,7 +73,30 @@ genValue (L.Univ _) = do
 
 genDecl :: Generate sig m => L.Declaration -> m ()
 genDecl (L.Fun name vs params body) = do
+  gParams <- traverse (\(L.Binding rep name) -> (, genId name) <$> genRep rep) params
+  stmts <- scope do
+    gBody <- genTerm body
+    addStmt ("return " <> gBody <> ";")
+    unStmts <$> get >>= pure
+  addProc "void*" (genId name <> "_fun") gParams stmts -- FIXME: `void*`
+  addStmts (
+    [ "void* caps = malloc(sizeof(void*) * " <> (pack . show) (size vs + length params) ] <> -- FIXME: `void*`
+    map (\(v, i) -> "caps[" <> (pack . show) i <> "] = " <> genId v <> ";") (zip (toList vs) ([0 .. size vs])) <>
+    [ "struct closure " <> genId name <> ";"
+    , genId name <> ".arity = " <> (pack . show) (length params) <> ";"
+    , genId name <> ".caps = caps;"
+    , genId name <> ".caps_size = " <> (pack . show) (size vs) <> ";"
+    , genId name <> ".ptr = &" <> genId name <> ";" ])
 
+
+scope :: Generate sig m => m a -> m a
+scope act = do
+  state <- get
+  put (state { unStmts = [] })
+  x <- act
+  state' <- get
+  put (state { unProcs = unProcs state' })
+  pure x
 
 addStmt :: Generate sig m => Statement -> m ()
 addStmt stmt = do
@@ -80,10 +106,14 @@ addStmt stmt = do
 addStmts :: Generate sig m => [Statement] -> m ()
 addStmts stmts = traverse addStmt stmts *> pure ()
 
-addProc :: Generate sig
+addProc :: Generate sig m => Type -> Name -> [(Type, Name)] -> [Statement] -> m ()
+addProc ty name bs stmts = do
+  let proc = Proc ty name bs stmts
+  state <- get
+  put (state { unProcs = unProcs state ++ [proc] })
 
 genRep :: Generate sig m => RuntimeRep -> m Type
-genRep = undefined
+genRep _ = pure "void*" -- FIXME
 
 genId :: Id -> Term
-genId (Id name) = pack . show $ name
+genId (Id name) = "_" <> (pack . show $ name)

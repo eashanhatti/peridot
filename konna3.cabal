@@ -69,6 +69,7 @@ library
       ScopedTypeVariables
       BangPatterns
       PackageImports
+      TupleSections
   ghc-options: -fplugin=StackTrace.Plugin
   build-depends:
       base >=4.7 && <5
@@ -120,6 +121,7 @@ executable konna3-exe
       ScopedTypeVariables
       BangPatterns
       PackageImports
+      TupleSections
   ghc-options: -fplugin=StackTrace.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -173,6 +175,7 @@ test-suite konna3-test
       ScopedTypeVariables
       BangPatterns
       PackageImports
+      TupleSections
   ghc-options: -fplugin=StackTrace.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

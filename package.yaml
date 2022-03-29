@@ -41,6 +41,7 @@ default-extensions:
 - ScopedTypeVariables
 - BangPatterns
 - PackageImports
+- TupleSections
 
 dependencies:
 - base >= 4.7 && < 5
