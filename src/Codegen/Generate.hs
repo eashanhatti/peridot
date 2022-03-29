@@ -82,11 +82,13 @@ genDecl (L.Fun name vs params body) = do
   addStmts (
     [ "void* caps = malloc(sizeof(void*) * " <> (pack . show) (size vs + length params) ] <> -- FIXME: `void*`
     map (\(v, i) -> "caps[" <> (pack . show) i <> "] = " <> genId v <> ";") (zip (toList vs) ([0 .. size vs])) <>
-    [ "struct closure " <> genId name <> ";"
-    , genId name <> ".arity = " <> (pack . show) (length params) <> ";"
-    , genId name <> ".caps = caps;"
-    , genId name <> ".caps_size = " <> (pack . show) (size vs) <> ";"
-    , genId name <> ".ptr = &" <> genId name <> ";" ])
+    [ "struct closure clo " <> genId name <> ";"
+    , "clo.arity = " <> (pack . show) (length params) <> ";"
+    , "clo.caps = caps;"
+    , "clo.caps_size = " <> (pack . show) (size vs) <> ";"
+    , "clo.ptr = &" <> genId name <> ";"
+    , "void* " <> genId name <> " = malloc(sizeof(struct closure));"
+    , "*" <> genId name <> " = clo;"])
 
 
 scope :: Generate sig m => m a -> m a
