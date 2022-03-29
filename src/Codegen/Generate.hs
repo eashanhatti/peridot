@@ -8,6 +8,7 @@ import Data.Text hiding(length, zip, map)
 import Data.Set(size)
 import Control.Monad
 import Data.Foldable
+import Numeric.Natural
 
 type Type = Text
 type Name = Text
@@ -16,15 +17,18 @@ data Procedure = Proc Type Name [(Type, Name)] [Statement]
 type Term = Text
 
 {-
-struct type {
-  unsigned char tag;
-  struct type* data[];
+struct closure {
+  unsigned char arity;
+  unsigned char env_size;
+  void (*funptr)(void);
+
 };
 -}
 
 data GenerateState = GenerateState
   { unProcs :: [Procedure]
-  , unStmts :: [Statement] }
+  , unStmts :: [Statement]
+  , unNextName :: Natural }
 
 type Generate sig m = Has (State GenerateState) sig m
 
@@ -54,29 +58,35 @@ genValue :: Generate sig m => L.Value -> m Term
 genValue (L.Var name) = pure (genId name)
 genValue (L.Arrow inTy) = do
   gInTy <- genValue inTy
+  name <- freshName
+  addStmt ("struct type { unsigned char tag; void* data; };")
   addStmts
-    [ "struct type* ty = malloc(sizeof(struct type) + sizeof(struct type*));"
-    , "ty->tag = 0;"
-    , "ty->data[0] = " <> gInTy <> ";" ]
-  pure "ty"
+    [ "struct type* " <> name <> " = malloc(sizeof(struct type));"
+    , name <> "->tag = 0;"
+    , name <> "->data = " <> gInTy <> ";" ]
+  pure ("(void*)" <> name)
 genValue L.Unit = pure "0"
 genValue L.UnitType = do
+  name <- freshName
   addStmts
-    [ "struct type* ty = malloc(sizeof(type));"
-    , "ty->tag = 1;" ]
-  pure "ty"
+    [ "unsigned char* " <> name <> " = malloc(sizeof(unsigned char));"
+    , "*" <> name <> " = 1;" ]
+  pure ("(void*)" <> name)
 genValue (L.IOType ty) = do
+  name <- freshName
   gTy <- genValue ty
+  addStmt ("struct type { unsigned char tag; void* data; };")
   addStmts
-    [ "void* ty = malloc(sizeof(type) + sizeof(void*));"
-    , "ty->tag = 2;"
-    , "ty->data[0] = " <> gTy <> ";" ]
-  pure "ty"
+    [ "struct type* " <> name <> " = malloc(sizeof(struct type));"
+    , name <> "->tag = 2;"
+    , name <> "->data = " <> gTy <> ";" ]
+  pure ("(void*)" <> name)
 genValue (L.Univ _) = do
+  name <- freshName
   addStmts
-    [ "void* ty = malloc(sizeof(type));"
-    , "ty->tag = 3;" ]
-  pure "ty"
+    [ "unsigned char* " <> name <> " = malloc(sizeof(unsigned char));"
+    , "*" <> name <> " = 3;" ]
+  pure ("(void*)" <> name)
 
 genDecl :: Generate sig m => L.Declaration -> m ()
 genDecl (L.Fun name vs params body) = do
@@ -85,18 +95,9 @@ genDecl (L.Fun name vs params body) = do
     gBody <- genTerm body
     addStmt ("return " <> gBody <> ";")
     unStmts <$> get >>= pure
-  addProc "void*" (genId name <> "_fun") gParams stmts -- FIXME: `void*`
-  addStmts (
-    [ "void* caps = malloc(sizeof(void*) * " <> (pack . show) (size vs + length params) ] <> -- FIXME: `void*`
-    map (\(v, i) -> "caps[" <> (pack . show) i <> "] = " <> genId v <> ";") (zip (toList vs) ([0 .. size vs])) <>
-    [ "struct closure clo;"
-    , "clo.arity = " <> (pack . show) (length params) <> ";"
-    , "clo.caps = caps;"
-    , "clo.caps_size = " <> (pack . show) (size vs) <> ";"
-    , "clo.ptr = &" <> genId name <> ";"
-    , "void* " <> genId name <> " = malloc(sizeof(struct closure));"
-    , "*" <> genId name <> " = clo;"])
-
+  addProc "void*" ("FUN" <> genId name) gParams stmts -- FIXME: `void*`
+  addStmts
+    ([  ])
 
 scope :: Generate sig m => m a -> m a
 scope act = do
@@ -125,4 +126,10 @@ genRep :: Generate sig m => RuntimeRep -> m Type
 genRep _ = pure "void*" -- FIXME
 
 genId :: Id -> Term
-genId (Id name) = "_" <> (pack . show $ name)
+genId (Id name) = "_" <> ((pack . show) name)
+
+freshName :: Generate sig m => m Text
+freshName = do
+  state <- get
+  put (state { unNextName = unNextName state + 1 })
+  pure ("TMP" <> (pack . show . unNextName) state)
