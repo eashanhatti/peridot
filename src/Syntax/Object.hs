@@ -5,31 +5,31 @@ import Syntax.Extra
 type Signature = Term
 
 data Declaration
-  = Term Id RuntimeRep Signature Term
-  | ObjectConstant Id RuntimeRep Signature
+  = Term Id Signature Term
+  | ObjectConstant Id Signature
   deriving (Show)
 
 unId :: Declaration -> Id
-unId (Term did _ _ _) = did
-unId (ObjectConstant did _ _) = did
+unId (Term did _ _) = did
+unId (ObjectConstant did _) = did
 
 unSig :: Declaration -> Signature
-unSig (Term _ _ sig _) = sig
-unSig (ObjectConstant _ _ sig) = sig
+unSig (Term _ sig _) = sig
+unSig (ObjectConstant _ sig) = sig
 
 type Type = Term
 
 data Term
-  = FunType RuntimeRep Term Term
-  | FunIntro RuntimeRep Term
-  | FunElim Term Term RuntimeRep
+  = FunType Term Term
+  | FunIntro Term
+  | FunElim Term Term
   | IOType Term
   | IOIntroPure Term -- `pure`
   | IOIntroBind IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
   | ObjectConstantIntro Id
-  | TypeType RuntimeRep
+  | TypeType
   | LocalVar Index
   | GlobalVar Id
   | Let [Declaration] Term

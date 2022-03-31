@@ -20,14 +20,12 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
   case decl of
     PDDecl (DeclAst (ObjTerm name _ def) did) -> do
       cDef <- eval cSig >>= EE.check def
-      rep <- freshRepUV
-      unify univ (N.TypeType (Object rep))
-      pure (C.Term did rep cSig cDef)
+      unify univ (N.TypeType Object)
+      pure (C.Term did cSig cDef)
     PDDecl (DeclAst (Datatype name _ _) did) -> do
-      rep <- freshRepUV
       vSig <- eval cSig
-      unify vSig (N.TypeType (Object rep))
-      pure (C.ObjectConstant did rep cSig)
+      unify vSig (N.TypeType Object)
+      pure (C.ObjectConstant did cSig)
     PDDecl (DeclAst (Axiom name _) did) ->
       pure (C.MetaConstant did cSig)
     PDDecl (DeclAst (Prove _) did) ->
@@ -35,9 +33,8 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
     PDDecl (DeclAst (Fresh name _) did) ->
       pure (C.Fresh did cSig)
     PDConstr constr@(ConstrAst (Constr _ _) did dtDid) -> do
-      rep <- freshRepUV
-      unify univ (N.TypeType (Object rep))      
-      pure (C.ObjectConstant did rep cSig)
+      unify univ (N.TypeType Object)      
+      pure (C.ObjectConstant did cSig)
 
 withPos' :: HasCallStack => Elab sig m => (Predeclaration -> m a) -> (Predeclaration -> m a)
 withPos' act (PDDecl (SourcePos ast pos)) = withPos pos (act (PDDecl ast))

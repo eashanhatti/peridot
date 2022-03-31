@@ -43,12 +43,11 @@ data QueryState = QueryState
   , unNextUV :: Global
   , unTypeUVs :: Map Global (Maybe N.Term)
   , unStageUVs :: Map Global (Maybe Stage)
-  , unRepUVs :: Map Global (Maybe RuntimeRep)
   , unUVEqs :: Map Global Global
   , unErrors :: [(SourcePos, Error)] }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs suvs ruvs eqs errs) = show (tuvs, suvs, ruvs, eqs, errs)
+  show (QueryState _ _ _ tuvs suvs eqs errs) = show (tuvs, suvs, eqs, errs)
 
 data Error
   = TooManyParams
@@ -138,25 +137,12 @@ unify :: Elab sig m => N.Term -> N.Term -> m ()
 unify term1 term2 = do
   subst <- Uni.unify term1 term2
   case subst of
-    Just (Uni.Subst ts ss rs eqs) -> do
+    Just (Uni.Subst ts ss eqs) -> do
       state <- get
       put (state
         { unTypeUVs = fmap Just ts <> unTypeUVs state
         , unStageUVs = fmap Just ss <> unStageUVs state
-        , unRepUVs = fmap Just rs <> unRepUVs state
         , unUVEqs = eqs <> unUVEqs state })
-      Map.traverseWithKey go (eqs <> unUVEqs state)
-      pure ()
-      where
-        go :: Elab sig m => Global -> Global -> m ()
-        go gl1 gl2 = do
-          reps <- unRepUVs <$> get
-          case (Map.lookup gl1 reps, Map.lookup gl2 reps) of
-            (Just (Just _), Just (Just _)) -> pure ()
-            (Just (Just sol), Just Nothing) -> modify (\st -> st { unRepUVs = Map.insert gl2 (Just sol) (unRepUVs st) })
-            (Just Nothing, Just (Just sol)) -> modify (\st -> st { unRepUVs = Map.insert gl1 (Just sol) (unRepUVs st) })
-            (Just Nothing, Just Nothing) -> pure ()
-            (Nothing, Nothing) -> pure ()
     Nothing -> report (FailedUnify term1 term2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
@@ -235,14 +221,6 @@ freshStageUV = do
     , unNextUV = unNextUV state + 1 })
   pure (SUniVar (unNextUV state))
 
-freshRepUV :: Elab sig m => m RuntimeRep
-freshRepUV = do
-  state <- get
-  put (state
-    { unRepUVs = insert (unNextUV state) Nothing (unRepUVs state)
-    , unNextUV = unNextUV state + 1 })
-  pure (RUniVar (unNextUV state))
-
 report :: Elab sig m => Error -> m ()
 report err = do
   state <- get
@@ -274,11 +252,9 @@ eval term = do
 readback :: Elab sig m => Bool -> N.Term -> m C.Term
 readback unf term = do
   typeUVs <- unTypeUVs <$> get
-  repUVs <- unRepUVs <$> get
   eqs <- unUVEqs <$> get
   local (\ctx -> ctx
     { Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
-    , Norm.unRepUVs = fmap fromJust . Map.filter isJust $ repUVs
     , Norm.unUVEqs = eqs })
     (Norm.readback unf term)
 

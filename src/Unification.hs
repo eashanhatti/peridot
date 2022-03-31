@@ -18,26 +18,18 @@ import Debug.Trace
 data Substitution = Subst
   { unTypeSols :: Map Global Term
   , unStageSols :: Map Global Stage
-  , unRepSols :: Map Global RuntimeRep
   , unUVEqs :: Map Global Global }
 
 instance Semigroup Substitution where
-  Subst ts1 ss1 rs1 eqs1 <> Subst ts2 ss2 rs2 eqs2 = Subst (ts1 <> ts2) (ss1 <> ss2) (rs1 <> rs2) (eqs1 <> eqs2)
+  Subst ts1 ss1 eqs1 <> Subst ts2 ss2 eqs2 = Subst (ts1 <> ts2) (ss1 <> ss2) (eqs1 <> eqs2)
 
 instance Monoid Substitution where
-  mempty = Subst mempty mempty mempty mempty
+  mempty = Subst mempty mempty mempty
 
 type Unify sig m =
   ( Norm sig m
   , Has (Throw ()) sig m
   , Has (State Substitution) sig m )
-
-putRepSol :: Unify sig m => Global -> RuntimeRep -> m ()
-putRepSol gl sol = do
-  sols <- get
-  case Map.lookup gl (unRepSols sols) of
-    Nothing -> put (sols { unRepSols = Map.insert gl sol (unRepSols sols) })
-    Just sol' -> pure ()-- unifyReps sol sol'
 
 putStageSol :: Unify sig m => Global -> Stage -> m ()
 putStageSol gl sol = do
@@ -62,26 +54,13 @@ bind2 f act1 act2 = do
   y <- act2
   f x y
 
-unifyReps :: Unify sig m => RuntimeRep -> RuntimeRep -> m ()
-unifyReps (RUniVar gl1) (RUniVar gl2) | gl1 == gl2 = pure ()
-unifyReps rep1@(RUniVar gl1) rep2@(RUniVar gl2) = equateUVs gl1 gl2
-unifyReps (RUniVar gl) rep = putRepSol gl rep
-unifyReps rep (RUniVar gl) = putRepSol gl rep
-unifyReps Ptr Ptr = pure ()
-unifyReps Lazy Lazy = pure ()
-unifyReps Word Word = pure ()
-unifyReps Erased Erased = pure ()
-unifyReps (Prod reps1) (Prod reps2) | length reps1 == length reps2 = traverse_ (uncurry unifyReps) (zip reps1 reps2)
-unifyReps (Sum reps1) (Sum reps2) | length reps1 == length reps2 = traverse_ (uncurry unifyReps) (zip reps1 reps2)
-unifyReps _ _ = throwError ()
-
 unifyStages :: Unify sig m => Stage -> Stage -> m ()
 unifyStages (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
 unifyStages s1@(SUniVar gl1) s2@(SUniVar gl2) = equateUVs gl1 gl2
 unifyStages (SUniVar gl) s = putStageSol gl s
 unifyStages s (SUniVar gl) = putStageSol gl s
 unifyStages Meta Meta = pure ()
-unifyStages (Object rep1) (Object rep2) = unifyReps rep1 rep2
+unifyStages Object Object = pure ()
 unifyStages _ _ = throwError ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
@@ -93,23 +72,17 @@ unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (MetaFunIntro body1) (MetaFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
-unify' (ObjectFunType inTyRep1 inTy1 outTy1 outTyRep1) (ObjectFunType inTyRep2 inTy2 outTy2 outTyRep2) = do
-  unifyReps inTyRep1 inTyRep2
-  unifyReps outTyRep1 outTyRep1
+unify' (ObjectFunType inTy1 outTy1) (ObjectFunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
-unify' (ObjectFunIntro rep1 body1) (ObjectFunIntro rep2 body2) = do
-  unifyReps rep1 rep2
-  bind2 unify' (evalClosure body1) (evalClosure body2)
+unify' (ObjectFunIntro body1) (ObjectFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (MetaConstantIntro did1) (MetaConstantIntro did2) | did1 == did2 = pure ()
 unify' (ObjectConstantIntro did1) (ObjectConstantIntro did2) | did1 == did2 = pure ()
 unify' (TypeType s1) (TypeType s2) = unifyStages s1 s2
 unify' (FreeVar lvl1) (FreeVar lvl2) | lvl1 == lvl2 = pure ()
 unify' term1@(MetaFunElim lam1 arg1) term2@(MetaFunElim lam2 arg2) =
   unifyFunElims term1 lam1 arg1 term2 lam2 arg2
-unify' term1@(ObjectFunElim lam1 arg1 rep1) term2@(ObjectFunElim lam2 arg2 rep2) = do
-  unifyReps rep1 rep2
-  unifyFunElims term1 lam1 arg1 term2 lam2 arg2
+unify' term1@(ObjectFunElim lam1 arg1) term2@(ObjectFunElim lam2 arg2) = unifyFunElims term1 lam1 arg1 term2 lam2 arg2
 unify' (IOType ty1) (IOType ty2) = unify' ty1 ty2
 unify' (IOIntroPure term1) (term2) = unify' term1 term2
 unify' (IOIntroBind act1 k1) (IOIntroBind act2 k2) | act1 == act2 = unify' k1 k2

@@ -25,7 +25,6 @@ data MetaEntry = Solved N.Term | Unsolved
 data NormContext = NormContext
   { unEnv :: N.Environment
   , unVisited :: Set.Set Global
-  , unRepUVs :: Map.Map Global RuntimeRep
   , unTypeUVs :: Map.Map Global N.Term
   , unUVEqs :: Map.Map Global Global } -- FIXME? `Map Global (Set Global)`
   deriving (Show)
@@ -54,27 +53,27 @@ evalClosure clo = do
 
 funIntros :: C.Term -> (C.Term -> C.Term)
 funIntros (C.MetaFunType _ _ outTy) = C.MetaFunIntro . funIntros outTy
-funIntros (C.ObjectFunType inTyRep _ outTy _) = C.ObjectFunIntro inTyRep . funIntros outTy
+funIntros (C.ObjectFunType _ outTy) = C.ObjectFunIntro . funIntros outTy
 funIntros _ = id
 
 definition :: C.Declaration -> C.Term
 definition (C.MetaConstant did sig) = funIntros sig (C.MetaConstantIntro did)
-definition (C.ObjectConstant did _ sig) = funIntros sig (C.ObjectConstantIntro did)
-definition (C.Term _ _ _ def) = def
+definition (C.ObjectConstant did sig) = funIntros sig (C.ObjectConstantIntro did)
+definition (C.Term _ _ def) = def
 definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"
 
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
 eval (C.MetaFunType am inTy outTy) = N.MetaFunType am <$> eval inTy <*> closureOf outTy
 eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
-eval (C.ObjectFunType inTyRep inTy outTy outTyRep) = N.ObjectFunType inTyRep <$> eval inTy <*> closureOf outTy <*> pure outTyRep
-eval (C.ObjectFunIntro rep body) = N.ObjectFunIntro rep <$> closureOf body
-eval (C.ObjectFunElim lam arg rep) = do
+eval (C.ObjectFunType inTy outTy) = N.ObjectFunType <$> eval inTy <*> closureOf outTy
+eval (C.ObjectFunIntro body) = N.ObjectFunIntro <$> closureOf body
+eval (C.ObjectFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
   case vLam of
-    N.ObjectFunIntro _ body -> appClosure body vArg
-    _ -> pure (N.ObjectFunElim vLam vArg rep)
+    N.ObjectFunIntro body -> appClosure body vArg
+    _ -> pure (N.ObjectFunElim vLam vArg)
 eval (C.MetaFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
@@ -114,14 +113,13 @@ readback :: HasCallStack => Norm sig m => ShouldUnfold -> N.Term -> m C.Term
 readback unf (N.MetaFunType am inTy outTy) = C.MetaFunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
 readback unf (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback unf)
 readback unf (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback unf lam <*> readback unf arg
-readback unf (N.ObjectFunType inTyRep inTy outTy outTyRep) =
-  C.ObjectFunType <$> normalizeRep inTyRep <*> readback unf inTy <*> (evalClosure outTy >>= readback unf) <*> normalizeRep outTyRep
-readback unf (N.ObjectFunIntro rep body) = C.ObjectFunIntro <$> normalizeRep rep <*> (evalClosure body >>= readback unf)
-readback unf (N.ObjectFunElim lam arg rep) = C.ObjectFunElim <$> readback unf lam <*> readback unf arg <*> normalizeRep rep
+readback unf (N.ObjectFunType inTy outTy) =
+  C.ObjectFunType <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
+readback unf (N.ObjectFunIntro body) = C.ObjectFunIntro <$> (evalClosure body >>= readback unf)
+readback unf (N.ObjectFunElim lam arg) = C.ObjectFunElim <$> readback unf lam <*> readback unf arg
 readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
 readback unf (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
-readback unf (N.TypeType Meta) = pure (C.TypeType Meta)
-readback True (N.TypeType (Object rep)) = C.TypeType . Object <$> normalizeRep rep
+readback unf (N.TypeType s) = pure (C.TypeType s)
 readback unf (N.FreeVar (Level lvl)) = do
   env <- unEnv <$> ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
@@ -147,24 +145,6 @@ readback unf (N.IOIntroBind act k) = C.IOIntroBind act <$> readback unf k
 readback unf N.UnitType = pure C.UnitType
 readback unf N.UnitIntro = pure C.UnitIntro
 readback unf N.EElabError = pure C.EElabError
-
-normalizeRep :: HasCallStack => Norm sig m => RuntimeRep -> m RuntimeRep
-normalizeRep (RUniVar gl) = do
-  visited <- unVisited <$> ask
-  if Set.member gl visited then
-    pure (RUniVar gl)
-  else do
-    uvs <- unRepUVs <$> ask
-    case Map.lookup gl uvs of
-      Just sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (normalizeRep sol)
-      Nothing -> do
-        eqs <- unUVEqs <$> ask
-        case Map.lookup gl eqs of
-          Just gl' -> normalizeRep (RUniVar gl')
-          Nothing -> pure (RUniVar gl)
-normalizeRep Ptr = pure Ptr
-normalizeRep Lazy = pure Lazy
-normalizeRep Erased = pure Erased
 
 evalTop :: HasCallStack => Norm sig m => N.Environment -> C.Term -> m N.Term
 evalTop env term = local (\ctx -> ctx { unEnv = env }) (eval term)

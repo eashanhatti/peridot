@@ -34,13 +34,13 @@ type Stage sig m =
   , Norm sig m )
 
 stage :: HasCallStack => Stage sig m => C.Term -> m O.Term
-stage (C.ObjectFunType rep inTy outTy _) = O.FunType <$> normalizeRep rep <*> stage inTy <*> stage outTy
-stage (C.ObjectFunIntro rep body) = O.FunIntro <$> normalizeRep rep <*> stage body
-stage (C.ObjectFunElim lam arg rep) = O.FunElim <$> stage lam <*> stage arg <*> normalizeRep rep
+stage (C.ObjectFunType inTy outTy) = O.FunType <$> stage inTy <*> stage outTy
+stage (C.ObjectFunIntro body) = O.FunIntro <$> stage body
+stage (C.ObjectFunElim lam arg) = O.FunElim <$> stage lam <*> stage arg
 stage (C.IOType ty) = O.IOType <$> stage ty
 stage (C.IOIntroPure term) = O.IOIntroPure <$> stage term
 stage (C.IOIntroBind act k) = O.IOIntroBind act <$> stage k
-stage (C.TypeType (Object rep)) = O.TypeType <$> normalizeRep rep
+stage (C.TypeType Object) = pure O.TypeType
 stage (C.ObjectConstantIntro did) = pure (O.ObjectConstantIntro did)
 stage (C.LocalVar ix) = pure (O.LocalVar ix)
 stage (C.GlobalVar did) = do
@@ -71,13 +71,13 @@ stageDecl (C.Prove _ goal) = do
   globals <- unGlobals <$> get
   withGlobals (fmap ((,) (N.Env [] mempty)) globals) (eval goal >>= solve)
   pure Nothing
-stageDecl (C.ObjectConstant did rep sig) = Just <$> (O.ObjectConstant did <$> normalizeRep rep <*> stage sig)
+stageDecl (C.ObjectConstant did sig) = Just <$> (O.ObjectConstant did <$> stage sig)
 stageDecl (C.MetaConstant did sig) = do
   state <- get
   vSig <- eval sig
   put (state { unRules = vSig:(unRules state) })
   pure Nothing
-stageDecl (C.Term did rep sig def) = Just <$> (O.Term did <$> normalizeRep rep <*> stage sig <*> stage def)
+stageDecl (C.Term did sig def) = Just <$> (O.Term did <$> stage sig <*> stage def)
 
 solve :: Stage sig m => N.Term -> m ()
 solve goal = subgoals goal >>= traverse_ solve

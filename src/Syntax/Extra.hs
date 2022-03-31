@@ -9,7 +9,7 @@ import Data.Map qualified as Map
 data ApplyMethod = Explicit | Implicit
   deriving (Eq, Show)
 
-data Stage = Meta | Object RuntimeRep | SUniVar Global
+data Stage = Meta | Object | SUniVar Global
   deriving (Eq, Show)
 
 newtype Index = Index { unIndex :: Natural }

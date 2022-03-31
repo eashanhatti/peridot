@@ -26,7 +26,6 @@ library
   exposed-modules:
       Codegen
       Codegen.Generate
-      Codegen.Lower
       Codegen.Stage
       Elaboration
       Elaboration.Decl
