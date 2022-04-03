@@ -31,13 +31,3 @@ data Name = UserName Text | MachineName Natural
 
 data IOOperation = PutChar Char
   deriving (Eq, Show)
-
-data RuntimeRep
-  = Ptr
-  | Lazy
-  | Word
-  | Prod [RuntimeRep]
-  | Sum [RuntimeRep]
-  | Erased
-  | RUniVar Global
-  deriving (Eq, Show)

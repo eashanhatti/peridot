@@ -117,6 +117,9 @@ checkType term = do
   stage <- freshStageUV
   (,) <$> check term (N.TypeType stage) <*> pure (N.TypeType stage)
 
+checkType' :: Elab sig m => TermAst -> m C.Term
+checkType' ty = fst <$> checkType ty
+
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term = (,) <$> check term (N.TypeType Meta) <*> pure (N.TypeType Meta)
 
@@ -125,7 +128,7 @@ checkMetaType' ty = fst <$> checkMetaType ty
 
 checkObjectType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkObjectType term =
-  (,) <$> check term (N.TypeType Object) <*> pure (N.TypeType Object) -- FIXME
+  (,) <$> check term (N.TypeType Object) <*> pure (N.TypeType Object)
 
 checkObjectType' :: Elab sig m => TermAst -> m C.Term
 checkObjectType' ty = fst <$> checkObjectType ty

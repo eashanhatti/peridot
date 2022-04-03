@@ -25,7 +25,6 @@ source-repository head
 library
   exposed-modules:
       Codegen
-      Codegen.Generate
       Codegen.Stage
       Elaboration
       Elaboration.Decl
@@ -36,9 +35,9 @@ library
       Parser
       Syntax.Core
       Syntax.Extra
+      Syntax.Low
       Syntax.Object
       Syntax.Semantic
-      Syntax.STG
       Syntax.Surface
       Unification
   other-modules:
