@@ -1,6 +1,7 @@
 module Syntax.Core where
 
 import Syntax.Extra
+import Syntax.Quote(TermQuote)
 
 type Signature = Term
 
@@ -37,6 +38,8 @@ data Term
   | IOIntroBind IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
+  | QuoteType (TermQuote Term)
+  | QuoteIntro (TermQuote Term)
   | TypeType Stage
   | LocalVar Index
   | GlobalVar Id

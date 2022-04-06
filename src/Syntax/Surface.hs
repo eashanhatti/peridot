@@ -78,3 +78,20 @@ data Term
   | UnitType
   | Unit
   deriving (Show)
+
+data TermQuote
+  = QPi NameAst TermAst TermAst
+  | QLam NameAst TermAst
+  | QApp TermAst TermAst
+  | QIOType TermAst
+  | QIOPure TermAst
+  | QIOBind IOOperation TermAst
+  | QUnitType
+  | QUnit
+  | QUniv
+  | QVar NameAst
+  | QLet [DeclarationQuote] TermAst
+
+data DeclarationQuote
+  = QObjectConstant NameAst TermAst
+  | QTerm NameAst TermAst TermAst
