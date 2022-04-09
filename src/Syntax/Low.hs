@@ -2,42 +2,35 @@ module Syntax.Low where
 
 import Data.Sequence
 import Syntax.Extra
-
-data Program = Prog (Seq Declaration)
-
-data Declaration = Function Id (Seq Binding) Term Representation
-
-data Binding = Bound Id Representation
-
-data Term
-  = Do SimpleTerm Id Representation Term
-  | Case Value (Seq Branch)
-  | Simple SimpleTerm
-
-data Branch = Branch Pattern Term
-
-data SimpleTerm
-  = App Id SimpleTerm
-  | Pure Value
-  | Alloc Value
-  | Read Id
-  | Write Id Value
+import Numeric.Natural
 
 data Value
-  = VSum Word SimpleValue
-  | VProd (Seq SimpleValue)
+  = Var Id
+  | Num Natural
 
-data SimpleValue
-  = VWord Word
-  | Var Id
+data Instruction
+  = StackAllocWord Value Value -- word, mem
+  | HeapAllocWord Value Value -- word, mem
+  | WritePtr Value Value -- ptr, mem
+  | ReadPtr Value -- ptr
 
-data Pattern
-  = PWord Word
-  | PSum Word Binding
-  | PProd (Seq Binding)
+data Terminator = Jump Id (Seq Value)
 
-data Representation
-  = RWord
-  | Ptr Representation
-  | RSum (Seq Representation)
-  | RProd (Seq Representation)
+data Parameter = Param Id Type
+
+data Binding = Bind
+  { unBinds :: Seq (Id, Type)
+  , unInst :: Instruction }
+
+data BasicBlock = Block
+  { unParams :: Seq Parameter
+  , unInsts :: Seq Binding
+  , unTerm :: Terminator }
+
+data Program = Prog
+  { unBBs :: Seq BasicBlock }
+
+data Type
+  = Word
+  | Ptr
+  | Memory -- linear
