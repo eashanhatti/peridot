@@ -2,6 +2,7 @@ module Elaboration.Term where
 
 import Syntax.Surface
 import Syntax.Core qualified as C
+import Syntax.Quote qualified as Q
 import Syntax.Semantic qualified as N
 import Syntax.Extra hiding(unId)
 import Elaboration.Effect
@@ -69,6 +70,7 @@ infer term = case term of
     where
       checkArgs :: Elab sig m => [TermAst] -> N.Term -> m ([C.Term], N.Term)
       checkArgs [] outTy = pure ([], outTy)
+      -- FIXME: need to unify `outTy` with a function type in this case
       checkArgs (arg:args) (N.FunType inTy outTy) = do
         cArg <- check arg inTy
         vArg <- eval cArg
@@ -108,9 +110,62 @@ infer term = case term of
     pure (C.IOIntroBind act cK, outTy)
   TermAst UnitType -> pure (C.UnitType, N.TypeType Object)
   TermAst Unit -> pure (C.UnitIntro, N.UnitType)
+  TermAst (Quote quote) -> do
+    (qcTerm, ty) <- inferQuote quote
+    pure (C.Quote qcTerm, N.Quote ty)
+
+inferQuote :: Elab sig m => TermQuote -> m (C.TermQuote, N.TermQuote)
+inferQuote (QPi (NameAst name) inTy outTy) = do
+  cInTy <- check inTy (N.Quote Q.TypeType)
+  vInTy <- eval cInTy
+  cOutTy <- bindLocal name vInTy (check outTy (N.Quote Q.TypeType))
+  pure (Q.FunType cInTy cOutTy, Q.TypeType)
+inferQuote (QLam (NameAst name) body) = do
+  inTy <- freshQTypeUV
+  outTy <- freshQTypeUV
+  cBody <- bindLocal name (N.Quote inTy) (check body (N.Quote outTy))
+  pure (Q.FunIntro cBody, outTy)
+inferQuote (QApp lam arg) = do
+  (cLam, lamTy) <- infer lam
+  inTy <- freshQTypeUV
+  outTy <- freshQTypeUV
+  unify (N.Quote (Q.FunType (N.Quote inTy) (N.Quote outTy))) lamTy
+  cArg <- check arg (N.Quote inTy)
+  pure (Q.FunElim cLam cArg, outTy)
+inferQuote (QIOType ty) = do
+  cTy <- check ty (N.Quote Q.TypeType)
+  pure (Q.IOType cTy, Q.TypeType)
+inferQuote (QIOPure term) = do
+  ty <- freshQTypeUV
+  cTerm <- check term (N.Quote ty)
+  pure (Q.IOIntroPure cTerm, Q.IOType (N.Quote ty))
+inferQuote (QIOBind act k) = do
+  let inTy = opQTy act
+  outTy <- freshQTypeUV
+  cK <- check k (N.Quote (Q.FunType (N.Quote inTy) (N.Quote outTy)))
+  pure (Q.IOIntroBind act cK, outTy)
+inferQuote QUnitType = pure (Q.UnitType, Q.TypeType)
+inferQuote QUnit = pure (Q.UnitIntro, Q.UnitType)
+inferQuote QUniv = pure (Q.TypeType, Q.TypeType)
+inferQuote (QVar (NameAst name)) = do
+  binding <- lookupBinding name
+  uv <- freshQTypeUV
+  case binding of
+    Just (BLocal ix ty) -> do
+      unify ty (N.Quote uv)
+      pure (Q.LocalVar ix, uv)
+    Just (BGlobal did) -> do
+      ty <- fst <$> ED.declType did >>= eval
+      unify ty (N.Quote uv)
+      pure (Q.GlobalVar did, uv)
+    Nothing -> errorQTerm (UnboundVariable name)
+inferQuote (QLet _ _) = undefined
 
 opTy :: IOOperation -> N.Term
 opTy (PutChar _) = N.UnitType
+
+opQTy :: IOOperation -> N.TermQuote
+opQTy (PutChar _) = Q.UnitType
 
 checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkType term = do

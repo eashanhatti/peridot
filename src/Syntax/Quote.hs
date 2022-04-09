@@ -3,10 +3,10 @@ module Syntax.Quote where
 import Syntax.Extra
 
 data TermQuote a
-  = ObjectFunType a a
-  | ObjectFunIntro a
-  | ObjectFunElim a a
-  | ObjectConstantIntro Id
+  = FunType a a
+  | FunIntro a
+  | FunElim a a
+  | ConstantIntro Id
   | IOType a
   | IOIntroPure a -- `pure`
   | IOIntroBind IOOperation a -- `>>=`
@@ -16,6 +16,8 @@ data TermQuote a
   | LocalVar Index
   | GlobalVar Id
   | Let [DeclarationQuote a] a
+  | UniVar Global
+  | ElabError
   deriving (Eq, Show)
 
 data DeclarationQuote a

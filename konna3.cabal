@@ -37,6 +37,7 @@ library
       Syntax.Extra
       Syntax.Low
       Syntax.Object
+      Syntax.Quote
       Syntax.Semantic
       Syntax.Surface
       Unification

@@ -3,8 +3,10 @@ module Syntax.Semantic where
 
 import Syntax.Extra
 import Syntax.Core qualified as C
-import Syntax.Quote(TermQuote)
+import Syntax.Quote qualified as Q
 import Data.Map(Map, insert, size)
+
+type TermQuote = Q.TermQuote Term
 
 data Environment = Env [Term] (Map Id (Environment, C.Term))
   deriving (Eq)
@@ -34,8 +36,7 @@ data Term
   | IOIntroBind IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
-  | QuoteType (TermQuote Term)
-  | QuoteIntro (TermQuote Term)
+  | Quote TermQuote
   | TypeType Stage
   | EElabError
   -- Stuck terms

@@ -77,6 +77,7 @@ data Term
   | IOBind IOOperation TermAst
   | UnitType
   | Unit
+  | Quote TermQuote
   deriving (Show)
 
 data TermQuote
@@ -91,7 +92,9 @@ data TermQuote
   | QUniv
   | QVar NameAst
   | QLet [DeclarationQuote] TermAst
+  deriving (Show)
 
 data DeclarationQuote
   = QObjectConstant NameAst TermAst
   | QTerm NameAst TermAst TermAst
+  deriving (Show)

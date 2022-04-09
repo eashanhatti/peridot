@@ -14,6 +14,7 @@ import Data.Map(Map, insert, union, fromList, lookup)
 import Data.Map qualified as Map
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
+import Syntax.Quote qualified as Q
 import Syntax.Surface
 import Syntax.Extra hiding(unId)
 import Data.Some
@@ -213,6 +214,9 @@ freshTypeUV = do
     , unNextUV = unNextUV state + 1 })
   pure (N.UniVar (unNextUV state))
 
+freshQTypeUV :: Elab sig m => m N.TermQuote
+freshQTypeUV = undefined
+
 freshStageUV :: Elab sig m => m Stage
 freshStageUV = do
   state <- get
@@ -231,6 +235,9 @@ errorTerm :: Elab sig m => Error -> m (C.Term, N.Term)
 errorTerm err = do
   report err
   pure (C.EElabError, N.EElabError)
+
+errorQTerm :: Elab sig m => Error -> m (C.TermQuote, N.TermQuote)
+errorQTerm = undefined
 
 eval :: Elab sig m => C.Term -> m N.Term
 eval term = do
