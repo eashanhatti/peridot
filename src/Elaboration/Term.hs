@@ -83,9 +83,8 @@ infer term = case term of
         ty <- fst <$> ED.declType did >>= eval
         pure (C.GlobalVar did, ty)
       Nothing -> errorTerm (UnboundVariable name)
-  TermAst Univ -> do
-    -- stage <- freshStageUV
-    pure (C.TypeType Object, N.TypeType Object)
+  TermAst ObjUniv -> pure (C.TypeType Object, N.TypeType Object)
+  TermAst MetaUniv -> pure (C.TypeType Meta, N.TypeType Meta)
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
@@ -153,18 +152,18 @@ inferQuote QUnitType = pure (Q.UnitType, Q.TypeType)
 inferQuote QUnit = pure (Q.UnitIntro, Q.UnitType)
 inferQuote QUniv = pure (Q.TypeType, Q.TypeType)
 inferQuote QWorldType = pure (Q.WorldType, Q.UnqTypeType)
-inferQuote (QVar (NameAst name)) = do
-  binding <- lookupBinding name
-  uv <- freshQTypeUV
-  case binding of
-    Just (BLocal ix ty) -> do
-      unify ty (N.QuoteType uv)
-      pure (Q.LocalVar ix, uv)
-    Just (BGlobal did) -> do
-      ty <- fst <$> ED.declType did >>= eval
-      unify ty (N.QuoteType uv)
-      pure (Q.GlobalVar did, uv)
-    Nothing -> errorQTerm (UnboundVariable name)
+-- inferQuote (QVar (NameAst name)) = do
+--   binding <- lookupBinding name
+--   uv <- freshQTypeUV
+--   case binding of
+--     Just (BLocal ix ty) -> do
+--       unify ty (N.QuoteType uv)
+--       pure (Q.LocalVar ix, uv)
+--     Just (BGlobal did) -> do
+--       ty <- fst <$> ED.declType did >>= eval
+--       unify ty (N.QuoteType uv)
+--       pure (Q.GlobalVar did, uv)
+--     Nothing -> errorQTerm (UnboundVariable name)
 inferQuote (QLet _ _) = undefined -- FIXME
 inferQuote QInstType = pure (Q.TypeType, Q.TypeType)
 inferQuote (QPrintChar [name] char world cont) = undefined

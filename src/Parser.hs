@@ -11,7 +11,7 @@ import Control.Monad.Combinators
 import Control.Monad.State
 import GHC.Exts
 
-keywords = ["let", "in", "Type"]
+keywords = ["let", "in", "Type", "qUnit"]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -84,10 +84,15 @@ var = do
   when (elem s keywords) (fail "keyword")
   pure (TermAst (Var (UserName (pack s))))
 
-univ :: Parser TermAst
-univ = do
-  string "Type"
-  pure (TermAst Univ)
+objUniv :: Parser TermAst
+objUniv = do
+  string "OType"
+  pure (TermAst ObjUniv)
+
+metaUniv :: Parser TermAst
+metaUniv = do
+  string "MType"
+  pure (TermAst MetaUniv)
 
 letB :: Parser TermAst
 letB = do
@@ -236,16 +241,21 @@ data K = Term | Type
 qPi :: Parser TermQuote
 qPi = do
   char '('; ws
-  string "pi"; ws
+  string "qpi"; ws
   inTy <- term; ws
   outTy <- term; ws
   char ')'
   pure (QPi inTy outTy)
 
+qUnitType :: Parser TermQuote
+qUnitType = do
+  string "qUnit"
+  pure QUnitType
+
 qLam :: Parser TermQuote
 qLam = do
   char '('; ws
-  string "lam"; ws
+  string "qlam"; ws
   body <- term; ws
   char ')'
   pure (QLam body)
@@ -253,7 +263,7 @@ qLam = do
 qApp :: Parser TermQuote
 qApp = do
   char '('; ws
-  string "app"; ws
+  string "qapp"; ws
   lam <- term; ws
   arg <- term; ws
   char ')'
@@ -262,10 +272,24 @@ qApp = do
 quote :: K -> Parser TermAst
 quote k = do
   let
-    intro = case k of
-      Term -> TermAst . Quote
-      Type -> TermAst . QuoteType
-  intro <$> (qPi)
+    p =
+      qPi <|>
+      qUnitType <|>
+      qLam <|>
+      qApp
+  case k of
+    Term -> do
+      char '('; ws
+      string "quote"; ws
+      q <- p; ws
+      char ')'
+      pure (TermAst (Quote q))
+    Type -> do
+      char '('; ws
+      string "Quote"; ws
+      q <- p; ws
+      char ')'
+      pure (TermAst (QuoteType q))
 
 term :: Parser TermAst
 term = do
@@ -274,7 +298,10 @@ term = do
     try metaLam <|>
     try objLam <|>
     try app <|>
-    try univ <|>
+    try (quote Term) <|>
+    try (quote Type) <|>
+    try objUniv <|>
+    try metaUniv <|>
     try letB <|>
     try ioPure <|>
     try ioTy <|>

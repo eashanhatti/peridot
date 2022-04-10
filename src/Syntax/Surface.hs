@@ -69,7 +69,8 @@ data Term
   | ObjLam [NameAst] TermAst
   | App TermAst [TermAst]
   | Var Name
-  | Univ
+  | ObjUniv
+  | MetaUniv
   | Let [DeclarationAst] TermAst
   | Rule TermAst TermAst -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo
   | IOPure TermAst
@@ -91,18 +92,18 @@ data TermQuote
   | QUnitType
   | QUnit
   | QUniv
-  | QVar NameAst
+  -- | QVar NameAst
   | QLet [DeclarationQuote] TermAst
   | QInstType
   | QWorldType
-  | QStackAllocWord [NameAst] TermAst TermAst TermAst -- bindings, word, world, cont
-  | QHeapAllocWord [NameAst] TermAst TermAst TermAst -- bindings, word, world, cont
-  | QWritePtr [NameAst] TermAst TermAst TermAst -- bindings, ptr, world, cont
-  | QReadPtr [NameAst] TermAst TermAst -- bindings, ptr, cont
-  | QPrintChar [NameAst] Char TermAst TermAst -- bindings, char, world, cont
+  | QStackAllocWord TermAst TermAst TermAst -- word, world, cont
+  | QHeapAllocWord TermAst TermAst TermAst -- word, world, cont
+  | QWritePtr TermAst TermAst TermAst -- ptr, world, cont
+  | QReadPtr TermAst TermAst -- ptr, cont
+  | QPrintChar Char TermAst TermAst -- char, world, cont
   | QJump TermAst [TermAst]
   | QBasicBlockType [TermAst]
-  | QBasicBlock [NameAst] TermAst
+  | QBasicBlock TermAst
   deriving (Show)
 
 data DeclarationQuote

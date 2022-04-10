@@ -15,8 +15,8 @@ data TermQuote a
   | UnitIntro
   | TypeType
   | UnqTypeType
-  | LocalVar Index
-  | GlobalVar Id
+  -- | LocalVar Index
+  -- | GlobalVar Id
   | Let (Seq (DeclarationQuote a)) a
   | UniVar Global
   | ElabError
@@ -33,9 +33,9 @@ data TermQuote a
   | WordType
   | PtrType
   | BlockPtrType
-  deriving (Eq, Show)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data DeclarationQuote a
   = ObjectConstant Id a
   | Term Id a a
-  deriving (Eq, Show)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
