@@ -231,6 +231,42 @@ op = do
   char ')'
   pure (PutChar c)
 
+data K = Term | Type
+
+qPi :: Parser TermQuote
+qPi = do
+  char '('; ws
+  string "pi"; ws
+  inTy <- term; ws
+  outTy <- term; ws
+  char ')'
+  pure (QPi inTy outTy)
+
+qLam :: Parser TermQuote
+qLam = do
+  char '('; ws
+  string "lam"; ws
+  body <- term; ws
+  char ')'
+  pure (QLam body)
+
+qApp :: Parser TermQuote
+qApp = do
+  char '('; ws
+  string "app"; ws
+  lam <- term; ws
+  arg <- term; ws
+  char ')'
+  pure (QApp lam arg)
+
+quote :: K -> Parser TermAst
+quote k = do
+  let
+    intro = case k of
+      Term -> TermAst . Quote
+      Type -> TermAst . QuoteType
+  intro <$> (qPi)
+
 term :: Parser TermAst
 term = do
   pos <- getSourcePos
