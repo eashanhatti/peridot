@@ -1,73 +1,36 @@
-RIGHT{((fromList
-    [(Global {unGlobal = 7},
-      Just (TypeType (Object Ptr))),
-     (Global {unGlobal = 8},
+((fromList
+    [(Global {unGlobal = 0}, Just (TypeType Object)),
+     (Global {unGlobal = 1},
       Just (FreeVar (Level {unLevel = 0}))),
-     (Global {unGlobal = 13},
+     (Global {unGlobal = 2},
       Just (FreeVar (Level {unLevel = 0}))),
-     (Global {unGlobal = 20}, Just UnitType)],
+     (Global {unGlobal = 3}, Just UnitType)],
   fromList [],
   fromList
-    [(Global {unGlobal = 0}, Just Ptr),
-     (Global {unGlobal = 1}, Just Ptr),
-     (Global {unGlobal = 2}, Just Ptr),
-     (Global {unGlobal = 3}, Just Ptr),
-     (Global {unGlobal = 4}, Just Ptr),
-     (Global {unGlobal = 5}, Just Ptr),
-     (Global {unGlobal = 6}, Just Ptr),
-     (Global {unGlobal = 9}, Just Ptr),
-     (Global {unGlobal = 10}, Just Ptr),
-     (Global {unGlobal = 11}, Nothing),
-     (Global {unGlobal = 12}, Nothing),
-     (Global {unGlobal = 14}, Just Ptr),
-     (Global {unGlobal = 15}, Just Ptr),
-     (Global {unGlobal = 16}, Just Ptr),
-     (Global {unGlobal = 17}, Just Ptr),
-     (Global {unGlobal = 18}, Just Ptr),
-     (Global {unGlobal = 19}, Just Ptr)],
-  fromList
-    [(Global {unGlobal = 3}, Global {unGlobal = 9}),
-     (Global {unGlobal = 5}, Global {unGlobal = 10}),
-     (Global {unGlobal = 8}, Global {unGlobal = 13}),
-     (Global {unGlobal = 9}, Global {unGlobal = 3}),
-     (Global {unGlobal = 10}, Global {unGlobal = 5}),
-     (Global {unGlobal = 13}, Global {unGlobal = 8})],
+    [(Global {unGlobal = 1}, Global {unGlobal = 2}),
+     (Global {unGlobal = 2}, Global {unGlobal = 1})],
   []),
- Just
-   (Letrec
-      [Fun
-         (Id {unId = 0})
-         (fromList [])
-         []
-         (Val (Con (Id {unId = 0}) [])),
-       Fun
-         (Id {unId = 1})
-         (fromList [])
-         []
-         (Val (Con (Id {unId = 1}) [])),
-       Fun
-         (Id {unId = 2})
-         (fromList [])
-         []
-         (Val (Con (Id {unId = 2}) [])),
-       Fun
-         (Id {unId = 3})
-         (fromList [])
-         [Binding Ptr (Id {unId = 5}),
-          Binding Ptr (Id {unId = 6})]
-         (Val (Var (Id {unId = 6}))),
-       Fun
-         (Id {unId = 4})
-         (fromList
-            [Id {unId = 0}, Id {unId = 1}, Id {unId = 3}])
-         []
-         (Let
-            [(Binding Ptr (Id {unId = 8}),
-              App (Var (Id {unId = 1})) []),
-             (Binding Ptr (Id {unId = 7}),
-              App (Var (Id {unId = 0})) [])]
-            (App
-               (Var (Id {unId = 3}))
-               [Var (Id {unId = 7}), Var (Id {unId = 8})]))]
-      (Val Unit)))
-}
+ Let
+   [ObjectConstant (Id {unId = 0}) (TypeType Object),
+    ObjectConstant
+      (Id {unId = 1}) (GlobalVar (Id {unId = 0})),
+    ObjectConstant
+      (Id {unId = 2}) (GlobalVar (Id {unId = 0})),
+    Term
+      (Id {unId = 6})
+      (ObjectFunType
+         (TypeType Object)
+         (ObjectFunType
+            (LocalVar (Index {unIndex = 0}))
+            (LocalVar (Index {unIndex = 1}))))
+      (ObjectFunIntro
+         (ObjectFunIntro (LocalVar (Index {unIndex = 0})))),
+    Term
+      (Id {unId = 9})
+      (GlobalVar (Id {unId = 0}))
+      (ObjectFunElim
+         (ObjectFunElim
+            (GlobalVar (Id {unId = 6}))
+            (GlobalVar (Id {unId = 0})))
+         (GlobalVar (Id {unId = 1})))]
+   (IOIntroPure UnitIntro))

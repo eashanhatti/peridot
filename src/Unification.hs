@@ -69,12 +69,13 @@ unifyQuotes (Q.FunType inTy1 outTy1) (Q.FunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   unify' outTy1 outTy2
 unifyQuotes Q.UnitType Q.UnitType = pure ()
+unifyQuotes Q.TypeType Q.TypeType = pure ()
 unifyQuotes _ _ = throwError ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unify' (UniVar gl1) (UniVar gl2) | gl1 == gl2 = pure ()
 unify' (QuoteIntro quote1) (QuoteIntro quote2) = unifyQuotes quote1 quote2 
-unify' (QuoteType quote1) (QuoteType quote2) = unifyQuotes quote1 quote2 
+unify' (QuoteType quote1) (QuoteType quote2) = unify' quote1 quote2 
 unify' term1@(UniVar gl1) term2@(UniVar gl2) = equateUVs gl1 gl2
 unify' (UniVar gl) term = putTypeSol gl term
 unify' term (UniVar gl) = putTypeSol gl term

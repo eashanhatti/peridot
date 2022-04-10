@@ -1,51 +1,24 @@
-RIGHT{((fromList
+((fromList
     [(Global {unGlobal = 0}, Just UnitType),
      (Global {unGlobal = 1}, Just UnitType),
-     (Global {unGlobal = 4},
+     (Global {unGlobal = 2},
       Just (IOType (UniVar (Global {unGlobal = 0})))),
-     (Global {unGlobal = 5}, Nothing),
-     (Global {unGlobal = 6}, Just UnitType),
-     (Global {unGlobal = 9},
-      Just (IOType (UniVar (Global {unGlobal = 5})))),
-     (Global {unGlobal = 10}, Just UnitType)],
-  fromList [],
-  fromList
-    [(Global {unGlobal = 2}, Just Erased),
      (Global {unGlobal = 3}, Nothing),
-     (Global {unGlobal = 7}, Just Erased),
-     (Global {unGlobal = 8}, Nothing),
-     (Global {unGlobal = 11}, Just Ptr)],
+     (Global {unGlobal = 4}, Just UnitType),
+     (Global {unGlobal = 5},
+      Just (IOType (UniVar (Global {unGlobal = 3})))),
+     (Global {unGlobal = 6}, Just UnitType)],
   fromList [],
-  [(SourcePos
-      {sourceName = "<TODO>",
-       sourceLine = Pos 2,
-       sourceColumn = Pos 25},
-    FailedUnify
-      (TypeType (Object Ptr)) (TypeType (Object Erased))),
-   (SourcePos
-      {sourceName = "<TODO>",
-       sourceLine = Pos 2,
-       sourceColumn = Pos 25},
-    FailedUnify
-      (TypeType (Object Ptr))
-      (TypeType (Object Erased)))]),
- Just
-   (Letrec
-      [Fun
-         (Id {unId = 0})
-         (fromList [])
-         []
-         (Letrec
-            [Fun
-               (Id {unId = 1})
-               (fromList [Id {unId = 3}])
-               [Binding Erased (Id {unId = 2})]
-               (DoIO (PutChar 'y') (Val (Var (Id {unId = 3})))),
-             Fun
-               (Id {unId = 3})
-               (fromList [])
-               [Binding Erased (Id {unId = 4})]
-               (Val Unit)]
-            (DoIO (PutChar 'x') (Val (Var (Id {unId = 1})))))]
-      (App (Var (Id {unId = 0})) [])))
-}
+  fromList [],
+  []),
+ Let
+   [Term
+      (Id {unId = 2})
+      (IOType UnitType)
+      (IOIntroBind
+         (PutChar 'x')
+         (ObjectFunIntro
+            (IOIntroBind
+               (PutChar 'y')
+               (ObjectFunIntro (IOIntroPure UnitIntro)))))]
+   (GlobalVar (Id {unId = 2})))

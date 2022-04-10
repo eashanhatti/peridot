@@ -41,7 +41,7 @@ data Term
   | UnitType
   | UnitIntro
   | QuoteIntro TermQuote
-  | QuoteType TermQuote
+  | QuoteType Term
   | TypeType Stage
   | LocalVar Index
   | GlobalVar Id

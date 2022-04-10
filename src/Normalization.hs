@@ -64,7 +64,7 @@ definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"
 
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
-eval (C.QuoteType quote) = N.QuoteType <$> traverse eval quote
+eval (C.QuoteType quote) = N.QuoteType <$> eval quote
 eval (C.QuoteIntro quote) = N.QuoteIntro <$> traverse eval quote
 eval (C.MetaFunType am inTy outTy) = N.MetaFunType am <$> eval inTy <*> closureOf outTy
 eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
@@ -112,7 +112,7 @@ entry ix = do
 type ShouldUnfold = Bool
 
 readback :: HasCallStack => Norm sig m => ShouldUnfold -> N.Term -> m C.Term
-readback unf (N.QuoteType quote) = C.QuoteType <$> traverse (readback unf) quote
+readback unf (N.QuoteType quote) = C.QuoteType <$> readback unf quote
 readback unf (N.QuoteIntro quote) = C.QuoteIntro <$> traverse (readback unf) quote
 readback unf (N.MetaFunType am inTy outTy) = C.MetaFunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
 readback unf (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback unf)

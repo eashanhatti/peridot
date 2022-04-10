@@ -1,9 +1,9 @@
 let {
-	datatype Bool : Type {
+	datatype Bool : OType {
 		true  : Bool;
 		false : Bool;
 	};
-	'val id : '[A : Type] -> '[_ : A] -> A = '\A x { x };
+	'val id : '[A : OType] -> '[_ : A] -> A = '\A x { x };
 	'val foo : Bool = <id Bool true>;
 } in {
 	(pure unit)

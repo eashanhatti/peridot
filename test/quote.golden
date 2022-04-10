@@ -1,0 +1,12 @@
+((fromList [(Global {unGlobal = 0}, Just UnitType)],
+  fromList [],
+  fromList [],
+  []),
+ Let
+   [MetaConstant
+      (Id {unId = 3})
+      (MetaFunType
+         Explicit
+         (QuoteType (QuoteIntro UnitType))
+         (TypeType Meta))]
+   (IOIntroPure UnitIntro))

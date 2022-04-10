@@ -78,7 +78,7 @@ data Term
   | IOBind IOOperation TermAst
   | UnitType
   | Unit
-  | QuoteType TermQuote
+  | QuoteType TermAst
   | Quote TermQuote
   deriving (Show)
 

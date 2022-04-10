@@ -1,5 +1,5 @@
 let {
-  assume Rel : [_ : (Quote (qpi qUnit \_ { qUnit }))] -> MType;
+  assume Rel : [_ : (Quote qUnit)] -> MType;
 } in {
   (pure unit)
 }

@@ -44,12 +44,12 @@ metaPiTy = do
   char ']'; ws
   string "->"; ws
   outTy <- term
-  pure (TermAst (ObjPi n inTy outTy))
+  pure (TermAst (MetaPi n inTy outTy))
 
 metaLam :: Parser TermAst
 metaLam = do
   char '\\'; ws
-  ns <- fromList <$> some do
+  ns <- some do
     n <- name; ws
     pure n
   char '{'; ws
@@ -60,7 +60,7 @@ metaLam = do
 objLam :: Parser TermAst
 objLam = do
   string "'\\"; ws
-  ns <- fromList <$> some do
+  ns <- some do
     n <- name; ws
     pure n
   char '{'; ws
@@ -72,7 +72,7 @@ app :: Parser TermAst
 app = do
   char '<'; ws
   lam <- term; ws
-  args <- fromList <$> some do
+  args <- some do
     arg <- term; ws
     pure arg
   char '>'
@@ -98,7 +98,7 @@ letB :: Parser TermAst
 letB = do
   string "let"; ws
   char '{'; ws
-  decls <- fromList <$> many do
+  decls <- many do
     d <- decl; ws
     char ';'; ws
     pure d
@@ -166,7 +166,7 @@ datatype = do
   char ':'; ws
   sig <- term; ws
   char '{'; ws
-  cs <- fromList <$> many do
+  cs <- many do
     c <- fmap ($ did) con; ws
     char ';'; ws
     pure c
@@ -269,27 +269,22 @@ qApp = do
   char ')'
   pure (QApp lam arg)
 
-quote :: K -> Parser TermAst
-quote k = do
-  let
-    p =
-      qPi <|>
-      qUnitType <|>
-      qLam <|>
-      qApp
-  case k of
-    Term -> do
-      char '('; ws
-      string "quote"; ws
-      q <- p; ws
-      char ')'
-      pure (TermAst (Quote q))
-    Type -> do
-      char '('; ws
-      string "Quote"; ws
-      q <- p; ws
-      char ')'
-      pure (TermAst (QuoteType q))
+quote :: Parser TermAst
+quote = do
+  q <-
+    qPi <|>
+    qUnitType <|>
+    qLam <|>
+    qApp
+  pure (TermAst (Quote q))
+
+quoteTy :: Parser TermAst
+quoteTy = do
+  char '('; ws
+  string "Quote"; ws
+  ty <- term; ws
+  char ')'
+  pure (TermAst (QuoteType ty)) 
 
 term :: Parser TermAst
 term = do
@@ -298,8 +293,8 @@ term = do
     try metaLam <|>
     try objLam <|>
     try app <|>
-    try (quote Term) <|>
-    try (quote Type) <|>
+    try quote <|>
+    try quoteTy <|>
     try objUniv <|>
     try metaUniv <|>
     try letB <|>

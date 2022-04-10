@@ -1,11 +1,11 @@
 let {
-	datatype Bool : Type {
+	datatype Bool : OType {
 		true  : Bool;
 		false : Bool;
 	};
-	datatype List : [_ : Type] -> Type {
-		nil  : [A : Type] -> <List A>;
-		cons : [A : Type] -> [_ : A] -> [_ : <List A>] -> <List A>;
+	datatype List : '[_ : OType] -> OType {
+		nil  : '[A : OType] -> <List A>;
+		cons : '[A : OType] -> '[_ : A] -> '[_ : <List A>] -> <List A>;
 	};
 	'val foo : <List Bool> = <cons Bool true <cons Bool false nil>>;
 } in {

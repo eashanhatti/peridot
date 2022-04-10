@@ -35,17 +35,17 @@ goldenTests = do
 testSurfaceToSTG :: BL.ByteString -> BL.ByteString
 testSurfaceToSTG bs =
   case P.parse . T.decodeUtf8 . B.concat . BL.toChunks $ bs of
-    Right term ->
-      let
-        (qs, cTerm) = elaborate' term
-        ctx =
-          NormContext
-            (Env mempty mempty)
-            mempty
-            (justs (unRepUVs qs))
-            (justs (unTypeUVs qs))
-            (unUVEqs qs)
-      in "RIGHT{" <> (fromString . shower $ (qs, stgify ctx cTerm)) <> "}"
+    Right term -> fromString . shower $ elaborate' term
+      -- let
+      --   (qs, cTerm) = elaborate' term
+      --   ctx =
+      --     NormContext
+      --       (Env mempty mempty)
+      --       mempty
+      --       (justs (unRepUVs qs))
+      --       (justs (unTypeUVs qs))
+      --       (unUVEqs qs)
+      -- in "RIGHT{" <> (fromString . shower $ (qs, stgify ctx cTerm)) <> "}"
     Left err -> "LEFT{" <> fromString err <> "}"
 
 justs = Map.map fromJust . Map.filter isJust

@@ -1,7 +1,7 @@
 let {
-  datatype Nat : Type {
+  datatype Nat : OType {
   	zero : Nat;
-  	succ : [_ : Nat] -> Nat;
+  	succ : '[_ : Nat] -> Nat;
 	};
 } in {
 	(pure unit)
