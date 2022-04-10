@@ -3,34 +3,39 @@ module Syntax.Low where
 import Data.Sequence
 import Syntax.Extra
 import Numeric.Natural
+import Data.Map
 
 data Value
   = Var Id
   | Num Natural
 
 data Instruction
-  = StackAllocWord Value Value -- word, mem
-  | HeapAllocWord Value Value -- word, mem
-  | WritePtr Value Value -- ptr, mem
+  = StackAllocWord Value Value -- word, world
+  | HeapAllocWord Value Value -- word, world
+  | WritePtr Value Value -- ptr, world
   | ReadPtr Value -- ptr
+  | PrintChar Char Value -- char, world
 
-data Terminator = Jump Id (Seq Value)
+data Terminator
+  = LocalJump Id (Seq Value)
+  | NonlocalJump Value (Seq Value)
 
 data Parameter = Param Id Type
 
 data Binding = Bind
-  { unBinds :: Seq (Id, Type)
+  { unNames :: Seq Id
   , unInst :: Instruction }
 
 data BasicBlock = Block
   { unParams :: Seq Parameter
-  , unInsts :: Seq Binding
+  , unBinds :: Seq Binding
   , unTerm :: Terminator }
 
 data Program = Prog
-  { unBBs :: Seq BasicBlock }
+  { unBBs :: Map Id BasicBlock }
 
 data Type
   = Word
   | Ptr
-  | Memory -- linear
+  | BlockPtr (Seq Type)
+  | World -- linear

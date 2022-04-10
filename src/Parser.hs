@@ -9,6 +9,7 @@ import Data.Void
 import Data.Text
 import Control.Monad.Combinators
 import Control.Monad.State
+import GHC.Exts
 
 keywords = ["let", "in", "Type"]
 
@@ -48,7 +49,7 @@ metaPiTy = do
 metaLam :: Parser TermAst
 metaLam = do
   char '\\'; ws
-  ns <- some do
+  ns <- fromList <$> some do
     n <- name; ws
     pure n
   char '{'; ws
@@ -59,7 +60,7 @@ metaLam = do
 objLam :: Parser TermAst
 objLam = do
   string "'\\"; ws
-  ns <- some do
+  ns <- fromList <$> some do
     n <- name; ws
     pure n
   char '{'; ws
@@ -71,7 +72,7 @@ app :: Parser TermAst
 app = do
   char '<'; ws
   lam <- term; ws
-  args <- some do
+  args <- fromList <$> some do
     arg <- term; ws
     pure arg
   char '>'
@@ -92,7 +93,7 @@ letB :: Parser TermAst
 letB = do
   string "let"; ws
   char '{'; ws
-  decls <- many do
+  decls <- fromList <$> many do
     d <- decl; ws
     char ';'; ws
     pure d
@@ -160,7 +161,7 @@ datatype = do
   char ':'; ws
   sig <- term; ws
   char '{'; ws
-  cs <- many do
+  cs <- fromList <$> many do
     c <- fmap ($ did) con; ws
     char ';'; ws
     pure c

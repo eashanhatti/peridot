@@ -1,6 +1,7 @@
 module Syntax.Quote where
 
 import Syntax.Extra
+import Data.Sequence
 
 data TermQuote a
   = FunType a a
@@ -13,11 +14,25 @@ data TermQuote a
   | UnitType
   | UnitIntro
   | TypeType
+  | UnqTypeType
   | LocalVar Index
   | GlobalVar Id
-  | Let [DeclarationQuote a] a
+  | Let (Seq (DeclarationQuote a)) a
   | UniVar Global
   | ElabError
+  | InstType
+  | InstIntroStackAllocWord a a a -- word, world, cont
+  | InstIntroHeapAllocWord a a a -- word, world, cont
+  | InstIntroWritePtr a a a -- ptr, world, cont
+  | InstIntroReadPtr a a -- ptr, cont
+  | InstIntroPrintChar Char a a a -- char, world, cont
+  | InstIntroJump a (Seq a)
+  | BasicBlockType (Seq a)
+  | BasicBlockIntro a
+  | WorldType
+  | WordType
+  | PtrType
+  | BlockPtrType
   deriving (Eq, Show)
 
 data DeclarationQuote a

@@ -17,7 +17,7 @@ deriving instance Show (Ast a)
 unName :: NameAst -> Name
 unName (NameAst name) = name
 
-viewConstrs :: DeclarationAst -> Maybe ([ConstructorAst])
+viewConstrs :: DeclarationAst -> Maybe [ConstructorAst]
 viewConstrs (SourcePos ast _) = viewConstrs ast
 viewConstrs (DeclAst (Datatype _ _ cs) _) = Just cs
 viewConstrs _ = Nothing
@@ -77,12 +77,13 @@ data Term
   | IOBind IOOperation TermAst
   | UnitType
   | Unit
+  | QuoteType TermQuote
   | Quote TermQuote
   deriving (Show)
 
 data TermQuote
-  = QPi NameAst TermAst TermAst
-  | QLam NameAst TermAst
+  = QPi TermAst TermAst
+  | QLam TermAst
   | QApp TermAst TermAst
   | QIOType TermAst
   | QIOPure TermAst
@@ -92,6 +93,16 @@ data TermQuote
   | QUniv
   | QVar NameAst
   | QLet [DeclarationQuote] TermAst
+  | QInstType
+  | QWorldType
+  | QStackAllocWord [NameAst] TermAst TermAst TermAst -- bindings, word, world, cont
+  | QHeapAllocWord [NameAst] TermAst TermAst TermAst -- bindings, word, world, cont
+  | QWritePtr [NameAst] TermAst TermAst TermAst -- bindings, ptr, world, cont
+  | QReadPtr [NameAst] TermAst TermAst -- bindings, ptr, cont
+  | QPrintChar [NameAst] Char TermAst TermAst -- bindings, char, world, cont
+  | QJump TermAst [TermAst]
+  | QBasicBlockType [TermAst]
+  | QBasicBlock [NameAst] TermAst
   deriving (Show)
 
 data DeclarationQuote

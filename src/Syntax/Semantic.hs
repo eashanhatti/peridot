@@ -36,7 +36,8 @@ data Term
   | IOIntroBind IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
-  | Quote TermQuote
+  | QuoteIntro TermQuote
+  | QuoteType TermQuote
   | TypeType Stage
   | EElabError
   -- Stuck terms
