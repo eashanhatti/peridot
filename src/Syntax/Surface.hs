@@ -97,9 +97,10 @@ data TermQuote
   | QInstType
   | QWorldType
   | QStackAllocWord TermAst TermAst TermAst -- word, world, cont
-  | QHeapAllocWord TermAst TermAst TermAst -- word, world, cont
-  | QWritePtr TermAst TermAst TermAst -- ptr, world, cont
-  | QReadPtr TermAst TermAst -- ptr, cont
+  | QStackPopWord TermAst TermAst -- world, cont
+  -- | QHeapAllocWord TermAst TermAst TermAst -- word, world, cont
+  -- | QWritePtr TermAst TermAst TermAst -- ptr, world, cont
+  -- | QReadPtr TermAst TermAst -- ptr, cont
   | QPrintChar Char TermAst TermAst -- char, world, cont
   | QJump TermAst [TermAst]
   | QBasicBlockType [TermAst]

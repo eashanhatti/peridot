@@ -1,0 +1,8 @@
+let {
+	assume Man : [A : MType] -> MType;
+	assume Mortal : [A : MType] -> MType;
+
+	assume rule1 : [A : MType] -> [x : A] -> rule <Mortal x> :- <Man x>;
+} in {
+	(pure unit)
+}

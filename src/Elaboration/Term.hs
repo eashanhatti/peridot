@@ -164,8 +164,57 @@ inferQuote QWorldType = pure (Q.WorldType, Q.UnqTypeType)
 --       pure (Q.GlobalVar did, uv)
 --     Nothing -> errorQTerm (UnboundVariable name)
 inferQuote (QLet _ _) = undefined -- FIXME
-inferQuote QInstType = pure (Q.TypeType, Q.TypeType)
-inferQuote (QPrintChar char world cont) = undefined
+inferQuote QInstType = pure (Q.InstType, Q.TypeType)
+inferQuote (QPrintChar char world cont) = do
+  let inTy = ((N.QuoteType . N.QuoteIntro) Q.WorldType)
+  cWorld <- check world inTy
+  outTy <- closureOf ((C.QuoteType . C.QuoteIntro) Q.InstType)
+  -- TODO: `world` linearity check
+  cCont <- check cont (N.MetaFunType Explicit inTy outTy)
+  pure (Q.InstIntroPrintChar char cWorld cCont, Q.InstType)
+inferQuote (QStackAllocWord word world cont) = do
+  let inTy1 = (N.QuoteType . N.QuoteIntro) Q.WordType
+  let inTy2 = (N.QuoteType . N.QuoteIntro) Q.WorldType
+  let cInTy2 = (C.QuoteType . C.QuoteIntro) Q.WorldType
+  cWord <- check word inTy1
+  cWorld <- check world inTy2
+  outTy <- closureOf (C.MetaFunType Explicit cInTy2 ((C.QuoteType . C.QuoteIntro) Q.InstType))
+  -- TODO: `world` linearity check
+  cCont <- check cont (N.MetaFunType Explicit inTy1 outTy)
+  pure (Q.InstIntroStackAllocWord cWord cWorld cCont, Q.InstType)
+inferQuote (QStackPopWord world cont) = do
+  let inTy = ((N.QuoteType . N.QuoteIntro) Q.WorldType)
+  cWorld <- check world inTy
+  outTy <- closureOf ((C.QuoteType . C.QuoteIntro) Q.InstType)
+  -- TODO: `world` linearity check
+  cCont <- check cont (N.MetaFunType Explicit inTy outTy)
+  pure (Q.InstIntroStackPopWord cWorld cCont, Q.InstType)
+inferQuote (QJump block args) = do
+  (cArgs, argTys) <- unzip <$> traverse infer args
+  let blockTy = (N.QuoteType . N.QuoteIntro) (Q.BasicBlockType argTys)
+  cBlock <- check block blockTy
+  pure (Q.InstIntroJump cBlock cArgs, Q.InstType)
+inferQuote (QBasicBlockType tys) = do
+  cTys <- traverse (flip check ((N.QuoteType . N.QuoteIntro) Q.InstType)) tys
+  pure (Q.BasicBlockType cTys, Q.InstType)
+inferQuote (QBasicBlock inst) = do
+  ty <- freshTypeUV
+  cInst <- check inst ty
+  tys <- checkForm ty
+  pure (Q.BasicBlockIntro cInst, Q.BasicBlockType tys)
+  where
+    checkForm :: Elab sig m => N.Term -> m [N.Term]
+    checkForm ty = do
+      inTy <- freshTypeUV
+      outTy <- freshTypeUV >>= readbackWeak >>= closureOf
+      b <- convertible ty (N.MetaFunType Explicit inTy outTy)
+      if b then do
+        unify (N.MetaFunType Explicit inTy outTy) ty
+        inTys <- evalClosure outTy >>= checkForm
+        pure (inTy:inTys)
+      else do
+        unify ((N.QuoteType . N.QuoteIntro) Q.InstType) ty
+        pure []
 
 opTy :: IOOperation -> N.Term
 opTy (PutChar _) = N.UnitType

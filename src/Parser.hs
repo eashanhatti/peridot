@@ -11,7 +11,7 @@ import Control.Monad.Combinators
 import Control.Monad.State
 import GHC.Exts
 
-keywords = ["let", "in", "Type", "qUnit"]
+keywords = ["let", "in", "Type", "qUnit", "rule"]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -247,10 +247,15 @@ qPi = do
   char ')'
   pure (QPi inTy outTy)
 
-qUnitType :: Parser TermQuote
-qUnitType = do
+qUnitTy :: Parser TermQuote
+qUnitTy = do
   string "qUnit"
   pure QUnitType
+
+qUnit :: Parser TermQuote
+qUnit = do
+  string "qunit"
+  pure QUnit
 
 qLam :: Parser TermQuote
 qLam = do
@@ -273,7 +278,8 @@ quote :: Parser TermAst
 quote = do
   q <-
     qPi <|>
-    qUnitType <|>
+    qUnitTy <|>
+    qUnit <|>
     qLam <|>
     qApp
   pure (TermAst (Quote q))

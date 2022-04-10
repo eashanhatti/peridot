@@ -17,22 +17,22 @@ data TermQuote a
   | UnqTypeType
   -- | LocalVar Index
   -- | GlobalVar Id
-  | Let (Seq (DeclarationQuote a)) a
+  | Let [DeclarationQuote a] a
   | UniVar Global
   | ElabError
   | InstType
   | InstIntroStackAllocWord a a a -- word, world, cont
+  | InstIntroStackPopWord a a -- world, cont
   | InstIntroHeapAllocWord a a a -- word, world, cont
   | InstIntroWritePtr a a a -- ptr, world, cont
   | InstIntroReadPtr a a -- ptr, cont
-  | InstIntroPrintChar Char a a a -- char, world, cont
-  | InstIntroJump a (Seq a)
-  | BasicBlockType (Seq a)
+  | InstIntroPrintChar Char a a -- char, world, cont
+  | InstIntroJump a [a]
+  | BasicBlockType [a]
   | BasicBlockIntro a
   | WorldType
   | WordType
   | PtrType
-  | BlockPtrType
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data DeclarationQuote a
