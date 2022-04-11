@@ -14,13 +14,11 @@ data TermQuote a
   | UnitType
   | UnitIntro
   | TypeType
-  | UnqTypeType
   -- | LocalVar Index
   -- | GlobalVar Id
   | Let [DeclarationQuote a] a
   | UniVar Global
   | ElabError
-  | InstType
   | InstIntroStackAllocWord a a a -- word, world, cont
   | InstIntroStackPopWord a a -- world, cont
   | InstIntroHeapAllocWord a a a -- word, world, cont
@@ -28,11 +26,7 @@ data TermQuote a
   | InstIntroReadPtr a a -- ptr, cont
   | InstIntroPrintChar Char a a -- char, world, cont
   | InstIntroJump a [a]
-  | BasicBlockType [a]
   | BasicBlockIntro a
-  | WorldType
-  | WordType
-  | PtrType
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data DeclarationQuote a

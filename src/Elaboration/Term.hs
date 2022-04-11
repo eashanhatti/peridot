@@ -110,98 +110,88 @@ infer term = case term of
   TermAst Unit -> pure (C.UnitIntro, N.UnitType)
   TermAst (Quote quote) -> do
     (cQuote, ty) <- inferQuote quote
-    pure (C.QuoteIntro cQuote, N.QuoteType (N.QuoteIntro ty))
+    pure (C.QuoteIntro cQuote, N.QuoteType ty)
   TermAst (QuoteType ty) -> do
     cTy <- check ty (N.QuoteType (N.QuoteIntro Q.TypeType))
     pure (C.QuoteType cTy, N.TypeType Meta)
+  TermAst (BasicBlockType tys) -> do
+    cTys <- traverse (flip check (N.TypeType Object)) tys
+    pure (C.BasicBlockType cTys, N.TypeType Object)
+  TermAst InstType -> pure (C.InstType, N.TypeType Object)
+  TermAst WorldType -> pure (C.WorldType, N.UnqTypeType)
 
-inferQuote :: Elab sig m => TermQuote -> m (C.TermQuote, N.TermQuote)
+inferQuote :: Elab sig m => TermQuote -> m (C.TermQuote, N.Term)
 inferQuote (QPi inTy outTy) = do
-  cInTy <- check inTy ((N.QuoteType . N.QuoteIntro) Q.TypeType)
+  cInTy <- check inTy (N.QuoteType (N.TypeType Object))
   vInTy <- eval cInTy
   outKiClo <- freshTypeUV >>= readbackWeak >>= closureOf
   cOutTy <- check outTy (N.MetaFunType Explicit vInTy outKiClo)
-  pure (Q.FunType cInTy cOutTy, Q.TypeType)
+  pure (Q.FunType cInTy cOutTy, N.TypeType Object)
 inferQuote (QLam body) = do
-  inTy <- freshQTypeUV
-  outTy <- freshQTypeUV
-  outTyClo <- readbackWeak (N.QuoteIntro outTy) >>= closureOf
-  cBody <- check body (N.MetaFunType Explicit (N.QuoteIntro inTy) outTyClo)
+  inTy <- freshTypeUV
+  outTy <- freshTypeUV
+  outTyClo <- readbackWeak (N.QuoteType outTy) >>= closureOf
+  cBody <- check body (N.MetaFunType Explicit (N.QuoteType inTy) outTyClo)
   pure (Q.FunIntro cBody, outTy)
 inferQuote (QApp lam arg) = do
   (cLam, lamTy) <- infer lam
-  inTy <- freshQTypeUV
-  outTy <- freshQTypeUV
-  unify ((N.QuoteType . N.QuoteIntro) (Q.FunType ((N.QuoteType . N.QuoteIntro) inTy) ((N.QuoteType . N.QuoteIntro) outTy))) lamTy
-  cArg <- check arg ((N.QuoteType . N.QuoteIntro) inTy)
+  inTy <- freshTypeUV
+  outTy <- freshTypeUV
+  outTyClo <- readbackWeak outTy >>= closureOf
+  unify (N.QuoteType (N.ObjectFunType inTy outTyClo)) lamTy
+  cArg <- check arg (N.QuoteType inTy)
   pure (Q.FunElim cLam cArg, outTy)
 inferQuote (QIOType ty) = do
-  cTy <- check ty ((N.QuoteType . N.QuoteIntro) Q.TypeType)
-  pure (Q.IOType cTy, Q.TypeType)
+  cTy <- check ty (N.QuoteType (N.TypeType Object))
+  pure (Q.IOType cTy, N.TypeType Object)
 inferQuote (QIOPure term) = do
-  ty <- freshQTypeUV
-  cTerm <- check term ((N.QuoteType . N.QuoteIntro) ty)
-  pure (Q.IOIntroPure cTerm, Q.IOType ((N.QuoteType . N.QuoteIntro) ty))
-inferQuote (QIOBind act k) = do
-  let inTy = opQTy act
-  outTy <- freshQTypeUV
-  cK <- check k ((N.QuoteType . N.QuoteIntro) (Q.FunType ((N.QuoteType . N.QuoteIntro) inTy) ((N.QuoteType . N.QuoteIntro) outTy)))
-  pure (Q.IOIntroBind act cK, outTy)
-inferQuote QUnitType = pure (Q.UnitType, Q.TypeType)
-inferQuote QUnit = pure (Q.UnitIntro, Q.UnitType)
-inferQuote QUniv = pure (Q.TypeType, Q.TypeType)
-inferQuote QWorldType = pure (Q.WorldType, Q.UnqTypeType)
--- inferQuote (QVar (NameAst name)) = do
---   binding <- lookupBinding name
---   uv <- freshQTypeUV
---   case binding of
---     Just (BLocal ix ty) -> do
---       unify ty ((N.QuoteType . N.QuoteIntro) uv)
---       pure (Q.LocalVar ix, uv)
---     Just (BGlobal did) -> do
---       ty <- fst <$> ED.declType did >>= eval
---       unify ty ((N.QuoteType . N.QuoteIntro) uv)
---       pure (Q.GlobalVar did, uv)
---     Nothing -> errorQTerm (UnboundVariable name)
+  ty <- freshTypeUV
+  cTerm <- check term (N.QuoteType ty)
+  pure (Q.IOIntroPure cTerm, N.IOType ty)
+inferQuote (QIOBind act cont) = do
+  let inTy = opTy act
+  outTy <- freshTypeUV
+  outTyClo <- readbackWeak outTy >>= closureOf
+  cCont <- check cont (N.QuoteType (N.ObjectFunType inTy outTyClo))
+  pure (Q.IOIntroBind act cCont, outTy)
+inferQuote QUnitType = pure (Q.UnitType, N.TypeType Object)
+inferQuote QUnit = pure (Q.UnitIntro, N.UnitType)
+inferQuote QUniv = pure (Q.TypeType, N.TypeType Object)
 inferQuote (QLet _ _) = undefined -- FIXME
-inferQuote QInstType = pure (Q.InstType, Q.TypeType)
 inferQuote (QPrintChar char world cont) = do
-  let inTy = ((N.QuoteType . N.QuoteIntro) Q.WorldType)
+  let inTy = N.QuoteType N.WorldType
   cWorld <- check world inTy
-  outTy <- closureOf ((C.QuoteType . C.QuoteIntro) Q.InstType)
+  outTy <- closureOf (C.QuoteType C.InstType)
   -- TODO: `world` linearity check
   cCont <- check cont (N.MetaFunType Explicit inTy outTy)
-  pure (Q.InstIntroPrintChar char cWorld cCont, Q.InstType)
+  pure (Q.InstIntroPrintChar char cWorld cCont, N.InstType)
 inferQuote (QStackAllocWord word world cont) = do
-  let inTy1 = (N.QuoteType . N.QuoteIntro) Q.WordType
-  let inTy2 = (N.QuoteType . N.QuoteIntro) Q.WorldType
-  let cInTy2 = (C.QuoteType . C.QuoteIntro) Q.WorldType
+  let inTy1 = N.QuoteType N.WordType
+  let inTy2 = N.QuoteType N.WorldType
+  let cInTy2 = C.QuoteType C.WorldType
   cWord <- check word inTy1
   cWorld <- check world inTy2
-  outTy <- closureOf (C.MetaFunType Explicit cInTy2 ((C.QuoteType . C.QuoteIntro) Q.InstType))
+  outTy <- closureOf (C.MetaFunType Explicit cInTy2 (C.QuoteType C.InstType))
   -- TODO: `world` linearity check
   cCont <- check cont (N.MetaFunType Explicit inTy1 outTy)
-  pure (Q.InstIntroStackAllocWord cWord cWorld cCont, Q.InstType)
+  pure (Q.InstIntroStackAllocWord cWord cWorld cCont, N.InstType)
 inferQuote (QStackPopWord world cont) = do
-  let inTy = ((N.QuoteType . N.QuoteIntro) Q.WorldType)
+  let inTy = N.QuoteType N.WorldType
   cWorld <- check world inTy
-  outTy <- closureOf ((C.QuoteType . C.QuoteIntro) Q.InstType)
+  outTy <- closureOf (C.QuoteType C.InstType)
   -- TODO: `world` linearity check
   cCont <- check cont (N.MetaFunType Explicit inTy outTy)
-  pure (Q.InstIntroStackPopWord cWorld cCont, Q.InstType)
+  pure (Q.InstIntroStackPopWord cWorld cCont, N.InstType)
 inferQuote (QJump block args) = do
   (cArgs, argTys) <- unzip <$> traverse infer args
-  let blockTy = (N.QuoteType . N.QuoteIntro) (Q.BasicBlockType argTys)
+  let blockTy = N.QuoteType (N.BasicBlockType argTys)
   cBlock <- check block blockTy
-  pure (Q.InstIntroJump cBlock cArgs, Q.InstType)
-inferQuote (QBasicBlockType tys) = do
-  cTys <- traverse (flip check ((N.QuoteType . N.QuoteIntro) Q.InstType)) tys
-  pure (Q.BasicBlockType cTys, Q.InstType)
+  pure (Q.InstIntroJump cBlock cArgs, N.InstType)
 inferQuote (QBasicBlock inst) = do
   ty <- freshTypeUV
   cInst <- check inst ty
   tys <- checkForm ty
-  pure (Q.BasicBlockIntro cInst, Q.BasicBlockType tys)
+  pure (Q.BasicBlockIntro cInst, N.BasicBlockType tys)
   where
     checkForm :: Elab sig m => N.Term -> m [N.Term]
     checkForm ty = do
@@ -213,14 +203,11 @@ inferQuote (QBasicBlock inst) = do
         inTys <- evalClosure outTy >>= checkForm
         pure (inTy:inTys)
       else do
-        unify ((N.QuoteType . N.QuoteIntro) Q.InstType) ty
+        unify (N.QuoteType N.InstType) ty
         pure []
 
 opTy :: IOOperation -> N.Term
 opTy (PutChar _) = N.UnitType
-
-opQTy :: IOOperation -> N.TermQuote
-opQTy (PutChar _) = Q.UnitType
 
 checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkType term = do

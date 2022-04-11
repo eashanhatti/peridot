@@ -42,7 +42,13 @@ data Term
   | UnitIntro
   | QuoteIntro TermQuote
   | QuoteType Term
+  | WorldType
+  | WordType
+  | PtrType
+  | BasicBlockType [Term]
+  | InstType
   | TypeType Stage
+  | UnqTypeType
   | LocalVar Index
   | GlobalVar Id
   | Let [Declaration] Term

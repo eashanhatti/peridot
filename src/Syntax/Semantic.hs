@@ -38,7 +38,13 @@ data Term
   | UnitIntro
   | QuoteIntro TermQuote
   | QuoteType Term
+  | WorldType
+  | WordType
+  | PtrType
+  | BasicBlockType [Term]
+  | InstType
   | TypeType Stage
+  | UnqTypeType
   | EElabError
   -- Stuck terms
   | UniVar Global

@@ -80,6 +80,9 @@ data Term
   | Unit
   | QuoteType TermAst
   | Quote TermQuote
+  | BasicBlockType [TermAst]
+  | InstType
+  | WorldType
   deriving (Show)
 
 data TermQuote
@@ -94,8 +97,6 @@ data TermQuote
   | QUniv
   -- | QVar NameAst
   | QLet [DeclarationQuote] TermAst
-  | QInstType
-  | QWorldType
   | QStackAllocWord TermAst TermAst TermAst -- word, world, cont
   | QStackPopWord TermAst TermAst -- world, cont
   -- | QHeapAllocWord TermAst TermAst TermAst -- word, world, cont
@@ -103,7 +104,6 @@ data TermQuote
   -- | QReadPtr TermAst TermAst -- ptr, cont
   | QPrintChar Char TermAst TermAst -- char, world, cont
   | QJump TermAst [TermAst]
-  | QBasicBlockType [TermAst]
   | QBasicBlock TermAst
   deriving (Show)
 
