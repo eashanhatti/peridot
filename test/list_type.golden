@@ -60,7 +60,7 @@
                (ObjectFunElim
                   (GlobalVar (Id {unId = 4}))
                   (LocalVar (Index {unIndex = 2})))))),
-    Term
+    ObjTerm
       (Id {unId = 10})
       (ObjectFunElim
          (GlobalVar (Id {unId = 4}))

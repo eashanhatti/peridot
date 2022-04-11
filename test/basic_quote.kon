@@ -1,5 +1,5 @@
 let {
-  assume Rel : [_ : (Quote (qpi qUnit \_ { qUnit }))] -> MType;
+  val quo : (Quote '[A : OType] -> '[x : A] -> A) = (qlam \A { (qlam \x { x }) });
 } in {
   (pure unit)
 }

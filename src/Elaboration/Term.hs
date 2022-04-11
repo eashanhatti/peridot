@@ -112,7 +112,7 @@ infer term = case term of
     (cQuote, ty) <- inferQuote quote
     pure (C.QuoteIntro cQuote, N.QuoteType ty)
   TermAst (QuoteType ty) -> do
-    cTy <- check ty (N.QuoteType (N.QuoteIntro Q.TypeType))
+    cTy <- check ty (N.TypeType Object)
     pure (C.QuoteType cTy, N.TypeType Meta)
   TermAst (BasicBlockType tys) -> do
     cTys <- traverse (flip check (N.TypeType Object)) tys
@@ -130,9 +130,10 @@ inferQuote (QPi inTy outTy) = do
 inferQuote (QLam body) = do
   inTy <- freshTypeUV
   outTy <- freshTypeUV
-  outTyClo <- readbackWeak (N.QuoteType outTy) >>= closureOf
-  cBody <- check body (N.MetaFunType Explicit (N.QuoteType inTy) outTyClo)
-  pure (Q.FunIntro cBody, outTy)
+  outQTyClo <- readbackWeak (N.QuoteType outTy) >>= closureOf
+  cBody <- check body (N.MetaFunType Explicit (N.QuoteType inTy) outQTyClo)
+  outTyClo <- readbackWeak outTy >>= closureOf
+  pure (Q.FunIntro cBody, N.ObjectFunType inTy outTyClo)
 inferQuote (QApp lam arg) = do
   (cLam, lamTy) <- infer lam
   inTy <- freshTypeUV

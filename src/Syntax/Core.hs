@@ -12,14 +12,16 @@ data Declaration
   | ObjectConstant Id Signature
   | Fresh Id Signature
   | Prove Id Signature
-  | Term Id Signature Term -- sig, def
+  | ObjTerm Id Signature Term -- sig, def
+  | MetaTerm Id Signature Term -- sig, def
   | DElabError
   deriving (Eq, Show)
 
 unId :: Declaration -> Id
 unId (ObjectConstant did _) = did
 unId (MetaConstant did _) = did
-unId (Term did _ _) = did
+unId (ObjTerm did _ _) = did
+unId (MetaTerm did _ _) = did
 unId (Fresh did _) = did
 unId (Prove did _) = did
 unId DElabError = error "FIXME"

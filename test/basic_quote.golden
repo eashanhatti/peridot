@@ -1,0 +1,41 @@
+((fromList
+    [(Global {unGlobal = 0}, Just (TypeType Object)),
+     (Global {unGlobal = 1},
+      Just
+        (ObjectFunType
+           (FreeVar (Level {unLevel = 0}))
+           (Closure
+              [FreeVar (Level {unLevel = 0})]
+              (LocalVar (Index {unIndex = 1}))))),
+     (Global {unGlobal = 2},
+      Just (QuoteType (UniVar (Global {unGlobal = 0})))),
+     (Global {unGlobal = 3},
+      Just (QuoteType (UniVar (Global {unGlobal = 1})))),
+     (Global {unGlobal = 4}, Nothing),
+     (Global {unGlobal = 5}, Nothing),
+     (Global {unGlobal = 6},
+      Just (QuoteType (UniVar (Global {unGlobal = 4})))),
+     (Global {unGlobal = 7},
+      Just (QuoteType (UniVar (Global {unGlobal = 5})))),
+     (Global {unGlobal = 8}, Just UnitType)],
+  fromList [],
+  fromList
+    [(Global {unGlobal = 6}, Global {unGlobal = 7}),
+     (Global {unGlobal = 7}, Global {unGlobal = 6})],
+  []),
+ Let
+   [ObjTerm
+      (Id {unId = 1})
+      (QuoteType
+         (ObjectFunType
+            (TypeType Object)
+            (ObjectFunType
+               (LocalVar (Index {unIndex = 0}))
+               (LocalVar (Index {unIndex = 1})))))
+      (QuoteIntro
+         (FunIntro
+            (MetaFunIntro
+               (QuoteIntro
+                  (FunIntro
+                     (MetaFunIntro (LocalVar (Index {unIndex = 0}))))))))]
+   (IOIntroPure UnitIntro))

@@ -21,7 +21,11 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
     PDDecl (DeclAst (ObjTerm name _ def) did) -> do
       cDef <- eval cSig >>= EE.check def
       unify univ (N.TypeType Object)
-      pure (C.Term did cSig cDef)
+      pure (C.ObjTerm did cSig cDef)
+    PDDecl (DeclAst (MetaTerm name _ def) did) -> do
+      cDef <- eval cSig >>= EE.check def
+      unify univ (N.TypeType Meta)
+      pure (C.ObjTerm did cSig cDef)
     PDDecl (DeclAst (Datatype name _ _) did) -> do
       vSig <- eval cSig
       unify vSig (N.TypeType Object)
@@ -45,6 +49,7 @@ declType :: HasCallStack => Query sig m => Id -> m (C.Term, N.Term)
 declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
   case decl of
     PDDecl (DeclAst (ObjTerm name sig def) did) -> EE.checkObjectType sig
+    PDDecl (DeclAst (MetaTerm name sig def) did) -> EE.checkMetaType sig
     PDDecl (DeclAst (Datatype name sig _) did) -> EE.checkObjectType sig
     PDDecl (DeclAst (Axiom name sig) did) -> EE.checkMetaType sig
     PDDecl (DeclAst (Prove sig) did) -> EE.checkMetaType sig

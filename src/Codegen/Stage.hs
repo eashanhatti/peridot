@@ -77,7 +77,8 @@ stageDecl (C.MetaConstant did sig) = do
   vSig <- eval sig
   put (state { unRules = vSig:(unRules state) })
   pure Nothing
-stageDecl (C.Term did sig def) = Just <$> (O.Term did <$> stage sig <*> stage def)
+stageDecl (C.ObjTerm did sig def) = Just <$> (O.Term did <$> stage sig <*> stage def)
+stageDecl (C.MetaTerm _ _ _) = pure Nothing
 
 solve :: Stage sig m => N.Term -> m ()
 solve goal = subgoals goal >>= traverse_ solve

@@ -1,0 +1,41 @@
+((fromList [(Global {unGlobal = 0}, Just UnitType)],
+  fromList [],
+  fromList [],
+  [(SourcePos
+      {sourceName = "<TODO>",
+       sourceLine = Pos 5,
+       sourceColumn = Pos 55},
+    FailedUnify
+      (TypeType Meta) (FreeVar (Level {unLevel = 0}))),
+   (SourcePos
+      {sourceName = "<TODO>",
+       sourceLine = Pos 5,
+       sourceColumn = Pos 69},
+    FailedUnify
+      (TypeType Meta) (FreeVar (Level {unLevel = 0})))]),
+ Let
+   [MetaConstant
+      (Id {unId = 3})
+      (MetaFunType
+         Explicit (TypeType Meta) (TypeType Meta)),
+    MetaConstant
+      (Id {unId = 7})
+      (MetaFunType
+         Explicit (TypeType Meta) (TypeType Meta)),
+    MetaConstant
+      (Id {unId = 11})
+      (MetaFunType
+         Explicit
+         (TypeType Meta)
+         (MetaFunType
+            Explicit
+            (LocalVar (Index {unIndex = 0}))
+            (MetaFunType
+               Implicit
+               (MetaFunElim
+                  (GlobalVar (Id {unId = 3}))
+                  (LocalVar (Index {unIndex = 0})))
+               (MetaFunElim
+                  (GlobalVar (Id {unId = 7}))
+                  (LocalVar (Index {unIndex = 0}))))))]
+   (IOIntroPure UnitIntro))

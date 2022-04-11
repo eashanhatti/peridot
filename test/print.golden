@@ -12,7 +12,7 @@
   fromList [],
   []),
  Let
-   [Term
+   [ObjTerm
       (Id {unId = 2})
       (IOType UnitType)
       (IOIntroBind

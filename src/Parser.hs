@@ -277,10 +277,10 @@ qApp = do
 quote :: Parser TermAst
 quote = do
   q <-
-    qPi <|>
-    qUnitTy <|>
-    qUnit <|>
-    qLam <|>
+    try qPi <|>
+    try qUnitTy <|>
+    try qUnit <|>
+    try qLam <|>
     qApp
   pure (TermAst (Quote q))
 

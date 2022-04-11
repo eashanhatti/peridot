@@ -59,7 +59,8 @@ funIntros _ = id
 definition :: C.Declaration -> C.Term
 definition (C.MetaConstant did sig) = funIntros sig (C.MetaConstantIntro did)
 definition (C.ObjectConstant did sig) = funIntros sig (C.ObjectConstantIntro did)
-definition (C.Term _ _ def) = def
+definition (C.ObjTerm _ _ def) = def
+definition (C.MetaTerm _ _ def) = def
 definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"
 
