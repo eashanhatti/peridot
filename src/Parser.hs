@@ -57,6 +57,54 @@ metaLam = do
   char '}'
   pure (TermAst (MetaLam (fromList ns) body))
 
+liftCore :: Parser TermAst
+liftCore = do
+  char '('; ws
+  string "LiftC"; ws
+  ty <- term; ws
+  char ')'
+  pure (TermAst (LiftCore ty))
+
+spliceCore :: Parser TermAst
+spliceCore = do
+  char '('; ws
+  string "spliceC"; ws
+  term <- term; ws
+  char ')'
+  pure (TermAst (SpliceCore term))
+
+quoteCore :: Parser TermAst
+quoteCore = do
+  char '('; ws
+  string "quoteC"; ws
+  term <- term; ws
+  char ')'
+  pure (TermAst (QuoteCore term))
+
+liftLow :: Parser TermAst
+liftLow = do
+  char '('; ws
+  string "LiftC"; ws
+  ty <- term; ws
+  char ')'
+  pure (TermAst (LiftLow ty))
+
+spliceLow :: Parser TermAst
+spliceLow = do
+  char '('; ws
+  string "spliceL"; ws
+  term <- term; ws
+  char ')'
+  pure (TermAst (SpliceLow term))
+
+quoteLow :: Parser TermAst
+quoteLow = do
+  char '('; ws
+  string "quoteL"; ws
+  term <- term; ws
+  char ')'
+  pure (TermAst (QuoteLow term))
+
 objLam :: Parser TermAst
 objLam = do
   string "'\\"; ws
@@ -247,6 +295,12 @@ term = do
     try unit <|>
     try metaPiTy <|>
     try objPiTy <|>
+    try liftCore <|>
+    try quoteCore <|>
+    try spliceCore <|>
+    try liftLow <|>
+    try quoteLow <|>
+    try spliceLow <|>
     try var <|>
     ruleTy
   pure (SourcePos e pos)

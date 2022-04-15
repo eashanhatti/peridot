@@ -78,4 +78,10 @@ data Term
   | IOBind IOOperation TermAst
   | UnitType
   | Unit
+  | LiftCore TermAst
+  | QuoteCore TermAst
+  | SpliceCore TermAst
+  | LiftLow TermAst
+  | QuoteLow TermAst
+  | SpliceLow TermAst
   deriving (Show)
