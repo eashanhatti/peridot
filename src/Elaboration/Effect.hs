@@ -30,11 +30,13 @@ import Normalization qualified as Norm
 import Unification qualified as Uni
 import Numeric.Natural
 import Data.Foldable(toList, foldl')
-import Prelude hiding(lookup)
+import Prelude hiding(lookup, zip, filter)
+import Prelude qualified as Pre
 import GHC.Stack
 import Extra
 import Text.Megaparsec(SourcePos)
 import Debug.Trace
+import Data.Sequence
 
 -- Contains query state *and* general global state
 data QueryState = QueryState
@@ -44,7 +46,7 @@ data QueryState = QueryState
   , unTypeUVs :: Map Global (Maybe N.Term)
   , unStageUVs :: Map Global (Maybe Stage)
   , unUVEqs :: Map Global Global
-  , unErrors :: [(SourcePos, Error)] }
+  , unErrors :: Seq (SourcePos, Error) }
 
 instance Show QueryState where
   show (QueryState _ _ _ tuvs suvs eqs errs) = show (tuvs, suvs, eqs, errs)
@@ -160,7 +162,7 @@ bindLocal name ty act =
 withPos :: Elab sig m => SourcePos -> m a -> m a
 withPos pos = local (\ctx -> ctx { unSourcePos = pos })
 
-withDecls :: forall sig m a. Elab sig m => [DeclarationAst] -> m a -> m a
+withDecls :: forall sig m a. Elab sig m => Seq DeclarationAst -> m a -> m a
 withDecls decls act = do
   elabState <- get
   elabContext <- ask
@@ -169,27 +171,27 @@ withDecls decls act = do
     bindings' = toBindings decls `union` unBindings elabContext
     allState = AllState elabState (elabContext { unBindings = bindings' }) normContext
 
-    toBindings :: [DeclarationAst] -> Map Name Binding
-    toBindings [] = mempty
-    toBindings (decl@(viewConstrs -> Just constrs):decls) = 
+    toBindings :: Seq DeclarationAst -> Map Name Binding
+    toBindings Empty = mempty
+    toBindings (decl@(viewConstrs -> Just constrs) :<| decls) = 
       foldl'
         (\m (n, b) -> insert n b m)
         (toBindings decls)
-        ((unDeclName decl, BGlobal (unId decl)) : zip (map unConstrName constrs) (map (BGlobal . unCId) constrs))
-    toBindings (decl:decls) =
+        ((unDeclName decl, BGlobal (unId decl)) <| zip (fmap unConstrName constrs) (fmap (BGlobal . unCId) constrs))
+    toBindings (decl :<| decls) =
       insert (unDeclName decl) (BGlobal (unId decl)) (toBindings decls)
 
-    go :: Elab sig m => [DeclarationAst] -> m a
-    go [] = act
-    go (decl@(viewConstrs -> Just constrs):decls) = do
+    go :: Elab sig m => Seq DeclarationAst -> m a
+    go Empty = act
+    go (decl@(viewConstrs -> Just constrs) :<| decls) = do
       state <- get
       put (state
         { unPredecls =
             union
               (insert (unId decl) (allState, PDDecl decl) (unPredecls state))
-              (fromList (zip (map unCId constrs) (map (\c -> (allState, PDConstr c)) constrs))) })
+              (foldl' (\acc c -> Map.insert (unCId c) (allState, PDConstr c) acc) mempty constrs) })
       go decls
-    go (decl:decls) = do
+    go (decl :<| decls) = do
       state <- get
       put (state { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })
       go decls
@@ -198,7 +200,7 @@ withDecls decls act = do
 lookupBinding :: Elab sig m => Name -> m (Maybe Binding)
 lookupBinding name = do
   bindings <- unBindings <$> ask
-  pure (lookup name bindings)
+  pure (Map.lookup name bindings)
 
 withDecl :: Query sig m => Id -> (Predeclaration -> C m a) -> m a
 withDecl did act = do
@@ -225,7 +227,7 @@ report :: Elab sig m => Error -> m ()
 report err = do
   state <- get
   pos <- unSourcePos <$> ask
-  put (state { unErrors = (pos, err) : unErrors state })
+  put (state { unErrors = (pos, err) <| unErrors state })
 
 errorTerm :: Elab sig m => Error -> m (C.Term, N.Term)
 errorTerm err = do
@@ -242,11 +244,11 @@ eval term = do
     decls :: [C.Declaration]
     decls =
       map (\case CheckDecl _ DMap.:=> Identity gl -> gl) .
-      filter f .
+      Pre.filter f .
       DMap.toList $
       memoTable
   ctx@(unEnv -> N.Env locals globals) <- ask
-  let vDefs = fromList ((map (\def -> (C.unId def, (N.Env locals (vDefs <> globals), Norm.definition def))) decls))
+  let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), Norm.definition def) acc) mempty decls
   local (\ctx -> ctx { unEnv = N.Env locals (globals `union` vDefs) }) (Norm.eval term)
 
 readback :: Elab sig m => Bool -> N.Term -> m C.Term

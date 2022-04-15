@@ -10,15 +10,16 @@
      (Global {unGlobal = 6}, Just UnitType)],
   fromList [],
   fromList [],
-  []),
+  fromList []),
  Let
-   [Term
-      (Id {unId = 2})
-      (IOType UnitType)
-      (IOIntroBind
-         (PutChar 'x')
-         (ObjectFunIntro
-            (IOIntroBind
-               (PutChar 'y')
-               (ObjectFunIntro (IOIntroPure UnitIntro)))))]
+   (fromList
+      [Term
+         (Id {unId = 2})
+         (IOType UnitType)
+         (IOIntroBind
+            (PutChar 'x')
+            (ObjectFunIntro
+               (IOIntroBind
+                  (PutChar 'y')
+                  (ObjectFunIntro (IOIntroPure UnitIntro)))))])
    (GlobalVar (Id {unId = 2})))

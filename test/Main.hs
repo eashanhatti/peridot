@@ -7,12 +7,10 @@ import Data.ByteString.Lazy qualified as BL
 import Data.ByteString qualified as B
 import Data.Text.Encoding qualified as T
 import Elaboration
-import Codegen
 import Syntax.Semantic
 import Data.Map qualified as Map
 import Normalization hiding(unTypeUVs, unUVEqs, unRepUVs)
 import Elaboration.Effect
-import Codegen.Stage()
 import Parser qualified as P
 import Data.String(fromString)
 import Shower

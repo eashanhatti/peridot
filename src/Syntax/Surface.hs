@@ -4,6 +4,7 @@ import Data.Text(Text)
 import Numeric.Natural
 import Syntax.Extra hiding(unId)
 import Text.Megaparsec(SourcePos)
+import Data.Sequence
 
 data Ast a where
   TermAst :: Term -> TermAst
@@ -17,7 +18,7 @@ deriving instance Show (Ast a)
 unName :: NameAst -> Name
 unName (NameAst name) = name
 
-viewConstrs :: DeclarationAst -> Maybe ([ConstructorAst])
+viewConstrs :: DeclarationAst -> Maybe (Seq ConstructorAst)
 viewConstrs (SourcePos ast _) = viewConstrs ast
 viewConstrs (DeclAst (Datatype _ _ cs) _) = Just cs
 viewConstrs _ = Nothing
@@ -49,7 +50,7 @@ type SignatureAst = TermAst
 
 type DeclarationAst = Ast Declaration
 data Declaration
-  = Datatype NameAst SignatureAst [ConstructorAst]
+  = Datatype NameAst SignatureAst (Seq ConstructorAst)
   | MetaTerm NameAst SignatureAst TermAst
   | ObjTerm NameAst SignatureAst TermAst
   | Axiom NameAst SignatureAst
@@ -64,13 +65,13 @@ data Constructor = Constr NameAst SignatureAst
 type TermAst = Ast Term
 data Term
   = MetaPi NameAst TermAst TermAst
-  | MetaLam [NameAst] TermAst
+  | MetaLam (Seq NameAst) TermAst
   | ObjPi NameAst TermAst TermAst
-  | ObjLam [NameAst] TermAst
-  | App TermAst [TermAst]
+  | ObjLam (Seq NameAst) TermAst
+  | App TermAst (Seq TermAst)
   | Var Name
   | Univ
-  | Let [DeclarationAst] TermAst
+  | Let (Seq DeclarationAst) TermAst
   | Rule TermAst TermAst -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo
   | IOPure TermAst
   | IOType TermAst

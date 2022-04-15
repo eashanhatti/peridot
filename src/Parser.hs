@@ -9,6 +9,7 @@ import Data.Void
 import Data.Text
 import Control.Monad.Combinators
 import Control.Monad.State
+import Data.Sequence
 
 keywords = ["let", "in", "Type"]
 
@@ -54,7 +55,7 @@ metaLam = do
   char '{'; ws
   body <- term; ws
   char '}'
-  pure (TermAst (MetaLam ns body))
+  pure (TermAst (MetaLam (fromList ns) body))
 
 objLam :: Parser TermAst
 objLam = do
@@ -65,7 +66,7 @@ objLam = do
   char '{'; ws
   body <- term; ws
   char '}'
-  pure (TermAst (ObjLam ns body))
+  pure (TermAst (ObjLam (fromList ns) body))
 
 app :: Parser TermAst
 app = do
@@ -75,7 +76,7 @@ app = do
     arg <- term; ws
     pure arg
   char '>'
-  pure (TermAst (App lam args))
+  pure (TermAst (App lam (fromList args)))
 
 var :: Parser TermAst
 var = do
@@ -101,7 +102,7 @@ letB = do
   char '{'; ws
   body <- term; ws
   char '}'
-  pure (TermAst (Let decls body))
+  pure (TermAst (Let (fromList decls) body))
 
 ruleTy :: Parser TermAst
 ruleTy = do
@@ -165,7 +166,7 @@ datatype = do
     char ';'; ws
     pure c
   char '}'; ws
-  pure (DeclAst (Datatype n sig cs) did)
+  pure (DeclAst (Datatype n sig (fromList cs)) did)
 
 metaVal :: Parser DeclarationAst
 metaVal = do

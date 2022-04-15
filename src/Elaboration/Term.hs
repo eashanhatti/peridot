@@ -4,12 +4,15 @@ import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Extra hiding(unId)
+import Extra
 import Elaboration.Effect
 import Elaboration.Decl qualified as ED
 import Control.Monad
 import Normalization hiding(eval, readbackWeak)
 import Data.Foldable(foldl', foldr, foldrM)
 import Debug.Trace
+import Data.Sequence
+import Prelude hiding(zip, concatMap, head, tail)
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check term goal = do
@@ -20,7 +23,7 @@ check term goal = do
 infer :: Elab sig m => TermAst -> m (C.Term, N.Term)
 infer term = case term of
   SourcePos term pos -> withPos pos (infer term)
-  TermAst (MetaLam (map unName -> names) body) -> do
+  TermAst (MetaLam (fmap unName -> names) body) -> do
     inTys <- traverse (const freshTypeUV) names
     cInTys <- traverse readbackWeak inTys
     outTy <- freshTypeUV
@@ -31,10 +34,10 @@ infer term = case term of
     let lam = foldr (\_ body -> C.MetaFunIntro body) cBody cInTys
     pure (lam, vTy)
     where
-      checkBody :: Elab sig m => [(Name, N.Term)] -> N.Term -> m C.Term
-      checkBody [] outTy = check body outTy
-      checkBody ((name, inTy):params) outTy = bindLocal name inTy (checkBody params outTy)
-  TermAst (ObjLam (map unName -> names) body) -> do
+      checkBody :: Elab sig m => Seq (Name, N.Term) -> N.Term -> m C.Term
+      checkBody Empty outTy = check body outTy
+      checkBody ((name, inTy) :<| params) outTy = bindLocal name inTy (checkBody params outTy)
+  TermAst (ObjLam (fmap unName -> names) body) -> do
     inTys <- traverse (const freshTypeUV) names
     cInTys <- traverse readbackWeak inTys
     outTy <- freshTypeUV
@@ -45,9 +48,9 @@ infer term = case term of
     let lam = foldr (\_ body -> C.ObjectFunIntro body) cBody inTys
     pure (lam, vTy)
     where
-      checkBody :: Elab sig m => [(Name, N.Term)] -> N.Term -> m C.Term
-      checkBody [] outTy = check body outTy
-      checkBody ((name, inTy):params) outTy = bindLocal name inTy (checkBody params outTy)    
+      checkBody :: Elab sig m => Seq (Name, N.Term) -> N.Term -> m C.Term
+      checkBody Empty outTy = check body outTy
+      checkBody ((name, inTy) :<| params) outTy = bindLocal name inTy (checkBody params outTy)    
   TermAst (MetaPi (NameAst name) inTy outTy) -> do
     cInTy <- check inTy (N.TypeType Meta)
     vInTy <- eval cInTy
@@ -67,13 +70,13 @@ infer term = case term of
     (cArgs, outTy) <- checkArgs args lamTy
     pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
     where
-      checkArgs :: Elab sig m => [TermAst] -> N.Term -> m ([C.Term], N.Term)
-      checkArgs [] outTy = pure ([], outTy)
-      checkArgs (arg:args) (N.FunType inTy outTy) = do
+      checkArgs :: Elab sig m => Seq TermAst -> N.Term -> m (Seq C.Term, N.Term)
+      checkArgs Empty outTy = pure (Empty, outTy)
+      checkArgs (arg :<| args) (N.FunType inTy outTy) = do
         cArg <- check arg inTy
         vArg <- eval cArg
         (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
-        pure (cArg:cArgs, outTy')
+        pure (cArg <| cArgs, outTy')
   TermAst (Var name) -> do
     binding <- lookupBinding name
     case binding of
@@ -130,9 +133,9 @@ checkObjectType term =
 checkObjectType' :: Elab sig m => TermAst -> m C.Term
 checkObjectType' ty = fst <$> checkObjectType ty
 
-declsIds :: [DeclarationAst] -> [Id]
+declsIds :: Seq DeclarationAst -> Seq Id
 declsIds = concatMap go where
-  go :: DeclarationAst -> [Id]
+  go :: DeclarationAst -> Seq Id
   go (SourcePos decl _) = go decl
-  go (DeclAst (Datatype _ _ constrs) did) = did : map unCId constrs
-  go decl = [unId decl]
+  go (DeclAst (Datatype _ _ constrs) did) = did <| fmap unCId constrs
+  go decl = singleton (unId decl)

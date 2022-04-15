@@ -1,6 +1,7 @@
 module Syntax.Object where
 
 import Syntax.Extra
+import Data.Sequence
 
 type Signature = Term
 
@@ -32,5 +33,5 @@ data Term
   | TypeType
   | LocalVar Index
   | GlobalVar Id
-  | Let [Declaration] Term
+  | Let (Seq Declaration) Term
   deriving (Show)

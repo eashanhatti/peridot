@@ -1,6 +1,7 @@
 module Syntax.Core where
 
 import Syntax.Extra
+import Data.Sequence
 
 type Signature = Term
 
@@ -40,7 +41,7 @@ data Term
   | TypeType Stage
   | LocalVar Index
   | GlobalVar Id
-  | Let [Declaration] Term
+  | Let (Seq Declaration) Term
   | UniVar Global
   | EElabError
   deriving (Eq, Show)

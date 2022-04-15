@@ -1,81 +1,87 @@
 ((fromList [(Global {unGlobal = 0}, Just UnitType)],
   fromList [],
   fromList [],
-  [(SourcePos
-      {sourceName = "<TODO>",
-       sourceLine = Pos 10,
-       sourceColumn = Pos 50},
-    FailedUnify
-      (ObjectFunElim
-         (TopVar
-            (Id {unId = 4})
-            []
-            (ObjectFunIntro
-               (ObjectConstantIntro (Id {unId = 4}))))
-         (TopVar
-            (Id {unId = 0})
-            []
-            (ObjectConstantIntro (Id {unId = 0}))))
-      (ObjectFunType
-         (TypeType Object)
-         (Closure
-            []
+  fromList
+    [(SourcePos
+        {sourceName = "<TODO>",
+         sourceLine = Pos 10,
+         sourceColumn = Pos 50},
+      FailedUnify
+        (ObjectFunElim
+           (TopVar
+              (Id {unId = 4})
+              fromList
+              []
+              (ObjectFunIntro
+                 (ObjectConstantIntro (Id {unId = 4}))))
+           (TopVar
+              (Id {unId = 0})
+              fromList
+              []
+              (ObjectConstantIntro (Id {unId = 0}))))
+        (ObjectFunType
+           (TypeType Object)
+           (Closure
+              fromList
+              []
+              (ObjectFunElim
+                 (GlobalVar (Id {unId = 4}))
+                 (LocalVar (Index {unIndex = 0})))))),
+     (SourcePos
+        {sourceName = "<TODO>",
+         sourceLine = Pos 6,
+         sourceColumn = Pos 9},
+      FailedUnify
+        (ObjectFunType
+           (TypeType Object)
+           (Closure fromList [] (TypeType Object)))
+        (TypeType Object))]),
+ Let
+   (fromList
+      [ObjectConstant (Id {unId = 0}) (TypeType Object),
+       ObjectConstant
+         (Id {unId = 1}) (GlobalVar (Id {unId = 0})),
+       ObjectConstant
+         (Id {unId = 2}) (GlobalVar (Id {unId = 0})),
+       ObjectConstant
+         (Id {unId = 4})
+         (ObjectFunType (TypeType Object) (TypeType Object)),
+       ObjectConstant
+         (Id {unId = 5})
+         (ObjectFunType
+            (TypeType Object)
             (ObjectFunElim
                (GlobalVar (Id {unId = 4}))
-               (LocalVar (Index {unIndex = 0})))))),
-   (SourcePos
-      {sourceName = "<TODO>",
-       sourceLine = Pos 6,
-       sourceColumn = Pos 9},
-    FailedUnify
-      (ObjectFunType
-         (TypeType Object) (Closure [] (TypeType Object)))
-      (TypeType Object))]),
- Let
-   [ObjectConstant (Id {unId = 0}) (TypeType Object),
-    ObjectConstant
-      (Id {unId = 1}) (GlobalVar (Id {unId = 0})),
-    ObjectConstant
-      (Id {unId = 2}) (GlobalVar (Id {unId = 0})),
-    ObjectConstant
-      (Id {unId = 4})
-      (ObjectFunType (TypeType Object) (TypeType Object)),
-    ObjectConstant
-      (Id {unId = 5})
-      (ObjectFunType
-         (TypeType Object)
+               (LocalVar (Index {unIndex = 0})))),
+       ObjectConstant
+         (Id {unId = 6})
+         (ObjectFunType
+            (TypeType Object)
+            (ObjectFunType
+               (LocalVar (Index {unIndex = 0}))
+               (ObjectFunType
+                  (ObjectFunElim
+                     (GlobalVar (Id {unId = 4}))
+                     (LocalVar (Index {unIndex = 1})))
+                  (ObjectFunElim
+                     (GlobalVar (Id {unId = 4}))
+                     (LocalVar (Index {unIndex = 2})))))),
+       Term
+         (Id {unId = 10})
          (ObjectFunElim
             (GlobalVar (Id {unId = 4}))
-            (LocalVar (Index {unIndex = 0})))),
-    ObjectConstant
-      (Id {unId = 6})
-      (ObjectFunType
-         (TypeType Object)
-         (ObjectFunType
-            (LocalVar (Index {unIndex = 0}))
-            (ObjectFunType
-               (ObjectFunElim
-                  (GlobalVar (Id {unId = 4}))
-                  (LocalVar (Index {unIndex = 1})))
-               (ObjectFunElim
-                  (GlobalVar (Id {unId = 4}))
-                  (LocalVar (Index {unIndex = 2})))))),
-    Term
-      (Id {unId = 10})
-      (ObjectFunElim
-         (GlobalVar (Id {unId = 4}))
-         (GlobalVar (Id {unId = 0})))
-      (ObjectFunElim
-         (ObjectFunElim
-            (ObjectFunElim
-               (GlobalVar (Id {unId = 6}))
-               (GlobalVar (Id {unId = 0})))
-            (GlobalVar (Id {unId = 1})))
+            (GlobalVar (Id {unId = 0})))
          (ObjectFunElim
             (ObjectFunElim
                (ObjectFunElim
                   (GlobalVar (Id {unId = 6}))
                   (GlobalVar (Id {unId = 0})))
-               (GlobalVar (Id {unId = 2})))
-            (GlobalVar (Id {unId = 5}))))]
+               (GlobalVar (Id {unId = 1})))
+            (ObjectFunElim
+               (ObjectFunElim
+                  (ObjectFunElim
+                     (GlobalVar (Id {unId = 6}))
+                     (GlobalVar (Id {unId = 0})))
+                  (GlobalVar (Id {unId = 2})))
+               (GlobalVar (Id {unId = 5}))))])
    (IOIntroPure UnitIntro))

@@ -4,8 +4,10 @@ module Syntax.Semantic where
 import Syntax.Extra
 import Syntax.Core qualified as C
 import Data.Map(Map, insert, size)
+import Data.Sequence
+import Prelude hiding(length)
 
-data Environment = Env [Term] (Map Id (Environment, C.Term))
+data Environment = Env (Seq Term) (Map Id (Environment, C.Term))
   deriving (Eq)
 
 instance Show Environment where
@@ -14,7 +16,7 @@ instance Show Environment where
 envSize (Env locals _) = length locals
 
 withLocal :: Term -> Environment -> Environment
-withLocal def (Env locals globals) = Env (def:locals) globals
+withLocal def (Env locals globals) = Env (def <| locals) globals
 
 withGlobal :: Id -> Environment -> C.Term -> Environment -> Environment
 withGlobal did env term (Env locals globals) = Env locals (insert did (env, term) globals)
@@ -50,16 +52,16 @@ viewFunType _ = Nothing
 
 pattern FunType inTy outTy <- (viewFunType -> Just (inTy, outTy))
 
-viewApp :: Term -> (Term, [Term])
+viewApp :: Term -> (Term, Seq Term)
 viewApp (MetaFunElim lam arg) =
   let (lam', args) = viewApp lam
-  in (lam, args ++ [arg])
+  in (lam, args |> arg)
 viewApp (ObjectFunElim lam arg) =
   let (lam', args) = viewApp lam
-  in (lam, args ++ [arg])
-viewApp e = (e, [])
+  in (lam, args |> arg)
+viewApp e = (e, Empty)
 
-viewMC :: Term -> Maybe (Id, [Term])
+viewMC :: Term -> Maybe (Id, Seq Term)
 viewMC (viewApp -> (MetaConstantIntro did, args)) = Just (did, args)
 viewMC _ = Nothing
 

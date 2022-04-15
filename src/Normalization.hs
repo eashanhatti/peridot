@@ -11,13 +11,15 @@ import Control.Carrier.State.Strict
 import Control.Algebra(Has, run)
 import Data.Set qualified as Set
 import Data.Map qualified as Map
-import Data.List(foldl')
+import Data.Foldable
 import Data.Functor.Identity
 import Numeric.Natural
 import GHC.Stack
 import Extra
 import Shower
 import Debug.Trace
+import Data.Sequence hiding(length)
+import Prelude hiding(length)
 
 data MetaEntry = Solved N.Term | Unsolved
   deriving (Show)
@@ -82,7 +84,7 @@ eval (C.MetaFunElim lam arg) = do
     _ -> pure (N.MetaFunElim vLam vArg)
 eval (C.Let decls body) = do
   N.Env locals globals <- unEnv <$> ask
-  let vDefs = Map.fromList ((map (\def -> (C.unId def, (N.Env locals (vDefs <> globals), definition def))) decls))
+  let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), definition def) acc) mempty decls
   local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (eval body)
 eval (C.MetaConstantIntro did) = pure (N.MetaConstantIntro did)
 eval (C.ObjectConstantIntro did) = pure (N.ObjectConstantIntro did)
@@ -105,7 +107,7 @@ entry ix = do
   if fromIntegral ix >= length locals then
     error $ "`entry`:" ++ shower (ix, locals)
   else 
-    pure (locals !! fromIntegral ix)
+    pure (locals `index` fromIntegral ix)
 
 type ShouldUnfold = Bool
 
