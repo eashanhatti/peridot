@@ -24,28 +24,18 @@ main = goldenTests >>= defaultMain
 goldenTests :: IO TestTree
 goldenTests = do
   konFiles <- findByExtension [".kon"] "."
-  pure (testGroup "Text to STG tests"
+  pure (testGroup "Text to Core tests"
     [ goldenVsString
         (takeBaseName konFile)
         goldenFile
-        (testSurfaceToSTG <$> BL.readFile konFile)
+        (testSurfaceToCore <$> BL.readFile konFile)
     | konFile <- konFiles
     , let goldenFile = replaceExtension konFile ".golden" ])
 
-testSurfaceToSTG :: BL.ByteString -> BL.ByteString
-testSurfaceToSTG bs =
+testSurfaceToCore :: BL.ByteString -> BL.ByteString
+testSurfaceToCore bs =
   case P.parse . T.decodeUtf8 . B.concat . BL.toChunks $ bs of
-    Right term ->
-      let
-        (qs, cTerm) = elaborate' term
-        ctx =
-          NormContext
-            (Env mempty mempty)
-            mempty
-            (justs (unRepUVs qs))
-            (justs (unTypeUVs qs))
-            (unUVEqs qs)
-      in "RIGHT{" <> (fromString . shower $ (qs, stgify ctx cTerm)) <> "}"
-    Left err -> "LEFT{" <> fromString err <> "}"
+    Right term -> fromString . shower $ elaborate' term
+    Left err -> fromString err
 
 justs = Map.map fromJust . Map.filter isJust
