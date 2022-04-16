@@ -138,53 +138,36 @@ entry ix = do
   else 
     pure (locals `index` fromIntegral ix)
 
--- type ShouldUnfold = Bool
+type ShouldZonk = Bool
 
--- readback :: HasCallStack => Norm sig m => ShouldUnfold -> N.Term -> m C.Term
--- readback unf (N.MetaFunType am inTy outTy) = C.MetaFunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
--- readback unf (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback unf)
--- readback unf (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback unf lam <*> readback unf arg
--- readback unf (N.ObjectFunType inTy outTy) =
---   C.ObjectFunType <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
--- readback unf (N.ObjectFunIntro body) = C.ObjectFunIntro <$> (evalClosure body >>= readback unf)
--- readback unf (N.ObjectFunElim lam arg) = C.ObjectFunElim <$> readback unf lam <*> readback unf arg
--- readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
--- readback unf (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
--- readback unf (N.TypeType s) = pure (C.TypeType s)
--- readback unf (N.FreeVar (Level lvl)) = do
---   env <- unEnv <$> ask
---   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
--- readback True (N.TopVar _ env def) = local (\ctx -> ctx { unEnv = env }) (eval def) >>= readback False
--- readback False (N.TopVar did _ _) = pure (C.GlobalVar did)
--- readback True (N.UniVar gl) = do
-  -- visited <- unVisited <$> ask
-  -- if Set.member gl visited then
-  --   pure (C.UniVar gl)
-  -- else do
-  --   uvs <- unTypeUVs <$> ask
-  --   case Map.lookup gl uvs of
-  --     Just sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (readback True sol)
-  --     Nothing -> do
-  --       eqs <- unUVEqs <$> ask
-  --       case Map.lookup gl eqs of
-  --         Just gl' -> readback True (N.UniVar gl')
-  --         Nothing -> pure (C.UniVar gl)
--- readback False (N.UniVar gl) = pure (C.UniVar gl)
--- readback unf (N.IOType ty) = C.IOType <$> readback unf ty
--- readback unf (N.IOIntroPure term) = C.IOIntroPure <$> readback unf term
--- readback unf (N.IOIntroBind act k) = C.IOIntroBind act <$> readback unf k
--- readback unf N.UnitType = pure C.UnitType
--- readback unf N.UnitIntro = pure C.UnitIntro
--- readback unf N.EElabError = pure C.EElabError
+readback' :: HasCallStack => Norm sig m => ShouldZonk -> N.Term -> m C.Term
+readback' opt (N.MetaFunType am inTy outTy) = C.MetaFunType am <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
+readback' opt (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback' opt)
+readback' opt (N.ObjectFunType inTy outTy) =
+  C.ObjectFunType <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
+readback' opt (N.ObjectFunIntro body) = C.ObjectFunIntro <$> (evalClosure body >>= readback' opt)
+readback' opt (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
+readback' opt (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
+readback' opt (N.TypeType s) = pure (C.TypeType s)
+readback' opt (N.LocalVar (Level lvl)) = do
+  env <- unEnv <$> ask
+  pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
+readback' opt N.ElabError = pure C.EElabError
+readback' True (N.Neutral (Just sol) (N.UniVar _)) = readback' True sol
+readback' opt (N.Neutral _ redex) = readbackRedex opt redex
 
--- evalTop :: HasCallStack => Norm sig m => N.Environment -> C.Term -> m N.Term
--- evalTop env term = local (\ctx -> ctx { unEnv = env }) (eval term)
+readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term
+readbackRedex opt (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback' opt lam <*> readback' opt arg
+readbackRedex opt (N.ObjectFunElim lam arg) = C.ObjectFunElim <$> readback' opt lam <*> readback' opt arg
+readbackRedex opt (N.CodeCoreElim quote) = C.CodeCoreElim <$> readback' opt quote
+readbackRedex opt (N.CodeLowElim quote) = C.CodeLowElim <$> readback' opt quote
+readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)
 
--- readbackWeak :: HasCallStack => Norm sig m => N.Term -> m C.Term
--- readbackWeak = readback False
+readback :: HasCallStack => Norm sig m => N.Term -> m C.Term
+readback = readback' False
 
--- readbackFull :: HasCallStack => Norm sig m => N.Term -> m C.Term
--- readbackFull = readback True
+zonk :: HasCallStack => Norm sig m => N.Term -> m C.Term
+zonk = readback' True
 
 -- normalize :: HasCallStack => Norm sig m => N.Term -> m N.Term
 -- normalize = readbackFull >=> eval
