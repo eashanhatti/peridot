@@ -1,0 +1,5 @@
+let {
+	'val quote : (LiftC '[_ : Unit] -> Unit) = (quoteC \x { x });
+} in {
+	(pure unit)
+}

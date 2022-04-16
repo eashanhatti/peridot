@@ -3,23 +3,17 @@ module Syntax.Semantic where
 
 import Syntax.Extra
 import Syntax.Core qualified as C
-import Data.Map(Map, insert, size)
+import Data.Map(Map)
 import Data.Sequence
 import Prelude hiding(length)
 
-data Environment = Env (Seq Term) (Map Id (Environment, C.Term))
-  deriving (Eq)
+data Environment = Env (Seq Term) (Map Id Term)
 
 instance Show Environment where
   show (Env locals _) = show locals
 
-envSize (Env locals _) = length locals
-
-withLocal :: Term -> Environment -> Environment
-withLocal def (Env locals globals) = Env (def <| locals) globals
-
-withGlobal :: Id -> Environment -> C.Term -> Environment -> Environment
-withGlobal did env term (Env locals globals) = Env locals (insert did (env, term) globals)
+data Closure = Clo Environment C.Term
+  deriving (Show)
 
 type Type = Term
 
@@ -30,26 +24,24 @@ data Term
   | ObjectFunIntro Closure
   | MetaConstantIntro Id
   | ObjectConstantIntro Id
-  | IOType Term
-  | IOIntroPure Term -- `pure`
-  | IOIntroBind IOOperation Term -- `>>=`
   | CodeCoreType Term
   | CodeCoreIntro Term
-  | CodeCoreElim Term
   | CodeLowType Term
   | CodeLowIntro Term
-  | CodeLowElim Term
-  | UnitType
-  | UnitIntro
   | TypeType Stage
-  | EElabError
-  -- Stuck terms
-  | UniVar Global
-  | FreeVar Level
-  | TopVar Id Environment C.Term
+  | ElabError
+  | Neutral Term Redex
+  deriving (Show)
+
+data Redex
+  = MetaFunElim Term Term
   | ObjectFunElim Term Term
-  | MetaFunElim Term Term
-  deriving (Eq, Show)
+  | CodeCoreElim Term
+  | CodeLowElim Term
+  | LocalVar Level
+  | GlobalVar Id
+  | UniVar Global
+  deriving (Show)
 
 viewFunType :: Term -> Maybe (Term, Closure)
 viewFunType (MetaFunType _ inTy outTy) = Just (inTy, outTy)
@@ -57,19 +49,3 @@ viewFunType (ObjectFunType inTy outTy) = Just (inTy, outTy)
 viewFunType _ = Nothing
 
 pattern FunType inTy outTy <- (viewFunType -> Just (inTy, outTy))
-
-viewApp :: Term -> (Term, Seq Term)
-viewApp (MetaFunElim lam arg) =
-  let (lam', args) = viewApp lam
-  in (lam, args |> arg)
-viewApp (ObjectFunElim lam arg) =
-  let (lam', args) = viewApp lam
-  in (lam, args |> arg)
-viewApp e = (e, Empty)
-
-viewMC :: Term -> Maybe (Id, Seq Term)
-viewMC (viewApp -> (MetaConstantIntro did, args)) = Just (did, args)
-viewMC _ = Nothing
-
-data Closure = Closure Environment C.Term
-  deriving (Eq, Show)
