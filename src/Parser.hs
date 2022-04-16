@@ -160,41 +160,6 @@ ruleTy = do
   inTy <- term
   pure (TermAst (Rule outTy inTy))
 
-ioPure :: Parser TermAst
-ioPure = do
-  char '('; ws
-  string "pure"; ws
-  x <- term; ws
-  char ')'
-  pure (TermAst (IOPure x))
-
-ioTy :: Parser TermAst
-ioTy = do
-  char '('; ws
-  string "IO"; ws
-  ty <- term; ws
-  char ')'
-  pure (TermAst (IOType ty))
-
-ioBind :: Parser TermAst
-ioBind = do
-  char '('; ws
-  string "bind"; ws
-  act <- op; ws
-  k <- term; ws
-  char ')'
-  pure (TermAst (IOBind act k))
-
-unitTy :: Parser TermAst
-unitTy = do
-  string "Unit"
-  pure (TermAst UnitType)
-
-unit :: Parser TermAst
-unit = do
-  string "unit"
-  pure (TermAst Unit)
-
 decl :: Parser DeclarationAst
 decl = do
   pos <- getSourcePos
@@ -288,11 +253,6 @@ term = do
     try app <|>
     try univ <|>
     try letB <|>
-    try ioPure <|>
-    try ioTy <|>
-    try ioBind <|>
-    try unitTy <|>
-    try unit <|>
     try metaPiTy <|>
     try objPiTy <|>
     try liftCore <|>
