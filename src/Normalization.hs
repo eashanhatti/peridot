@@ -97,6 +97,20 @@ eval (C.UniVar gl) = pure (N.UniVar gl)
 eval (C.IOType ty) = N.IOType <$> eval ty
 eval (C.IOIntroPure term) = N.IOIntroPure <$> eval term
 eval (C.IOIntroBind act k) = N.IOIntroBind act <$> eval k
+eval (C.CodeCoreType ty) = N.CodeCoreType <$> eval ty
+eval (C.CodeCoreIntro term) = N.CodeCoreIntro <$> eval term
+eval (C.CodeCoreElim term) = do
+  term' <- eval term
+  case term' of
+    N.CodeCoreIntro code -> pure code
+    _ -> pure (N.CodeCoreElim term')
+eval (C.CodeLowType ty) = N.CodeLowType <$> eval ty
+eval (C.CodeLowIntro term) = N.CodeLowIntro <$> eval term
+eval (C.CodeLowElim term) = do
+  term' <- eval term
+  case term' of
+    N.CodeLowIntro code -> pure code
+    _ -> pure (N.CodeLowElim term')
 eval C.UnitType = pure N.UnitType
 eval C.UnitIntro = pure N.UnitIntro
 eval C.EElabError = pure N.EElabError

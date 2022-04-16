@@ -94,6 +94,12 @@ unify' (TopVar _ env term1) term2 = bind2 unify' (evalTop env term1) (pure term2
 unify' term1 (TopVar _ env term2) = bind2 unify' (pure term1) (evalTop env term2)
 unify' EElabError _ = pure ()
 unify' _ EElabError = pure ()
+unify' (CodeCoreType ty1) (CodeCoreType ty2) = unify' ty1 ty2
+unify' (CodeLowType ty1) (CodeLowType ty2) = unify' ty1 ty2
+unify' (CodeCoreIntro term1) (CodeCoreIntro term2) = unify' term1 term1
+unify' (CodeLowIntro term1) (CodeLowIntro term2) = unify' term1 term1
+unify' (CodeCoreElim quote1) (CodeCoreElim quote2) = unify' quote1 quote2
+unify' (CodeLowElim quote1) (CodeLowElim quote2) = unify' quote1 quote2
 unify' _ _ = throwError ()
 
 unifyFunElims :: Unify sig m => Term -> Term -> Term -> Term -> Term -> Term -> m ()

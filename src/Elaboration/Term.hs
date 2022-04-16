@@ -111,6 +111,28 @@ infer term = case term of
     pure (C.IOIntroBind act cK, outTy)
   TermAst UnitType -> pure (C.UnitType, N.TypeType Object)
   TermAst Unit -> pure (C.UnitIntro, N.UnitType)
+  TermAst (LiftCore ty) -> do
+    cTy <- checkObjectType' ty
+    pure (C.CodeCoreType cTy, N.TypeType Meta)
+  TermAst (QuoteCore term) -> do
+    ty <- freshTypeUV
+    cTerm <- check term ty
+    pure (C.CodeCoreIntro cTerm, N.CodeCoreType ty)
+  TermAst (SpliceCore quote) -> do
+    ty <- freshTypeUV
+    cQuote <- check quote (N.CodeCoreType ty)
+    pure (C.CodeCoreElim cQuote, ty)
+  TermAst (LiftLow ty) -> do
+    cTy <- checkLowType' ty
+    pure (C.CodeLowType cTy, N.TypeType Meta)
+  TermAst (QuoteLow term) -> do
+    ty <- freshTypeUV
+    cTerm <- check term ty
+    pure (C.CodeLowIntro cTerm, N.CodeLowType ty)
+  TermAst (SpliceLow quote) -> do
+    ty <- freshTypeUV
+    cQuote <- check quote (N.CodeLowType ty)
+    pure (C.CodeLowElim cQuote, ty)
 
 opTy :: IOOperation -> N.Term
 opTy (PutChar _) = N.UnitType
@@ -125,6 +147,12 @@ checkMetaType term = (,) <$> check term (N.TypeType Meta) <*> pure (N.TypeType M
 
 checkMetaType' :: Elab sig m => TermAst -> m C.Term
 checkMetaType' ty = fst <$> checkMetaType ty
+
+checkLowType :: Elab sig m => TermAst -> m (C.Term, N.Term)
+checkLowType term = (,) <$> check term (N.TypeType Low) <*> pure (N.TypeType Low)
+
+checkLowType' :: Elab sig m => TermAst -> m C.Term
+checkLowType' ty = fst <$> checkLowType ty
 
 checkObjectType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkObjectType term =

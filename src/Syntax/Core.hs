@@ -36,6 +36,12 @@ data Term
   | IOType Term
   | IOIntroPure Term -- `pure`
   | IOIntroBind IOOperation Term -- `>>=`
+  | CodeCoreType Term
+  | CodeCoreIntro Term
+  | CodeCoreElim Term
+  | CodeLowType Term
+  | CodeLowIntro Term
+  | CodeLowElim Term
   | UnitType
   | UnitIntro
   | TypeType Stage
