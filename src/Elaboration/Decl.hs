@@ -22,6 +22,10 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
       cDef <- eval cSig >>= EE.check def
       unify univ (N.TypeType Object)
       pure (C.Term did cSig cDef)
+    PDDecl (DeclAst (MetaTerm name _ def) did) -> do
+      cDef <- eval cSig >>= EE.check def
+      unify univ (N.TypeType Meta)
+      pure (C.Term did cSig cDef)
     PDDecl (DeclAst (Datatype name _ _) did) -> do
       vSig <- eval cSig
       unify vSig (N.TypeType Object)

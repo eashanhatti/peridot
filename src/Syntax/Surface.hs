@@ -73,9 +73,10 @@ data Term
   | Univ
   | Let (Seq DeclarationAst) TermAst
   | Rule TermAst TermAst -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo
-  | IOPure TermAst
-  | IOType TermAst
-  | IOBind IOOperation TermAst
-  | UnitType
-  | Unit
+  | LiftCore TermAst
+  | QuoteCore TermAst
+  | SpliceCore TermAst
+  | LiftLow TermAst
+  | QuoteLow TermAst
+  | SpliceLow TermAst
   deriving (Show)

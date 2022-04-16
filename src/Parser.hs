@@ -57,6 +57,54 @@ metaLam = do
   char '}'
   pure (TermAst (MetaLam (fromList ns) body))
 
+liftCore :: Parser TermAst
+liftCore = do
+  char '('; ws
+  string "LiftC"; ws
+  ty <- term; ws
+  char ')'
+  pure (TermAst (LiftCore ty))
+
+spliceCore :: Parser TermAst
+spliceCore = do
+  char '('; ws
+  string "spliceC"; ws
+  term <- term; ws
+  char ')'
+  pure (TermAst (SpliceCore term))
+
+quoteCore :: Parser TermAst
+quoteCore = do
+  char '('; ws
+  string "quoteC"; ws
+  term <- term; ws
+  char ')'
+  pure (TermAst (QuoteCore term))
+
+liftLow :: Parser TermAst
+liftLow = do
+  char '('; ws
+  string "LiftC"; ws
+  ty <- term; ws
+  char ')'
+  pure (TermAst (LiftLow ty))
+
+spliceLow :: Parser TermAst
+spliceLow = do
+  char '('; ws
+  string "spliceL"; ws
+  term <- term; ws
+  char ')'
+  pure (TermAst (SpliceLow term))
+
+quoteLow :: Parser TermAst
+quoteLow = do
+  char '('; ws
+  string "quoteL"; ws
+  term <- term; ws
+  char ')'
+  pure (TermAst (QuoteLow term))
+
 objLam :: Parser TermAst
 objLam = do
   string "'\\"; ws
@@ -111,41 +159,6 @@ ruleTy = do
   string ":-"; ws
   inTy <- term
   pure (TermAst (Rule outTy inTy))
-
-ioPure :: Parser TermAst
-ioPure = do
-  char '('; ws
-  string "pure"; ws
-  x <- term; ws
-  char ')'
-  pure (TermAst (IOPure x))
-
-ioTy :: Parser TermAst
-ioTy = do
-  char '('; ws
-  string "IO"; ws
-  ty <- term; ws
-  char ')'
-  pure (TermAst (IOType ty))
-
-ioBind :: Parser TermAst
-ioBind = do
-  char '('; ws
-  string "bind"; ws
-  act <- op; ws
-  k <- term; ws
-  char ')'
-  pure (TermAst (IOBind act k))
-
-unitTy :: Parser TermAst
-unitTy = do
-  string "Unit"
-  pure (TermAst UnitType)
-
-unit :: Parser TermAst
-unit = do
-  string "unit"
-  pure (TermAst Unit)
 
 decl :: Parser DeclarationAst
 decl = do
@@ -240,13 +253,14 @@ term = do
     try app <|>
     try univ <|>
     try letB <|>
-    try ioPure <|>
-    try ioTy <|>
-    try ioBind <|>
-    try unitTy <|>
-    try unit <|>
     try metaPiTy <|>
     try objPiTy <|>
+    try liftCore <|>
+    try quoteCore <|>
+    try spliceCore <|>
+    try liftLow <|>
+    try quoteLow <|>
+    try spliceLow <|>
     try var <|>
     ruleTy
   pure (SourcePos e pos)

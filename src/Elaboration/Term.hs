@@ -8,7 +8,7 @@ import Extra
 import Elaboration.Effect
 import Elaboration.Decl qualified as ED
 import Control.Monad
-import Normalization hiding(eval, readbackWeak)
+import Normalization hiding(eval, readback)
 import Data.Foldable(foldl', foldr, foldrM)
 import Debug.Trace
 import Data.Sequence
@@ -25,9 +25,9 @@ infer term = case term of
   SourcePos term pos -> withPos pos (infer term)
   TermAst (MetaLam (fmap unName -> names) body) -> do
     inTys <- traverse (const freshTypeUV) names
-    cInTys <- traverse readbackWeak inTys
+    cInTys <- traverse readback inTys
     outTy <- freshTypeUV
-    cOutTy <- readbackWeak outTy
+    cOutTy <- readback outTy
     let ty = foldr (\inTy outTy -> C.MetaFunType Explicit inTy outTy) cOutTy (tail cInTys)
     vTy <- N.MetaFunType Explicit (head inTys) <$> closureOf ty
     cBody <- checkBody (zip names inTys) outTy
@@ -39,9 +39,9 @@ infer term = case term of
       checkBody ((name, inTy) :<| params) outTy = bindLocal name inTy (checkBody params outTy)
   TermAst (ObjLam (fmap unName -> names) body) -> do
     inTys <- traverse (const freshTypeUV) names
-    cInTys <- traverse readbackWeak inTys
+    cInTys <- traverse readback inTys
     outTy <- freshTypeUV
-    cOutTy <- readbackWeak outTy
+    cOutTy <- readback outTy
     let ty = foldr (\inTy outTy -> C.ObjectFunType inTy outTy) cOutTy (tail cInTys)
     vTy <- N.ObjectFunType (head inTys) <$> closureOf ty
     cBody <- checkBody (zip names inTys) outTy
@@ -96,24 +96,28 @@ infer term = case term of
   TermAst (Rule outTy inTy) -> do
     cTerm <- C.MetaFunType Implicit <$> checkMetaType' inTy <*> checkMetaType' outTy
     pure (cTerm, N.TypeType Meta)
-  TermAst (IOType ty) -> do
+  TermAst (LiftCore ty) -> do
     cTy <- checkObjectType' ty
-    pure (C.IOType cTy, N.TypeType Object)
-  TermAst (IOPure term) -> do
+    pure (C.CodeCoreType cTy, N.TypeType Meta)
+  TermAst (QuoteCore term) -> do
     ty <- freshTypeUV
     cTerm <- check term ty
-    pure (C.IOIntroPure cTerm, N.IOType ty)
-  TermAst (IOBind act k) -> do
-    let inTy = opTy act
-    outTy <- N.IOType <$> freshTypeUV
-    outTyClo <- readbackWeak outTy >>= closureOf
-    cK <- check k (N.ObjectFunType inTy outTyClo)
-    pure (C.IOIntroBind act cK, outTy)
-  TermAst UnitType -> pure (C.UnitType, N.TypeType Object)
-  TermAst Unit -> pure (C.UnitIntro, N.UnitType)
-
-opTy :: IOOperation -> N.Term
-opTy (PutChar _) = N.UnitType
+    pure (C.CodeCoreIntro cTerm, N.CodeCoreType ty)
+  TermAst (SpliceCore quote) -> do
+    ty <- freshTypeUV
+    cQuote <- check quote (N.CodeCoreType ty)
+    pure (C.CodeCoreElim cQuote, ty)
+  TermAst (LiftLow ty) -> do
+    cTy <- checkLowType' ty
+    pure (C.CodeLowType cTy, N.TypeType Meta)
+  TermAst (QuoteLow term) -> do
+    ty <- freshTypeUV
+    cTerm <- check term ty
+    pure (C.CodeLowIntro cTerm, N.CodeLowType ty)
+  TermAst (SpliceLow quote) -> do
+    ty <- freshTypeUV
+    cQuote <- check quote (N.CodeLowType ty)
+    pure (C.CodeLowElim cQuote, ty)
 
 checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkType term = do
@@ -125,6 +129,12 @@ checkMetaType term = (,) <$> check term (N.TypeType Meta) <*> pure (N.TypeType M
 
 checkMetaType' :: Elab sig m => TermAst -> m C.Term
 checkMetaType' ty = fst <$> checkMetaType ty
+
+checkLowType :: Elab sig m => TermAst -> m (C.Term, N.Term)
+checkLowType term = (,) <$> check term (N.TypeType Low) <*> pure (N.TypeType Low)
+
+checkLowType' :: Elab sig m => TermAst -> m C.Term
+checkLowType' ty = fst <$> checkLowType ty
 
 checkObjectType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkObjectType term =

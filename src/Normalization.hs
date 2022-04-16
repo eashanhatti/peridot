@@ -21,9 +21,6 @@ import Debug.Trace
 import Data.Sequence hiding(length)
 import Prelude hiding(length)
 
-data MetaEntry = Solved N.Term | Unsolved
-  deriving (Show)
-
 data NormContext = NormContext
   { unEnv :: N.Environment
   , unVisited :: Set.Set Global
@@ -35,7 +32,7 @@ type Norm sig m =
   ( Has (Reader NormContext) sig m )
 
 bind :: HasCallStack => Norm sig m => m a -> m a
-bind = local (\ctx -> ctx { unEnv = N.withLocal (N.FreeVar (fromIntegral (N.envSize (unEnv ctx)))) (unEnv ctx) })
+bind = local (\ctx -> ctx { unEnv = N.withLocal (N.LocalVar (fromIntegral (N.envSize (unEnv ctx)))) (unEnv ctx) })
 
 define :: HasCallStack => Norm sig m => N.Term -> m a -> m a
 define def = local (\ctx -> ctx { unEnv = N.withLocal def (unEnv ctx) })
@@ -43,20 +40,25 @@ define def = local (\ctx -> ctx { unEnv = N.withLocal def (unEnv ctx) })
 closureOf :: HasCallStack => Norm sig m => C.Term -> m N.Closure
 closureOf term = do
   env <- unEnv <$> ask
-  pure (N.Closure env term)
+  pure (N.Clo env term)
 
 appClosure :: HasCallStack => Norm sig m => N.Closure -> N.Term -> m N.Term
-appClosure (N.Closure env body) arg = local (\ctx -> ctx { unEnv = N.withLocal arg env }) (eval body)
+appClosure (N.Clo env body) arg = local (\ctx -> ctx { unEnv = N.withLocal arg env }) (eval body)
 
 evalClosure :: HasCallStack => Norm sig m => N.Closure -> m N.Term
 evalClosure clo = do
   env <- unEnv <$> ask
-  appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
+  appClosure clo (N.LocalVar (fromIntegral (N.envSize env)))
 
 funIntros :: C.Term -> (C.Term -> C.Term)
 funIntros (C.MetaFunType _ _ outTy) = C.MetaFunIntro . funIntros outTy
 funIntros (C.ObjectFunType _ outTy) = C.ObjectFunIntro . funIntros outTy
 funIntros _ = id
+
+delay :: Norm sig m => ReaderC NormContext Identity a -> m a
+delay act = do
+  ctx <- ask
+  pure (run . runReader ctx $ act)
 
 definition :: C.Declaration -> C.Term
 definition (C.MetaConstant did sig) = funIntros sig (C.MetaConstantIntro did)
@@ -73,33 +75,60 @@ eval (C.ObjectFunIntro body) = N.ObjectFunIntro <$> closureOf body
 eval (C.ObjectFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
-  case vLam of
-    N.ObjectFunIntro body -> appClosure body vArg
-    _ -> pure (N.ObjectFunElim vLam vArg)
+  reded <- delay case vLam of
+    N.ObjectFunIntro body -> Just <$> appClosure body vArg
+    _ -> pure Nothing
+  pure (N.Neutral reded (N.ObjectFunElim vLam vArg))
 eval (C.MetaFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
-  case vLam of
-    N.MetaFunIntro body -> appClosure body vArg
-    _ -> pure (N.MetaFunElim vLam vArg)
-eval (C.Let decls body) = do
-  N.Env locals globals <- unEnv <$> ask
-  let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), definition def) acc) mempty decls
-  local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (eval body)
+  reded <- delay case vLam of
+    N.MetaFunIntro body -> Just <$> appClosure body vArg
+    _ -> pure Nothing
+  pure (N.Neutral reded (N.MetaFunElim vLam vArg))
+-- eval (C.Let decls body) = do
+--   N.Env locals globals <- unEnv <$> ask
+--   let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), definition def) acc) mempty decls
+--   local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (eval body)
 eval (C.MetaConstantIntro did) = pure (N.MetaConstantIntro did)
 eval (C.ObjectConstantIntro did) = pure (N.ObjectConstantIntro did)
 eval (C.TypeType s) = pure (N.TypeType s)
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) = do
-  N.Env _ ((! did) -> (env, term)) <- unEnv <$> ask
-  pure (N.TopVar did env term)
-eval (C.UniVar gl) = pure (N.UniVar gl)
-eval (C.IOType ty) = N.IOType <$> eval ty
-eval (C.IOIntroPure term) = N.IOIntroPure <$> eval term
-eval (C.IOIntroBind act k) = N.IOIntroBind act <$> eval k
-eval C.UnitType = pure N.UnitType
-eval C.UnitIntro = pure N.UnitIntro
-eval C.EElabError = pure N.EElabError
+  N.Env _ ((! did) -> term) <- unEnv <$> ask
+  pure (N.Neutral (Just term) (N.GlobalVar did))
+eval (C.UniVar gl) = do
+  reded <- delay do
+    visited <- unVisited <$> ask
+    if Set.member gl visited then
+      pure Nothing
+    else do
+      uvs <- unTypeUVs <$> ask
+      case Map.lookup gl uvs of
+        Just sol -> pure (Just sol)
+        Nothing -> do
+          eqs <- unUVEqs <$> ask
+          case Map.lookup gl eqs of
+            Just gl' -> Just <$> eval (C.UniVar gl')
+            Nothing -> pure Nothing
+  pure (N.Neutral reded (N.UniVar gl))
+eval (C.CodeCoreType ty) = N.CodeCoreType <$> eval ty
+eval (C.CodeCoreIntro term) = N.CodeCoreIntro <$> eval term
+eval (C.CodeCoreElim term) = do
+  term' <- eval term
+  reded <- pure case term' of
+    N.CodeCoreIntro code -> Just code
+    _ -> Nothing
+  pure (N.Neutral reded (N.CodeCoreElim term'))
+eval (C.CodeLowType ty) = N.CodeLowType <$> eval ty
+eval (C.CodeLowIntro term) = N.CodeLowIntro <$> eval term
+eval (C.CodeLowElim term) = do
+  term' <- eval term
+  reded <- pure case term' of
+    N.CodeLowIntro code -> Just code
+    _ -> Nothing
+  pure (N.Neutral reded (N.CodeLowElim term'))
+eval C.EElabError = pure N.ElabError
 
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
 entry ix = do
@@ -109,57 +138,40 @@ entry ix = do
   else 
     pure (locals `index` fromIntegral ix)
 
-type ShouldUnfold = Bool
+type ShouldZonk = Bool
 
-readback :: HasCallStack => Norm sig m => ShouldUnfold -> N.Term -> m C.Term
-readback unf (N.MetaFunType am inTy outTy) = C.MetaFunType am <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
-readback unf (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback unf)
-readback unf (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback unf lam <*> readback unf arg
-readback unf (N.ObjectFunType inTy outTy) =
-  C.ObjectFunType <$> readback unf inTy <*> (evalClosure outTy >>= readback unf)
-readback unf (N.ObjectFunIntro body) = C.ObjectFunIntro <$> (evalClosure body >>= readback unf)
-readback unf (N.ObjectFunElim lam arg) = C.ObjectFunElim <$> readback unf lam <*> readback unf arg
-readback unf (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
-readback unf (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
-readback unf (N.TypeType s) = pure (C.TypeType s)
-readback unf (N.FreeVar (Level lvl)) = do
+readback' :: HasCallStack => Norm sig m => ShouldZonk -> N.Term -> m C.Term
+readback' opt (N.MetaFunType am inTy outTy) = C.MetaFunType am <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
+readback' opt (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback' opt)
+readback' opt (N.ObjectFunType inTy outTy) =
+  C.ObjectFunType <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
+readback' opt (N.ObjectFunIntro body) = C.ObjectFunIntro <$> (evalClosure body >>= readback' opt)
+readback' opt (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
+readback' opt (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
+readback' opt (N.TypeType s) = pure (C.TypeType s)
+readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
-readback True (N.TopVar _ env def) = local (\ctx -> ctx { unEnv = env }) (eval def) >>= readback False
-readback False (N.TopVar did _ _) = pure (C.GlobalVar did)
-readback True (N.UniVar gl) = do
-  visited <- unVisited <$> ask
-  if Set.member gl visited then
-    pure (C.UniVar gl)
-  else do
-    uvs <- unTypeUVs <$> ask
-    case Map.lookup gl uvs of
-      Just sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (readback True sol)
-      Nothing -> do
-        eqs <- unUVEqs <$> ask
-        case Map.lookup gl eqs of
-          Just gl' -> readback True (N.UniVar gl')
-          Nothing -> pure (C.UniVar gl)
-readback False (N.UniVar gl) = pure (C.UniVar gl)
-readback unf (N.IOType ty) = C.IOType <$> readback unf ty
-readback unf (N.IOIntroPure term) = C.IOIntroPure <$> readback unf term
-readback unf (N.IOIntroBind act k) = C.IOIntroBind act <$> readback unf k
-readback unf N.UnitType = pure C.UnitType
-readback unf N.UnitIntro = pure C.UnitIntro
-readback unf N.EElabError = pure C.EElabError
+readback' opt N.ElabError = pure C.EElabError
+readback' True (N.Neutral (Just sol) (N.UniVar _)) = readback' True sol
+readback' opt (N.Neutral _ redex) = readbackRedex opt redex
 
-evalTop :: HasCallStack => Norm sig m => N.Environment -> C.Term -> m N.Term
-evalTop env term = local (\ctx -> ctx { unEnv = env }) (eval term)
+readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term
+readbackRedex opt (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback' opt lam <*> readback' opt arg
+readbackRedex opt (N.ObjectFunElim lam arg) = C.ObjectFunElim <$> readback' opt lam <*> readback' opt arg
+readbackRedex opt (N.CodeCoreElim quote) = C.CodeCoreElim <$> readback' opt quote
+readbackRedex opt (N.CodeLowElim quote) = C.CodeLowElim <$> readback' opt quote
+readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)
 
-readbackWeak :: HasCallStack => Norm sig m => N.Term -> m C.Term
-readbackWeak = readback False
+readback :: HasCallStack => Norm sig m => N.Term -> m C.Term
+readback = readback' False
 
-readbackFull :: HasCallStack => Norm sig m => N.Term -> m C.Term
-readbackFull = readback True
+zonk :: HasCallStack => Norm sig m => N.Term -> m C.Term
+zonk = readback' True
 
-normalize :: HasCallStack => Norm sig m => N.Term -> m N.Term
-normalize = readbackFull >=> eval
+-- normalize :: HasCallStack => Norm sig m => N.Term -> m N.Term
+-- normalize = readbackFull >=> eval
 
-withGlobals :: Norm sig m => Map.Map Id (N.Environment, C.Term) -> m a -> m a
-withGlobals globals =
-  local (\ctx@(unEnv -> N.Env locals globals') -> ctx { unEnv = N.Env locals (globals <> globals') })
+-- withGlobals :: Norm sig m => Map.Map Id (N.Environment, C.Term) -> m a -> m a
+-- withGlobals globals =
+--   local (\ctx@(unEnv -> N.Env locals globals') -> ctx { unEnv = N.Env locals (globals <> globals') })
