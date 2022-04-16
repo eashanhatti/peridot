@@ -1,129 +1,142 @@
 module Normalization where
 
+import Syntax.Core qualified as C
+import Syntax.Semantic qualified as N
+import Syntax.Extra
+import Control.Monad
+import Control.Effect.Reader
+import Control.Carrier.Reader
+import Control.Effect.State
+import Control.Carrier.State.Strict
+import Control.Algebra(Has, run)
+import Data.Set qualified as Set
+import Data.Map qualified as Map
+import Data.Foldable
+import Data.Functor.Identity
+import Numeric.Natural
+import GHC.Stack
+import Extra
+import Shower
+import Debug.Trace
+import Data.Sequence hiding(length)
+import Prelude hiding(length)
 
+data NormContext = NormContext
+  { unEnv :: N.Environment
+  , unVisited :: Set.Set Global
+  , unTypeUVs :: Map.Map Global N.Term
+  , unUVEqs :: Map.Map Global Global } -- FIXME? `Map Global (Set Global)`
+  deriving (Show)
 
--- import Syntax.Core qualified as C
--- import Syntax.Semantic qualified as N
--- import Syntax.Extra
--- import Control.Monad
--- import Control.Effect.Reader
--- import Control.Carrier.Reader
--- import Control.Effect.State
--- import Control.Carrier.State.Strict
--- import Control.Algebra(Has, run)
--- import Data.Set qualified as Set
--- import Data.Map qualified as Map
--- import Data.Foldable
--- import Data.Functor.Identity
--- import Numeric.Natural
--- import GHC.Stack
--- import Extra
--- import Shower
--- import Debug.Trace
--- import Data.Sequence hiding(length)
--- import Prelude hiding(length)
+type Norm sig m =
+  ( Has (Reader NormContext) sig m )
 
--- data MetaEntry = Solved N.Term | Unsolved
---   deriving (Show)
+bind :: HasCallStack => Norm sig m => m a -> m a
+bind = local (\ctx -> ctx { unEnv = N.withLocal (N.LocalVar (fromIntegral (N.envSize (unEnv ctx)))) (unEnv ctx) })
 
--- data NormContext = NormContext
---   { unEnv :: N.Environment
---   , unVisited :: Set.Set Global
---   , unTypeUVs :: Map.Map Global N.Term
---   , unUVEqs :: Map.Map Global Global } -- FIXME? `Map Global (Set Global)`
---   deriving (Show)
+define :: HasCallStack => Norm sig m => N.Term -> m a -> m a
+define def = local (\ctx -> ctx { unEnv = N.withLocal def (unEnv ctx) })
 
--- type Norm sig m =
---   ( Has (Reader NormContext) sig m )
+closureOf :: HasCallStack => Norm sig m => C.Term -> m N.Closure
+closureOf term = do
+  env <- unEnv <$> ask
+  pure (N.Clo env term)
 
--- bind :: HasCallStack => Norm sig m => m a -> m a
--- bind = local (\ctx -> ctx { unEnv = N.withLocal (N.FreeVar (fromIntegral (N.envSize (unEnv ctx)))) (unEnv ctx) })
+appClosure :: HasCallStack => Norm sig m => N.Closure -> N.Term -> m N.Term
+appClosure (N.Clo env body) arg = local (\ctx -> ctx { unEnv = N.withLocal arg env }) (eval body)
 
--- define :: HasCallStack => Norm sig m => N.Term -> m a -> m a
--- define def = local (\ctx -> ctx { unEnv = N.withLocal def (unEnv ctx) })
+evalClosure :: HasCallStack => Norm sig m => N.Closure -> m N.Term
+evalClosure clo = do
+  env <- unEnv <$> ask
+  appClosure clo (N.LocalVar (fromIntegral (N.envSize env)))
 
--- closureOf :: HasCallStack => Norm sig m => C.Term -> m N.Closure
--- closureOf term = do
---   env <- unEnv <$> ask
---   pure (N.Closure env term)
+funIntros :: C.Term -> (C.Term -> C.Term)
+funIntros (C.MetaFunType _ _ outTy) = C.MetaFunIntro . funIntros outTy
+funIntros (C.ObjectFunType _ outTy) = C.ObjectFunIntro . funIntros outTy
+funIntros _ = id
 
--- appClosure :: HasCallStack => Norm sig m => N.Closure -> N.Term -> m N.Term
--- appClosure (N.Closure env body) arg = local (\ctx -> ctx { unEnv = N.withLocal arg env }) (eval body)
+delay :: Norm sig m => ReaderC NormContext Identity a -> m a
+delay act = do
+  ctx <- ask
+  pure (run . runReader ctx $ act)
 
--- evalClosure :: HasCallStack => Norm sig m => N.Closure -> m N.Term
--- evalClosure clo = do
---   env <- unEnv <$> ask
---   appClosure clo (N.FreeVar (fromIntegral (N.envSize env)))
+definition :: C.Declaration -> C.Term
+definition (C.MetaConstant did sig) = funIntros sig (C.MetaConstantIntro did)
+definition (C.ObjectConstant did sig) = funIntros sig (C.ObjectConstantIntro did)
+definition (C.Term _ _ def) = def
+definition (C.Fresh _ _) = undefined
+definition (C.DElabError) = error "FIXME"
 
--- funIntros :: C.Term -> (C.Term -> C.Term)
--- funIntros (C.MetaFunType _ _ outTy) = C.MetaFunIntro . funIntros outTy
--- funIntros (C.ObjectFunType _ outTy) = C.ObjectFunIntro . funIntros outTy
--- funIntros _ = id
-
--- definition :: C.Declaration -> C.Term
--- definition (C.MetaConstant did sig) = funIntros sig (C.MetaConstantIntro did)
--- definition (C.ObjectConstant did sig) = funIntros sig (C.ObjectConstantIntro did)
--- definition (C.Term _ _ def) = def
--- definition (C.Fresh _ _) = undefined
--- definition (C.DElabError) = error "FIXME"
-
--- eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
--- eval (C.MetaFunType am inTy outTy) = N.MetaFunType am <$> eval inTy <*> closureOf outTy
--- eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
--- eval (C.ObjectFunType inTy outTy) = N.ObjectFunType <$> eval inTy <*> closureOf outTy
--- eval (C.ObjectFunIntro body) = N.ObjectFunIntro <$> closureOf body
--- eval (C.ObjectFunElim lam arg) = do
---   vLam <- eval lam
---   vArg <- eval arg
---   case vLam of
---     N.ObjectFunIntro body -> appClosure body vArg
---     _ -> pure (N.ObjectFunElim vLam vArg)
--- eval (C.MetaFunElim lam arg) = do
---   vLam <- eval lam
---   vArg <- eval arg
---   case vLam of
---     N.MetaFunIntro body -> appClosure body vArg
---     _ -> pure (N.MetaFunElim vLam vArg)
+eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
+eval (C.MetaFunType am inTy outTy) = N.MetaFunType am <$> eval inTy <*> closureOf outTy
+eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
+eval (C.ObjectFunType inTy outTy) = N.ObjectFunType <$> eval inTy <*> closureOf outTy
+eval (C.ObjectFunIntro body) = N.ObjectFunIntro <$> closureOf body
+eval (C.ObjectFunElim lam arg) = do
+  vLam <- eval lam
+  vArg <- eval arg
+  reded <- delay case vLam of
+    N.ObjectFunIntro body -> Just <$> appClosure body vArg
+    _ -> pure Nothing
+  pure (N.Neutral reded (N.ObjectFunElim vLam vArg))
+eval (C.MetaFunElim lam arg) = do
+  vLam <- eval lam
+  vArg <- eval arg
+  reded <- delay case vLam of
+    N.MetaFunIntro body -> Just <$> appClosure body vArg
+    _ -> pure Nothing
+  pure (N.Neutral reded (N.MetaFunElim vLam vArg))
 -- eval (C.Let decls body) = do
 --   N.Env locals globals <- unEnv <$> ask
 --   let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), definition def) acc) mempty decls
 --   local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (eval body)
--- eval (C.MetaConstantIntro did) = pure (N.MetaConstantIntro did)
--- eval (C.ObjectConstantIntro did) = pure (N.ObjectConstantIntro did)
--- eval (C.TypeType s) = pure (N.TypeType s)
--- eval (C.LocalVar ix) = entry ix
--- eval (C.GlobalVar did) = do
---   N.Env _ ((! did) -> (env, term)) <- unEnv <$> ask
---   pure (N.TopVar did env term)
--- eval (C.UniVar gl) = pure (N.UniVar gl)
--- eval (C.IOType ty) = N.IOType <$> eval ty
--- eval (C.IOIntroPure term) = N.IOIntroPure <$> eval term
--- eval (C.IOIntroBind act k) = N.IOIntroBind act <$> eval k
--- eval (C.CodeCoreType ty) = N.CodeCoreType <$> eval ty
--- eval (C.CodeCoreIntro term) = N.CodeCoreIntro <$> eval term
--- eval (C.CodeCoreElim term) = do
---   term' <- eval term
---   case term' of
---     N.CodeCoreIntro code -> pure code
---     _ -> pure (N.CodeCoreElim term')
--- eval (C.CodeLowType ty) = N.CodeLowType <$> eval ty
--- eval (C.CodeLowIntro term) = N.CodeLowIntro <$> eval term
--- eval (C.CodeLowElim term) = do
---   term' <- eval term
---   case term' of
---     N.CodeLowIntro code -> pure code
---     _ -> pure (N.CodeLowElim term')
--- eval C.UnitType = pure N.UnitType
--- eval C.UnitIntro = pure N.UnitIntro
--- eval C.EElabError = pure N.EElabError
+eval (C.MetaConstantIntro did) = pure (N.MetaConstantIntro did)
+eval (C.ObjectConstantIntro did) = pure (N.ObjectConstantIntro did)
+eval (C.TypeType s) = pure (N.TypeType s)
+eval (C.LocalVar ix) = entry ix
+eval (C.GlobalVar did) = do
+  N.Env _ ((! did) -> term) <- unEnv <$> ask
+  pure (N.Neutral (Just term) (N.GlobalVar did))
+eval (C.UniVar gl) = do
+  reded <- delay do
+    visited <- unVisited <$> ask
+    if Set.member gl visited then
+      pure Nothing
+    else do
+      uvs <- unTypeUVs <$> ask
+      case Map.lookup gl uvs of
+        Just sol -> pure (Just sol)
+        Nothing -> do
+          eqs <- unUVEqs <$> ask
+          case Map.lookup gl eqs of
+            Just gl' -> Just <$> eval (C.UniVar gl')
+            Nothing -> pure Nothing
+  pure (N.Neutral reded (N.UniVar gl))
+eval (C.CodeCoreType ty) = N.CodeCoreType <$> eval ty
+eval (C.CodeCoreIntro term) = N.CodeCoreIntro <$> eval term
+eval (C.CodeCoreElim term) = do
+  term' <- eval term
+  reded <- pure case term' of
+    N.CodeCoreIntro code -> Just code
+    _ -> Nothing
+  pure (N.Neutral reded (N.CodeCoreElim term'))
+eval (C.CodeLowType ty) = N.CodeLowType <$> eval ty
+eval (C.CodeLowIntro term) = N.CodeLowIntro <$> eval term
+eval (C.CodeLowElim term) = do
+  term' <- eval term
+  reded <- pure case term' of
+    N.CodeLowIntro code -> Just code
+    _ -> Nothing
+  pure (N.Neutral reded (N.CodeLowElim term'))
+eval C.EElabError = pure N.ElabError
 
--- entry :: HasCallStack => Norm sig m => Index -> m N.Term
--- entry ix = do
---   N.Env locals _ <- unEnv <$> ask
---   if fromIntegral ix >= length locals then
---     error $ "`entry`:" ++ shower (ix, locals)
---   else 
---     pure (locals `index` fromIntegral ix)
+entry :: HasCallStack => Norm sig m => Index -> m N.Term
+entry ix = do
+  N.Env locals _ <- unEnv <$> ask
+  if fromIntegral ix >= length locals then
+    error $ "`entry`:" ++ shower (ix, locals)
+  else 
+    pure (locals `index` fromIntegral ix)
 
 -- type ShouldUnfold = Bool
 
@@ -144,18 +157,18 @@ module Normalization where
 -- readback True (N.TopVar _ env def) = local (\ctx -> ctx { unEnv = env }) (eval def) >>= readback False
 -- readback False (N.TopVar did _ _) = pure (C.GlobalVar did)
 -- readback True (N.UniVar gl) = do
---   visited <- unVisited <$> ask
---   if Set.member gl visited then
---     pure (C.UniVar gl)
---   else do
---     uvs <- unTypeUVs <$> ask
---     case Map.lookup gl uvs of
---       Just sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (readback True sol)
---       Nothing -> do
---         eqs <- unUVEqs <$> ask
---         case Map.lookup gl eqs of
---           Just gl' -> readback True (N.UniVar gl')
---           Nothing -> pure (C.UniVar gl)
+  -- visited <- unVisited <$> ask
+  -- if Set.member gl visited then
+  --   pure (C.UniVar gl)
+  -- else do
+  --   uvs <- unTypeUVs <$> ask
+  --   case Map.lookup gl uvs of
+  --     Just sol -> local (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) }) (readback True sol)
+  --     Nothing -> do
+  --       eqs <- unUVEqs <$> ask
+  --       case Map.lookup gl eqs of
+  --         Just gl' -> readback True (N.UniVar gl')
+  --         Nothing -> pure (C.UniVar gl)
 -- readback False (N.UniVar gl) = pure (C.UniVar gl)
 -- readback unf (N.IOType ty) = C.IOType <$> readback unf ty
 -- readback unf (N.IOIntroPure term) = C.IOIntroPure <$> readback unf term

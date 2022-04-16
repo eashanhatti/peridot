@@ -9,6 +9,12 @@ import Prelude hiding(length)
 
 data Environment = Env (Seq Term) (Map Id Term)
 
+withLocal :: Term -> Environment -> Environment
+withLocal def (Env locals globals) = Env (def <| locals) globals
+
+envSize :: Environment -> Int
+envSize (Env locals _) = length locals
+
 instance Show Environment where
   show (Env locals _) = show locals
 
@@ -29,8 +35,9 @@ data Term
   | CodeLowType Term
   | CodeLowIntro Term
   | TypeType Stage
+  | LocalVar Level
   | ElabError
-  | Neutral Term Redex
+  | Neutral (Maybe Term) Redex -- If `Nothing`, the term is stuck
   deriving (Show)
 
 data Redex
@@ -38,7 +45,6 @@ data Redex
   | ObjectFunElim Term Term
   | CodeCoreElim Term
   | CodeLowElim Term
-  | LocalVar Level
   | GlobalVar Id
   | UniVar Global
   deriving (Show)
