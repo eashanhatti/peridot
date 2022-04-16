@@ -7,7 +7,10 @@ import Data.Map(Map)
 import Data.Sequence
 import Prelude hiding(length)
 
-data Environment = Env (Seq Term) (Map Id Term)
+data Environment = Env
+  { unLocals :: Seq Term
+  , unGlobals :: Map Id Term }
+  deriving (Eq)
 
 withLocal :: Term -> Environment -> Environment
 withLocal def (Env locals globals) = Env (def <| locals) globals
@@ -19,7 +22,7 @@ instance Show Environment where
   show (Env locals _) = show locals
 
 data Closure = Clo Environment C.Term
-  deriving (Show)
+  deriving (Eq, Show)
 
 type Type = Term
 
@@ -38,7 +41,7 @@ data Term
   | LocalVar Level
   | ElabError
   | Neutral (Maybe Term) Redex -- If `Nothing`, the term is stuck
-  deriving (Show)
+  deriving (Eq, Show)
 
 data Redex
   = MetaFunElim Term Term
@@ -47,7 +50,7 @@ data Redex
   | CodeLowElim Term
   | GlobalVar Id
   | UniVar Global
-  deriving (Show)
+  deriving (Eq, Show)
 
 viewFunType :: Term -> Maybe (Term, Closure)
 viewFunType (MetaFunType _ inTy outTy) = Just (inTy, outTy)

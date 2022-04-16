@@ -65,6 +65,7 @@ library
       BangPatterns
       PackageImports
       TupleSections
+      RecursiveDo
   ghc-options: -fplugin=StackTrace.Plugin
   build-depends:
       base >=4.7 && <5
@@ -117,6 +118,7 @@ executable konna3-exe
       BangPatterns
       PackageImports
       TupleSections
+      RecursiveDo
   ghc-options: -fplugin=StackTrace.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -171,6 +173,7 @@ test-suite konna3-test
       BangPatterns
       PackageImports
       TupleSections
+      RecursiveDo
   ghc-options: -fplugin=StackTrace.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

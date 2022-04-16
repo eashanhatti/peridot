@@ -23,7 +23,7 @@ elaborate' term =
   evalState ElabState $
   runReader (NormContext (N.Env mempty mempty) mempty mempty mempty) $
   runReader (ElabContext mempty (initialPos "<TODO>")) $
-  EE.check term (N.IOType N.UnitType)
+  EE.check term (error "TODO")
 
 elaborateFile :: String -> IO (Either String C.Term)
 elaborateFile f = do

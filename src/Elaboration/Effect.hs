@@ -25,11 +25,11 @@ import Data.GADT.Compare
 import Data.Type.Equality
 import Data.Hashable
 import GHC.Generics hiding (Constructor, C)
-import Normalization hiding (eval, unTypeUVs, unRepUVs, unUVEqs, readback)
+import Normalization hiding (eval, unTypeUVs, unRepUVs, unUVEqs, readback', readback', zonk)
 import Normalization qualified as Norm
 import Unification qualified as Uni
 import Numeric.Natural
-import Data.Foldable(toList, foldl')
+import Data.Foldable(toList, foldl', foldlM)
 import Prelude hiding(lookup, zip, filter)
 import Prelude qualified as Pre
 import GHC.Stack
@@ -37,6 +37,7 @@ import Extra
 import Text.Megaparsec(SourcePos)
 import Debug.Trace
 import Data.Sequence
+import Control.Monad.Fix
 
 -- Contains query state *and* general global state
 data QueryState = QueryState
@@ -129,8 +130,8 @@ data ElabState = ElabState
   deriving (Show)
 
 type Elab sig m =
-  ( {-MonadFail m
-  ,-} Has (Reader ElabContext) sig m
+  ( MonadFix m
+  , Has (Reader ElabContext) sig m
   , Has (State ElabState) sig m
   , Norm sig m
   , Query sig m )
@@ -213,7 +214,7 @@ freshTypeUV = do
   put (state
     { unTypeUVs = insert (unNextUV state) Nothing (unTypeUVs state)
     , unNextUV = unNextUV state + 1 })
-  pure (N.UniVar (unNextUV state))
+  pure (N.Neutral Nothing (N.UniVar (unNextUV state)))
 
 freshStageUV :: Elab sig m => m Stage
 freshStageUV = do
@@ -232,9 +233,9 @@ report err = do
 errorTerm :: Elab sig m => Error -> m (C.Term, N.Term)
 errorTerm err = do
   report err
-  pure (C.EElabError, N.EElabError)
+  pure (C.EElabError, N.ElabError)
 
-eval :: Elab sig m => C.Term -> m N.Term
+eval :: forall sig m. Elab sig m => C.Term -> m N.Term
 eval term = do
   memoTable <- unMemoTable <$> get
   let
@@ -248,20 +249,26 @@ eval term = do
       DMap.toList $
       memoTable
   ctx@(unEnv -> N.Env locals globals) <- ask
-  let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), Norm.definition def) acc) mempty decls
-  local (\ctx -> ctx { unEnv = N.Env locals (globals `union` vDefs) }) (Norm.eval term)
+  -- let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), Norm.definition def) acc) mempty decls
+  rec
+    (vDefs :: Map.Map Id N.Term) <- (\f -> foldlM f mempty decls) \acc decl -> do
+      vDecl <- local
+        (\ctx -> ctx { unEnv = N.Env locals (vDefs <> globals) })
+        (eval (Norm.definition decl))
+      pure (Map.insert (C.unId decl) vDecl acc)
+  local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (Norm.eval term)
 
-readback :: Elab sig m => Bool -> N.Term -> m C.Term
-readback unf term = do
+readback' :: Elab sig m => Bool -> N.Term -> m C.Term
+readback' unf term = do
   typeUVs <- unTypeUVs <$> get
   eqs <- unUVEqs <$> get
   local (\ctx -> ctx
     { Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
     , Norm.unUVEqs = eqs })
-    (Norm.readback unf term)
+    (Norm.readback' unf term)
 
-readbackFull :: Elab sig m => N.Term -> m C.Term
-readbackFull = readback True
+zonk :: Elab sig m => N.Term -> m C.Term
+zonk = readback' True
 
-readbackWeak :: Elab sig m => N.Term -> m C.Term
-readbackWeak = readback False
+readback :: Elab sig m => N.Term -> m C.Term
+readback = readback' False
