@@ -29,10 +29,10 @@ type Type = Term
 data Term
   = MetaFunType ApplyMethod Term Closure
   | MetaFunIntro Closure
-  | ObjectFunType Term Closure
-  | ObjectFunIntro Closure
-  | MetaConstantIntro Id
-  | ObjectConstantIntro Id
+  | ObjFunType Term Closure
+  | ObjFunIntro Closure
+  | MetaConstIntro Id
+  | ObjConstIntro Id
   | CodeCoreType Term
   | CodeCoreIntro Term
   | CodeLowType Term
@@ -45,7 +45,7 @@ data Term
 
 data Redex
   = MetaFunElim Term Term
-  | ObjectFunElim Term Term
+  | ObjFunElim Term Term
   | CodeCoreElim Term
   | CodeLowElim Term
   | GlobalVar Id
@@ -54,7 +54,7 @@ data Redex
 
 viewFunType :: Term -> Maybe (Term, Closure)
 viewFunType (MetaFunType _ inTy outTy) = Just (inTy, outTy)
-viewFunType (ObjectFunType inTy outTy) = Just (inTy, outTy)
+viewFunType (ObjFunType inTy outTy) = Just (inTy, outTy)
 viewFunType _ = Nothing
 
 pattern FunType inTy outTy <- (viewFunType -> Just (inTy, outTy))

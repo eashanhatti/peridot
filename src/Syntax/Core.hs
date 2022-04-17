@@ -6,8 +6,8 @@ import Data.Sequence
 type Signature = Term
 
 data Declaration
-  = MetaConstant Id Signature
-  | ObjectConstant Id Signature
+  = MetaConst Id Signature
+  | ObjConst Id Signature
   | Fresh Id Signature
   | Prove Id Signature
   | Term Id Signature Term -- sig, def
@@ -15,8 +15,8 @@ data Declaration
   deriving (Eq, Show)
 
 unId :: Declaration -> Id
-unId (ObjectConstant did _) = did
-unId (MetaConstant did _) = did
+unId (ObjConst did _) = did
+unId (MetaConst did _) = did
 unId (Term did _ _) = did
 unId (Fresh did _) = did
 unId (Prove did _) = did
@@ -28,11 +28,11 @@ data Term
   = MetaFunType ApplyMethod Term Term
   | MetaFunIntro Term
   | MetaFunElim Term Term
-  | ObjectFunType Term Term
-  | ObjectFunIntro Term
-  | ObjectFunElim Term Term
-  | MetaConstantIntro Id
-  | ObjectConstantIntro Id
+  | ObjFunType Term Term
+  | ObjFunIntro Term
+  | ObjFunElim Term Term
+  | MetaConstIntro Id
+  | ObjConstIntro Id
   | IOType Term
   | IOIntroPure Term -- `pure`
   | IOIntroBind IOOperation Term -- `>>=`

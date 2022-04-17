@@ -52,7 +52,7 @@ evalClosure clo = do
 
 funIntros :: C.Term -> (C.Term -> C.Term)
 funIntros (C.MetaFunType _ _ outTy) = C.MetaFunIntro . funIntros outTy
-funIntros (C.ObjectFunType _ outTy) = C.ObjectFunIntro . funIntros outTy
+funIntros (C.ObjFunType _ outTy) = C.ObjFunIntro . funIntros outTy
 funIntros _ = id
 
 delay :: Norm sig m => ReaderC NormContext Identity a -> m a
@@ -61,8 +61,8 @@ delay act = do
   pure (run . runReader ctx $ act)
 
 definition :: C.Declaration -> C.Term
-definition (C.MetaConstant did sig) = funIntros sig (C.MetaConstantIntro did)
-definition (C.ObjectConstant did sig) = funIntros sig (C.ObjectConstantIntro did)
+definition (C.MetaConst did sig) = funIntros sig (C.MetaConstIntro did)
+definition (C.ObjConst did sig) = funIntros sig (C.ObjConstIntro did)
 definition (C.Term _ _ def) = def
 definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"
@@ -70,15 +70,15 @@ definition (C.DElabError) = error "FIXME"
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
 eval (C.MetaFunType am inTy outTy) = N.MetaFunType am <$> eval inTy <*> closureOf outTy
 eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
-eval (C.ObjectFunType inTy outTy) = N.ObjectFunType <$> eval inTy <*> closureOf outTy
-eval (C.ObjectFunIntro body) = N.ObjectFunIntro <$> closureOf body
-eval (C.ObjectFunElim lam arg) = do
+eval (C.ObjFunType inTy outTy) = N.ObjFunType <$> eval inTy <*> closureOf outTy
+eval (C.ObjFunIntro body) = N.ObjFunIntro <$> closureOf body
+eval (C.ObjFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
   reded <- delay case vLam of
-    N.ObjectFunIntro body -> Just <$> appClosure body vArg
+    N.ObjFunIntro body -> Just <$> appClosure body vArg
     _ -> pure Nothing
-  pure (N.Neutral reded (N.ObjectFunElim vLam vArg))
+  pure (N.Neutral reded (N.ObjFunElim vLam vArg))
 eval (C.MetaFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
@@ -90,8 +90,8 @@ eval (C.MetaFunElim lam arg) = do
 --   N.Env locals globals <- unEnv <$> ask
 --   let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), definition def) acc) mempty decls
 --   local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (eval body)
-eval (C.MetaConstantIntro did) = pure (N.MetaConstantIntro did)
-eval (C.ObjectConstantIntro did) = pure (N.ObjectConstantIntro did)
+eval (C.MetaConstIntro did) = pure (N.MetaConstIntro did)
+eval (C.ObjConstIntro did) = pure (N.ObjConstIntro did)
 eval (C.TypeType s) = pure (N.TypeType s)
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) = do
@@ -143,11 +143,11 @@ type ShouldZonk = Bool
 readback' :: HasCallStack => Norm sig m => ShouldZonk -> N.Term -> m C.Term
 readback' opt (N.MetaFunType am inTy outTy) = C.MetaFunType am <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
 readback' opt (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback' opt)
-readback' opt (N.ObjectFunType inTy outTy) =
-  C.ObjectFunType <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
-readback' opt (N.ObjectFunIntro body) = C.ObjectFunIntro <$> (evalClosure body >>= readback' opt)
-readback' opt (N.ObjectConstantIntro did) = pure (C.ObjectConstantIntro did)
-readback' opt (N.MetaConstantIntro did) = pure (C.MetaConstantIntro did)
+readback' opt (N.ObjFunType inTy outTy) =
+  C.ObjFunType <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
+readback' opt (N.ObjFunIntro body) = C.ObjFunIntro <$> (evalClosure body >>= readback' opt)
+readback' opt (N.ObjConstIntro did) = pure (C.ObjConstIntro did)
+readback' opt (N.MetaConstIntro did) = pure (C.MetaConstIntro did)
 readback' opt (N.TypeType s) = pure (C.TypeType s)
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
@@ -158,7 +158,7 @@ readback' opt (N.Neutral _ redex) = readbackRedex opt redex
 
 readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term
 readbackRedex opt (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback' opt lam <*> readback' opt arg
-readbackRedex opt (N.ObjectFunElim lam arg) = C.ObjectFunElim <$> readback' opt lam <*> readback' opt arg
+readbackRedex opt (N.ObjFunElim lam arg) = C.ObjFunElim <$> readback' opt lam <*> readback' opt arg
 readbackRedex opt (N.CodeCoreElim quote) = C.CodeCoreElim <$> readback' opt quote
 readbackRedex opt (N.CodeLowElim quote) = C.CodeLowElim <$> readback' opt quote
 readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)

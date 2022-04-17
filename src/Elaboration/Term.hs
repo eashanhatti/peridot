@@ -42,10 +42,10 @@ infer term = case term of
     cInTys <- traverse readback inTys
     outTy <- freshTypeUV
     cOutTy <- readback outTy
-    let ty = foldr (\inTy outTy -> C.ObjectFunType inTy outTy) cOutTy (tail cInTys)
-    vTy <- N.ObjectFunType (head inTys) <$> closureOf ty
+    let ty = foldr (\inTy outTy -> C.ObjFunType inTy outTy) cOutTy (tail cInTys)
+    vTy <- N.ObjFunType (head inTys) <$> closureOf ty
     cBody <- checkBody (zip names inTys) outTy
-    let lam = foldr (\_ body -> C.ObjectFunIntro body) cBody inTys
+    let lam = foldr (\_ body -> C.ObjFunIntro body) cBody inTys
     pure (lam, vTy)
     where
       checkBody :: Elab sig m => Seq (Name, N.Term) -> N.Term -> m C.Term
@@ -57,16 +57,16 @@ infer term = case term of
     cOutTy <- bindLocal name vInTy (check outTy (N.TypeType Meta))
     pure (C.MetaFunType Explicit cInTy cOutTy, N.TypeType Meta)
   TermAst (ObjPi (NameAst name) inTy outTy) -> do
-    cInTy <- check inTy (N.TypeType Object)
+    cInTy <- check inTy (N.TypeType Obj)
     vInTy <- eval cInTy
-    cOutTy <- bindLocal name vInTy (check outTy (N.TypeType Object))
-    pure (C.ObjectFunType cInTy cOutTy, N.TypeType Object)
+    cOutTy <- bindLocal name vInTy (check outTy (N.TypeType Obj))
+    pure (C.ObjFunType cInTy cOutTy, N.TypeType Obj)
   TermAst (App lam args) -> do
     (cLam, lamTy) <- infer lam
     let
       elim = case lamTy of
         N.MetaFunType _ _ _ -> C.MetaFunElim
-        N.ObjectFunType _ _ -> C.ObjectFunElim
+        N.ObjFunType _ _ -> C.ObjFunElim
     (cArgs, outTy) <- checkArgs args lamTy
     pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
     where
@@ -87,7 +87,7 @@ infer term = case term of
       Nothing -> errorTerm (UnboundVariable name)
   TermAst Univ -> do
     -- stage <- freshStageUV
-    pure (C.TypeType Object, N.TypeType Object)
+    pure (C.TypeType Obj, N.TypeType Obj)
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
@@ -97,7 +97,7 @@ infer term = case term of
     cTerm <- C.MetaFunType Implicit <$> checkMetaType' inTy <*> checkMetaType' outTy
     pure (cTerm, N.TypeType Meta)
   TermAst (LiftCore ty) -> do
-    cTy <- checkObjectType' ty
+    cTy <- checkObjType' ty
     pure (C.CodeCoreType cTy, N.TypeType Meta)
   TermAst (QuoteCore term) -> do
     ty <- freshTypeUV
@@ -136,12 +136,12 @@ checkLowType term = (,) <$> check term (N.TypeType Low) <*> pure (N.TypeType Low
 checkLowType' :: Elab sig m => TermAst -> m C.Term
 checkLowType' ty = fst <$> checkLowType ty
 
-checkObjectType :: Elab sig m => TermAst -> m (C.Term, N.Term)
-checkObjectType term =
-  (,) <$> check term (N.TypeType Object) <*> pure (N.TypeType Object) -- FIXME
+checkObjType :: Elab sig m => TermAst -> m (C.Term, N.Term)
+checkObjType term =
+  (,) <$> check term (N.TypeType Obj) <*> pure (N.TypeType Obj) -- FIXME
 
-checkObjectType' :: Elab sig m => TermAst -> m C.Term
-checkObjectType' ty = fst <$> checkObjectType ty
+checkObjType' :: Elab sig m => TermAst -> m C.Term
+checkObjType' ty = fst <$> checkObjType ty
 
 declsIds :: Seq DeclarationAst -> Seq Id
 declsIds = concatMap go where

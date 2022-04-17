@@ -60,14 +60,14 @@ unifyStages s1@(SUniVar gl1) s2@(SUniVar gl2) = equateUVs gl1 gl2
 unifyStages (SUniVar gl) s = putStageSol gl s
 unifyStages s (SUniVar gl) = putStageSol gl s
 unifyStages Meta Meta = pure ()
-unifyStages Object Object = pure ()
+unifyStages Obj Obj = pure ()
 unifyStages _ _ = throwError ()
 
 unifyRedexes :: Unify sig m => Redex ->  Redex -> m ()
 unifyRedexes (MetaFunElim lam1 arg1) (MetaFunElim lam2 arg2) = do
   unify' lam1 lam2
   unify' arg1 arg2
-unifyRedexes (ObjectFunElim lam1 arg1) (ObjectFunElim lam2 arg2) = do
+unifyRedexes (ObjFunElim lam1 arg1) (ObjFunElim lam2 arg2) = do
   unify' lam1 lam2
   unify' arg1 arg2
 unifyRedexes (CodeCoreElim quote1) (CodeCoreElim quote2) = unify' quote1 quote2
@@ -79,12 +79,12 @@ unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (MetaFunIntro body1) (MetaFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
-unify' (ObjectFunType inTy1 outTy1) (ObjectFunType inTy2 outTy2) = do
+unify' (ObjFunType inTy1 outTy1) (ObjFunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
-unify' (ObjectFunIntro body1) (ObjectFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
-unify' (MetaConstantIntro did1) (MetaConstantIntro did2) | did1 == did2 = pure ()
-unify' (ObjectConstantIntro did1) (ObjectConstantIntro did2) | did1 == did2 = pure ()
+unify' (ObjFunIntro body1) (ObjFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
+unify' (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 = pure ()
+unify' (ObjConstIntro did1) (ObjConstIntro did2) | did1 == did2 = pure ()
 unify' (CodeCoreType ty1) (CodeCoreType ty2) = unify' ty1 ty2
 unify' (CodeLowType ty1) (CodeLowType ty2) = unify' ty1 ty2
 unify' (CodeCoreIntro term1) (CodeCoreIntro term2) = unify' term1 term1

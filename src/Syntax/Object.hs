@@ -7,16 +7,16 @@ type Signature = Term
 
 data Declaration
   = Term Id Signature Term
-  | ObjectConstant Id Signature
+  | ObjConst Id Signature
   deriving (Show)
 
 unId :: Declaration -> Id
 unId (Term did _ _) = did
-unId (ObjectConstant did _) = did
+unId (ObjConst did _) = did
 
 unSig :: Declaration -> Signature
 unSig (Term _ sig _) = sig
-unSig (ObjectConstant _ sig) = sig
+unSig (ObjConst _ sig) = sig
 
 type Type = Term
 
@@ -29,7 +29,7 @@ data Term
   | IOIntroBind IOOperation Term -- `>>=`
   | UnitType
   | UnitIntro
-  | ObjectConstantIntro Id
+  | ObjConstIntro Id
   | TypeType
   | LocalVar Index
   | GlobalVar Id
