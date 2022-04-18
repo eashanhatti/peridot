@@ -254,7 +254,7 @@ eval term = do
     (vDefs :: Map.Map Id N.Term) <- (\f -> foldlM f mempty decls) \acc decl -> do
       vDecl <- local
         (\ctx -> ctx { unEnv = N.Env locals (vDefs <> globals) })
-        (eval (Norm.definition decl))
+        (Norm.eval (Norm.definition decl))
       pure (Map.insert (C.unId decl) vDecl acc)
   local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (Norm.eval term)
 
