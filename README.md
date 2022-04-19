@@ -1,4 +1,4 @@
-# Peridot
+![Peridot logo](./logo_5.png)
 
 An experimental language for exploring the practical applications of two level type theory.
 
