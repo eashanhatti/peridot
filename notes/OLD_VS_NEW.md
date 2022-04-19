@@ -1,0 +1,5 @@
+# Peridot vs Konna
+
+Both Konna and Peridot are based on 2LTT, so what's the difference between the two? Konna operated on the following idea: High-level abstractions and features should be allowed, but their use is restricted so that they can be fully eliminated at compile time. Features like dependent types and algebraic effects would be put in the meta level. The problem is that restricting those features to be compile-time only has a significant impact on expressivity - and expressivity is the whole point of having high-level features in the first place.
+
+The Peridot is based around a different idea: We let the object level be as expressive as we want, and we design the meta level for writing optimizers. Since optimization is put in userspace, optimizers can be as domain specific as they need to be! You can create high-level abstractions, and then create an optimizer that eliminates those abstractions. We also want optimizers to be as declarative as possible, so as to be easy to read and write. To accomplish this, the meta level is a logic language.

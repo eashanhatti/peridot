@@ -1,6 +1,6 @@
 # References and Inspiration
 
-This is a list of prior art that have influenced Konna's design and implementation in major ways.
+This is a list of prior art that have influenced Peridot's design and implementation in major ways.
 
 ### Two Level Type Theory and Staging
 
@@ -37,14 +37,3 @@ Projects exploring a similar design space - leveraging the compile time vs runti
 
 [Spiral](https://github.com/mrakgr/The-Spiral-Language)
 > Functional language with intensional polymorphism and first-class staging.
-
-### Structured Editing
-
-[Sapling](https://github.com/kneasle/sapling)
-> A highly experimental code editor where you edit code, not text.
-
-[Alfa](https://cth.altocumulus.org/~hallgren/Alfa/)
-> Alfa is a successor of the proof editor ALF, i.e., an editor for direct manipulation of proof objects in a logical framework based on Per Martin-Löf's Type Theory.
-
-[Hazel](https://hazel.org/)
-> Hazel is a live functional programming environment that is able to typecheck, manipulate, and even run incomplete programs, i.e. programs with holes.

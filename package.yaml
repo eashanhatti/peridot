@@ -1,6 +1,6 @@
-name:                konna3
+name:                peridot
 version:             0.1.0.0
-github:              "eashanhatti/konna3"
+github:              "eashanhatti/peridot"
 license:             MPL-2.0
 author:              "Eashan Hatti"
 maintainer:          "eashanhatti@gmail.com"
@@ -16,7 +16,7 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/githubuser/konna3#readme>
+description:         Please see the README on GitHub at <https://github.com/eashanhatti/peridot#readme>
 
 default-extensions:
 - GADTs
@@ -43,6 +43,7 @@ default-extensions:
 - PackageImports
 - TupleSections
 - RecursiveDo
+- EmptyDataDeriving
 
 dependencies:
 - base >= 4.7 && < 5
@@ -71,7 +72,7 @@ library:
   source-dirs: src
 
 executables:
-  konna3-exe:
+  peridot-exe:
     main:                Main.hs
     source-dirs:         app
     ghc-options:
@@ -79,10 +80,10 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - konna3
+    - peridot
 
 tests:
-  konna3-test:
+  peridot-test:
     main:                Main.hs
     source-dirs:         test
     ghc-options:
@@ -90,4 +91,4 @@ tests:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
-    - konna3
+    - peridot
