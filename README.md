@@ -6,7 +6,7 @@ Discussion takes place on the [r/ProgrammingLanguages Discord server](https://di
 
 ### References and Inspiration
 
-A list of prior art that have influenced Peridot's design and implementation can be found [here](./REFERENCES.md).
+* [REFERENCES.md](./REFERENCES.md): A list of prior art that have influenced Peridot's design and implementation in major ways
 
 ### Information
 
