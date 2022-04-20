@@ -15,7 +15,7 @@ import Data.Map qualified as Map
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Surface
-import Syntax.Extra hiding(unId)
+import Syntax.Common hiding(unId)
 import Data.Some
 import Data.Maybe(isJust, fromMaybe, fromJust)
 import Data.Dependent.HashMap qualified as DMap

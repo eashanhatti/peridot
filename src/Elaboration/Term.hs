@@ -3,7 +3,7 @@ module Elaboration.Term where
 import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Syntax.Extra hiding(unId)
+import Syntax.Common hiding(unId)
 import Extra
 import Elaboration.Effect
 import Elaboration.Decl qualified as ED
@@ -85,9 +85,8 @@ infer term = case term of
         ty <- fst <$> ED.declType did >>= eval
         pure (C.GlobalVar did, ty)
       Nothing -> errorTerm (UnboundVariable name)
-  TermAst Univ -> do
-    -- stage <- freshStageUV
-    pure (C.TypeType Obj, N.TypeType Obj)
+  TermAst OUniv -> pure (C.TypeType Obj, N.TypeType Obj)
+  TermAst MUniv -> pure (C.TypeType Meta, N.TypeType Meta)
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
@@ -107,17 +106,17 @@ infer term = case term of
     ty <- freshTypeUV
     cQuote <- check quote (N.CodeCoreType ty)
     pure (C.CodeCoreElim cQuote, ty)
-  TermAst (LiftLow ty) -> do
-    cTy <- checkLowType' ty
-    pure (C.CodeLowType cTy, N.TypeType Meta)
-  TermAst (QuoteLow term) -> do
+  TermAst (LiftLowCTm ty) -> do
+    cTy <- checkLowCType' ty
+    pure (C.CodeLowCTmType cTy, N.TypeType Meta)
+  TermAst (QuoteLowCTm term) -> do
     ty <- freshTypeUV
     cTerm <- check term ty
-    pure (C.CodeLowIntro cTerm, N.CodeLowType ty)
-  TermAst (SpliceLow quote) -> do
+    pure (C.CodeLowCTmIntro cTerm, N.CodeLowCTmType ty)
+  TermAst (SpliceLowCTm quote) -> do
     ty <- freshTypeUV
-    cQuote <- check quote (N.CodeLowType ty)
-    pure (C.CodeLowElim cQuote, ty)
+    cQuote <- check quote (N.CodeLowCTmType ty)
+    pure (C.CodeLowCTmElim cQuote, ty)
 
 checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkType term = do
@@ -130,11 +129,11 @@ checkMetaType term = (,) <$> check term (N.TypeType Meta) <*> pure (N.TypeType M
 checkMetaType' :: Elab sig m => TermAst -> m C.Term
 checkMetaType' ty = fst <$> checkMetaType ty
 
-checkLowType :: Elab sig m => TermAst -> m (C.Term, N.Term)
-checkLowType term = (,) <$> check term (N.TypeType Low) <*> pure (N.TypeType Low)
+checkLowCType :: Elab sig m => TermAst -> m (C.Term, N.Term)
+checkLowCType term = (,) <$> check term (N.TypeType (Low C)) <*> pure (N.TypeType (Low C))
 
-checkLowType' :: Elab sig m => TermAst -> m C.Term
-checkLowType' ty = fst <$> checkLowType ty
+checkLowCType' :: Elab sig m => TermAst -> m C.Term
+checkLowCType' ty = fst <$> checkLowCType ty
 
 checkObjType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkObjType term =

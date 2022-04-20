@@ -1,4 +1,4 @@
-module Syntax.Extra where
+module Syntax.Common where
 
 import Numeric.Natural
 import Data.Text
@@ -9,7 +9,10 @@ import Data.Map qualified as Map
 data ApplyMethod = Explicit | Implicit
   deriving (Eq, Show)
 
-data Stage = Meta | Obj | Low | SUniVar Global
+data Language = C
+  deriving (Eq, Show)
+
+data Stage = Meta | Obj | Low Language | SUniVar Global
   deriving (Eq, Show)
 
 newtype Index = Index { unIndex :: Natural }
@@ -29,15 +32,12 @@ instance Hashable Id
 data Name = UserName Text | MachineName Natural
   deriving (Eq, Ord, Show)
 
-data IOOperation = PutChar Char
+data CType
+  = CharTy
   deriving (Eq, Show)
 
--- data RuntimeRep
---   = Ptr
---   | Lazy
---   | Word
---   | Prod [RuntimeRep]
---   | Sum [RuntimeRep]
---   | Erased
---   | RUniVar Global
---   deriving (Eq, Show)
+data CStatement a
+  = VarDecl CType
+  | Assign a a
+  | Return a
+  deriving (Eq, Show)

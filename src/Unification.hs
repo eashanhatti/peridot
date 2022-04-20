@@ -5,7 +5,7 @@ import Control.Carrier.Error.Either(runError)
 import Control.Effect.State
 import Control.Carrier.State.Strict(runState)
 import Syntax.Semantic
-import Syntax.Extra
+import Syntax.Common
 import Normalization hiding(unUVEqs)
 import Data.Set qualified as Set
 import Data.Map(Map)
@@ -71,7 +71,7 @@ unifyRedexes (ObjFunElim lam1 arg1) (ObjFunElim lam2 arg2) = do
   unify' lam1 lam2
   unify' arg1 arg2
 unifyRedexes (CodeCoreElim quote1) (CodeCoreElim quote2) = unify' quote1 quote2
-unifyRedexes (CodeLowElim quote1) (CodeLowElim quote2) = unify' quote1 quote2
+unifyRedexes (CodeLowCTmElim quote1) (CodeLowCTmElim quote2) = unify' quote1 quote2
 unifyRedexes (GlobalVar did1) (GlobalVar did2) | did1 == did2 = pure ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
@@ -86,9 +86,9 @@ unify' (ObjFunIntro body1) (ObjFunIntro body2) = bind2 unify' (evalClosure body1
 unify' (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 = pure ()
 unify' (ObjConstIntro did1) (ObjConstIntro did2) | did1 == did2 = pure ()
 unify' (CodeCoreType ty1) (CodeCoreType ty2) = unify' ty1 ty2
-unify' (CodeLowType ty1) (CodeLowType ty2) = unify' ty1 ty2
+unify' (CodeLowCTmType ty1) (CodeLowCTmType ty2) = unify' ty1 ty2
 unify' (CodeCoreIntro term1) (CodeCoreIntro term2) = unify' term1 term1
-unify' (CodeLowIntro term1) (CodeLowIntro term2) = unify' term1 term1
+unify' (CodeLowCTmIntro term1) (CodeLowCTmIntro term2) = unify' term1 term1
 unify' (TypeType s1) (TypeType s2) = unifyStages s1 s2
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
 unify' ElabError _ = pure ()

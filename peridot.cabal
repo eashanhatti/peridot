@@ -31,8 +31,8 @@ library
       Extra
       Normalization
       Parser
+      Syntax.Common
       Syntax.Core
-      Syntax.Extra
       Syntax.Object
       Syntax.Semantic
       Syntax.Surface

@@ -2,7 +2,7 @@ module Syntax.Surface where
 
 import Data.Text(Text)
 import Numeric.Natural
-import Syntax.Extra hiding(unId)
+import Syntax.Common hiding(unId)
 import Text.Megaparsec(SourcePos)
 import Data.Sequence
 
@@ -70,13 +70,14 @@ data Term
   | ObjLam (Seq NameAst) TermAst
   | App TermAst (Seq TermAst)
   | Var Name
-  | Univ
+  | OUniv
+  | MUniv
   | Let (Seq DeclarationAst) TermAst
   | Rule TermAst TermAst -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo
   | LiftCore TermAst
   | QuoteCore TermAst
   | SpliceCore TermAst
-  | LiftLow TermAst
-  | QuoteLow TermAst
-  | SpliceLow TermAst
+  | LiftLowCTm TermAst
+  | QuoteLowCTm TermAst
+  | SpliceLowCTm TermAst
   deriving (Show)

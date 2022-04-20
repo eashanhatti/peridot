@@ -1,6 +1,6 @@
 module Syntax.Object where
 
-import Syntax.Extra
+import Syntax.Common
 import Data.Sequence
 
 type Signature = Term
@@ -24,11 +24,6 @@ data Term
   = FunType Term Term
   | FunIntro Term
   | FunElim Term Term
-  | IOType Term
-  | IOIntroPure Term -- `pure`
-  | IOIntroBind IOOperation Term -- `>>=`
-  | UnitType
-  | UnitIntro
   | ObjConstIntro Id
   | TypeType
   | LocalVar Index

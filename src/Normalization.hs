@@ -2,7 +2,7 @@ module Normalization where
 
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Syntax.Extra
+import Syntax.Common
 import Control.Monad
 import Control.Effect.Reader
 import Control.Carrier.Reader
@@ -63,7 +63,8 @@ delay act = do
 definition :: C.Declaration -> C.Term
 definition (C.MetaConst did sig) = funIntros sig (C.MetaConstIntro did)
 definition (C.ObjConst did sig) = funIntros sig (C.ObjConstIntro did)
-definition (C.Term _ _ def) = def
+definition (C.ObjTerm _ _ def) = def
+definition (C.MetaTerm _ _ def) = def
 definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"
 
@@ -120,14 +121,14 @@ eval (C.CodeCoreElim term) = do
     N.CodeCoreIntro code -> Just code
     _ -> Nothing
   pure (N.Neutral reded (N.CodeCoreElim term'))
-eval (C.CodeLowType ty) = N.CodeLowType <$> eval ty
-eval (C.CodeLowIntro term) = N.CodeLowIntro <$> eval term
-eval (C.CodeLowElim term) = do
+eval (C.CodeLowCTmType ty) = N.CodeLowCTmType <$> eval ty
+eval (C.CodeLowCTmIntro term) = N.CodeLowCTmIntro <$> eval term
+eval (C.CodeLowCTmElim term) = do
   term' <- eval term
   reded <- pure case term' of
-    N.CodeLowIntro code -> Just code
+    N.CodeLowCTmIntro code -> Just code
     _ -> Nothing
-  pure (N.Neutral reded (N.CodeLowElim term'))
+  pure (N.Neutral reded (N.CodeLowCTmElim term'))
 eval C.EElabError = pure N.ElabError
 
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
@@ -160,8 +161,9 @@ readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term
 readbackRedex opt (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback' opt lam <*> readback' opt arg
 readbackRedex opt (N.ObjFunElim lam arg) = C.ObjFunElim <$> readback' opt lam <*> readback' opt arg
 readbackRedex opt (N.CodeCoreElim quote) = C.CodeCoreElim <$> readback' opt quote
-readbackRedex opt (N.CodeLowElim quote) = C.CodeLowElim <$> readback' opt quote
+readbackRedex opt (N.CodeLowCTmElim quote) = C.CodeLowCTmElim <$> readback' opt quote
 readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)
+readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)
 
 readback :: HasCallStack => Norm sig m => N.Term -> m C.Term
 readback = readback' False

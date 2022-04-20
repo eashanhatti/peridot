@@ -4,7 +4,7 @@ import Text.Megaparsec hiding(State, SourcePos)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Error
 import Syntax.Surface
-import Syntax.Extra
+import Syntax.Common
 import Data.Void
 import Data.Text
 import Control.Monad.Combinators
@@ -87,7 +87,7 @@ liftLow = do
   string "LiftC"; ws
   ty <- term; ws
   char ')'
-  pure (TermAst (LiftLow ty))
+  pure (TermAst (LiftLowCTm ty))
 
 spliceLow :: Parser TermAst
 spliceLow = do
@@ -95,7 +95,7 @@ spliceLow = do
   string "spliceL"; ws
   term <- term; ws
   char ')'
-  pure (TermAst (SpliceLow term))
+  pure (TermAst (SpliceLowCTm term))
 
 quoteLow :: Parser TermAst
 quoteLow = do
@@ -103,7 +103,7 @@ quoteLow = do
   string "quoteL"; ws
   term <- term; ws
   char ')'
-  pure (TermAst (QuoteLow term))
+  pure (TermAst (QuoteLowCTm term))
 
 objLam :: Parser TermAst
 objLam = do
@@ -132,10 +132,15 @@ var = do
   when (elem s keywords) (fail "keyword")
   pure (TermAst (Var (UserName (pack s))))
 
-univ :: Parser TermAst
-univ = do
-  string "Type"
-  pure (TermAst Univ)
+metaUniv :: Parser TermAst
+metaUniv = do
+  string "MType"
+  pure (TermAst MUniv)
+
+objUniv :: Parser TermAst
+objUniv = do
+  string "OType"
+  pure (TermAst OUniv)
 
 letB :: Parser TermAst
 letB = do
@@ -236,14 +241,6 @@ con = do
   sig <- term
   pure (\dtDid -> ConstrAst (Constr n sig) did dtDid)
 
-op :: Parser IOOperation
-op = do
-  char '('; ws
-  string "print"; ws
-  c <- alphaNumChar; ws
-  char ')'
-  pure (PutChar c)
-
 term :: Parser TermAst
 term = do
   pos <- getSourcePos
@@ -251,7 +248,8 @@ term = do
     try metaLam <|>
     try objLam <|>
     try app <|>
-    try univ <|>
+    try metaUniv <|>
+    try objUniv <|>
     try letB <|>
     try metaPiTy <|>
     try objPiTy <|>

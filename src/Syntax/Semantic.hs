@@ -1,7 +1,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 module Syntax.Semantic where
 
-import Syntax.Extra
+import Syntax.Common
 import Syntax.Core qualified as C
 import Data.Map(Map)
 import Data.Sequence
@@ -35,8 +35,8 @@ data Term
   | ObjConstIntro Id
   | CodeCoreType Term
   | CodeCoreIntro Term
-  | CodeLowType Term
-  | CodeLowIntro Term
+  | CodeLowCTmType Term
+  | CodeLowCTmIntro Term
   | TypeType Stage
   | LocalVar Level
   | ElabError
@@ -47,7 +47,7 @@ data Redex
   = MetaFunElim Term Term
   | ObjFunElim Term Term
   | CodeCoreElim Term
-  | CodeLowElim Term
+  | CodeLowCTmElim Term
   | GlobalVar Id
   | UniVar Global
   deriving (Eq, Show)

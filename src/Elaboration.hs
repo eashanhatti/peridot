@@ -10,6 +10,7 @@ import Control.Carrier.Reader
 import Control.Carrier.State.Strict
 import Control.Carrier.Throw.Either
 import Extra
+import Syntax.Common
 import Text.Megaparsec.Pos
 import Data.Text(pack)
 import Parser
@@ -23,7 +24,7 @@ elaborate' term =
   evalState ElabState $
   runReader (NormContext (N.Env mempty mempty) mempty mempty mempty) $
   runReader (ElabContext mempty (initialPos "<TODO>")) $
-  EE.check term (error "TODO")
+  EE.check term (N.TypeType Obj)
 
 elaborateFile :: String -> IO (Either String C.Term)
 elaborateFile f = do
