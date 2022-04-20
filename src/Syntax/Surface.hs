@@ -2,7 +2,7 @@ module Syntax.Surface where
 
 import Data.Text(Text)
 import Numeric.Natural
-import Syntax.Common hiding(unId)
+import Syntax.Common hiding(unId, CStatement(..))
 import Text.Megaparsec(SourcePos)
 import Data.Sequence
 
@@ -12,6 +12,7 @@ data Ast a where
   DeclAst :: Declaration -> Id -> DeclarationAst
   -- .., constr id, datatype id
   ConstrAst :: Constructor -> Id -> Id -> ConstructorAst
+  CStmtAst :: CStatement -> CStatementAst
   SourcePos :: Ast a -> SourcePos -> Ast a
 deriving instance Show (Ast a)
 
@@ -56,6 +57,7 @@ data Declaration
   | Axiom NameAst SignatureAst
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
+  | CFun (Seq TermAst) TermAst CStatementAst
   deriving (Show)
 
 type ConstructorAst = Ast Constructor
@@ -80,4 +82,29 @@ data Term
   | LiftLowCTm TermAst
   | QuoteLowCTm TermAst
   | SpliceLowCTm TermAst
+  | LiftLowCStmt TermAst -- Carries return type
+  | QuoteLowCStmt CStatementAst
+  | CIntType
+  | CVoidType
+  | CLValType TermAst
+  | CRValType TermAst
+  | CRef TermAst
+  | CDeref TermAst
+  | CAdd TermAst TermAst
+  | CSub TermAst TermAst
+  | CLess TermAst TermAst
+  | CGrtr TermAst TermAst
+  | CEql TermAst TermAst
+  | CFunCall TermAst (Seq TermAst)
+  | CInt Int
+  deriving (Show)
+
+type CStatementAst = Ast CStatement
+data CStatement
+  = Block (Seq CStatementAst)
+  | If TermAst CStatementAst CStatementAst
+  | VarDecl TermAst
+  | Assign TermAst TermAst
+  | Return TermAst
+  | SpliceLowCStmt TermAst
   deriving (Show)

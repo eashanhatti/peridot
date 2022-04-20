@@ -27,16 +27,30 @@ data Closure = Clo Environment C.Term
 type Type = Term
 
 data Term
-  = MetaFunType ApplyMethod Term Closure
-  | MetaFunIntro Closure
-  | ObjFunType Term Closure
+  -- Object level
+  = ObjFunType Term Closure
   | ObjFunIntro Closure
-  | MetaConstIntro Id
   | ObjConstIntro Id
+  -- Low C level
+  | CIntIntro Int
+  | COp (COp Term) (Seq Term)
+  | CRValFunCall Term (Seq Term)
+  | CLValFunCall Term (Seq Term)
+  -- Meta level
+  | MetaFunType ApplyMethod Term Closure
+  | MetaFunIntro Closure
+  | MetaConstIntro Id
   | CodeCoreType Term
   | CodeCoreIntro Term
   | CodeLowCTmType Term
   | CodeLowCTmIntro Term
+  | CodeLowCStmtType Term -- Carries return type
+  | CodeLowCStmtIntro (CStatement Term)
+  | CIntType
+  | CVoidType
+  | CRValType Term
+  | CLValType Term
+  -- Other
   | TypeType Stage
   | LocalVar Level
   | ElabError
