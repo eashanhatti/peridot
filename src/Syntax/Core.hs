@@ -1,6 +1,9 @@
-module Syntax.Core where
+module Syntax.Core
+( module Syntax.Core
+, module Syntax.Common
+) where
 
-import Syntax.Common
+import Syntax.Common hiding(unId)
 import Data.Sequence
 
 type Signature = Term

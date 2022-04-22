@@ -106,8 +106,8 @@ type CStatementAst = Ast CStatement
 data CStatement
   = Block (Seq CStatementAst)
   | If TermAst CStatementAst CStatementAst
-  | VarDecl TermAst
+  | VarDecl NameAst TermAst
   | Assign TermAst TermAst
-  | Return TermAst
+  | Return (Maybe TermAst)
   | SpliceLowCStmt TermAst
   deriving (Show)

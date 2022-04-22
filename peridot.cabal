@@ -25,6 +25,7 @@ source-repository head
 library
   exposed-modules:
       Elaboration
+      Elaboration.CStatement
       Elaboration.Decl
       Elaboration.Effect
       Elaboration.Term
