@@ -8,11 +8,15 @@ import Elaboration.Effect
 import Control.Effect.Reader
 import Data.Map qualified as Map
 import {-# SOURCE #-} Elaboration.Term qualified as EE
+import Elaboration.CStatement qualified as ES
 import Normalization hiding(eval)
 import Control.Monad
 import Control.Monad.Extra
 import Data.Foldable(toList, foldl')
+import Data.Traversable
 import GHC.Stack
+import Data.Sequence
+import Prelude hiding(traverse, map)
 
 check :: HasCallStack => Elab sig m => Id -> m C.Declaration
 check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
@@ -37,8 +41,14 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
     PDDecl (DeclAst (Fresh name _) did) ->
       pure (C.Fresh did cSig)
     PDConstr constr@(ConstrAst (Constr _ _) did dtDid) -> do
-      unify univ (N.TypeType N.Obj)      
+      unify univ (N.TypeType N.Obj)
       pure (C.ObjConst did cSig)
+    PDDecl (DeclAst (CFun _ _ stmt) did) -> do
+      (cStmt, retTy) <- ES.infer stmt
+      case cSig of
+        C.CValType C.LVal (C.CFunType inTys outTy) -> do
+          eval outTy >>= flip unify retTy
+          pure (C.CFun did inTys outTy cStmt)
 
 withPos' :: HasCallStack => Elab sig m => (Predeclaration -> m a) -> (Predeclaration -> m a)
 withPos' act (PDDecl (SourcePos ast pos)) = withPos pos (act (PDDecl ast))
@@ -48,10 +58,14 @@ withPos' act pd = act pd
 declType :: HasCallStack => Query sig m => Id -> m (C.Term, N.Term)
 declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
   case decl of
-    PDDecl (DeclAst (ObjTerm name sig def) did) -> EE.checkObjType sig
-    PDDecl (DeclAst (MetaTerm name sig def) did) -> EE.checkMetaType sig
-    PDDecl (DeclAst (Datatype name sig _) did) -> EE.checkObjType sig
-    PDDecl (DeclAst (Axiom name sig) did) -> EE.checkMetaType sig
-    PDDecl (DeclAst (Prove sig) did) -> EE.checkMetaType sig
-    PDDecl (DeclAst (Fresh name sig) did) -> EE.checkMetaType sig
-    PDConstr constr@(ConstrAst (Constr _ sig) did dtDid) -> EE.checkObjType sig -- TODO: Form check
+    PDDecl (DeclAst (ObjTerm name sig def) _) -> EE.checkObjType sig
+    PDDecl (DeclAst (MetaTerm name sig def) _) -> EE.checkMetaType sig
+    PDDecl (DeclAst (Datatype name sig _) _) -> EE.checkObjType sig
+    PDDecl (DeclAst (Axiom name sig) _) -> EE.checkMetaType sig
+    PDDecl (DeclAst (Prove sig) _) -> EE.checkMetaType sig
+    PDDecl (DeclAst (Fresh name sig) _) -> EE.checkMetaType sig
+    PDDecl (DeclAst (CFun (fmap snd -> inTys) outTy _) _) -> do
+      cInTys <- traverse (flip EE.check (N.TypeType (N.Low C))) inTys
+      cOutTy <- EE.check outTy (N.TypeType (N.Low C))
+      pure (C.CValType C.LVal (C.CFunType cInTys cOutTy), N.TypeType (N.Low C))
+    PDConstr constr@(ConstrAst (Constr _ sig) _ _) -> EE.checkObjType sig -- TODO: Form check

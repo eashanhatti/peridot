@@ -57,7 +57,7 @@ data Declaration
   | Axiom NameAst SignatureAst
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
-  | CFun (Seq TermAst) TermAst CStatementAst
+  | CFun (Seq (NameAst, TermAst)) TermAst CStatementAst
   deriving (Show)
 
 type ConstructorAst = Ast Constructor
