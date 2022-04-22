@@ -22,9 +22,9 @@ elaborate' term =
   run $
   runState (QueryState mempty mempty 0 mempty mempty mempty mempty mempty) $
   evalState ElabState $
-  runReader (NormContext (N.Env mempty mempty) mempty mempty mempty) $
+  runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) $
   runReader (ElabContext mempty (initialPos "<TODO>")) $
-  EE.check term (N.TypeType Obj)
+  EE.check term (N.TypeType N.Obj)
 
 elaborateFile :: String -> IO (Either String C.Term)
 elaborateFile f = do

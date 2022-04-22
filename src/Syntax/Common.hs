@@ -37,7 +37,7 @@ data CStatement a
   | Block (CStatement a) (CStatement a)
   | Return (Maybe a)
   | CodeLowCStmtElim a
-  deriving (Eq, Show)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data COp a
   = Ref a

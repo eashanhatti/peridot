@@ -133,6 +133,21 @@ eval (C.CodeLowCTmElim term) = do
     N.CodeLowCTmIntro code -> Just code
     _ -> Nothing
   pure (N.Neutral reded (N.CodeLowCTmElim term'))
+eval (C.CodeLowCStmtType ty) = N.CodeLowCStmtType <$> eval ty
+eval (C.CodeLowCStmtIntro stmt) = N.CodeLowCStmtIntro <$> traverse eval stmt
+eval C.CIntType = pure N.CIntType
+eval C.CVoidType = pure N.CVoidType
+eval (C.CPtrType ty) = N.CPtrType <$> eval ty
+eval (C.CValType vc ty) = do
+  vcuvs <- unVCUVs <$> ask
+  let
+    vVc = case vc of
+      C.VCUniVar gl | Just sol <- Map.lookup gl vcuvs -> sol
+      C.VCUniVar gl -> N.VCUniVar gl
+      C.RVal -> N.RVal
+      C.LVal -> N.LVal
+  N.CValType vVc <$> eval ty
+eval (C.CFunType inTys outTy) = N.CFunType <$> traverse eval inTys <*> eval outTy
 eval C.EElabError = pure N.ElabError
 
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
@@ -163,6 +178,20 @@ readback' opt (N.LocalVar (Level lvl)) = do
 readback' opt N.ElabError = pure C.EElabError
 readback' True (N.Neutral (Just sol) (N.UniVar _)) = readback' True sol
 readback' opt (N.Neutral _ redex) = readbackRedex opt redex
+readback' opt (N.CodeLowCStmtType ty) = C.CodeLowCStmtType <$> readback' opt ty
+readback' opt (N.CodeLowCStmtIntro stmt) = C.CodeLowCStmtIntro <$> traverse (readback' opt) stmt
+readback' opt N.CIntType = pure C.CIntType
+readback' opt N.CVoidType = pure C.CVoidType
+readback' opt (N.CPtrType ty) = C.CPtrType <$> readback' opt ty
+readback' opt (N.CValType vc ty) =
+  let
+    cVc = case vc of
+      N.VCUniVar gl -> C.VCUniVar gl
+      N.RVal -> C.RVal
+      N.LVal -> C.LVal
+  in
+    C.CValType cVc <$> readback' opt ty
+readback' opt (N.CFunType inTys outTy) = C.CFunType <$> traverse (readback' opt) inTys <*> readback' opt outTy
 
 readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term
 readbackRedex opt (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback' opt lam <*> readback' opt arg
