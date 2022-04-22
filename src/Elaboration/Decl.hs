@@ -43,7 +43,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
     PDConstr constr@(ConstrAst (Constr _ _) did dtDid) -> do
       unify univ (N.TypeType N.Obj)
       pure (C.ObjConst did cSig)
-    PDDecl (DeclAst (CFun (fmap (unName . fst) -> names) _ stmt) did) ->
+    PDDecl (DeclAst (CFun _ (fmap (unName . fst) -> names) _ stmt) did) ->
       case cSig of
         C.CValType C.LVal (C.CFunType inTys outTy) -> do
           vInTys <- traverse eval inTys
@@ -65,7 +65,7 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
     PDDecl (DeclAst (Axiom name sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Prove sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Fresh name sig) _) -> EE.checkMetaType sig
-    PDDecl (DeclAst (CFun (fmap snd -> inTys) outTy _) _) -> do
+    PDDecl (DeclAst (CFun _ (fmap snd -> inTys) outTy _) _) -> do
       cInTys <- traverse (flip EE.check (N.TypeType (N.Low C))) inTys
       cOutTy <- EE.check outTy (N.TypeType (N.Low C))
       pure (C.CValType C.LVal (C.CFunType cInTys cOutTy), N.TypeType (N.Low C))

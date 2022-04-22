@@ -4,14 +4,14 @@ import Text.Megaparsec hiding(State, SourcePos)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Error
 import Syntax.Surface
-import Syntax.Common
+import Syntax.Common hiding(CStatement(..))
 import Data.Void
 import Data.Text
 import Control.Monad.Combinators
 import Control.Monad.State
 import Data.Sequence
 
-keywords = ["let", "in", "Type"]
+keywords = ["let", "in", "Type", "cfun", "cif", "else", "var"]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -168,8 +168,97 @@ ruleTy = do
 decl :: Parser DeclarationAst
 decl = do
   pos <- getSourcePos
-  d <- try datatype <|> try metaVal <|> try objVal <|> try axiom <|> try prove <|> fresh
+  d <-
+    try datatype <|>
+    try metaVal <|>
+    try objVal <|>
+    try axiom <|>
+    try prove <|>
+    try fresh <|>
+    cFun
   pure (SourcePos d pos)
+
+block :: Parser CStatement
+block = do
+  char '{'; ws
+  stmts <- fromList <$> many do
+    s <- stmt; ws
+    char ';'; ws
+    pure s
+  char '}'
+  pure (Block stmts)
+
+ifS :: Parser CStatement
+ifS = do
+  string "cif"; ws
+  cond <- term; ws
+  tB <- stmt
+  string "else"
+  fB <- stmt
+  pure (If cond tB fB)
+
+varDecl :: Parser CStatement
+varDecl = do
+  string "var"; ws
+  n <- name; ws
+  char ':'; ws
+  ty <- term
+  pure (VarDecl n ty)
+
+ret :: Parser CStatement
+ret = do
+  string "return"; ws
+  e <- optional term
+  pure (Return e)
+
+assign :: Parser CStatement
+assign = do
+  var <- term; ws
+  string "="; ws
+  val <- term
+  pure (Assign var val)
+
+stmtSplice :: Parser CStatement
+stmtSplice = do
+  char '('; ws
+  string "spliceS"; ws
+  quote <- term; ws
+  char ')'
+  pure (SpliceLowCStmt quote)
+
+stmt :: Parser CStatementAst
+stmt = do
+  s <-
+    try block <|>
+    try ifS <|>
+    try varDecl <|>
+    try ret <|>
+    try assign <|>
+    stmtSplice
+  pure (CStmtAst s)
+
+cFun :: Parser DeclarationAst
+cFun = do
+  did <- freshId
+  string "cfun"; ws
+  n <- name; ws
+  ps <- try (char '(' *> ws *> char ')' *> pure Empty) <|> do
+    char '('; ws
+    p <- param
+    ps <- fromList <$> many (char ',' *> param)
+    char ')'; ws
+    pure (p <| ps)
+  char ':'; ws
+  outTy <- term
+  body <- stmt
+  pure (DeclAst (CFun n ps outTy body) did)
+  where
+    param = do
+      pn <- name; ws
+      char ':'; ws
+      ty <- term; ws
+      pure (pn, ty)
+
 
 datatype :: Parser DeclarationAst
 datatype = do
@@ -241,6 +330,137 @@ con = do
   sig <- term
   pure (\dtDid -> ConstrAst (Constr n sig) did dtDid)
 
+liftLowStmt :: Parser TermAst
+liftLowStmt = do
+  char '('; ws
+  string "LiftCStmt"; ws
+  ty <- term; ws
+  char ')'
+  pure (TermAst (LiftLowCStmt ty))
+
+quoteLowStmt :: Parser TermAst
+quoteLowStmt = do
+  char '('; ws
+  string "quoteLStmt"; ws
+  s <- stmt; ws
+  char ')'
+  pure (TermAst (QuoteLowCStmt s))
+
+cIntTy :: Parser TermAst
+cIntTy = do
+  string "Int"; ws
+  pure (TermAst CIntType)
+
+cVoidTy :: Parser TermAst
+cVoidTy = do
+  string "Void"; ws
+  pure (TermAst CVoidType)
+
+cPtrTy :: Parser TermAst
+cPtrTy = do
+  char '('; ws
+  string "Ptr"; ws
+  ty <- term; ws
+  char ')'
+  pure (TermAst (CPtrType ty))
+
+cLValTy :: Parser TermAst
+cLValTy = do
+  char '('; ws
+  string "LVal"; ws
+  ty <- term; ws
+  char ')'
+  pure (TermAst (CLValType ty))
+
+cRValTy :: Parser TermAst
+cRValTy = do
+  char '('; ws
+  string "RVal"; ws
+  ty <- term; ws
+  char ')'
+  pure (TermAst (CRValType ty))
+
+cRef :: Parser TermAst
+cRef = do
+  char '&'; ws
+  e <- term
+  pure (TermAst (CRef e))
+
+cDeref :: Parser TermAst
+cDeref = do
+  char '*'; ws
+  e <- term
+  pure (TermAst (CDeref e))
+
+cAdd :: Parser TermAst
+cAdd = do
+  char '('; ws
+  string "+"; ws
+  x <- term; ws
+  y <- term; ws
+  char ')'
+  pure (TermAst (CAdd x y))
+
+cSub :: Parser TermAst
+cSub = do
+  char '('; ws
+  string "-"; ws
+  x <- term; ws
+  y <- term; ws
+  char ')'
+  pure (TermAst (CSub x y))
+
+cLess :: Parser TermAst
+cLess = do
+  char '('; ws
+  string "<"; ws
+  x <- term; ws
+  y <- term; ws
+  char ')'
+  pure (TermAst (CLess x y))
+
+cGrtr :: Parser TermAst
+cGrtr = do
+  char '('; ws
+  string ">"; ws
+  x <- term; ws
+  y <- term; ws
+  char ')'
+  pure (TermAst (CGrtr x y))
+
+cEql :: Parser TermAst
+cEql = do
+  char '('; ws
+  string "=="; ws
+  x <- term; ws
+  y <- term; ws
+  char ')'
+  pure (TermAst (CEql x y))
+
+cCall :: Parser TermAst
+cCall = do
+  char '/'; ws
+  fn <- term
+  args <- fromList <$> many (ws *> term); ws
+  char '\\'
+  pure (TermAst (CFunCall fn args))
+
+cFunType :: Parser TermAst
+cFunType = do
+  string "cfun"; ws
+  ps <- try (char '(' *> ws *> char ')' *> pure Empty) <|> do
+    char '('; ws
+    p <- term
+    ps <- fromList <$> many (char ',' *> term)
+    char ')'; ws
+    pure (p <| ps)
+  string "->"; ws
+  outTy <- term
+  pure (TermAst (CFunType ps outTy))
+
+cInt :: Parser TermAst
+cInt = (TermAst . CInt . read) <$> many digitChar
+
 term :: Parser TermAst
 term = do
   pos <- getSourcePos
@@ -259,6 +479,23 @@ term = do
     try liftLow <|>
     try quoteLow <|>
     try spliceLow <|>
+    try liftLowStmt <|>
+    try quoteLowStmt <|>
+    try cIntTy <|>
+    try cVoidTy <|>
+    try cPtrTy <|>
+    try cLValTy <|>
+    try cRValTy <|>
+    try cRef <|>
+    try cDeref <|>
+    try cAdd <|>
+    try cSub <|>
+    try cLess <|>
+    try cGrtr <|>
+    try cEql <|>
+    try cCall <|>
+    try cFunType <|>
+    try cInt <|>
     try var <|>
     ruleTy
   pure (SourcePos e pos)

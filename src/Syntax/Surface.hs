@@ -31,6 +31,7 @@ unDeclName (DeclAst (ObjTerm (NameAst name) _ _) _) = name
 unDeclName (DeclAst (Axiom (NameAst name) _) _) = name
 unDeclName (DeclAst (Prove _) did) = MachineName (fromIntegral did)
 unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
+unDeclName (DeclAst (CFun (NameAst name) _ _ _) _) = name
 unDeclName (SourcePos ast _) = unDeclName ast
 
 unConstrName :: ConstructorAst -> Name
@@ -57,7 +58,7 @@ data Declaration
   | Axiom NameAst SignatureAst
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
-  | CFun (Seq (NameAst, TermAst)) TermAst CStatementAst
+  | CFun NameAst (Seq (NameAst, TermAst)) TermAst CStatementAst
   deriving (Show)
 
 type ConstructorAst = Ast Constructor
