@@ -108,6 +108,25 @@ unifyVCs RVal RVal = pure ()
 unifyVCs LVal LVal = pure ()
 unifyVCs _ _ = throwError ()
 
+unifyOps :: Unify sig m => COp Term -> COp Term -> m ()
+unifyOps (Ref term1) (Ref term2) = unify' term1 term2
+unifyOps (Deref term1) (Deref term2) = unify' term1 term2
+unifyOps (Add x1 y1) (Add x2 y2) = do
+  unify' x1 x2
+  unify' y1 y2
+unifyOps (Sub x1 y1) (Sub x2 y2) = do
+  unify' x1 x2
+  unify' y1 y2
+unifyOps (Less x1 y1) (Less x2 y2) = do
+  unify' x1 x2
+  unify' y1 y2
+unifyOps (Grtr x1 y1) (Grtr x2 y2) = do
+  unify' x1 x2
+  unify' y1 y2
+unifyOps (Eql x1 y1) (Eql x2 y2) = do
+  unify' x1 x2
+  unify' y1 y2
+
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am2 = do
   unify' inTy1 inTy2
@@ -134,6 +153,11 @@ unify' (CValType vc1 ty1) (CValType vc2 ty2) = do
 unify' (CFunType inTys1 outTy1) (CFunType inTys2 outTy2) = do
   traverse (uncurry unify') (zip inTys1 inTys2)
   unify' outTy1 outTy2
+unify' (CIntIntro x1) (CIntIntro x2) | x1 == x2 = pure ()
+unify' (COp op1) (COp op2) = unifyOps op1 op2
+unify' (CFunCall fn1 args1) (CFunCall fn2 args2) = do
+  unify' fn1 fn2
+  traverse_ (uncurry unify') (zip args1 args2)
 unify' (TypeType s1) (TypeType s2) = unifyStages s1 s2
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
 unify' ElabError _ = pure ()

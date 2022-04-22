@@ -36,8 +36,7 @@ data Term
   -- Low C level
   | CIntIntro Int
   | COp (COp Term)
-  | CRValFunCall Term (Seq Term)
-  | CLValFunCall Term (Seq Term)
+  | CFunCall Term (Seq Term)
   -- Meta level
   | MetaFunType ApplyMethod Term Term
   | MetaFunIntro Term
