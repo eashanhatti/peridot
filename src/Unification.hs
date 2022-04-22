@@ -148,6 +148,7 @@ unify' (CodeLowCStmtIntro stmt1) (CodeLowCStmtIntro stmt2) = unifyStmts stmt1 st
 unify' (CPtrType ty1) (CPtrType ty2) = unify' ty1 ty2
 unify' CIntType CIntType = pure ()
 unify' CVoidType CVoidType = pure ()
+unify' (CValType RVal ty1) (CValType LVal ty2) = unify' ty1 ty2
 unify' (CValType vc1 ty1) (CValType vc2 ty2) = do
   unifyVCs vc1 vc2
   unify' ty1 ty2
