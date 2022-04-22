@@ -12,7 +12,7 @@ import Normalization hiding(eval, readback)
 import Data.Foldable(foldl', foldr, foldrM)
 import Debug.Trace
 import Data.Sequence
-import Prelude hiding(zip, concatMap, head, tail)
+import Prelude hiding(zip, concatMap, head, tail, length)
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check term goal = do
@@ -87,6 +87,7 @@ infer term = case term of
       Nothing -> errorTerm (UnboundVariable name)
   TermAst OUniv -> pure (C.TypeType Obj, N.TypeType Obj)
   TermAst MUniv -> pure (C.TypeType Meta, N.TypeType Meta)
+  TermAst LCUniv -> pure (C.TypeType (Low C), N.TypeType Meta)
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
@@ -117,6 +118,49 @@ infer term = case term of
     ty <- freshTypeUV
     cQuote <- check quote (N.CodeLowCTmType ty)
     pure (C.CodeLowCTmElim cQuote, ty)
+  TermAst (LiftLowCStmt ty) -> do
+    cTy <- checkLowCType' ty
+    pure (C.CodeLowCStmtType cTy, N.TypeType Meta)
+  TermAst (CPtrType ty) -> do
+    cTy <- checkLowCType' ty
+    pure (C.CPtrType cTy, N.TypeType (Low C))
+  TermAst CIntType -> pure (C.CIntType, N.TypeType (Low C))
+  TermAst CVoidType -> pure (C.CVoidType, N.TypeType (Low C))
+  TermAst (CLValType ty) -> do
+    cTy <- checkLowCType' ty
+    pure (C.CLValType cTy, N.TypeType (Low C))
+  TermAst (CRValType ty) -> do
+    cTy <- checkLowCType' ty
+    pure (C.CRValType cTy, N.TypeType (Low C))
+  TermAst (CRef term) -> do
+    ty <- freshTypeUV
+    cTerm <- check term (N.CLValType ty)
+    pure (C.COp (Ref cTerm), N.CRValType (N.CPtrType ty))
+  TermAst (CDeref term) -> do
+    ty <- freshTypeUV
+    vc <- freshVCUV
+    cTerm <- check term (N.CRValType (N.CPtrType ty))
+    pure (C.COp (Deref cTerm), N.CValType vc ty)
+  TermAst (CAdd term1 term2) -> do
+    cTerm1 <- check term1 (N.CRValType N.CIntType)
+    cTerm2 <- check term2 (N.CRValType N.CIntType)
+    pure (C.COp (Add cTerm1 cTerm2), N.CRValType N.CIntType)
+  TermAst (CSub term1 term2) -> do
+    cTerm1 <- check term1 (N.CRValType N.CIntType)
+    cTerm2 <- check term2 (N.CRValType N.CIntType)
+    pure (C.COp (Sub cTerm1 cTerm2), N.CRValType N.CIntType)
+  TermAst (CLess term1 term2) -> do
+    cTerm1 <- check term1 (N.CRValType N.CIntType)
+    cTerm2 <- check term2 (N.CRValType N.CIntType)
+    pure (C.COp (Less cTerm1 cTerm2), N.CRValType N.CIntType)
+  TermAst (CGrtr term1 term2) -> do
+    cTerm1 <- check term1 (N.CRValType N.CIntType)
+    cTerm2 <- check term2 (N.CRValType N.CIntType)
+    pure (C.COp (Grtr cTerm1 cTerm2), N.CRValType N.CIntType)
+  TermAst (CEql term1 term2) -> do
+    cTerm1 <- check term1 (N.CRValType N.CIntType)
+    cTerm2 <- check term2 (N.CRValType N.CIntType)
+    pure (C.COp (Eql cTerm1 cTerm2), N.CRValType N.CIntType)
 
 checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkType term = do

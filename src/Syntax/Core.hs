@@ -35,7 +35,7 @@ data Term
   | ObjConstIntro Id
   -- Low C level
   | CIntIntro Int
-  | COp (COp Term) (Seq Term)
+  | COp (COp Term)
   | CRValFunCall Term (Seq Term)
   | CLValFunCall Term (Seq Term)
   -- Meta level
@@ -53,8 +53,9 @@ data Term
   | CodeLowCStmtIntro (CStatement Term)
   | CIntType
   | CVoidType
-  | CRValType Term
-  | CLValType Term
+  | CPtrType Term
+  | CValType ValueCategory Term
+  | CFunType (Seq Term) Term
   -- Other
   | TypeType Stage
   | LocalVar Index
@@ -62,4 +63,13 @@ data Term
   | Let (Seq Declaration) Term
   | UniVar Global
   | EElabError
+  deriving (Eq, Show)
+
+pattern CRValType ty = CValType RVal ty
+pattern CLValType ty = CValType LVal ty
+
+data Stage = Meta | Obj | Low Language | SUniVar Global
+  deriving (Eq, Show)
+
+data ValueCategory = LVal | RVal | VCUniVar Global
   deriving (Eq, Show)

@@ -33,7 +33,7 @@ data Term
   | ObjConstIntro Id
   -- Low C level
   | CIntIntro Int
-  | COp (COp Term) (Seq Term)
+  | COp (COp Term)
   | CRValFunCall Term (Seq Term)
   | CLValFunCall Term (Seq Term)
   -- Meta level
@@ -46,16 +46,20 @@ data Term
   | CodeLowCTmIntro Term
   | CodeLowCStmtType Term -- Carries return type
   | CodeLowCStmtIntro (CStatement Term)
+  | CPtrType Term
   | CIntType
   | CVoidType
-  | CRValType Term
-  | CLValType Term
+  | CValType ValueCategory Term
+  | CFunType (Seq Term) Term
   -- Other
   | TypeType Stage
   | LocalVar Level
   | ElabError
   | Neutral (Maybe Term) Redex -- If `Nothing`, the term is stuck
   deriving (Eq, Show)
+
+pattern CRValType ty = CValType RVal ty
+pattern CLValType ty = CValType LVal ty
 
 data Redex
   = MetaFunElim Term Term
@@ -64,6 +68,12 @@ data Redex
   | CodeLowCTmElim Term
   | GlobalVar Id
   | UniVar Global
+  deriving (Eq, Show)
+
+data Stage = Meta | Obj | Low Language | SUniVar Global
+  deriving (Eq, Show)
+
+data ValueCategory = LVal | RVal | VCUniVar Global
   deriving (Eq, Show)
 
 viewFunType :: Term -> Maybe (Term, Closure)

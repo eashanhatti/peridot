@@ -44,6 +44,7 @@ default-extensions:
 - TupleSections
 - RecursiveDo
 - EmptyDataDeriving
+- PatternSynonyms
 
 dependencies:
 - base >= 4.7 && < 5

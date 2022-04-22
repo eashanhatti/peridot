@@ -13,9 +13,6 @@ data ApplyMethod = Explicit | Implicit
 data Language = C
   deriving (Eq, Show)
 
-data Stage = Meta | Obj | Low Language | SUniVar Global
-  deriving (Eq, Show)
-
 newtype Index = Index { unIndex :: Natural }
   deriving (Num, Eq, Ord, Enum, Real, Integral, Show)
 

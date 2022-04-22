@@ -74,6 +74,7 @@ data Term
   | Var Name
   | OUniv
   | MUniv
+  | LCUniv
   | Let (Seq DeclarationAst) TermAst
   | Rule TermAst TermAst -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo
   | LiftCore TermAst
@@ -86,6 +87,7 @@ data Term
   | QuoteLowCStmt CStatementAst
   | CIntType
   | CVoidType
+  | CPtrType TermAst
   | CLValType TermAst
   | CRValType TermAst
   | CRef TermAst
@@ -96,6 +98,7 @@ data Term
   | CGrtr TermAst TermAst
   | CEql TermAst TermAst
   | CFunCall TermAst (Seq TermAst)
+  | CFunType (Seq TermAst) TermAst
   | CInt Int
   deriving (Show)
 

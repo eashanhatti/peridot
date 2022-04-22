@@ -46,17 +46,19 @@ data QueryState = QueryState
   , unNextUV :: Global
   , unTypeUVs :: Map Global (Maybe N.Term)
   , unStageUVs :: Map Global (Maybe Stage)
+  , unVCUVs :: Map Global (Maybe ValueCategory)
   , unUVEqs :: Map Global Global
   , unErrors :: Seq (SourcePos, Error) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs suvs eqs errs) = show (tuvs, suvs, eqs, errs)
+  show (QueryState _ _ _ tuvs suvs vcuvs eqs errs) = show (tuvs, suvs, vcuvs, eqs, errs)
 
 data Error
   = TooManyParams
   | WrongAppArity Natural Natural
   | FailedUnify N.Term N.Term
   | UnboundVariable Name
+  | ExpectedCFunType N.Term
   deriving (Show)
 
 type Query sig m = Has (State QueryState) sig m
@@ -215,6 +217,9 @@ freshTypeUV = do
     { unTypeUVs = insert (unNextUV state) Nothing (unTypeUVs state)
     , unNextUV = unNextUV state + 1 })
   pure (N.Neutral Nothing (N.UniVar (unNextUV state)))
+
+freshVCUV :: Elab sig m => m ValueCategory
+freshVCUV = undefined
 
 freshStageUV :: Elab sig m => m Stage
 freshStageUV = do
