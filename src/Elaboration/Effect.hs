@@ -163,6 +163,10 @@ bindLocal name ty act =
     inc (BLocal ix ty) = BLocal (ix + 1) ty
     inc b = b
 
+bindLocalMany :: Elab sig m => Seq (Name, N.Term) -> m a -> m a
+bindLocalMany Empty = id
+bindLocalMany ((name, ty) :<| ls) = bindLocal name ty . bindLocalMany ls
+
 withPos :: Elab sig m => SourcePos -> m a -> m a
 withPos pos = local (\ctx -> ctx { unSourcePos = pos })
 

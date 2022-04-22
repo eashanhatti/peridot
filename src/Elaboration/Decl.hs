@@ -16,7 +16,7 @@ import Data.Foldable(toList, foldl')
 import Data.Traversable
 import GHC.Stack
 import Data.Sequence
-import Prelude hiding(traverse, map)
+import Prelude hiding(traverse, map, zip)
 
 check :: HasCallStack => Elab sig m => Id -> m C.Declaration
 check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
@@ -43,10 +43,11 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
     PDConstr constr@(ConstrAst (Constr _ _) did dtDid) -> do
       unify univ (N.TypeType N.Obj)
       pure (C.ObjConst did cSig)
-    PDDecl (DeclAst (CFun _ _ stmt) did) -> do
-      (cStmt, retTy) <- ES.infer stmt
+    PDDecl (DeclAst (CFun (fmap (unName . fst) -> names) _ stmt) did) ->
       case cSig of
         C.CValType C.LVal (C.CFunType inTys outTy) -> do
+          vInTys <- traverse eval inTys
+          (cStmt, retTy) <- bindLocalMany (zip names vInTys) (ES.infer stmt)
           eval outTy >>= flip unify retTy
           pure (C.CFun did inTys outTy cStmt)
 
