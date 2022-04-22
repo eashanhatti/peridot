@@ -176,6 +176,10 @@ infer term = case term of
       go (N.Neutral Nothing _) = Nothing
       go (N.Neutral (Just term) _) = go term
       go _ = Nothing
+  TermAst (CFunType inTys outTy) -> do
+    cTerm <- C.CFunType <$> traverse (flip check (N.TypeType (N.Low C))) inTys <*> check outTy (N.TypeType (N.Low C))
+    pure (cTerm, N.TypeType (N.Low C))
+  TermAst (CInt x) -> pure (C.CIntIntro x, N.CIntType)
 
 -- checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 -- checkType term = do
