@@ -11,7 +11,7 @@ import Control.Monad.Combinators
 import Control.Monad.State
 import Data.Sequence
 
-keywords = ["let", "in", "Type", "cfun", "cif", "else", "var"]
+keywords = ["let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC"]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -44,7 +44,7 @@ metaPiTy = do
   char ']'; ws
   string "->"; ws
   outTy <- term
-  pure (TermAst (ObjPi n inTy outTy))
+  pure (TermAst (MetaPi n inTy outTy))
 
 metaLam :: Parser TermAst
 metaLam = do
@@ -84,7 +84,7 @@ quoteCore = do
 liftLow :: Parser TermAst
 liftLow = do
   char '('; ws
-  string "LiftC"; ws
+  string "LiftL"; ws
   ty <- term; ws
   char ')'
   pure (TermAst (LiftLowCTm ty))
@@ -221,7 +221,7 @@ assign = do
 stmtSplice :: Parser CStatement
 stmtSplice = do
   char '('; ws
-  string "spliceS"; ws
+  string "spliceLStmt"; ws
   quote <- term; ws
   char ')'
   pure (SpliceLowCStmt quote)
@@ -332,7 +332,7 @@ con = do
 liftLowStmt :: Parser TermAst
 liftLowStmt = do
   char '('; ws
-  string "LiftCStmt"; ws
+  string "LiftLStmt"; ws
   ty <- term; ws
   char ')'
   pure (TermAst (LiftLowCStmt ty))
