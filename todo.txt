@@ -1,3 +1,4 @@
 add comments
 add export lists to all modules
 separate big `Let` into `Let` for each level
+zonk should raise error on unsolved uvs. or make zonk a completely separate function?

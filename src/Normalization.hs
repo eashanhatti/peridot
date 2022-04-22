@@ -25,6 +25,7 @@ data NormContext = NormContext
   { unEnv :: N.Environment
   , unVisited :: Set.Set Global
   , unTypeUVs :: Map.Map Global N.Term
+  , unVCUVs :: Map.Map Global N.ValueCategory
   , unUVEqs :: Map.Map Global Global } -- FIXME? `Map Global (Set Global)`
   deriving (Show)
 
@@ -93,7 +94,10 @@ eval (C.MetaFunElim lam arg) = do
 --   local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (eval body)
 eval (C.MetaConstIntro did) = pure (N.MetaConstIntro did)
 eval (C.ObjConstIntro did) = pure (N.ObjConstIntro did)
-eval (C.TypeType s) = pure (N.TypeType s)
+eval (C.TypeType (C.SUniVar gl)) = undefined -- FIXME?
+eval (C.TypeType C.Meta) = pure (N.TypeType N.Meta)
+eval (C.TypeType C.Obj) = pure (N.TypeType N.Obj)
+eval (C.TypeType (C.Low l)) = pure (N.TypeType (N.Low l))
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) = do
   N.Env _ ((! did) -> term) <- unEnv <$> ask
@@ -149,7 +153,10 @@ readback' opt (N.ObjFunType inTy outTy) =
 readback' opt (N.ObjFunIntro body) = C.ObjFunIntro <$> (evalClosure body >>= readback' opt)
 readback' opt (N.ObjConstIntro did) = pure (C.ObjConstIntro did)
 readback' opt (N.MetaConstIntro did) = pure (C.MetaConstIntro did)
-readback' opt (N.TypeType s) = pure (C.TypeType s)
+readback' opt (N.TypeType (N.SUniVar gl)) = undefined -- FIXME?
+readback' opt (N.TypeType (N.Low l)) = pure (C.TypeType (C.Low l))
+readback' opt (N.TypeType N.Meta) = pure (C.TypeType C.Meta)
+readback' opt (N.TypeType N.Obj) = pure (C.TypeType C.Obj)
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))

@@ -20,15 +20,15 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
   case decl of
     PDDecl (DeclAst (ObjTerm name _ def) did) -> do
       cDef <- eval cSig >>= EE.check def
-      unify univ (N.TypeType Obj)
+      unify univ (N.TypeType N.Obj)
       pure (C.ObjTerm did cSig cDef)
     PDDecl (DeclAst (MetaTerm name _ def) did) -> do
       cDef <- eval cSig >>= EE.check def
-      unify univ (N.TypeType Meta)
+      unify univ (N.TypeType N.Meta)
       pure (C.MetaTerm did cSig cDef)
     PDDecl (DeclAst (Datatype name _ _) did) -> do
       vSig <- eval cSig
-      unify vSig (N.TypeType Obj)
+      unify vSig (N.TypeType N.Obj)
       pure (C.ObjConst did cSig)
     PDDecl (DeclAst (Axiom name _) did) ->
       pure (C.MetaConst did cSig)
@@ -37,7 +37,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
     PDDecl (DeclAst (Fresh name _) did) ->
       pure (C.Fresh did cSig)
     PDConstr constr@(ConstrAst (Constr _ _) did dtDid) -> do
-      unify univ (N.TypeType Obj)      
+      unify univ (N.TypeType N.Obj)      
       pure (C.ObjConst did cSig)
 
 withPos' :: HasCallStack => Elab sig m => (Predeclaration -> m a) -> (Predeclaration -> m a)

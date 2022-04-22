@@ -45,8 +45,8 @@ data QueryState = QueryState
   , unPredecls :: Map Id (AllState, Predeclaration)
   , unNextUV :: Global
   , unTypeUVs :: Map Global (Maybe N.Term)
-  , unStageUVs :: Map Global (Maybe Stage)
-  , unVCUVs :: Map Global (Maybe ValueCategory)
+  , unStageUVs :: Map Global (Maybe N.Stage)
+  , unVCUVs :: Map Global (Maybe N.ValueCategory)
   , unUVEqs :: Map Global Global
   , unErrors :: Seq (SourcePos, Error) }
 
@@ -218,16 +218,16 @@ freshTypeUV = do
     , unNextUV = unNextUV state + 1 })
   pure (N.Neutral Nothing (N.UniVar (unNextUV state)))
 
-freshVCUV :: Elab sig m => m ValueCategory
+freshVCUV :: Elab sig m => m N.ValueCategory
 freshVCUV = undefined
 
-freshStageUV :: Elab sig m => m Stage
-freshStageUV = do
-  state <- get
-  put (state
-    { unStageUVs = insert (unNextUV state) Nothing (unStageUVs state)
-    , unNextUV = unNextUV state + 1 })
-  pure (SUniVar (unNextUV state))
+-- freshStageUV :: Elab sig m => m Stage
+-- freshStageUV = do
+--   state <- get
+--   put (state
+--     { unStageUVs = insert (unNextUV state) Nothing (unStageUVs state)
+--     , unNextUV = unNextUV state + 1 })
+--   pure (SUniVar (unNextUV state))
 
 report :: Elab sig m => Error -> m ()
 report err = do
