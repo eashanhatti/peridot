@@ -1,0 +1,6 @@
+let {
+	cfun ref(x : Int) : (Ptr Int)
+		return &x;
+} in {
+	OType
+}

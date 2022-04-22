@@ -242,21 +242,20 @@ cFun = do
   did <- freshId
   string "cfun"; ws
   n <- name; ws
-  ps <- try (char '(' *> ws *> char ')' *> pure Empty) <|> do
-    char '('; ws
-    p <- param
-    ps <- fromList <$> many (char ',' *> param)
+  ps <- do
+    char '('
+    ps <- fromList <$> sepBy param (ws *> char ',' *> ws); ws
     char ')'; ws
-    pure (p <| ps)
+    pure ps
   char ':'; ws
-  outTy <- term
+  outTy <- term; ws
   body <- stmt
   pure (DeclAst (CFun n ps outTy body) did)
   where
     param = do
       pn <- name; ws
       char ':'; ws
-      ty <- term; ws
+      ty <- term
       pure (pn, ty)
 
 
@@ -364,21 +363,21 @@ cPtrTy = do
   char ')'
   pure (TermAst (CPtrType ty))
 
-cLValTy :: Parser TermAst
-cLValTy = do
-  char '('; ws
-  string "LVal"; ws
-  ty <- term; ws
-  char ')'
-  pure (TermAst (CLValType ty))
+-- cLValTy :: Parser TermAst
+-- cLValTy = do
+--   char '('; ws
+--   string "LVal"; ws
+--   ty <- term; ws
+--   char ')'
+--   pure (TermAst (CLValType ty))
 
-cRValTy :: Parser TermAst
-cRValTy = do
-  char '('; ws
-  string "RVal"; ws
-  ty <- term; ws
-  char ')'
-  pure (TermAst (CRValType ty))
+-- cRValTy :: Parser TermAst
+-- cRValTy = do
+--   char '('; ws
+--   string "RVal"; ws
+--   ty <- term; ws
+--   char ')'
+--   pure (TermAst (CRValType ty))
 
 cRef :: Parser TermAst
 cRef = do
@@ -459,7 +458,7 @@ cFunType = do
   pure (TermAst (CFunType ps outTy))
 
 cInt :: Parser TermAst
-cInt = (TermAst . CInt . read) <$> many digitChar
+cInt = (TermAst . CInt . read) <$> some digitChar
 
 term :: Parser TermAst
 term = do
@@ -484,8 +483,8 @@ term = do
     try cIntTy <|>
     try cVoidTy <|>
     try cPtrTy <|>
-    try cLValTy <|>
-    try cRValTy <|>
+    -- try cLValTy <|>
+    -- try cRValTy <|>
     try cRef <|>
     try cDeref <|>
     try cAdd <|>

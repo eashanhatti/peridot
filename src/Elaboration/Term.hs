@@ -7,6 +7,7 @@ import Syntax.Common hiding(unId)
 import Extra
 import Elaboration.Effect
 import Elaboration.Decl qualified as ED
+import Elaboration.CStatement qualified as ES
 import Control.Monad
 import Normalization hiding(eval, readback)
 import Data.Foldable(foldl', foldr, foldrM)
@@ -121,17 +122,20 @@ infer term = case term of
   TermAst (LiftLowCStmt ty) -> do
     cTy <- checkLowCType' ty
     pure (C.CodeLowCStmtType cTy, N.TypeType N.Meta)
+  TermAst (QuoteLowCStmt stmt) -> do
+    (cStmt, retTy) <- ES.infer stmt
+    pure (C.CodeLowCStmtIntro cStmt, N.CodeLowCStmtType retTy)
   TermAst (CPtrType ty) -> do
     cTy <- checkLowCType' ty
     pure (C.CPtrType cTy, N.TypeType (N.Low C))
   TermAst CIntType -> pure (C.CIntType, N.TypeType (N.Low C))
   TermAst CVoidType -> pure (C.CVoidType, N.TypeType (N.Low C))
-  TermAst (CLValType ty) -> do
-    cTy <- checkLowCType' ty
-    pure (C.CLValType cTy, N.TypeType (N.Low C))
-  TermAst (CRValType ty) -> do
-    cTy <- checkLowCType' ty
-    pure (C.CRValType cTy, N.TypeType (N.Low C))
+  -- TermAst (CLValType ty) -> do
+  --   cTy <- checkLowCType' ty
+  --   pure (C.CLValType cTy, N.TypeType (N.Low C))
+  -- TermAst (CRValType ty) -> do
+  --   cTy <- checkLowCType' ty
+  --   pure (C.CRValType cTy, N.TypeType (N.Low C))
   TermAst (CRef term) -> do
     ty <- freshTypeUV
     cTerm <- check term (N.CLValType ty)
@@ -179,7 +183,7 @@ infer term = case term of
   TermAst (CFunType inTys outTy) -> do
     cTerm <- C.CFunType <$> traverse (flip check (N.TypeType (N.Low C))) inTys <*> check outTy (N.TypeType (N.Low C))
     pure (cTerm, N.TypeType (N.Low C))
-  TermAst (CInt x) -> pure (C.CIntIntro x, N.CIntType)
+  TermAst (CInt x) -> pure (C.CIntIntro x, N.CRValType N.CIntType)
 
 -- checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 -- checkType term = do

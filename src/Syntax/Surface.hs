@@ -89,8 +89,8 @@ data Term
   | CIntType
   | CVoidType
   | CPtrType TermAst
-  | CLValType TermAst
-  | CRValType TermAst
+  -- | CLValType TermAst
+  -- | CRValType TermAst
   | CRef TermAst
   | CDeref TermAst
   | CAdd TermAst TermAst

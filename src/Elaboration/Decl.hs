@@ -47,8 +47,8 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
       case cSig of
         C.CValType C.LVal (C.CFunType inTys outTy) -> do
           vInTys <- traverse eval inTys
-          (cStmt, retTy) <- bindLocalMany (zip names vInTys) (ES.infer stmt)
-          eval outTy >>= flip unify retTy
+          (cStmt, retTy) <- bindLocalMany (zip names (fmap N.CLValType vInTys)) (ES.infer stmt)
+          N.CRValType <$> eval outTy >>= flip unify retTy
           pure (C.CFun did inTys outTy cStmt)
 
 withPos' :: HasCallStack => Elab sig m => (Predeclaration -> m a) -> (Predeclaration -> m a)

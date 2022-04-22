@@ -71,6 +71,7 @@ unifyStages (SUniVar gl) s = putStageSol gl s
 unifyStages s (SUniVar gl) = putStageSol gl s
 unifyStages Meta Meta = pure ()
 unifyStages Obj Obj = pure ()
+unifyStages (Low l1) (Low l2) | l1 == l2 = pure ()
 unifyStages _ _ = throwError ()
 
 unifyRedexes :: Unify sig m => Redex ->  Redex -> m ()
