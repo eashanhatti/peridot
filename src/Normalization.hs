@@ -148,6 +148,10 @@ eval (C.CValType vc ty) = do
       C.LVal -> N.LVal
   N.CValType vVc <$> eval ty
 eval (C.CFunType inTys outTy) = N.CFunType <$> traverse eval inTys <*> eval outTy
+eval (C.CIntIntro x) = pure (N.CIntIntro x)
+eval (C.COp op) = N.COp <$> traverse eval op
+eval (C.CRValFunCall fn args) = N.CRValFunCall <$> eval fn <*> traverse eval args
+eval (C.CLValFunCall fn args) = N.CLValFunCall <$> eval fn <*> traverse eval args
 eval C.EElabError = pure N.ElabError
 
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
@@ -192,6 +196,10 @@ readback' opt (N.CValType vc ty) =
   in
     C.CValType cVc <$> readback' opt ty
 readback' opt (N.CFunType inTys outTy) = C.CFunType <$> traverse (readback' opt) inTys <*> readback' opt outTy
+readback' opt (N.CIntIntro x) = pure (C.CIntIntro x)
+readback' opt (N.COp op) = C.COp <$> traverse (readback' opt) op
+readback' opt (N.CRValFunCall fn args) = C.CRValFunCall <$> readback' opt fn <*> traverse (readback' opt) args
+readback' opt (N.CLValFunCall fn args) = C.CLValFunCall <$> readback' opt fn <*> traverse (readback' opt) args
 
 readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term
 readbackRedex opt (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback' opt lam <*> readback' opt arg

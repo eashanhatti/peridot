@@ -14,17 +14,20 @@ import Control.Monad
 import Data.Foldable
 import GHC.Stack
 import Debug.Trace
+import Data.Sequence
+import Prelude hiding(zip)
 
 data Substitution = Subst
   { unTypeSols :: Map Global Term
   , unStageSols :: Map Global Stage
+  , unVCSols :: Map Global ValueCategory
   , unUVEqs :: Map Global Global }
 
 instance Semigroup Substitution where
-  Subst ts1 ss1 eqs1 <> Subst ts2 ss2 eqs2 = Subst (ts1 <> ts2) (ss1 <> ss2) (eqs1 <> eqs2)
+  Subst ts1 ss1 vcs1 eqs1 <> Subst ts2 ss2 vcs2 eqs2 = Subst (ts1 <> ts2) (ss1 <> ss2) (vcs1 <> vcs2) (eqs1 <> eqs2)
 
 instance Monoid Substitution where
-  mempty = Subst mempty mempty mempty
+  mempty = Subst mempty mempty mempty mempty
 
 type Unify sig m =
   ( Norm sig m
@@ -44,6 +47,13 @@ putTypeSol gl sol = do
   case Map.lookup gl (unTypeSols sols) of
     Nothing -> put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
     Just sol' -> pure ()-- unify' sol sol'
+
+putVCSol :: Unify sig m => Global -> ValueCategory -> m ()
+putVCSol gl sol = do
+  sols <- get
+  case Map.lookup gl (unVCSols sols) of
+    Nothing -> put (sols { unVCSols = Map.insert gl sol (unVCSols sols) })
+    Just sol' -> pure ()
 
 equateUVs :: Unify sig m => Global -> Global -> m ()
 equateUVs gl1 gl2 = modify (\st -> st { unUVEqs = Map.fromList [(gl1, gl2), (gl2, gl1)] <> unUVEqs st })
@@ -74,6 +84,30 @@ unifyRedexes (CodeCoreElim quote1) (CodeCoreElim quote2) = unify' quote1 quote2
 unifyRedexes (CodeLowCTmElim quote1) (CodeLowCTmElim quote2) = unify' quote1 quote2
 unifyRedexes (GlobalVar did1) (GlobalVar did2) | did1 == did2 = pure ()
 
+unifyStmts :: Unify sig m => CStatement Term -> CStatement Term -> m ()
+unifyStmts (VarDecl ty1) (VarDecl ty2) = unify' ty1 ty2
+unifyStmts (Assign var1 val1) (Assign var2 val2) = do
+  unify' var1 var2
+  unify' val1 val2
+unifyStmts (If cond1 trueBody1 falseBody1) (If cond2 trueBody2 falseBody2) = do
+  unify' cond1 cond2
+  unifyStmts trueBody1 trueBody2
+  unifyStmts falseBody1 falseBody2
+unifyStmts (Block lstmt1 rstmt1) (Block lstmt2 rstmt2) = do
+  unifyStmts lstmt1 lstmt2
+  unifyStmts rstmt1 rstmt2
+unifyStmts (Return (Just val1)) (Return (Just val2)) = unify' val1 val2
+unifyStmts (Return Nothing) (Return Nothing) = pure ()
+unifyStmts (CodeLowCStmtElim quote1) (CodeLowCStmtElim quote2) = unify' quote1 quote2
+
+unifyVCs :: Unify sig m => ValueCategory -> ValueCategory -> m ()
+unifyVCs (VCUniVar gl1) (VCUniVar gl2) = equateUVs gl1 gl2
+unifyVCs (VCUniVar gl) vc = putVCSol gl vc
+unifyVCs vc (VCUniVar gl) = putVCSol gl vc
+unifyVCs RVal RVal = pure ()
+unifyVCs LVal LVal = pure ()
+unifyVCs _ _ = throwError ()
+
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am2 = do
   unify' inTy1 inTy2
@@ -89,6 +123,17 @@ unify' (CodeCoreType ty1) (CodeCoreType ty2) = unify' ty1 ty2
 unify' (CodeLowCTmType ty1) (CodeLowCTmType ty2) = unify' ty1 ty2
 unify' (CodeCoreIntro term1) (CodeCoreIntro term2) = unify' term1 term1
 unify' (CodeLowCTmIntro term1) (CodeLowCTmIntro term2) = unify' term1 term1
+unify' (CodeLowCStmtType ty1) (CodeLowCStmtType ty2) = unify' ty1 ty2
+unify' (CodeLowCStmtIntro stmt1) (CodeLowCStmtIntro stmt2) = unifyStmts stmt1 stmt2
+unify' (CPtrType ty1) (CPtrType ty2) = unify' ty1 ty2
+unify' CIntType CIntType = pure ()
+unify' CVoidType CVoidType = pure ()
+unify' (CValType vc1 ty1) (CValType vc2 ty2) = do
+  unifyVCs vc1 vc2
+  unify' ty1 ty2
+unify' (CFunType inTys1 outTy1) (CFunType inTys2 outTy2) = do
+  traverse (uncurry unify') (zip inTys1 inTys2)
+  unify' outTy1 outTy2
 unify' (TypeType s1) (TypeType s2) = unifyStages s1 s2
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
 unify' ElabError _ = pure ()

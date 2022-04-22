@@ -25,7 +25,7 @@ import Data.GADT.Compare
 import Data.Type.Equality
 import Data.Hashable
 import GHC.Generics hiding (Constructor, C)
-import Normalization hiding (eval, unTypeUVs, unRepUVs, unUVEqs, readback', readback', zonk)
+import Normalization hiding (eval, unTypeUVs, unRepUVs, unUVEqs, unVCUVs, readback', readback', zonk)
 import Normalization qualified as Norm
 import Unification qualified as Uni
 import Numeric.Natural
@@ -142,11 +142,12 @@ unify :: Elab sig m => N.Term -> N.Term -> m ()
 unify term1 term2 = do
   subst <- Uni.unify term1 term2
   case subst of
-    Just (Uni.Subst ts ss eqs) -> do
+    Just (Uni.Subst ts ss vcs eqs) -> do
       state <- get
       put (state
         { unTypeUVs = fmap Just ts <> unTypeUVs state
         , unStageUVs = fmap Just ss <> unStageUVs state
+        , unVCUVs = fmap Just vcs <> unVCUVs state
         , unUVEqs = eqs <> unUVEqs state })
     Nothing -> report (FailedUnify term1 term2)
 

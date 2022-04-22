@@ -47,4 +47,4 @@ data COp a
   | Less a a
   | Grtr a a
   | Eql a a
-  deriving (Eq, Show)
+  deriving (Eq, Show, Functor, Foldable, Traversable)
