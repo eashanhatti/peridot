@@ -164,15 +164,15 @@ infer term = case term of
   TermAst (CFunCall fn args) -> do
     (cFn, fnTy) <- infer fn
     case go fnTy of
-      Just (vc, inTys, outTy) | length inTys == length args -> do
+      Just (inTys, outTy) | length inTys == length args -> do
         cArgs <- traverse (\(arg, inTy) -> check arg inTy) (zip args inTys)
-        undefined
-      Just (_, inTys, _) ->
+        pure (C.CFunCall cFn cArgs, outTy)
+      Just (inTys, _) ->
         errorTerm (WrongAppArity (fromIntegral (length inTys)) (fromIntegral (length args)))
       Nothing -> errorTerm (ExpectedCFunType fnTy)
     where
-      go :: N.Term -> Maybe (N.ValueCategory, Seq N.Term, N.Term)
-      go (N.CValType vc (N.CFunType inTys outTy)) = Just (vc, inTys, outTy)
+      go :: N.Term -> Maybe (Seq N.Term, N.Term)
+      go (N.CFunType inTys outTy) = Just (inTys, outTy)
       go (N.Neutral Nothing _) = Nothing
       go (N.Neutral (Just term) _) = go term
       go _ = Nothing
