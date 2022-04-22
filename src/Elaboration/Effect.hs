@@ -220,7 +220,12 @@ freshTypeUV = do
   pure (N.Neutral Nothing (N.UniVar (unNextUV state)))
 
 freshVCUV :: Elab sig m => m N.ValueCategory
-freshVCUV = undefined
+freshVCUV = do
+  state <- get
+  put (state
+    { unVCUVs = insert (unNextUV state) Nothing (unVCUVs state)
+    , unNextUV = unNextUV state + 1 })
+  pure (N.VCUniVar (unNextUV state))
 
 -- freshStageUV :: Elab sig m => m Stage
 -- freshStageUV = do
