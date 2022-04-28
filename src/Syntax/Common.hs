@@ -68,5 +68,12 @@ data RigidTerm a
   | CIntType
   | CVoidType
   | CFunType (Seq a) a
+  -- Propositions
+  | PropConstIntro Id
+  | ImplType a a
+  | ConjType a a
+  | DisjType a a
+  | AllType a
+  | SomeType a
   | ElabError
   deriving (Eq, Show, Functor, Foldable, Traversable)

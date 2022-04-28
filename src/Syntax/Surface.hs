@@ -56,6 +56,7 @@ data Declaration
   | MetaTerm NameAst SignatureAst TermAst
   | ObjTerm NameAst SignatureAst TermAst
   | Axiom NameAst SignatureAst
+  | Relation NameAst SignatureAst NameAst SignatureAst
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
   | CFun NameAst (Seq (NameAst, TermAst)) TermAst CStatementAst
@@ -101,6 +102,11 @@ data Term
   | CFunCall TermAst (Seq TermAst)
   | CFunType (Seq TermAst) TermAst
   | CInt Int
+  | ImplProp TermAst TermAst
+  | ConjProp TermAst TermAst
+  | DisjProp TermAst TermAst
+  | ForallProp TermAst
+  | ExistsProp TermAst
   deriving (Show)
 
 type CStatementAst = Ast CStatement
