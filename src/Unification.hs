@@ -101,13 +101,13 @@ unifyStmts (Return (Just val1)) (Return (Just val2)) = unify' val1 val2
 unifyStmts (Return Nothing) (Return Nothing) = pure ()
 unifyStmts (CodeLowCStmtElim quote1) (CodeLowCStmtElim quote2) = unify' quote1 quote2
 
-unifyVCs :: Unify sig m => ValueCategory -> ValueCategory -> m ()
-unifyVCs (VCUniVar gl1) (VCUniVar gl2) = equateUVs gl1 gl2
-unifyVCs (VCUniVar gl) vc = putVCSol gl vc
-unifyVCs vc (VCUniVar gl) = putVCSol gl vc
-unifyVCs RVal RVal = pure ()
-unifyVCs LVal LVal = pure ()
-unifyVCs _ _ = throwError ()
+-- unifyVCs :: Unify sig m => ValueCategory -> ValueCategory -> m ()
+-- unifyVCs (VCUniVar gl1) (VCUniVar gl2) = equateUVs gl1 gl2
+-- unifyVCs (VCUniVar gl) vc = putVCSol gl vc
+-- unifyVCs vc (VCUniVar gl) = putVCSol gl vc
+-- unifyVCs RVal RVal = pure ()
+-- unifyVCs LVal LVal = pure ()
+-- unifyVCs _ _ = throwError ()
 
 unifyOps :: Unify sig m => COp Term -> COp Term -> m ()
 unifyOps (Ref term1) (Ref term2) = unify' term1 term2
@@ -128,6 +128,30 @@ unifyOps (Eql x1 y1) (Eql x2 y2) = do
   unify' x1 x2
   unify' y1 y2
 
+unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m ()
+unifyRigid (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 = pure ()
+unifyRigid (ObjConstIntro did1) (ObjConstIntro did2) | did1 == did2 = pure ()
+unifyRigid (CodeCoreType ty1) (CodeCoreType ty2) = unify' ty1 ty2
+unifyRigid (CodeLowCTmType ty1) (CodeLowCTmType ty2) = unify' ty1 ty2
+unifyRigid (CodeCoreIntro term1) (CodeCoreIntro term2) = unify' term1 term1
+unifyRigid (CodeLowCTmIntro term1) (CodeLowCTmIntro term2) = unify' term1 term1
+unifyRigid (CodeLowCStmtType ty1) (CodeLowCStmtType ty2) = unify' ty1 ty2
+unifyRigid (CodeLowCStmtIntro stmt1) (CodeLowCStmtIntro stmt2) = unifyStmts stmt1 stmt2
+unifyRigid (CPtrType ty1) (CPtrType ty2) = unify' ty1 ty2
+unifyRigid CIntType CIntType = pure ()
+unifyRigid CVoidType CVoidType = pure ()
+unifyRigid (CFunType inTys1 outTy1) (CFunType inTys2 outTy2) = do
+  traverse (uncurry unify') (zip inTys1 inTys2)
+  unify' outTy1 outTy2
+unifyRigid (CIntIntro x1) (CIntIntro x2) | x1 == x2 = pure ()
+unifyRigid (COp op1) (COp op2) = unifyOps op1 op2
+unifyRigid (CFunCall fn1 args1) (CFunCall fn2 args2) = do
+  unify' fn1 fn2
+  traverse_ (uncurry unify') (zip args1 args2)
+unifyRigid ElabError _ = pure ()
+unifyRigid _ ElabError = pure ()
+unifyRigid _ _ = throwError ()
+
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am2 = do
   unify' inTy1 inTy2
@@ -137,33 +161,8 @@ unify' (ObjFunType inTy1 outTy1) (ObjFunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (ObjFunIntro body1) (ObjFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
-unify' (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 = pure ()
-unify' (ObjConstIntro did1) (ObjConstIntro did2) | did1 == did2 = pure ()
-unify' (CodeCoreType ty1) (CodeCoreType ty2) = unify' ty1 ty2
-unify' (CodeLowCTmType ty1) (CodeLowCTmType ty2) = unify' ty1 ty2
-unify' (CodeCoreIntro term1) (CodeCoreIntro term2) = unify' term1 term1
-unify' (CodeLowCTmIntro term1) (CodeLowCTmIntro term2) = unify' term1 term1
-unify' (CodeLowCStmtType ty1) (CodeLowCStmtType ty2) = unify' ty1 ty2
-unify' (CodeLowCStmtIntro stmt1) (CodeLowCStmtIntro stmt2) = unifyStmts stmt1 stmt2
-unify' (CPtrType ty1) (CPtrType ty2) = unify' ty1 ty2
-unify' CIntType CIntType = pure ()
-unify' CVoidType CVoidType = pure ()
-unify' (CValType RVal ty1) (CValType LVal ty2) = unify' ty1 ty2
-unify' (CValType vc1 ty1) (CValType vc2 ty2) = do
-  unifyVCs vc1 vc2
-  unify' ty1 ty2
-unify' (CFunType inTys1 outTy1) (CFunType inTys2 outTy2) = do
-  traverse (uncurry unify') (zip inTys1 inTys2)
-  unify' outTy1 outTy2
-unify' (CIntIntro x1) (CIntIntro x2) | x1 == x2 = pure ()
-unify' (COp op1) (COp op2) = unifyOps op1 op2
-unify' (CFunCall fn1 args1) (CFunCall fn2 args2) = do
-  unify' fn1 fn2
-  traverse_ (uncurry unify') (zip args1 args2)
 unify' (TypeType s1) (TypeType s2) = unifyUniverses s1 s2
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
-unify' ElabError _ = pure ()
-unify' _ ElabError = pure ()
 unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = equateUVs gl1 gl2
 unify' (Neutral _ (UniVar gl)) sol = putTypeSol gl sol
 unify' sol (Neutral _ (UniVar gl)) = putTypeSol gl sol
