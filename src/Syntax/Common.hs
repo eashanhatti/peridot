@@ -48,3 +48,26 @@ data COp a
   | Grtr a a
   | Eql a a
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+data RigidTerm a
+  -- Object level
+  = ObjConstIntro Id
+  -- Low C level
+  | CIntIntro Int
+  | COp (COp a)
+  | CFunCall a (Seq a)
+  -- Meta level
+  | MetaConstIntro Id
+  | CodeCoreType a
+  | CodeCoreIntro a
+  | CodeLowCTmType a
+  | CodeLowCTmIntro a
+  | CodeLowCStmtType a -- Carries return type
+  | CodeLowCStmtIntro (CStatement a)
+  | CPtrType a
+  | CIntType
+  | CVoidType
+  | CValType () a
+  | CFunType (Seq a) a
+  | ElabError
+  deriving (Eq, Show, Functor, Foldable, Traversable)

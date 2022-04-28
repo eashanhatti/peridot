@@ -62,8 +62,8 @@ delay act = do
   pure (run . runReader ctx $ act)
 
 definition :: C.Declaration -> C.Term
-definition (C.MetaConst did sig) = funIntros sig (C.MetaConstIntro did)
-definition (C.ObjConst did sig) = funIntros sig (C.ObjConstIntro did)
+definition (C.MetaConst did sig) = funIntros sig (C.Rigid (C.MetaConstIntro did))
+definition (C.ObjConst did sig) = funIntros sig (C.Rigid (C.ObjConstIntro did))
 definition (C.ObjTerm _ _ def) = def
 definition (C.MetaTerm _ _ def) = def
 definition (C.Fresh _ _) = undefined
@@ -92,8 +92,6 @@ eval (C.MetaFunElim lam arg) = do
 --   N.Env locals globals <- unEnv <$> ask
 --   let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), definition def) acc) mempty decls
 --   local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (eval body)
-eval (C.MetaConstIntro did) = pure (N.MetaConstIntro did)
-eval (C.ObjConstIntro did) = pure (N.ObjConstIntro did)
 eval (C.TypeType (C.SUniVar gl)) = undefined -- FIXME?
 eval (C.TypeType C.Meta) = pure (N.TypeType N.Meta)
 eval (C.TypeType C.Obj) = pure (N.TypeType N.Obj)
@@ -117,41 +115,19 @@ eval (C.UniVar gl) = do
             Just gl' -> Just <$> eval (C.UniVar gl')
             Nothing -> pure Nothing
   pure (N.Neutral reded (N.UniVar gl))
-eval (C.CodeCoreType ty) = N.CodeCoreType <$> eval ty
-eval (C.CodeCoreIntro term) = N.CodeCoreIntro <$> eval term
 eval (C.CodeCoreElim term) = do
   term' <- eval term
   reded <- pure case term' of
-    N.CodeCoreIntro code -> Just code
+    N.Rigid (N.CodeCoreIntro code) -> Just code
     _ -> Nothing
   pure (N.Neutral reded (N.CodeCoreElim term'))
-eval (C.CodeLowCTmType ty) = N.CodeLowCTmType <$> eval ty
-eval (C.CodeLowCTmIntro term) = N.CodeLowCTmIntro <$> eval term
 eval (C.CodeLowCTmElim term) = do
   term' <- eval term
   reded <- pure case term' of
-    N.CodeLowCTmIntro code -> Just code
+    N.Rigid (N.CodeLowCTmIntro code) -> Just code
     _ -> Nothing
   pure (N.Neutral reded (N.CodeLowCTmElim term'))
-eval (C.CodeLowCStmtType ty) = N.CodeLowCStmtType <$> eval ty
-eval (C.CodeLowCStmtIntro stmt) = N.CodeLowCStmtIntro <$> traverse eval stmt
-eval C.CIntType = pure N.CIntType
-eval C.CVoidType = pure N.CVoidType
-eval (C.CPtrType ty) = N.CPtrType <$> eval ty
-eval (C.CValType vc ty) = do
-  vcuvs <- unVCUVs <$> ask
-  let
-    vVc = case vc of
-      C.VCUniVar gl | Just sol <- Map.lookup gl vcuvs -> sol
-      C.VCUniVar gl -> N.VCUniVar gl
-      C.RVal -> N.RVal
-      C.LVal -> N.LVal
-  N.CValType vVc <$> eval ty
-eval (C.CFunType inTys outTy) = N.CFunType <$> traverse eval inTys <*> eval outTy
-eval (C.CIntIntro x) = pure (N.CIntIntro x)
-eval (C.COp op) = N.COp <$> traverse eval op
-eval (C.CFunCall fn args) = N.CFunCall <$> eval fn <*> traverse eval args
-eval C.EElabError = pure N.ElabError
+eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
 
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
 entry ix = do
@@ -169,8 +145,6 @@ readback' opt (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= r
 readback' opt (N.ObjFunType inTy outTy) =
   C.ObjFunType <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
 readback' opt (N.ObjFunIntro body) = C.ObjFunIntro <$> (evalClosure body >>= readback' opt)
-readback' opt (N.ObjConstIntro did) = pure (C.ObjConstIntro did)
-readback' opt (N.MetaConstIntro did) = pure (C.MetaConstIntro did)
 readback' opt (N.TypeType (N.SUniVar gl)) = undefined -- FIXME?
 readback' opt (N.TypeType (N.Low l)) = pure (C.TypeType (C.Low l))
 readback' opt (N.TypeType N.Meta) = pure (C.TypeType C.Meta)
@@ -178,26 +152,9 @@ readback' opt (N.TypeType N.Obj) = pure (C.TypeType C.Obj)
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
-readback' opt N.ElabError = pure C.EElabError
 readback' True (N.Neutral (Just sol) (N.UniVar _)) = readback' True sol
 readback' opt (N.Neutral _ redex) = readbackRedex opt redex
-readback' opt (N.CodeLowCStmtType ty) = C.CodeLowCStmtType <$> readback' opt ty
-readback' opt (N.CodeLowCStmtIntro stmt) = C.CodeLowCStmtIntro <$> traverse (readback' opt) stmt
-readback' opt N.CIntType = pure C.CIntType
-readback' opt N.CVoidType = pure C.CVoidType
-readback' opt (N.CPtrType ty) = C.CPtrType <$> readback' opt ty
-readback' opt (N.CValType vc ty) =
-  let
-    cVc = case vc of
-      N.VCUniVar gl -> C.VCUniVar gl
-      N.RVal -> C.RVal
-      N.LVal -> C.LVal
-  in
-    C.CValType cVc <$> readback' opt ty
-readback' opt (N.CFunType inTys outTy) = C.CFunType <$> traverse (readback' opt) inTys <*> readback' opt outTy
-readback' opt (N.CIntIntro x) = pure (C.CIntIntro x)
-readback' opt (N.COp op) = C.COp <$> traverse (readback' opt) op
-readback' opt (N.CFunCall fn args) = C.CFunCall <$> readback' opt fn <*> traverse (readback' opt) args
+readback' opt (N.Rigid rterm) = C.Rigid <$> traverse (readback' opt) rterm
 
 readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term
 readbackRedex opt (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback' opt lam <*> readback' opt arg

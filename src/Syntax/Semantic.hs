@@ -1,5 +1,8 @@
 {-# LANGUAGE PatternSynonyms #-}
-module Syntax.Semantic where
+module Syntax.Semantic
+( module Syntax.Semantic
+, module Syntax.Common
+) where
 
 import Syntax.Common
 import Syntax.Core qualified as C
@@ -30,35 +33,18 @@ data Term
   -- Object level
   = ObjFunType Term Closure
   | ObjFunIntro Closure
-  | ObjConstIntro Id
-  -- Low C level
-  | CIntIntro Int
-  | COp (COp Term)
-  | CFunCall Term (Seq Term)
   -- Meta level
   | MetaFunType ApplyMethod Term Closure
   | MetaFunIntro Closure
-  | MetaConstIntro Id
-  | CodeCoreType Term
-  | CodeCoreIntro Term
-  | CodeLowCTmType Term
-  | CodeLowCTmIntro Term
-  | CodeLowCStmtType Term -- Carries return type
-  | CodeLowCStmtIntro (CStatement Term)
-  | CPtrType Term
-  | CIntType
-  | CVoidType
-  | CValType ValueCategory Term
-  | CFunType (Seq Term) Term
   -- Other
   | TypeType Universe
   | LocalVar Level
-  | ElabError
+  | Rigid (RigidTerm Term)
   | Neutral (Maybe Term) Redex -- If `Nothing`, the term is stuck
   deriving (Eq, Show)
 
-pattern CRValType ty = CValType RVal ty
-pattern CLValType ty = CValType LVal ty
+pattern CRValType ty = CValType () ty
+pattern CLValType ty = CValType () ty
 
 data Redex
   = MetaFunElim Term Term
@@ -69,7 +55,7 @@ data Redex
   | UniVar Global
   deriving (Eq, Show)
 
-data Universe = Meta | Obj | Low Language | SUniVar Global
+data Universe = Meta | Obj | Low Language | Prop | SUniVar Global
   deriving (Eq, Show)
 
 data ValueCategory = LVal | RVal | VCUniVar Global

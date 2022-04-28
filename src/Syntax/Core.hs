@@ -36,40 +36,23 @@ data Term
   = ObjFunType Term Term
   | ObjFunIntro Term
   | ObjFunElim Term Term
-  | ObjConstIntro Id
-  -- Low C level
-  | CIntIntro Int
-  | COp (COp Term)
-  | CFunCall Term (Seq Term)
   -- Meta level
   | MetaFunType ApplyMethod Term Term
   | MetaFunIntro Term
   | MetaFunElim Term Term
-  | MetaConstIntro Id
-  | CodeCoreType Term
-  | CodeCoreIntro Term
   | CodeCoreElim Term
-  | CodeLowCTmType Term
-  | CodeLowCTmIntro Term
   | CodeLowCTmElim Term
-  | CodeLowCStmtType Term -- Carries return type
-  | CodeLowCStmtIntro (CStatement Term)
-  | CIntType
-  | CVoidType
-  | CPtrType Term
-  | CValType ValueCategory Term
-  | CFunType (Seq Term) Term
   -- Other
   | TypeType Universe
   | LocalVar Index
   | GlobalVar Id
   | Let (Seq Declaration) Term
   | UniVar Global
-  | EElabError
+  | Rigid (RigidTerm Term)
   deriving (Eq, Show)
 
-pattern CRValType ty = CValType RVal ty
-pattern CLValType ty = CValType LVal ty
+pattern CRValType ty = CValType () ty
+pattern CLValType ty = CValType () ty
 
 data Universe = Meta | Obj | Low Language | SUniVar Global
   deriving (Eq, Show)
