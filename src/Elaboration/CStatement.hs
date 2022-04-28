@@ -29,7 +29,7 @@ infer' (CStmtAst (Block stmts)) = do
         Just (name, ty) -> bindLocal name ty act
         Nothing -> act
 infer' (CStmtAst (If cond trueBody falseBody)) = do
-  cCond <- EE.check cond N.CIntType
+  cCond <- EE.check cond (N.Rigid N.CIntType)
   (cTrueBody, retTy1, _) <- infer' trueBody
   (cFalseBody, retTy2, _) <- infer' falseBody
   unifyRetTys retTy1 retTy2
@@ -40,8 +40,8 @@ infer' (CStmtAst (VarDecl (NameAst name) ty)) = do
   pure (C.VarDecl cTy, Nothing, Just (name, vTy))
 infer' (CStmtAst (Assign var val)) = do
   ty <- freshTypeUV
-  cVar <- EE.check var (N.CValType N.LVal ty)
-  cVal <- EE.check val (N.CValType N.RVal ty)
+  cVar <- EE.check var ty
+  cVal <- EE.check val ty
   pure (C.Assign cVar cVal, Nothing, Nothing)
 infer' (CStmtAst (Return Nothing)) = pure (C.Return Nothing, Nothing, Nothing)
 infer' (CStmtAst (Return (Just term))) = do
@@ -49,16 +49,16 @@ infer' (CStmtAst (Return (Just term))) = do
   pure (C.Return (Just cTerm), Just ty, Nothing)
 infer' (CStmtAst (SpliceLowCStmt quote)) = do
   ty <- freshTypeUV
-  cQuote <- EE.check quote (N.CodeLowCStmtType ty)
+  cQuote <- EE.check quote (N.Rigid (N.CodeLowCStmtType ty))
   ty <- readback ty >>= eval
   case ty of
-    N.CValType N.RVal N.CVoidType -> pure (C.CodeLowCStmtElim cQuote, Nothing, Nothing)
+    N.Rigid N.CVoidType -> pure (C.CodeLowCStmtElim cQuote, Nothing, Nothing)
     _ -> pure (C.CodeLowCStmtElim cQuote, Just ty, Nothing)
 
 infer :: Elab sig m => CStatementAst -> m (CStatement C.Term, N.Term)
 infer stmt = do
   (cStmt, retTy, _) <- infer' stmt
-  pure (cStmt, fromMaybe (N.CValType N.RVal N.CVoidType) retTy)
+  pure (cStmt, fromMaybe (N.Rigid N.CVoidType) retTy)
 
 unifyRetTys :: Elab sig m => Maybe N.Term -> Maybe N.Term -> m ()
 unifyRetTys (Just ty1) (Just ty2) = unify ty1 ty2

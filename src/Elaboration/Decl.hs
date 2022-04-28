@@ -45,10 +45,10 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
       pure (C.ObjConst did cSig)
     PDDecl (DeclAst (CFun _ (fmap (unName . fst) -> names) _ stmt) did) ->
       case cSig of
-        C.CValType C.LVal (C.CFunType inTys outTy) -> do
+        C.Rigid (C.CFunType inTys outTy) -> do
           vInTys <- traverse eval inTys
-          (cStmt, retTy) <- bindLocalMany (zip names (fmap N.CLValType vInTys)) (ES.infer stmt)
-          vOutTy <- N.CRValType <$> eval outTy
+          (cStmt, retTy) <- bindLocalMany (zip names vInTys) (ES.infer stmt)
+          vOutTy <- eval outTy
           unify vOutTy retTy
           pure (C.CFun did inTys outTy cStmt)
 
@@ -69,5 +69,5 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
     PDDecl (DeclAst (CFun _ (fmap snd -> inTys) outTy _) _) -> do
       cInTys <- traverse (flip EE.check (N.TypeType (N.Low C))) inTys
       cOutTy <- EE.check outTy (N.TypeType (N.Low C))
-      pure (C.CValType C.LVal (C.CFunType cInTys cOutTy), N.TypeType (N.Low C))
+      pure (C.Rigid (C.CFunType cInTys cOutTy), N.TypeType (N.Low C))
     PDConstr constr@(ConstrAst (Constr _ sig) _ _) -> EE.checkObjType sig -- TODO: Form check

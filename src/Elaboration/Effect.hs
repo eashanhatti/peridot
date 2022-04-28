@@ -248,7 +248,7 @@ report err = do
 errorTerm :: Elab sig m => Error -> m (C.Term, N.Term)
 errorTerm err = do
   report err
-  pure (C.EElabError, N.ElabError)
+  pure (C.Rigid C.ElabError, N.Rigid N.ElabError)
 
 eval :: forall sig m. Elab sig m => C.Term -> m N.Term
 eval term = do

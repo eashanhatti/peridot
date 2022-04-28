@@ -3,7 +3,7 @@ module Elaboration.Term where
 import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Syntax.Common hiding(unId)
+import Syntax.Common hiding(unId, RigidTerm(..))
 import Extra
 import Elaboration.Effect
 import Elaboration.Decl qualified as ED
@@ -99,37 +99,37 @@ infer term = case term of
     pure (cTerm, N.TypeType N.Meta)
   TermAst (LiftCore ty) -> do
     cTy <- checkObjType' ty
-    pure (C.CodeCoreType cTy, N.TypeType N.Meta)
+    pure (C.Rigid (C.CodeCoreType cTy), N.TypeType N.Meta)
   TermAst (QuoteCore term) -> do
     ty <- freshTypeUV
     cTerm <- check term ty
-    pure (C.CodeCoreIntro cTerm, N.CodeCoreType ty)
+    pure (C.Rigid (C.CodeCoreIntro cTerm), N.Rigid (N.CodeCoreType ty))
   TermAst (SpliceCore quote) -> do
     ty <- freshTypeUV
-    cQuote <- check quote (N.CodeCoreType ty)
+    cQuote <- check quote (N.Rigid (N.CodeCoreType ty))
     pure (C.CodeCoreElim cQuote, ty)
   TermAst (LiftLowCTm ty) -> do
     cTy <- checkLowCType' ty
-    pure (C.CodeLowCTmType cTy, N.TypeType N.Meta)
+    pure (C.Rigid (C.CodeLowCTmType cTy), N.TypeType N.Meta)
   TermAst (QuoteLowCTm term) -> do
     ty <- freshTypeUV
     cTerm <- check term ty
-    pure (C.CodeLowCTmIntro cTerm, N.CodeLowCTmType ty)
+    pure (C.Rigid (C.CodeLowCTmIntro cTerm), N.Rigid (N.CodeLowCTmType ty))
   TermAst (SpliceLowCTm quote) -> do
     ty <- freshTypeUV
-    cQuote <- check quote (N.CodeLowCTmType ty)
+    cQuote <- check quote (N.Rigid (N.CodeLowCTmType ty))
     pure (C.CodeLowCTmElim cQuote, ty)
   TermAst (LiftLowCStmt ty) -> do
     cTy <- checkLowCType' ty
-    pure (C.CodeLowCStmtType cTy, N.TypeType N.Meta)
+    pure (C.Rigid (C.CodeLowCStmtType cTy), N.TypeType N.Meta)
   TermAst (QuoteLowCStmt stmt) -> do
     (cStmt, retTy) <- ES.infer stmt
-    pure (C.CodeLowCStmtIntro cStmt, N.CodeLowCStmtType retTy)
+    pure (C.Rigid (C.CodeLowCStmtIntro cStmt), N.Rigid (N.CodeLowCStmtType retTy))
   TermAst (CPtrType ty) -> do
     cTy <- checkLowCType' ty
-    pure (C.CPtrType cTy, N.TypeType (N.Low C))
-  TermAst CIntType -> pure (C.CIntType, N.TypeType (N.Low C))
-  TermAst CVoidType -> pure (C.CVoidType, N.TypeType (N.Low C))
+    pure (C.Rigid (C.CPtrType cTy), N.TypeType (N.Low C))
+  TermAst CIntType -> pure (C.Rigid C.CIntType, N.TypeType (N.Low C))
+  TermAst CVoidType -> pure (C.Rigid C.CVoidType, N.TypeType (N.Low C))
   -- TermAst (CLValType ty) -> do
   --   cTy <- checkLowCType' ty
   --   pure (C.CLValType cTy, N.TypeType (N.Low C))
@@ -138,52 +138,52 @@ infer term = case term of
   --   pure (C.CRValType cTy, N.TypeType (N.Low C))
   TermAst (CRef term) -> do
     ty <- freshTypeUV
-    cTerm <- check term (N.CLValType ty)
-    pure (C.COp (Ref cTerm), N.CRValType (N.CPtrType ty))
+    cTerm <- check term ty
+    pure (C.Rigid (C.COp (Ref cTerm)), N.Rigid (N.CPtrType ty))
   TermAst (CDeref term) -> do
     ty <- freshTypeUV
     vc <- freshVCUV
-    cTerm <- check term (N.CRValType (N.CPtrType ty))
-    pure (C.COp (Deref cTerm), N.CValType vc ty)
+    cTerm <- check term (N.Rigid (N.CPtrType ty))
+    pure (C.Rigid (C.COp (Deref cTerm)), ty)
   TermAst (CAdd term1 term2) -> do
-    cTerm1 <- check term1 (N.CRValType N.CIntType)
-    cTerm2 <- check term2 (N.CRValType N.CIntType)
-    pure (C.COp (Add cTerm1 cTerm2), N.CRValType N.CIntType)
+    cTerm1 <- check term1 (N.Rigid N.CIntType)
+    cTerm2 <- check term2 (N.Rigid N.CIntType)
+    pure (C.Rigid (C.COp (Add cTerm1 cTerm2)), N.Rigid N.CIntType)
   TermAst (CSub term1 term2) -> do
-    cTerm1 <- check term1 (N.CRValType N.CIntType)
-    cTerm2 <- check term2 (N.CRValType N.CIntType)
-    pure (C.COp (Sub cTerm1 cTerm2), N.CRValType N.CIntType)
+    cTerm1 <- check term1 (N.Rigid N.CIntType)
+    cTerm2 <- check term2 (N.Rigid N.CIntType)
+    pure (C.Rigid (C.COp (Sub cTerm1 cTerm2)), N.Rigid N.CIntType)
   TermAst (CLess term1 term2) -> do
-    cTerm1 <- check term1 (N.CRValType N.CIntType)
-    cTerm2 <- check term2 (N.CRValType N.CIntType)
-    pure (C.COp (Less cTerm1 cTerm2), N.CRValType N.CIntType)
+    cTerm1 <- check term1 (N.Rigid N.CIntType)
+    cTerm2 <- check term2 (N.Rigid N.CIntType)
+    pure (C.Rigid (C.COp (Less cTerm1 cTerm2)), N.Rigid N.CIntType)
   TermAst (CGrtr term1 term2) -> do
-    cTerm1 <- check term1 (N.CRValType N.CIntType)
-    cTerm2 <- check term2 (N.CRValType N.CIntType)
-    pure (C.COp (Grtr cTerm1 cTerm2), N.CRValType N.CIntType)
+    cTerm1 <- check term1 (N.Rigid N.CIntType)
+    cTerm2 <- check term2 (N.Rigid N.CIntType)
+    pure (C.Rigid (C.COp (Grtr cTerm1 cTerm2)), N.Rigid N.CIntType)
   TermAst (CEql term1 term2) -> do
-    cTerm1 <- check term1 (N.CRValType N.CIntType)
-    cTerm2 <- check term2 (N.CRValType N.CIntType)
-    pure (C.COp (Eql cTerm1 cTerm2), N.CRValType N.CIntType)
+    cTerm1 <- check term1 (N.Rigid N.CIntType)
+    cTerm2 <- check term2 (N.Rigid N.CIntType)
+    pure (C.Rigid (C.COp (Eql cTerm1 cTerm2)), N.Rigid N.CIntType)
   TermAst (CFunCall fn args) -> do
     (cFn, fnTy) <- infer fn
     case go fnTy of
       Just (inTys, outTy) | length inTys == length args -> do
         cArgs <- traverse (\(arg, inTy) -> check arg inTy) (zip args inTys)
-        pure (C.CFunCall cFn cArgs, outTy)
+        pure (C.Rigid (C.CFunCall cFn cArgs), outTy)
       Just (inTys, _) ->
         errorTerm (WrongAppArity (fromIntegral (length inTys)) (fromIntegral (length args)))
       Nothing -> errorTerm (ExpectedCFunType fnTy)
     where
       go :: N.Term -> Maybe (Seq N.Term, N.Term)
-      go (N.CFunType inTys outTy) = Just (inTys, outTy)
+      go (N.Rigid (N.CFunType inTys outTy)) = Just (inTys, outTy)
       go (N.Neutral Nothing _) = Nothing
       go (N.Neutral (Just term) _) = go term
       go _ = Nothing
   TermAst (CFunType inTys outTy) -> do
-    cTerm <- C.CFunType <$> traverse (flip check (N.TypeType (N.Low C))) inTys <*> check outTy (N.TypeType (N.Low C))
+    cTerm <- C.Rigid <$> (C.CFunType <$> traverse (flip check (N.TypeType (N.Low C))) inTys <*> check outTy (N.TypeType (N.Low C)))
     pure (cTerm, N.TypeType (N.Low C))
-  TermAst (CInt x) -> pure (C.CIntIntro x, N.CRValType N.CIntType)
+  TermAst (CInt x) -> pure (C.Rigid (C.CIntIntro x), N.Rigid N.CIntType)
 
 -- checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 -- checkType term = do
