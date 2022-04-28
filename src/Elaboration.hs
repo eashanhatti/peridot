@@ -20,9 +20,9 @@ elaborate = snd . elaborate'
 elaborate' :: S.TermAst -> (QueryState, C.Term)
 elaborate' term =
   run $
-  runState (QueryState mempty mempty 0 mempty mempty mempty mempty mempty) $
+  runState (QueryState mempty mempty 0 mempty mempty {-mempty-} mempty mempty) $
   evalState ElabState $
-  runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) $
+  runReader (NormContext (N.Env mempty mempty) mempty {-mempty-} mempty mempty) $
   runReader (ElabContext mempty (initialPos "<TODO>")) $
   EE.check term (N.TypeType N.Obj)
 

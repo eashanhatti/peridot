@@ -51,11 +51,5 @@ data Term
   | Rigid (RigidTerm Term)
   deriving (Eq, Show)
 
-pattern CRValType ty = CValType () ty
-pattern CLValType ty = CValType () ty
-
 data Universe = Meta | Obj | Low Language | SUniVar Global
-  deriving (Eq, Show)
-
-data ValueCategory = LVal | RVal | VCUniVar Global
   deriving (Eq, Show)

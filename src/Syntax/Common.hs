@@ -67,7 +67,6 @@ data RigidTerm a
   | CPtrType a
   | CIntType
   | CVoidType
-  | CValType () a
   | CFunType (Seq a) a
   | ElabError
   deriving (Eq, Show, Functor, Foldable, Traversable)

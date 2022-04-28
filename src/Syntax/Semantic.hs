@@ -43,9 +43,6 @@ data Term
   | Neutral (Maybe Term) Redex -- If `Nothing`, the term is stuck
   deriving (Eq, Show)
 
-pattern CRValType ty = CValType () ty
-pattern CLValType ty = CValType () ty
-
 data Redex
   = MetaFunElim Term Term
   | ObjFunElim Term Term
@@ -56,9 +53,6 @@ data Redex
   deriving (Eq, Show)
 
 data Universe = Meta | Obj | Low Language | Prop | SUniVar Global
-  deriving (Eq, Show)
-
-data ValueCategory = LVal | RVal | VCUniVar Global
   deriving (Eq, Show)
 
 viewFunType :: Term -> Maybe (Term, Closure)

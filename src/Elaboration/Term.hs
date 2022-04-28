@@ -142,7 +142,7 @@ infer term = case term of
     pure (C.Rigid (C.COp (Ref cTerm)), N.Rigid (N.CPtrType ty))
   TermAst (CDeref term) -> do
     ty <- freshTypeUV
-    vc <- freshVCUV
+    -- vc <- freshVCUV
     cTerm <- check term (N.Rigid (N.CPtrType ty))
     pure (C.Rigid (C.COp (Deref cTerm)), ty)
   TermAst (CAdd term1 term2) -> do

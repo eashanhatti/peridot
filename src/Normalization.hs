@@ -25,7 +25,7 @@ data NormContext = NormContext
   { unEnv :: N.Environment
   , unVisited :: Set.Set Global
   , unTypeUVs :: Map.Map Global N.Term
-  , unVCUVs :: Map.Map Global N.ValueCategory
+  -- , unVCUVs :: Map.Map Global N.ValueCategory
   , unUVEqs :: Map.Map Global Global } -- FIXME? `Map Global (Set Global)`
   deriving (Show)
 

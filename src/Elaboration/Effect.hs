@@ -46,12 +46,12 @@ data QueryState = QueryState
   , unNextUV :: Global
   , unTypeUVs :: Map Global (Maybe N.Term)
   , unUnivUVs :: Map Global (Maybe N.Universe)
-  , unVCUVs :: Map Global (Maybe N.ValueCategory)
+  -- , unVCUVs :: Map Global (Maybe N.ValueCategory)
   , unUVEqs :: Map Global Global
   , unErrors :: Seq (SourcePos, Error) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs suvs vcuvs eqs errs) = show (tuvs, suvs, vcuvs, eqs, errs)
+  show (QueryState _ _ _ tuvs suvs {-vcuvs-} eqs errs) = show (tuvs, suvs, {-vcuvs,-} eqs, errs)
 
 data Error
   = TooManyParams
@@ -142,12 +142,12 @@ unify :: Elab sig m => N.Term -> N.Term -> m ()
 unify term1 term2 = do
   subst <- Uni.unify term1 term2
   case subst of
-    Just (Uni.Subst ts ss vcs eqs) -> do
+    Just (Uni.Subst ts ss {-vcs-} eqs) -> do
       state <- get
       put (state
         { unTypeUVs = fmap Just ts <> unTypeUVs state
         , unUnivUVs = fmap Just ss <> unUnivUVs state
-        , unVCUVs = fmap Just vcs <> unVCUVs state
+        -- , unVCUVs = fmap Just vcs <> unVCUVs state
         , unUVEqs = eqs <> unUVEqs state })
     Nothing -> report (FailedUnify term1 term2)
 
@@ -223,13 +223,13 @@ freshTypeUV = do
     , unNextUV = unNextUV state + 1 })
   pure (N.Neutral Nothing (N.UniVar (unNextUV state)))
 
-freshVCUV :: Elab sig m => m N.ValueCategory
-freshVCUV = do
-  state <- get
-  put (state
-    { unVCUVs = insert (unNextUV state) Nothing (unVCUVs state)
-    , unNextUV = unNextUV state + 1 })
-  pure (N.VCUniVar (unNextUV state))
+-- freshVCUV :: Elab sig m => m N.ValueCategory
+-- freshVCUV = do
+--   state <- get
+--   put (state
+--     { unVCUVs = insert (unNextUV state) Nothing (unVCUVs state)
+--     , unNextUV = unNextUV state + 1 })
+--   pure (N.VCUniVar (unNextUV state))
 
 -- freshUniverseUV :: Elab sig m => m Universe
 -- freshUniverseUV = do

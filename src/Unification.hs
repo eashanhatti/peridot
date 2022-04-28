@@ -20,14 +20,14 @@ import Prelude hiding(zip)
 data Substitution = Subst
   { unTypeSols :: Map Global Term
   , unUnivSols :: Map Global Universe
-  , unVCSols :: Map Global ValueCategory
+  -- , unVCSols :: Map Global ValueCategory
   , unUVEqs :: Map Global Global }
 
 instance Semigroup Substitution where
-  Subst ts1 ss1 vcs1 eqs1 <> Subst ts2 ss2 vcs2 eqs2 = Subst (ts1 <> ts2) (ss1 <> ss2) (vcs1 <> vcs2) (eqs1 <> eqs2)
+  Subst ts1 ss1 {-vcs1-} eqs1 <> Subst ts2 ss2 {-vcs2-} eqs2 = Subst (ts1 <> ts2) (ss1 <> ss2) {-(vcs1 <> vcs2)-} (eqs1 <> eqs2)
 
 instance Monoid Substitution where
-  mempty = Subst mempty mempty mempty mempty
+  mempty = Subst mempty mempty {-mempty-} mempty
 
 type Unify sig m =
   ( Norm sig m
@@ -48,12 +48,12 @@ putTypeSol gl sol = do
     Nothing -> put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
     Just sol' -> pure ()-- unify' sol sol'
 
-putVCSol :: Unify sig m => Global -> ValueCategory -> m ()
-putVCSol gl sol = do
-  sols <- get
-  case Map.lookup gl (unVCSols sols) of
-    Nothing -> put (sols { unVCSols = Map.insert gl sol (unVCSols sols) })
-    Just sol' -> pure ()
+-- putVCSol :: Unify sig m => Global -> ValueCategory -> m ()
+-- putVCSol gl sol = do
+--   sols <- get
+--   case Map.lookup gl (unVCSols sols) of
+--     Nothing -> put (sols { unVCSols = Map.insert gl sol (unVCSols sols) })
+--     Just sol' -> pure ()
 
 equateUVs :: Unify sig m => Global -> Global -> m ()
 equateUVs gl1 gl2 = modify (\st -> st { unUVEqs = Map.fromList [(gl1, gl2), (gl2, gl1)] <> unUVEqs st })
