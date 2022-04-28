@@ -148,6 +148,18 @@ unifyRigid (COp op1) (COp op2) = unifyOps op1 op2
 unifyRigid (CFunCall fn1 args1) (CFunCall fn2 args2) = do
   unify' fn1 fn2
   traverse_ (uncurry unify') (zip args1 args2)
+unifyRigid (PropConstIntro did1) (PropConstIntro did2) | did1 == did2 = pure ()
+unifyRigid (ImplType inTy1 outTy1) (ImplType inTy2 outTy2) = do
+  unify' inTy1 inTy2
+  unify' outTy1 outTy2
+unifyRigid (ConjType lprj1 rprj1) (ConjType lprj2 rprj2) = do
+  unify' lprj1 lprj2
+  unify' rprj1 rprj2
+unifyRigid (DisjType linj1 rinj1) (DisjType linj2 rinj2) = do
+  unify' linj1 linj2
+  unify' rinj1 rinj2
+unifyRigid (AllType f1) (AllType f2) = unify' f1 f2
+unifyRigid (SomeType f1) (SomeType f2) = unify' f1 f2
 unifyRigid ElabError _ = pure ()
 unifyRigid _ ElabError = pure ()
 unifyRigid _ _ = throwError ()
