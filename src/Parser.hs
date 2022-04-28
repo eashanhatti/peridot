@@ -6,12 +6,14 @@ import Text.Megaparsec.Error
 import Syntax.Surface
 import Syntax.Common hiding(CStatement(..), RigidTerm(..))
 import Data.Void
-import Data.Text
+import Data.Text hiding(singleton)
 import Control.Monad.Combinators
 import Control.Monad.State
 import Data.Sequence
 
-keywords = ["let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC", "rule", "Int"]
+keywords =
+  [ "let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC", "rule", "Int"
+  , "all", "conj", "disj", "impl", "some"]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -449,6 +451,65 @@ cFunType = do
   outTy <- term
   pure (TermAst (CFunType ps outTy))
 
+implProp :: Parser TermAst
+implProp = do
+  char '('; ws
+  string "impl"; ws
+  p <- term; ws
+  q <- term; ws
+  char ')'
+  pure (TermAst (ImplProp p q))
+
+conjProp :: Parser TermAst
+conjProp = do
+  char '('; ws
+  string "conj"; ws
+  p <- term; ws
+  q <- term; ws
+  char ')'
+  pure (TermAst (ConjProp p q))
+
+disjProp :: Parser TermAst
+disjProp = do
+  char '('; ws
+  string "disj"; ws
+  p <- term; ws
+  q <- term; ws
+  char ')'
+  pure (TermAst (DisjProp p q))
+
+allProp :: Parser TermAst
+allProp = try s1 <|> s2 where
+  s1 :: Parser TermAst
+  s1 = do
+    string "all"; ws
+    n <- name; ws
+    char ','; ws
+    body <- term
+    pure (TermAst (ForallProp (TermAst (MetaLam (singleton n) body))))
+
+  s2 :: Parser TermAst
+  s2 = do
+    string "all"; ws
+    body <- term
+    pure (TermAst (ForallProp body))
+
+someProp :: Parser TermAst
+someProp = try s1 <|> s2 where
+  s1 :: Parser TermAst
+  s1 = do
+    string "some"; ws
+    n <- name; ws
+    char ','; ws
+    body <- term
+    pure (TermAst (ExistsProp (TermAst (MetaLam (singleton n) body))))
+
+  s2 :: Parser TermAst
+  s2 = do
+    string "some"; ws
+    body <- term
+    pure (TermAst (ExistsProp body))
+
 cInt :: Parser TermAst
 cInt = (TermAst . CInt . read) <$> some digitChar
 
@@ -487,6 +548,11 @@ term = do
     try cCall <|>
     try cFunType <|>
     try cInt <|>
+    try implProp <|>
+    try conjProp <|>
+    try disjProp <|>
+    try allProp <|>
+    try someProp <|>
     var
   pure (SourcePos e pos)
 
