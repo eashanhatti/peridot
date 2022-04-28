@@ -64,6 +64,7 @@ delay act = do
 definition :: C.Declaration -> C.Term
 definition (C.MetaConst did sig) = funIntros sig (C.Rigid (C.MetaConstIntro did))
 definition (C.ObjConst did sig) = funIntros sig (C.Rigid (C.ObjConstIntro did))
+definition (C.PropConst did sig) = funIntros sig (C.Rigid (C.PropConstIntro did))
 definition (C.ObjTerm _ _ def) = def
 definition (C.MetaTerm _ _ def) = def
 definition (C.Fresh _ _) = undefined
@@ -95,6 +96,7 @@ eval (C.MetaFunElim lam arg) = do
 eval (C.TypeType (C.SUniVar gl)) = undefined -- FIXME?
 eval (C.TypeType C.Meta) = pure (N.TypeType N.Meta)
 eval (C.TypeType C.Obj) = pure (N.TypeType N.Obj)
+eval (C.TypeType C.Prop) = pure (N.TypeType N.Prop)
 eval (C.TypeType (C.Low l)) = pure (N.TypeType (N.Low l))
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) = do

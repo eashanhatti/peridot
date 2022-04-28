@@ -37,6 +37,7 @@ unDeclName (DeclAst (Axiom (NameAst name) _) _) = name
 unDeclName (DeclAst (Prove _) did) = MachineName (fromIntegral did)
 unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
 unDeclName (DeclAst (CFun (NameAst name) _ _ _) _) = name
+unDeclName (DeclAst (Relation (NameAst name) _ _) _) = name
 unDeclName (SourcePos ast _) = unDeclName ast
 
 unConstrName :: ConstructorAst -> Name
@@ -112,6 +113,7 @@ data Term
   | DisjProp TermAst TermAst
   | ForallProp TermAst
   | ExistsProp TermAst
+  | EqualProp TermAst TermAst
   deriving (Show)
 
 type CStatementAst = Ast CStatement

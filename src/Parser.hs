@@ -13,7 +13,7 @@ import Data.Sequence
 
 keywords =
   [ "let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC", "rule", "Int"
-  , "all", "conj", "disj", "impl", "some"]
+  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop"]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -139,6 +139,11 @@ metaUniv = do
   string "MType"
   pure (TermAst MUniv)
 
+propUniv :: Parser TermAst
+propUniv = do
+  string "Prop"
+  pure (TermAst PUniv)
+
 objUniv :: Parser TermAst
 objUniv = do
   string "OType"
@@ -159,6 +164,20 @@ letB = do
   char '}'
   pure (TermAst (Let (fromList decls) body))
 
+rel :: Parser DeclarationAst
+rel = do
+  did <- freshId
+  string "atomicformula"; ws
+  n <- name; ws
+  char ':'; ws
+  ty <- term; ws
+  char '{'; ws
+  cDid <- freshId
+  c <- fmap ($ cDid) con; ws
+  char ';'; ws
+  char '}'
+  pure (DeclAst (Relation n ty c) did)
+
 decl :: Parser DeclarationAst
 decl = do
   pos <- getSourcePos
@@ -169,6 +188,7 @@ decl = do
     try axiom <|>
     try prove <|>
     try fresh <|>
+    try rel <|>
     cFun
   pure (SourcePos d pos)
 
@@ -510,6 +530,15 @@ someProp = try s1 <|> s2 where
     body <- term
     pure (TermAst (ExistsProp body))
 
+eqProp :: Parser TermAst
+eqProp = do
+  char '('; ws
+  string "equal"; ws
+  x <- term; ws
+  y <- term; ws
+  char ')'
+  pure (TermAst (EqualProp x y))
+
 cInt :: Parser TermAst
 cInt = (TermAst . CInt . read) <$> some digitChar
 
@@ -522,6 +551,7 @@ term = do
     try app <|>
     try metaUniv <|>
     try objUniv <|>
+    try propUniv <|>
     try letB <|>
     try metaPiTy <|>
     try objPiTy <|>
@@ -553,6 +583,7 @@ term = do
     try disjProp <|>
     try allProp <|>
     try someProp <|>
+    try eqProp <|>
     var
   pure (SourcePos e pos)
 

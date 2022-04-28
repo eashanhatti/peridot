@@ -204,6 +204,11 @@ infer term = case term of
     outTy <- closureOf (C.TypeType C.Prop)
     cBody <- check body (N.MetaFunType inTy outTy)
     pure (C.Rigid (C.SomeType cBody), N.TypeType N.Prop)
+  TermAst (EqualProp x y) -> do
+    ty <- freshTypeUV
+    cX <- check x ty
+    cY <- check y ty
+    pure (C.Rigid (C.IdType cX cY), N.TypeType N.Prop)
 
 -- checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 -- checkType term = do
@@ -234,4 +239,5 @@ declsIds = concatMap go where
   go :: DeclarationAst -> Seq Id
   go (SourcePos decl _) = go decl
   go (DeclAst (Datatype _ _ constrs) did) = did <| fmap unCId constrs
+  go (DeclAst (Relation _ _ constr) did) = did <| unCId constr <| Empty
   go decl = singleton (unId decl)

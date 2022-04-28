@@ -23,7 +23,7 @@ data Declaration
 unId :: Declaration -> Id
 unId (ObjConst did _) = did
 unId (MetaConst did _) = did
-unId (ObjTerm did _ _) = did
+unId (PropConst did _) = did
 unId (MetaTerm did _ _) = did
 unId (Fresh did _) = did
 unId (Prove did _) = did

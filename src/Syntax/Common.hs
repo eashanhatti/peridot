@@ -72,5 +72,7 @@ data RigidTerm a
   | DisjType a a
   | AllType a
   | SomeType a
+  | IdType a a
+  -- Other
   | ElabError
   deriving (Eq, Show, Functor, Foldable, Traversable)

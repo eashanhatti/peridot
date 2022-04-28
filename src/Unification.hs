@@ -39,7 +39,7 @@ putUniverseSol gl sol = do
   sols <- get
   case Map.lookup gl (unUnivSols sols) of
     Nothing -> put (sols { unUnivSols = Map.insert gl sol (unUnivSols sols) })
-    Just sol' -> pure ()-- unifyUniverses sol sol'
+    Just sol' -> pure ()-- unifyUnivs sol sol'
 
 putTypeSol :: Unify sig m => Global -> Term -> m ()
 putTypeSol gl sol = do
@@ -64,15 +64,16 @@ bind2 f act1 act2 = do
   y <- act2
   f x y
 
-unifyUniverses :: Unify sig m => Universe -> Universe -> m ()
-unifyUniverses (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
-unifyUniverses s1@(SUniVar gl1) s2@(SUniVar gl2) = equateUVs gl1 gl2
-unifyUniverses (SUniVar gl) s = putUniverseSol gl s
-unifyUniverses s (SUniVar gl) = putUniverseSol gl s
-unifyUniverses Meta Meta = pure ()
-unifyUniverses Obj Obj = pure ()
-unifyUniverses (Low l1) (Low l2) | l1 == l2 = pure ()
-unifyUniverses _ _ = throwError ()
+unifyUnivs :: Unify sig m => Universe -> Universe -> m ()
+unifyUnivs (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
+unifyUnivs s1@(SUniVar gl1) s2@(SUniVar gl2) = equateUVs gl1 gl2
+unifyUnivs (SUniVar gl) s = putUniverseSol gl s
+unifyUnivs s (SUniVar gl) = putUniverseSol gl s
+unifyUnivs Meta Meta = pure ()
+unifyUnivs Obj Obj = pure ()
+unifyUnivs Prop Prop = pure ()
+unifyUnivs (Low l1) (Low l2) | l1 == l2 = pure ()
+unifyUnivs _ _ = throwError ()
 
 unifyRedexes :: Unify sig m => Redex ->  Redex -> m ()
 unifyRedexes (MetaFunElim lam1 arg1) (MetaFunElim lam2 arg2) = do
@@ -158,6 +159,9 @@ unifyRigid (ConjType lprj1 rprj1) (ConjType lprj2 rprj2) = do
 unifyRigid (DisjType linj1 rinj1) (DisjType linj2 rinj2) = do
   unify' linj1 linj2
   unify' rinj1 rinj2
+unifyRigid (IdType x1 y1) (IdType x2 y2) = do
+  unify' x1 x2
+  unify' y1 y2
 unifyRigid (AllType f1) (AllType f2) = unify' f1 f2
 unifyRigid (SomeType f1) (SomeType f2) = unify' f1 f2
 unifyRigid ElabError _ = pure ()
@@ -173,7 +177,7 @@ unify' (ObjFunType inTy1 outTy1) (ObjFunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (ObjFunIntro body1) (ObjFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
-unify' (TypeType s1) (TypeType s2) = unifyUniverses s1 s2
+unify' (TypeType s1) (TypeType s2) = unifyUnivs s1 s2
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
 unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = equateUVs gl1 gl2
 unify' (Neutral _ (UniVar gl)) sol = putTypeSol gl sol
