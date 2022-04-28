@@ -1,8 +1,0 @@
-let {
-	datatype Unit : OType {
-		unit : Unit;
-	};
-	val quote : (LiftC '[_ : Unit] -> Unit) = (quoteC '\x { x });
-} in {
-	OType
-}
