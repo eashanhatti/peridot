@@ -7,9 +7,6 @@ import GHC.Generics
 import Data.Map qualified as Map
 import Data.Sequence
 
-data ApplyMethod = Explicit | Implicit
-  deriving (Eq, Show)
-
 data Language = C
   deriving (Eq, Show)
 

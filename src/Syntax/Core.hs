@@ -37,7 +37,7 @@ data Term
   | ObjFunIntro Term
   | ObjFunElim Term Term
   -- Meta level
-  | MetaFunType ApplyMethod Term Term
+  | MetaFunType Term Term
   | MetaFunIntro Term
   | MetaFunElim Term Term
   | CodeCoreElim Term

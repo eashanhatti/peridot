@@ -165,7 +165,7 @@ unifyRigid _ ElabError = pure ()
 unifyRigid _ _ = throwError ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
-unify' (MetaFunType am1 inTy1 outTy1) (MetaFunType am2 inTy2 outTy2) | am1 == am2 = do
+unify' (MetaFunType inTy1 outTy1) (MetaFunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
 unify' (MetaFunIntro body1) (MetaFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)

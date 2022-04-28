@@ -29,8 +29,8 @@ infer term = case term of
     cInTys <- traverse readback inTys
     outTy <- freshTypeUV
     cOutTy <- readback outTy
-    let ty = foldr (\inTy outTy -> C.MetaFunType Explicit inTy outTy) cOutTy (tail cInTys)
-    vTy <- N.MetaFunType Explicit (head inTys) <$> closureOf ty
+    let ty = foldr (\inTy outTy -> C.MetaFunType inTy outTy) cOutTy (tail cInTys)
+    vTy <- N.MetaFunType (head inTys) <$> closureOf ty
     cBody <- checkBody (zip names inTys) outTy
     let lam = foldr (\_ body -> C.MetaFunIntro body) cBody cInTys
     pure (lam, vTy)
@@ -56,7 +56,7 @@ infer term = case term of
     cInTy <- check inTy (N.TypeType N.Meta)
     vInTy <- eval cInTy
     cOutTy <- bindLocal name vInTy (check outTy (N.TypeType N.Meta))
-    pure (C.MetaFunType Explicit cInTy cOutTy, N.TypeType N.Meta)
+    pure (C.MetaFunType cInTy cOutTy, N.TypeType N.Meta)
   TermAst (ObjPi (NameAst name) inTy outTy) -> do
     cInTy <- check inTy (N.TypeType N.Obj)
     vInTy <- eval cInTy
@@ -66,7 +66,7 @@ infer term = case term of
     (cLam, lamTy) <- infer lam
     let
       elim = case lamTy of
-        N.MetaFunType _ _ _ -> C.MetaFunElim
+        N.MetaFunType _ _ -> C.MetaFunElim
         N.ObjFunType _ _ -> C.ObjFunElim
     (cArgs, outTy) <- checkArgs args lamTy
     pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
@@ -95,9 +95,6 @@ infer term = case term of
       cDecls <- traverse ED.check (declsIds decls)
       (cBody, bodyTy) <- infer body
       pure (C.Let cDecls cBody, bodyTy)
-  TermAst (Rule outTy inTy) -> do
-    cTerm <- C.MetaFunType Implicit <$> checkMetaType' inTy <*> checkMetaType' outTy
-    pure (cTerm, N.TypeType N.Meta)
   TermAst (LiftCore ty) -> do
     cTy <- checkObjType' ty
     pure (C.Rigid (C.CodeCoreType cTy), N.TypeType N.Meta)
@@ -200,12 +197,12 @@ infer term = case term of
   TermAst (ForallProp body) -> do
     inTy <- freshTypeUV
     outTy <- closureOf (C.TypeType C.Prop)
-    cBody <- check body (N.MetaFunType undefined inTy outTy)
+    cBody <- check body (N.MetaFunType inTy outTy)
     pure (C.Rigid (C.AllType cBody), N.TypeType N.Prop)
   TermAst (ExistsProp body) -> do
     inTy <- freshTypeUV
     outTy <- closureOf (C.TypeType C.Prop)
-    cBody <- check body (N.MetaFunType undefined inTy outTy)
+    cBody <- check body (N.MetaFunType inTy outTy)
     pure (C.Rigid (C.SomeType cBody), N.TypeType N.Prop)
 
 -- checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)

@@ -52,7 +52,7 @@ evalClosure clo = do
   appClosure clo (N.LocalVar (fromIntegral (N.envSize env)))
 
 funIntros :: C.Term -> (C.Term -> C.Term)
-funIntros (C.MetaFunType _ _ outTy) = C.MetaFunIntro . funIntros outTy
+funIntros (C.MetaFunType _ outTy) = C.MetaFunIntro . funIntros outTy
 funIntros (C.ObjFunType _ outTy) = C.ObjFunIntro . funIntros outTy
 funIntros _ = id
 
@@ -70,7 +70,7 @@ definition (C.Fresh _ _) = undefined
 definition (C.DElabError) = error "FIXME"
 
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
-eval (C.MetaFunType am inTy outTy) = N.MetaFunType am <$> eval inTy <*> closureOf outTy
+eval (C.MetaFunType inTy outTy) = N.MetaFunType <$> eval inTy <*> closureOf outTy
 eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
 eval (C.ObjFunType inTy outTy) = N.ObjFunType <$> eval inTy <*> closureOf outTy
 eval (C.ObjFunIntro body) = N.ObjFunIntro <$> closureOf body
@@ -140,7 +140,7 @@ entry ix = do
 type ShouldZonk = Bool
 
 readback' :: HasCallStack => Norm sig m => ShouldZonk -> N.Term -> m C.Term
-readback' opt (N.MetaFunType am inTy outTy) = C.MetaFunType am <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
+readback' opt (N.MetaFunType inTy outTy) = C.MetaFunType <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
 readback' opt (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback' opt)
 readback' opt (N.ObjFunType inTy outTy) =
   C.ObjFunType <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)

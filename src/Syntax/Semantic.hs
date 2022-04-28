@@ -34,7 +34,7 @@ data Term
   = ObjFunType Term Closure
   | ObjFunIntro Closure
   -- Meta level
-  | MetaFunType ApplyMethod Term Closure
+  | MetaFunType Term Closure
   | MetaFunIntro Closure
   -- Other
   | TypeType Universe
@@ -56,7 +56,7 @@ data Universe = Meta | Obj | Low Language | Prop | SUniVar Global
   deriving (Eq, Show)
 
 viewFunType :: Term -> Maybe (Term, Closure)
-viewFunType (MetaFunType _ inTy outTy) = Just (inTy, outTy)
+viewFunType (MetaFunType inTy outTy) = Just (inTy, outTy)
 viewFunType (ObjFunType inTy outTy) = Just (inTy, outTy)
 viewFunType _ = Nothing
 

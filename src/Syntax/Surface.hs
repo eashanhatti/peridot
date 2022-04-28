@@ -84,7 +84,6 @@ data Term
   | LCUniv
   | PUniv
   | Let (Seq DeclarationAst) TermAst
-  | Rule TermAst TermAst -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo
   | LiftCore TermAst
   | QuoteCore TermAst
   | SpliceCore TermAst

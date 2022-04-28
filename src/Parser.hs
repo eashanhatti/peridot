@@ -157,14 +157,6 @@ letB = do
   char '}'
   pure (TermAst (Let (fromList decls) body))
 
-ruleTy :: Parser TermAst
-ruleTy = do
-  string "rule"; ws
-  outTy <- term; ws
-  string ":-"; ws
-  inTy <- term
-  pure (TermAst (Rule outTy inTy))
-
 decl :: Parser DeclarationAst
 decl = do
   pos <- getSourcePos
@@ -495,8 +487,7 @@ term = do
     try cCall <|>
     try cFunType <|>
     try cInt <|>
-    try var <|>
-    ruleTy
+    var
   pure (SourcePos e pos)
 
 freshId :: Parser Id
