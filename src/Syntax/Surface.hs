@@ -19,9 +19,14 @@ deriving instance Show (Ast a)
 unName :: NameAst -> Name
 unName (NameAst name) = name
 
-viewConstrs :: DeclarationAst -> Maybe (Seq ConstructorAst)
+-- For declarations
+data Universe = Obj | Meta | Prop
+  deriving (Show)
+
+viewConstrs :: DeclarationAst -> Maybe (Universe, Seq ConstructorAst)
 viewConstrs (SourcePos ast _) = viewConstrs ast
-viewConstrs (DeclAst (Datatype _ _ cs) _) = Just cs
+viewConstrs (DeclAst (Datatype _ _ cs) _) = Just (Obj, cs)
+viewConstrs (DeclAst (Relation _ _ c) _) = Just (Prop, singleton c)
 viewConstrs _ = Nothing
 
 unDeclName :: DeclarationAst -> Name
@@ -56,7 +61,7 @@ data Declaration
   | MetaTerm NameAst SignatureAst TermAst
   | ObjTerm NameAst SignatureAst TermAst
   | Axiom NameAst SignatureAst
-  | Relation NameAst SignatureAst NameAst SignatureAst
+  | Relation NameAst SignatureAst ConstructorAst
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
   | CFun NameAst (Seq (NameAst, TermAst)) TermAst CStatementAst
@@ -77,6 +82,7 @@ data Term
   | OUniv
   | MUniv
   | LCUniv
+  | PUniv
   | Let (Seq DeclarationAst) TermAst
   | Rule TermAst TermAst -- Foo :- Bar, or Foo <- Bar, or Bar -> Foo
   | LiftCore TermAst

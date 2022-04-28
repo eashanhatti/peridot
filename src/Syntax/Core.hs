@@ -51,5 +51,5 @@ data Term
   | Rigid (RigidTerm Term)
   deriving (Eq, Show)
 
-data Universe = Meta | Obj | Low Language | SUniVar Global
+data Universe = Meta | Obj | Low Language | Prop | SUniVar Global
   deriving (Eq, Show)

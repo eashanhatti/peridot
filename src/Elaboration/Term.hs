@@ -89,6 +89,7 @@ infer term = case term of
   TermAst OUniv -> pure (C.TypeType C.Obj, N.TypeType N.Obj)
   TermAst MUniv -> pure (C.TypeType C.Meta, N.TypeType N.Meta)
   TermAst LCUniv -> pure (C.TypeType (C.Low C), N.TypeType N.Meta)
+  TermAst PUniv -> pure (C.TypeType C.Prop, N.TypeType N.Meta)
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
@@ -184,6 +185,28 @@ infer term = case term of
     cTerm <- C.Rigid <$> (C.CFunType <$> traverse (flip check (N.TypeType (N.Low C))) inTys <*> check outTy (N.TypeType (N.Low C)))
     pure (cTerm, N.TypeType (N.Low C))
   TermAst (CInt x) -> pure (C.Rigid (C.CIntIntro x), N.Rigid N.CIntType)
+  TermAst (ImplProp p q) -> do
+    cP <- check p (N.TypeType N.Prop)
+    cQ <- check q (N.TypeType N.Prop)
+    pure (C.Rigid (C.ImplType cP cQ), N.TypeType N.Prop)
+  TermAst (ConjProp p q) -> do
+    cP <- check p (N.TypeType N.Prop)
+    cQ <- check q (N.TypeType N.Prop)
+    pure (C.Rigid (C.ConjType cP cQ), N.TypeType N.Prop)
+  TermAst (DisjProp p q) -> do
+    cP <- check p (N.TypeType N.Prop)
+    cQ <- check q (N.TypeType N.Prop)
+    pure (C.Rigid (C.DisjType cP cQ), N.TypeType N.Prop)
+  TermAst (ForallProp body) -> do
+    inTy <- freshTypeUV
+    outTy <- closureOf (C.TypeType C.Prop)
+    cBody <- check body (N.MetaFunType undefined inTy outTy)
+    pure (C.Rigid (C.AllType cBody), N.TypeType N.Prop)
+  TermAst (ExistsProp body) -> do
+    inTy <- freshTypeUV
+    outTy <- closureOf (C.TypeType C.Prop)
+    cBody <- check body (N.MetaFunType undefined inTy outTy)
+    pure (C.Rigid (C.SomeType cBody), N.TypeType N.Prop)
 
 -- checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 -- checkType term = do
