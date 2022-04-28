@@ -10,6 +10,7 @@ type Signature = Term
 
 data Declaration
   = MetaConst Id Signature
+  | PropConst Id Signature
   | ObjConst Id Signature
   | Fresh Id Signature
   | Prove Id Signature
@@ -59,7 +60,7 @@ data Term
   | CValType ValueCategory Term
   | CFunType (Seq Term) Term
   -- Other
-  | TypeType Stage
+  | TypeType Universe
   | LocalVar Index
   | GlobalVar Id
   | Let (Seq Declaration) Term
@@ -70,7 +71,7 @@ data Term
 pattern CRValType ty = CValType RVal ty
 pattern CLValType ty = CValType LVal ty
 
-data Stage = Meta | Obj | Low Language | SUniVar Global
+data Universe = Meta | Obj | Low Language | SUniVar Global
   deriving (Eq, Show)
 
 data ValueCategory = LVal | RVal | VCUniVar Global

@@ -11,7 +11,7 @@ import Control.Monad.Combinators
 import Control.Monad.State
 import Data.Sequence
 
-keywords = ["let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC"]
+keywords = ["let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC", "rule", "Int"]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -192,8 +192,8 @@ ifS :: Parser CStatement
 ifS = do
   string "cif"; ws
   cond <- term; ws
-  tB <- stmt
-  string "else"
+  tB <- stmt; ws
+  string "else"; ws
   fB <- stmt
   pure (If cond tB fB)
 

@@ -1,0 +1,18 @@
+let {
+  datatype Nat : OType {
+    zero : Nat;
+    succ : '[_ : Nat] -> Nat;
+  };
+
+  assume CompileNat : [_ : (LiftL Int)] -> [_ : (LiftC Nat)] -> MType;
+  assume compile_zero : <CompileNat (quoteL 0) (quoteC zero)>;
+  assume compile_succ :
+    [x : (LiftL Int)] -> [n : (LiftC Nat)] ->
+    rule <CompileNat (quoteL (+ (spliceL x) 2)) (quoteC <succ (spliceC n)>)> :-
+      <CompileNat x n>;
+
+  fresh x : (LiftL Int);
+  prove <CompileNat <succ <succ zero>> x>;
+} in {
+  OType
+}

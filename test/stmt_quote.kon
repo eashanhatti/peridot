@@ -1,9 +1,9 @@
 let {
-	val code
-		: [_ : (LiftL Int)] -> (LiftLStmt Int)
-		= \c { (quoteLStmt return (+ 2 (spliceL c))) };
-	cfun add(x : Int, y : Int) : Int
-		(spliceLStmt <code (quoteL 2)>);
+  val code
+    : [_ : (LiftL Int)] -> (LiftLStmt Int)
+    = \c { (quoteLStmt return (+ 2 (spliceL c))) };
+  cfun add(x : Int, y : Int) : Int
+    (spliceLStmt <code (quoteL 2)>);
 } in {
-	OType
+  OType
 }

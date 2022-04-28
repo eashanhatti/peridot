@@ -45,7 +45,7 @@ data QueryState = QueryState
   , unPredecls :: Map Id (AllState, Predeclaration)
   , unNextUV :: Global
   , unTypeUVs :: Map Global (Maybe N.Term)
-  , unStageUVs :: Map Global (Maybe N.Stage)
+  , unUnivUVs :: Map Global (Maybe N.Universe)
   , unVCUVs :: Map Global (Maybe N.ValueCategory)
   , unUVEqs :: Map Global Global
   , unErrors :: Seq (SourcePos, Error) }
@@ -146,7 +146,7 @@ unify term1 term2 = do
       state <- get
       put (state
         { unTypeUVs = fmap Just ts <> unTypeUVs state
-        , unStageUVs = fmap Just ss <> unStageUVs state
+        , unUnivUVs = fmap Just ss <> unUnivUVs state
         , unVCUVs = fmap Just vcs <> unVCUVs state
         , unUVEqs = eqs <> unUVEqs state })
     Nothing -> report (FailedUnify term1 term2)
@@ -231,11 +231,11 @@ freshVCUV = do
     , unNextUV = unNextUV state + 1 })
   pure (N.VCUniVar (unNextUV state))
 
--- freshStageUV :: Elab sig m => m Stage
--- freshStageUV = do
+-- freshUniverseUV :: Elab sig m => m Universe
+-- freshUniverseUV = do
 --   state <- get
 --   put (state
---     { unStageUVs = insert (unNextUV state) Nothing (unStageUVs state)
+--     { unUnivUVs = insert (unNextUV state) Nothing (unUnivUVs state)
 --     , unNextUV = unNextUV state + 1 })
 --   pure (SUniVar (unNextUV state))
 

@@ -1,0 +1,9 @@
+let {
+	cfun choose(b : Int, x : Int, y : Int) : Int
+		cif b
+			return x
+		else
+			return y;
+} in {
+	OType
+}

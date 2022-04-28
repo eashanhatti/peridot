@@ -51,7 +51,7 @@ data Term
   | CValType ValueCategory Term
   | CFunType (Seq Term) Term
   -- Other
-  | TypeType Stage
+  | TypeType Universe
   | LocalVar Level
   | ElabError
   | Neutral (Maybe Term) Redex -- If `Nothing`, the term is stuck
@@ -69,7 +69,7 @@ data Redex
   | UniVar Global
   deriving (Eq, Show)
 
-data Stage = Meta | Obj | Low Language | SUniVar Global
+data Universe = Meta | Obj | Low Language | SUniVar Global
   deriving (Eq, Show)
 
 data ValueCategory = LVal | RVal | VCUniVar Global

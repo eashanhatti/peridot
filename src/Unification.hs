@@ -19,7 +19,7 @@ import Prelude hiding(zip)
 
 data Substitution = Subst
   { unTypeSols :: Map Global Term
-  , unStageSols :: Map Global Stage
+  , unUnivSols :: Map Global Universe
   , unVCSols :: Map Global ValueCategory
   , unUVEqs :: Map Global Global }
 
@@ -34,12 +34,12 @@ type Unify sig m =
   , Has (Error ()) sig m
   , Has (State Substitution) sig m )
 
-putStageSol :: Unify sig m => Global -> Stage -> m ()
-putStageSol gl sol = do
+putUniverseSol :: Unify sig m => Global -> Universe -> m ()
+putUniverseSol gl sol = do
   sols <- get
-  case Map.lookup gl (unStageSols sols) of
-    Nothing -> put (sols { unStageSols = Map.insert gl sol (unStageSols sols) })
-    Just sol' -> pure ()-- unifyStages sol sol'
+  case Map.lookup gl (unUnivSols sols) of
+    Nothing -> put (sols { unUnivSols = Map.insert gl sol (unUnivSols sols) })
+    Just sol' -> pure ()-- unifyUniverses sol sol'
 
 putTypeSol :: Unify sig m => Global -> Term -> m ()
 putTypeSol gl sol = do
@@ -64,15 +64,15 @@ bind2 f act1 act2 = do
   y <- act2
   f x y
 
-unifyStages :: Unify sig m => Stage -> Stage -> m ()
-unifyStages (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
-unifyStages s1@(SUniVar gl1) s2@(SUniVar gl2) = equateUVs gl1 gl2
-unifyStages (SUniVar gl) s = putStageSol gl s
-unifyStages s (SUniVar gl) = putStageSol gl s
-unifyStages Meta Meta = pure ()
-unifyStages Obj Obj = pure ()
-unifyStages (Low l1) (Low l2) | l1 == l2 = pure ()
-unifyStages _ _ = throwError ()
+unifyUniverses :: Unify sig m => Universe -> Universe -> m ()
+unifyUniverses (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
+unifyUniverses s1@(SUniVar gl1) s2@(SUniVar gl2) = equateUVs gl1 gl2
+unifyUniverses (SUniVar gl) s = putUniverseSol gl s
+unifyUniverses s (SUniVar gl) = putUniverseSol gl s
+unifyUniverses Meta Meta = pure ()
+unifyUniverses Obj Obj = pure ()
+unifyUniverses (Low l1) (Low l2) | l1 == l2 = pure ()
+unifyUniverses _ _ = throwError ()
 
 unifyRedexes :: Unify sig m => Redex ->  Redex -> m ()
 unifyRedexes (MetaFunElim lam1 arg1) (MetaFunElim lam2 arg2) = do
@@ -160,7 +160,7 @@ unify' (COp op1) (COp op2) = unifyOps op1 op2
 unify' (CFunCall fn1 args1) (CFunCall fn2 args2) = do
   unify' fn1 fn2
   traverse_ (uncurry unify') (zip args1 args2)
-unify' (TypeType s1) (TypeType s2) = unifyStages s1 s2
+unify' (TypeType s1) (TypeType s2) = unifyUniverses s1 s2
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
 unify' ElabError _ = pure ()
 unify' _ ElabError = pure ()
