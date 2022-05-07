@@ -3,7 +3,10 @@ module Search where
 import Syntax.Semantic
 import Control.Effect.NonDet(NonDet, Alternative, empty, (<|>), oneOf)
 import Control.Effect.State(State, get, put, modify)
-import Control.Algebra(Has)
+import Control.Carrier.NonDet.Church
+import Control.Carrier.State.Strict
+import Control.Carrier.Reader
+import Control.Algebra(Has, run)
 import Normalization
 import Unification
 import Data.Map qualified as Map
@@ -13,8 +16,7 @@ import Data.Sequence hiding(empty)
 import Extra
 
 data SearchState = SearchState
-  { unSols :: Map.Map Global Term
-  , unNextUV :: Natural }
+  { unNextUV :: Natural }
 
 type Search sig m =
   ( Alternative m
@@ -22,12 +24,11 @@ type Search sig m =
   , Norm sig m
   , Has (State SearchState) sig m )
 
-prove :: forall sig m. Search sig m => Seq Term -> Term -> m ()
+prove :: forall sig m. Search sig m => Seq Term -> Term -> m (Map.Map Global Term)
 prove ctx (Neutral (Just p) _) =
   prove ctx p
-prove ctx (Rigid (ConjType p q)) = do
-  prove ctx p
-  prove ctx q
+prove ctx (Rigid (ConjType p q)) =
+  (<>) <$> prove ctx p <*> prove ctx q
 prove ctx (Rigid (DisjType p q)) =
   prove ctx p <|> prove ctx q
 prove ctx (Rigid (SomeType (MetaFunIntro p))) = do
@@ -41,15 +42,14 @@ prove ctx (Rigid (AllType (MetaFunIntro p))) = do
   prove ctx vP
 prove ctx goal = do
   substs <- filterTraverse go ctx
-  Subst sols _ _ <- oneOf substs
-  modify (\st -> st { unSols = sols <> unSols st })
+  oneOf substs
   where
-    go :: Search sig m => Term -> m (Maybe Substitution)
+    go :: Search sig m => Term -> m (Maybe (Map.Map Global Term))
     go (Neutral (Just p) _) = go p
     go (Rigid (ImplType p q)) = do
-      prove ctx p
-      go q
-    go p = unify goal p 
+      subst <- go q
+      traverse (\s -> (<>) <$> prove ctx p <*> pure s) subst
+    go p = fmap (fmap \(Subst ts _ _) -> ts) (unify goal p)
 
 freshUV :: Search sig m => m Term
 freshUV = do
@@ -60,3 +60,11 @@ freshUV = do
 isAtomic :: Term -> Bool
 isAtomic (MetaFunElims (Rigid (PropConstIntro _)) _) = True
 isAtomic _ = False
+
+prove' :: Seq Term -> Term -> Natural -> Seq (Map.Map Global Term)
+prove' ctx goal nuv =
+  run .
+  runNonDetA .
+  evaSltate (SearchState nuv) .
+  runReader (NormContext (Env mempty mempty) mempty mempty mempty) $
+  prove ctx goal
