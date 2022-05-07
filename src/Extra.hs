@@ -25,3 +25,11 @@ head (x :<| _) = x
 
 tail :: Seq a -> Seq a
 tail (_ :<| xs) = xs
+
+filterTraverse :: Monad m => (a -> m (Maybe b)) -> Seq a -> m (Seq b)
+filterTraverse f Empty = pure Empty
+filterTraverse f (x :<| xs) = do
+  x' <- f x
+  case x' of
+    Just y -> (y <|) <$> filterTraverse f xs
+    Nothing -> filterTraverse f xs

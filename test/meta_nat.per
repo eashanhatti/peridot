@@ -4,7 +4,7 @@ let {
 	assume succ : [_ : Nat] -> Nat;
 
 	atomicformula IsNat : [_ : Nat] -> Prop {
-		is_nat : all n, (impl (disj (equal n zero) some m, (equal n <succ m>)) <IsNat n>);
+		is_nat : all \n{ (impl (disj (equal n zero) some m, (equal n <succ m>)) <IsNat n>) };
 	};
 
 	atomicformula P : [_ : Nat] -> Prop {

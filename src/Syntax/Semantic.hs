@@ -61,3 +61,12 @@ viewFunType (ObjFunType inTy outTy) = Just (inTy, outTy)
 viewFunType _ = Nothing
 
 pattern FunType inTy outTy <- (viewFunType -> Just (inTy, outTy))
+
+viewMetaFunElims :: Term -> (Term, Seq Term)
+viewMetaFunElims (Neutral (Just term) _) = viewMetaFunElims term
+viewMetaFunElims (Neutral Nothing (MetaFunElim lam arg)) =
+  let (lam', args) = viewMetaFunElims lam
+  in (lam', args |> arg)
+viewMetaFunElims term = (term, mempty)
+
+pattern MetaFunElims lam args <- (viewMetaFunElims -> (lam, args))

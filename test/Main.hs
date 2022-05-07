@@ -21,7 +21,7 @@ main = goldenTests >>= defaultMain
 
 goldenTests :: IO TestTree
 goldenTests = do
-  konFiles <- findByExtension [".kon"] "."
+  konFiles <- findByExtension [".per"] "."
   pure (testGroup "Text to Core tests"
     [ goldenVsString
         (takeBaseName konFile)
