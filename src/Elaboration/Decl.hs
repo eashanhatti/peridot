@@ -6,6 +6,8 @@ import Syntax.Semantic qualified as N
 import Syntax.Common
 import Elaboration.Effect
 import Control.Effect.Reader
+import Control.Effect.State
+import Control.Carrier.NonDet.Church hiding(Empty)
 import Data.Map qualified as Map
 import {-# SOURCE #-} Elaboration.Term qualified as EE
 import Elaboration.CStatement qualified as ES
@@ -16,7 +18,10 @@ import Data.Foldable(toList, foldl')
 import Data.Traversable
 import GHC.Stack
 import Data.Sequence
+import Search
 import Prelude hiding(traverse, map, zip)
+import Debug.Trace
+import Extra
 
 constDecl :: Universe -> (Id -> C.Signature -> C.Declaration)
 constDecl Obj = C.ObjConst
@@ -37,10 +42,24 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
       pure (C.ObjConst did cSig)
     PDDecl (DeclAst (Axiom name _) did) ->
       pure (C.MetaConst did cSig)
-    PDDecl (DeclAst (Prove _) did) ->
-      pure (C.Prove did cSig)
+    PDDecl (DeclAst (Prove _) did) -> do
+      vSig <- eval cSig
+      bs <- unBindings <$> ask
+      let
+        gDids =
+          flip filterMap (fromList . toList $ bs) \case
+            BGlobal gDid -> Just gDid
+            _ -> Nothing
+      gTys <- traverse (\gDid -> declType gDid >>= \(ty, _) -> eval ty) gDids
+      substs <- proveDet gTys vSig
+      case substs of
+        subst :<| Empty -> do
+          putTypeUVSols subst
+          pure (C.PropConst did cSig)
+        Empty -> errorDecl (FailedProve vSig)
+        _ -> errorDecl (AmbiguousProve vSig substs)
     PDDecl (DeclAst (Fresh name _) did) ->
-      pure (C.Fresh did cSig)
+      pure (C.MetaTerm did cSig (C.UniVar (fromIntegral did)))
     PDConstr conUniv constr@(ConstrAst (Constr _ _) did dtDid) -> do
       unify univ (N.TypeType (convertUniv conUniv))
       pure (constDecl conUniv did cSig)
@@ -67,7 +86,7 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
     PDDecl (DeclAst (MetaTerm name sig def) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Datatype name sig _) _) -> EE.checkObjType sig -- TODO: Form check
     PDDecl (DeclAst (Axiom name sig) _) -> EE.checkMetaType sig
-    PDDecl (DeclAst (Prove sig) _) -> EE.checkMetaType sig
+    PDDecl (DeclAst (Prove sig) _) -> EE.checkPropType sig
     PDDecl (DeclAst (Fresh name sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (CFun _ (fmap snd -> inTys) outTy _) _) -> do
       cInTys <- traverse (flip EE.check (N.TypeType (N.Low C))) inTys

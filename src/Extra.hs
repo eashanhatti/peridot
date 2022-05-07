@@ -26,6 +26,11 @@ head (x :<| _) = x
 tail :: Seq a -> Seq a
 tail (_ :<| xs) = xs
 
+filterMap :: (a -> Maybe b) -> Seq a -> Seq b
+filterMap f Empty = Empty
+filterMap f ((f -> Just y) :<| xs) = y <| filterMap f xs
+filterMap f (_ :<| xs) = filterMap f xs
+
 filterTraverse :: Monad m => (a -> m (Maybe b)) -> Seq a -> m (Seq b)
 filterTraverse f Empty = pure Empty
 filterTraverse f (x :<| xs) = do

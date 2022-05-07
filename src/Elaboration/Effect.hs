@@ -59,6 +59,8 @@ data Error
   | FailedUnify N.Term N.Term
   | UnboundVariable Name
   | ExpectedCFunType N.Term
+  | FailedProve N.Term
+  | AmbiguousProve N.Term (Seq (Map Global N.Term))
   deriving (Show)
 
 type Query sig m = Has (State QueryState) sig m
@@ -159,6 +161,11 @@ unify term1 term2 = do
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
 convertible term1 term2 = isJust <$> Uni.unify term1 term2
 
+putTypeUVSols :: Elab sig m => Map Global N.Term -> m ()
+putTypeUVSols sols = do
+  state <- get
+  put (state { unTypeUVs = fmap Just sols <> unTypeUVs state })
+
 bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =
   local (\ctx -> ctx { unBindings = insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
@@ -254,6 +261,11 @@ errorTerm :: Elab sig m => Error -> m (C.Term, N.Term)
 errorTerm err = do
   report err
   pure (C.Rigid C.ElabError, N.Rigid N.ElabError)
+
+errorDecl :: Elab sig m => Error -> m C.Declaration
+errorDecl err = do
+  report err
+  pure C.DElabError
 
 eval :: forall sig m. Elab sig m => C.Term -> m N.Term
 eval term = do

@@ -67,8 +67,7 @@ definition (C.ObjConst did sig) = funIntros sig (C.Rigid (C.ObjConstIntro did))
 definition (C.PropConst did sig) = funIntros sig (C.Rigid (C.PropConstIntro did))
 definition (C.ObjTerm _ _ def) = def
 definition (C.MetaTerm _ _ def) = def
-definition (C.Fresh _ _) = undefined
-definition (C.DElabError) = error "FIXME"
+definition (C.DElabError) = C.Rigid C.ElabError
 
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
 eval (C.MetaFunType inTy outTy) = N.MetaFunType <$> eval inTy <*> closureOf outTy

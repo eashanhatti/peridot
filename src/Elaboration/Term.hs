@@ -218,6 +218,9 @@ infer term = case term of
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term = (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)
 
+checkPropType :: Elab sig m => TermAst -> m (C.Term, N.Term)
+checkPropType term = (,) <$> check term (N.TypeType N.Prop) <*> pure (N.TypeType N.Prop)
+
 checkMetaType' :: Elab sig m => TermAst -> m C.Term
 checkMetaType' ty = fst <$> checkMetaType ty
 

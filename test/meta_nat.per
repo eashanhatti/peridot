@@ -10,6 +10,8 @@ let {
 	atomicformula P : [_ : Nat] -> Prop {
 		p : all n, (impl <IsNat n> <P n>);
 	};
+
+	prove <IsNat zero>;
 } in {
 	OType
 }

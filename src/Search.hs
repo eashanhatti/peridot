@@ -61,10 +61,8 @@ isAtomic :: Term -> Bool
 isAtomic (MetaFunElims (Rigid (PropConstIntro _)) _) = True
 isAtomic _ = False
 
-prove' :: Seq Term -> Term -> Natural -> Seq (Map.Map Global Term)
-prove' ctx goal nuv =
-  run .
+proveDet :: Norm sig m => Seq Term -> Term -> m (Seq (Map.Map Global Term))
+proveDet ctx goal =
   runNonDetA .
-  evaSltate (SearchState nuv) .
-  runReader (NormContext (Env mempty mempty) mempty mempty mempty) $
+  evalState (SearchState 2000) $
   prove ctx goal

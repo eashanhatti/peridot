@@ -12,8 +12,6 @@ data Declaration
   = MetaConst Id Signature
   | PropConst Id Signature
   | ObjConst Id Signature
-  | Fresh Id Signature
-  | Prove Id Signature
   | ObjTerm Id Signature Term -- sig, def
   | MetaTerm Id Signature Term -- sig, def
   | CFun Id (Seq Term) Term (CStatement Term)
@@ -25,8 +23,6 @@ unId (ObjConst did _) = did
 unId (MetaConst did _) = did
 unId (PropConst did _) = did
 unId (MetaTerm did _ _) = did
-unId (Fresh did _) = did
-unId (Prove did _) = did
 unId DElabError = error "FIXME"
 
 type Type = Term
