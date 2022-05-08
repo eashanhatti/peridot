@@ -69,6 +69,21 @@ definition (C.ObjTerm _ _ def) = def
 definition (C.MetaTerm _ _ def) = def
 definition (C.DElabError) = C.Rigid C.ElabError
 
+uvRedex :: Norm sig m => Global -> m (Maybe N.Term)
+uvRedex gl = do
+  visited <- unVisited <$> ask
+  if Set.member gl visited then
+    pure Nothing
+  else do
+    uvs <- unTypeUVs <$> ask
+    case Map.lookup gl uvs of
+      Just sol -> pure (Just sol)
+      Nothing -> do
+        eqs <- unUVEqs <$> ask
+        case Map.lookup gl eqs of
+          Just gl' -> Just <$> eval (C.UniVar gl')
+          Nothing -> pure Nothing
+
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
 eval (C.MetaFunType inTy outTy) = N.MetaFunType <$> eval inTy <*> closureOf outTy
 eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
@@ -104,22 +119,7 @@ eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) = do
   N.Env _ ((! did) -> term) <- unEnv <$> ask
   pure (N.Neutral (pure (Just term)) (N.GlobalVar did))
-eval (C.UniVar gl) = do
-  let
-    reded = do
-      visited <- unVisited <$> ask
-      if Set.member gl visited then
-        pure Nothing
-      else do
-        uvs <- unTypeUVs <$> ask
-        case Map.lookup gl uvs of
-          Just sol -> pure (Just sol)
-          Nothing -> do
-            eqs <- unUVEqs <$> ask
-            case Map.lookup gl eqs of
-              Just gl' -> Just <$> eval (C.UniVar gl')
-              Nothing -> pure Nothing
-  pure (N.Neutral reded (N.UniVar gl))
+eval (C.UniVar gl) = pure (N.Neutral (uvRedex gl) (N.UniVar gl))
 eval (C.CodeCoreElim term) = do
   term' <- eval term
   let
