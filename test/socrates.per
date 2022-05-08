@@ -1,0 +1,15 @@
+let {
+	assume Socrates : MType;
+	
+	atomicformula Man : [_ : MType] -> Prop {
+		man : <Man Socrates>;
+	};
+
+	atomicformula Mortal : [_ : MType] -> Prop {
+		mortal : all x, (impl <Man x> <Mortal x>);
+	};
+
+	prove <Mortal Socrates>;
+} in {
+	OType
+}

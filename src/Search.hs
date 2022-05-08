@@ -39,7 +39,7 @@ prove ctx goal@(Neutral p _) = do
     Just p -> prove ctx p
     Nothing ->
       if isAtomic goal then do
-        substs <- filterTraverse (search ctx goal) ctx
+        substs <- filterTraverse (search ctx goal{- . (traceWith (("DEF"++) . shower))-}) ctx
         oneOf substs
       else
         empty
@@ -64,15 +64,18 @@ search :: Search sig m => Seq Term -> Term -> Term -> m (Maybe Substitution)
 search ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
+    {-normCtx <- ask-}
+    {-let !() = trace (shower (unTypeUVs normCtx)) ()-}
     substs <-
       traverse
         (\(dArg, gArg) -> unify gArg dArg)
-        (zip dArgs gArgs)
+        ({-traceWith (("ARGS"++) . shower) $ -}zip dArgs gArgs)
+    substs <- (<| substs) <$> unify gHead dHead
     pure
       (fmap concat .
       fmap (fmap \(Subst ts _ _) -> ts) .
       allJustOrNothing $
-      substs)
+      {-traceWith (("SUBSTS"++) . shower) -}substs)
 search ctx goal (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
   vP <- appClosure p uv
