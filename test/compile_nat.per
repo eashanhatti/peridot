@@ -1,0 +1,20 @@
+let {
+	assume Nat : MType;
+
+	assume zero : Nat;
+	assume succ : [_ : Nat] -> Nat;
+
+	atomicformula CompileNat : [_ : Nat] -> [_ : (LiftL Int)] -> Prop {
+		compile_zero : <CompileNat zero (quoteL 0)>;
+		compile_succ :
+			all n, all x,
+			(impl
+				<CompileNat n x>
+				<CompileNat <succ n> (quoteL (+ (spliceL x) 1))>);
+	};
+
+	fresh x : (LiftL Int);
+	prove <CompileNat <succ zero> x>;
+} in {
+	OType
+}

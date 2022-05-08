@@ -22,6 +22,7 @@ data Substitution = Subst
   , unUnivSols :: Map Global Universe
   -- , unVCSols :: Map Global ValueCategory
   , unUVEqs :: Map Global Global }
+  deriving (Show)
 
 instance Semigroup Substitution where
   Subst ts1 ss1 {-vcs1-} eqs1 <> Subst ts2 ss2 {-vcs2-} eqs2 = Subst (ts1 <> ts2) (ss1 <> ss2) {-(vcs1 <> vcs2)-} (eqs1 <> eqs2)
@@ -85,6 +86,7 @@ unifyRedexes (ObjFunElim lam1 arg1) (ObjFunElim lam2 arg2) = do
 unifyRedexes (CodeCoreElim quote1) (CodeCoreElim quote2) = unify' quote1 quote2
 unifyRedexes (CodeLowCTmElim quote1) (CodeLowCTmElim quote2) = unify' quote1 quote2
 unifyRedexes (GlobalVar did1) (GlobalVar did2) | did1 == did2 = pure ()
+unifyRedexes _ _ = throwError ()
 
 unifyStmts :: Unify sig m => CStatement Term -> CStatement Term -> m ()
 unifyStmts (VarDecl ty1) (VarDecl ty2) = unify' ty1 ty2
@@ -169,6 +171,27 @@ unifyRigid _ ElabError = pure ()
 unifyRigid _ _ = throwError ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
+unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = equateUVs gl1 gl2
+unify' (Neutral _ (UniVar gl)) sol = putTypeSol gl sol
+unify' sol (Neutral _ (UniVar gl)) = putTypeSol gl sol
+unify' (Neutral term1 redex1) (Neutral term2 redex2) = catchError (unifyRedexes redex1 redex2) (\() -> go) where
+  go :: Unify sig m => m ()
+  go = do
+    term1 <- force term1
+    term2 <- force term2
+    case (term1, term2) of
+      (Just term1, Just term2) -> unify' term1 term2
+      _ -> throwError ()
+unify' (Neutral term1 _) term2 = do
+  term1 <- force term1
+  case term1 of
+    Just term1 -> unify' term1 term2
+    Nothing -> throwError ()
+unify' term1 (Neutral term2 _) = do
+  term2 <- force term2
+  case term2 of
+    Just term2 -> unify' term1 term2
+    Nothing -> throwError ()
 unify' (MetaFunType inTy1 outTy1) (MetaFunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
@@ -179,16 +202,7 @@ unify' (ObjFunType inTy1 outTy1) (ObjFunType inTy2 outTy2) = do
 unify' (ObjFunIntro body1) (ObjFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (TypeType s1) (TypeType s2) = unifyUnivs s1 s2
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
-unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = equateUVs gl1 gl2
-unify' (Neutral _ (UniVar gl)) sol = putTypeSol gl sol
-unify' sol (Neutral _ (UniVar gl)) = putTypeSol gl sol
-unify' (Neutral term1 redex1) (Neutral term2 redex2) = catchError (unifyRedexes redex1 redex2) (\() -> go) where
-  go :: Unify sig m => m ()
-  go = case (term1, term2) of
-    (Just term1, Just term2) -> unify' term1 term2
-    _ -> throwError ()
-unify' (Neutral (Just term1) _) term2 = unify' term1 term2
-unify' term1 (Neutral (Just term2) _) = unify' term1 term2
+unify' (Rigid term1) (Rigid term2) = unifyRigid term1 term2
 unify' _ _ = throwError ()
 
 unify :: HasCallStack => Norm sig m => Term -> Term -> m (Maybe Substitution)

@@ -172,11 +172,12 @@ rel = do
   char ':'; ws
   ty <- term; ws
   char '{'; ws
-  cDid <- freshId
-  c <- fmap ($ cDid) con; ws
-  char ';'; ws
+  cs <- fromList <$> many do
+    c <- fmap ($ did) con; ws
+    char ';'; ws
+    pure c
   char '}'
-  pure (DeclAst (Relation n ty c) did)
+  pure (DeclAst (Relation n ty cs) did)
 
 decl :: Parser DeclarationAst
 decl = do

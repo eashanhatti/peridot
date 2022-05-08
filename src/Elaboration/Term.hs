@@ -165,7 +165,8 @@ infer term = case term of
     pure (C.Rigid (C.COp (Eql cTerm1 cTerm2)), N.Rigid N.CIntType)
   TermAst (CFunCall fn args) -> do
     (cFn, fnTy) <- infer fn
-    case go fnTy of
+    r <- go fnTy
+    case r of
       Just (inTys, outTy) | length inTys == length args -> do
         cArgs <- traverse (\(arg, inTy) -> check arg inTy) (zip args inTys)
         pure (C.Rigid (C.CFunCall cFn cArgs), outTy)
@@ -173,11 +174,14 @@ infer term = case term of
         errorTerm (WrongAppArity (fromIntegral (length inTys)) (fromIntegral (length args)))
       Nothing -> errorTerm (ExpectedCFunType fnTy)
     where
-      go :: N.Term -> Maybe (Seq N.Term, N.Term)
-      go (N.Rigid (N.CFunType inTys outTy)) = Just (inTys, outTy)
-      go (N.Neutral Nothing _) = Nothing
-      go (N.Neutral (Just term) _) = go term
-      go _ = Nothing
+      go :: Norm sig m => N.Term -> m (Maybe (Seq N.Term, N.Term))
+      go (N.Rigid (N.CFunType inTys outTy)) = pure (Just (inTys, outTy))
+      go (N.Neutral term _) = do
+        term <- force term
+        case term of
+          Just term -> go term
+          Nothing -> pure Nothing
+      go _ = pure Nothing
   TermAst (CFunType inTys outTy) -> do
     cTerm <- C.Rigid <$> (C.CFunType <$> traverse (flip check (N.TypeType (N.Low C))) inTys <*> check outTy (N.TypeType (N.Low C)))
     pure (cTerm, N.TypeType (N.Low C))
@@ -242,5 +246,5 @@ declsIds = concatMap go where
   go :: DeclarationAst -> Seq Id
   go (SourcePos decl _) = go decl
   go (DeclAst (Datatype _ _ constrs) did) = did <| fmap unCId constrs
-  go (DeclAst (Relation _ _ constr) did) = did <| unCId constr <| Empty
+  go (DeclAst (Relation _ _ constrs) did) = did <| fmap unCId constrs
   go decl = singleton (unId decl)

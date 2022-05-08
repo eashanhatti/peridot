@@ -4,7 +4,8 @@ import Data.Map qualified as Map
 import Shower
 import Data.Maybe
 import Data.Sequence
-import Prelude hiding(concatMap)
+import Debug.Trace
+import Prelude hiding(concatMap, concat)
 
 fromRight :: Either () a -> a
 fromRight (Right x) = x
@@ -16,8 +17,12 @@ fromRight (Right x) = x
 
 justs = Map.map fromJust . Map.filter isJust
 
-concatMap :: (a -> Seq b) -> Seq a -> Seq b
-concatMap f Empty = Empty
+concat :: Monoid a => Seq a -> a
+concat Empty = mempty
+concat (x :<| xs) = x <> concat xs
+
+concatMap :: Monoid b => (a -> b) -> Seq a -> b
+concatMap f Empty = mempty
 concatMap f (x :<| xs) = f x <> concatMap f xs
 
 head :: Seq a -> a
@@ -38,3 +43,10 @@ filterTraverse f (x :<| xs) = do
   case x' of
     Just y -> (y <|) <$> filterTraverse f xs
     Nothing -> filterTraverse f xs
+
+allJustOrNothing (Just x :<| xs) = (x <|) <$> allJustOrNothing xs
+allJustOrNothing (Nothing :<| _) = Nothing
+allJustOrNothing Empty = Just Empty
+
+traceWith :: (a -> String) -> a -> a
+traceWith f x = trace (f x) x

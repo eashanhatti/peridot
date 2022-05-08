@@ -56,8 +56,8 @@ funIntros (C.MetaFunType _ outTy) = C.MetaFunIntro . funIntros outTy
 funIntros (C.ObjFunType _ outTy) = C.ObjFunIntro . funIntros outTy
 funIntros _ = id
 
-delay :: Norm sig m => ReaderC NormContext Identity a -> m a
-delay act = do
+force :: Norm sig m => ReaderC NormContext Identity a -> m a
+force act = do
   ctx <- ask
   pure (run . runReader ctx $ act)
 
@@ -77,16 +77,19 @@ eval (C.ObjFunIntro body) = N.ObjFunIntro <$> closureOf body
 eval (C.ObjFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
-  reded <- delay case vLam of
-    N.ObjFunIntro body -> Just <$> appClosure body vArg
-    _ -> pure Nothing
+  let
+    reded = case vLam of
+      N.ObjFunIntro body -> Just <$> appClosure body vArg
+      _ -> pure Nothing
   pure (N.Neutral reded (N.ObjFunElim vLam vArg))
 eval (C.MetaFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
-  reded <- delay case vLam of
-    N.MetaFunIntro body -> Just <$> appClosure body vArg
-    _ -> pure Nothing
+  let
+    reded =
+      case vLam of
+        N.MetaFunIntro body -> Just <$> appClosure body vArg
+        _ -> pure Nothing
   pure (N.Neutral reded (N.MetaFunElim vLam vArg))
 -- eval (C.Let decls body) = do
 --   N.Env locals globals <- unEnv <$> ask
@@ -100,34 +103,39 @@ eval (C.TypeType (C.Low l)) = pure (N.TypeType (N.Low l))
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) = do
   N.Env _ ((! did) -> term) <- unEnv <$> ask
-  pure (N.Neutral (Just term) (N.GlobalVar did))
+  pure (N.Neutral (pure (Just term)) (N.GlobalVar did))
 eval (C.UniVar gl) = do
-  reded <- delay do
-    visited <- unVisited <$> ask
-    if Set.member gl visited then
-      pure Nothing
-    else do
-      uvs <- unTypeUVs <$> ask
-      case Map.lookup gl uvs of
-        Just sol -> pure (Just sol)
-        Nothing -> do
-          eqs <- unUVEqs <$> ask
-          case Map.lookup gl eqs of
-            Just gl' -> Just <$> eval (C.UniVar gl')
-            Nothing -> pure Nothing
+  let
+    reded = do
+      visited <- unVisited <$> ask
+      if Set.member gl visited then
+        pure Nothing
+      else do
+        uvs <- unTypeUVs <$> ask
+        case Map.lookup gl uvs of
+          Just sol -> pure (Just sol)
+          Nothing -> do
+            eqs <- unUVEqs <$> ask
+            case Map.lookup gl eqs of
+              Just gl' -> Just <$> eval (C.UniVar gl')
+              Nothing -> pure Nothing
   pure (N.Neutral reded (N.UniVar gl))
 eval (C.CodeCoreElim term) = do
   term' <- eval term
-  reded <- pure case term' of
-    N.Rigid (N.CodeCoreIntro code) -> Just code
-    _ -> Nothing
-  pure (N.Neutral reded (N.CodeCoreElim term'))
+  let
+    reded =
+      case term' of
+        N.Rigid (N.CodeCoreIntro code) -> Just code
+        _ -> Nothing
+  pure (N.Neutral (pure reded) (N.CodeCoreElim term'))
 eval (C.CodeLowCTmElim term) = do
   term' <- eval term
-  reded <- pure case term' of
-    N.Rigid (N.CodeLowCTmIntro code) -> Just code
-    _ -> Nothing
-  pure (N.Neutral reded (N.CodeLowCTmElim term'))
+  let
+    reded =
+      case term' of
+        N.Rigid (N.CodeLowCTmIntro code) -> Just code
+        _ -> Nothing
+  pure (N.Neutral (pure reded) (N.CodeLowCTmElim term'))
 eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
 
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
@@ -153,8 +161,11 @@ readback' opt (N.TypeType N.Obj) = pure (C.TypeType C.Obj)
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
   pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
-readback' True (N.Neutral (Just sol) (N.UniVar _)) = readback' True sol
-readback' opt (N.Neutral _ redex) = readbackRedex opt redex
+readback' opt (N.Neutral sol redex) = do
+  vSol <- force sol
+  case (opt, vSol, redex) of
+    (True, Just vSol, N.UniVar _) -> readback' True vSol
+    _ -> readbackRedex opt redex
 readback' opt (N.Rigid rterm) = C.Rigid <$> traverse (readback' opt) rterm
 
 readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term

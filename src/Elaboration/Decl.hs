@@ -50,7 +50,13 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
           flip filterMap (fromList . toList $ bs) \case
             BGlobal gDid -> Just gDid
             _ -> Nothing
-      gTys <- traverse (\gDid -> declType gDid >>= \(ty, _) -> eval ty) gDids
+      gTys <-
+        filterTraverse
+          (\gDid -> declType gDid >>= \(ty, u) ->
+            case u of
+              N.TypeType N.Prop -> Just <$> eval ty
+              _ -> pure Nothing)
+          gDids
       substs <- proveDet gTys vSig
       case substs of
         subst :<| Empty -> do
@@ -86,7 +92,7 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
     PDDecl (DeclAst (MetaTerm name sig def) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Datatype name sig _) _) -> EE.checkObjType sig -- TODO: Form check
     PDDecl (DeclAst (Axiom name sig) _) -> EE.checkMetaType sig
-    PDDecl (DeclAst (Prove sig) _) -> EE.checkPropType sig
+    PDDecl (DeclAst (Prove sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Fresh name sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (CFun _ (fmap snd -> inTys) outTy _) _) -> do
       cInTys <- traverse (flip EE.check (N.TypeType (N.Low C))) inTys

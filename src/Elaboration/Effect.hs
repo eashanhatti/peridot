@@ -233,7 +233,7 @@ freshTypeUV = do
   put (state
     { unTypeUVs = insert (unNextUV state) Nothing (unTypeUVs state)
     , unNextUV = unNextUV state + 1 })
-  pure (N.Neutral Nothing (N.UniVar (unNextUV state)))
+  pure (N.Neutral (pure Nothing) (N.UniVar (unNextUV state)))
 
 -- freshVCUV :: Elab sig m => m N.ValueCategory
 -- freshVCUV = do

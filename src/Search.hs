@@ -14,6 +14,9 @@ import Syntax.Common(Global(..))
 import Numeric.Natural
 import Data.Sequence hiding(empty)
 import Extra
+import Debug.Trace
+import Shower
+import Prelude hiding(length, zip, concatMap, concat)
 
 data SearchState = SearchState
   { unNextUV :: Natural }
@@ -25,40 +28,64 @@ type Search sig m =
   , Has (State SearchState) sig m )
 
 prove :: forall sig m. Search sig m => Seq Term -> Term -> m (Map.Map Global Term)
-prove ctx (Neutral (Just p) _) =
-  prove ctx p
+prove ctx (Neutral p _) = do
+  p <- force p
+  case p of
+    Just p -> prove ctx p
+    Nothing -> empty
 prove ctx (Rigid (ConjType p q)) =
   (<>) <$> prove ctx p <*> prove ctx q
 prove ctx (Rigid (DisjType p q)) =
   prove ctx p <|> prove ctx q
 prove ctx (Rigid (SomeType (MetaFunIntro p))) = do
-  uv <- freshUV
-  vP <- appClosure p uv
+  -- uv <- freshUV
+  vP <- evalClosure p {-uv-}
   prove ctx vP
 prove ctx (Rigid (ImplType p q)) =
   prove (p <| ctx) q
 prove ctx (Rigid (AllType (MetaFunIntro p))) = do
-  vP <- evalClosure p
+  uv <- freshUV
+  vP <- appClosure p uv
   prove ctx vP
-prove ctx goal = do
-  substs <- filterTraverse go ctx
+prove ctx goal | isAtomic (traceWith shower goal) = do
+  substs <- filterTraverse (\ty -> go ctx goal (traceWith shower ty)) ctx
   oneOf substs
-  where
-    go :: Search sig m => Term -> m (Maybe (Map.Map Global Term))
-    go (Neutral (Just p) _) = go p
-    go (Rigid (ImplType p q)) = do
-      subst <- go q
-      traverse (\s -> (<>) <$> prove ctx p <*> pure s) subst
-    go p = fmap (fmap \(Subst ts _ _) -> ts) (unify goal p)
+prove _ goal = empty
+
+go :: Search sig m => Seq Term -> Term -> Term -> m (Maybe (Map.Map Global Term))
+go ctx goal (Neutral p _) = do
+  p <- force p
+  case p of
+    Just p -> go ctx goal p
+    Nothing -> empty
+go ctx goal (Rigid (AllType (MetaFunIntro p))) = do
+  uv <- freshUV
+  vP <- appClosure p uv
+  go ctx goal vP
+go ctx goal (Rigid (ImplType p q)) = do
+  subst <- go ctx goal q
+  traverse (\s -> (<>) <$> prove ctx p <*> pure s) subst
+go ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
+  | length dArgs == length gArgs
+  = do
+    substs <- traverse (\(dArg, gArg) -> unify gArg dArg) (zip dArgs gArgs)
+    -- let !() = trace (shower (zip dArgs gArgs)) ()
+    -- let !() = trace (shower substs) ()
+    pure
+      (fmap concat .
+      fmap (fmap \(Subst ts _ _) -> ts) .
+      allJustOrNothing $
+      substs)
+go _ g d = empty
 
 freshUV :: Search sig m => m Term
 freshUV = do
   state <- get
   put (state { unNextUV = unNextUV state + 1 })
-  pure (Neutral Nothing . UniVar . Global $ unNextUV state)
+  pure (Neutral (pure Nothing) . UniVar . Global $ unNextUV state)
 
 isAtomic :: Term -> Bool
-isAtomic (MetaFunElims (Rigid (PropConstIntro _)) _) = True
+isAtomic (MetaFunElims _ _) = True
 isAtomic _ = False
 
 proveDet :: Norm sig m => Seq Term -> Term -> m (Seq (Map.Map Global Term))
