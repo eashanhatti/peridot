@@ -39,7 +39,7 @@ prove ctx goal@(Neutral p _) = do
     Just p -> prove ctx p
     Nothing ->
       if isAtomic goal then do
-        substs <- filterTraverse (go ctx goal) ctx
+        substs <- filterTraverse (search ctx goal) ctx
         oneOf substs
       else
         empty
@@ -60,8 +60,8 @@ prove ctx (Rigid (AllType (MetaFunIntro p))) = do
   prove ctx vP
 prove _ goal = empty
 
-go :: Search sig m => Seq Term -> Term -> Term -> m (Maybe Substitution)
-go ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
+search :: Search sig m => Seq Term -> Term -> Term -> m (Maybe Substitution)
+search ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
     substs <-
@@ -73,23 +73,23 @@ go ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
       fmap (fmap \(Subst ts _ _) -> ts) .
       allJustOrNothing $
       substs)
-go ctx goal (Rigid (AllType (MetaFunIntro p))) = do
+search ctx goal (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
   vP <- appClosure p uv
-  go ctx goal vP
-go ctx goal (Rigid (ImplType p q)) = do
-  qSubst <- go ctx goal q
+  search ctx goal vP
+search ctx goal (Rigid (ImplType p q)) = do
+  qSubst <- search ctx goal q
   case qSubst of
     Just qSubst -> do
       pSubst <- withSubst qSubst (prove ctx p)
       pure (Just (qSubst `Map.union` pSubst))
     Nothing -> pure Nothing
-go ctx goal (Neutral p _) = do
+search ctx goal (Neutral p _) = do
   p <- force p
   case p of
-    Just p -> go ctx goal p
+    Just p -> search ctx goal p
     Nothing -> empty
-go _ g d = empty
+search _ g d = empty
 
 freshUV :: Search sig m => m Term
 freshUV = do
