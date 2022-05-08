@@ -40,10 +40,9 @@ prove ctx goal@(Neutral p _) = do
     Nothing ->
       if isAtomic goal then do
         substs <- filterTraverse (go ctx goal) ctx
-        let !() = trace (shower substs) ()
         oneOf substs
       else
-        trace "PROVEEMPTY222" empty
+        empty
 prove ctx (Rigid (ConjType p q)) = do
   subst <- prove ctx p
   withSubst subst (prove ctx q)
@@ -59,23 +58,21 @@ prove ctx (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
   vP <- appClosure p uv
   prove ctx vP
-prove _ goal = trace "PROVEEMPTY" empty
+prove _ goal = empty
 
 go :: Search sig m => Seq Term -> Term -> Term -> m (Maybe Substitution)
 go ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    normCtx <- ask
-    let !() = trace ((("CTX"++) . shower) $ unTypeUVs normCtx) ()
     substs <-
       traverse
         (\(dArg, gArg) -> unify gArg dArg)
-        (traceWith (("ARGS"++) . shower) $ zip dArgs gArgs)
+        (zip dArgs gArgs)
     pure
       (fmap concat .
       fmap (fmap \(Subst ts _ _) -> ts) .
       allJustOrNothing $
-      traceWith (("SUBSTS"++) . shower) substs)
+      substs)
 go ctx goal (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
   vP <- appClosure p uv
@@ -91,8 +88,8 @@ go ctx goal (Neutral p _) = do
   p <- force p
   case p of
     Just p -> go ctx goal p
-    Nothing -> trace "GOEMPTY" empty
-go _ g d = trace "GOEMPTY222" empty
+    Nothing -> empty
+go _ g d = empty
 
 freshUV :: Search sig m => m Term
 freshUV = do

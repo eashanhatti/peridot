@@ -1,0 +1,15 @@
+let {
+	assume Bool : MType;
+	assume true : Bool;
+	assume false : Bool;
+
+	atomicformula NonDet : [_ : Bool] -> Prop {
+		inl : <NonDet true>;
+		inr : <NonDet false>;
+	};
+
+	fresh x : Bool;
+	prove <NonDet x>;
+} in {
+	OType
+}
