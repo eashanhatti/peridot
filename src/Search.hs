@@ -8,7 +8,7 @@ import Control.Carrier.State.Strict
 import Control.Carrier.Reader
 import Control.Algebra(Has, run)
 import Normalization
-import Unification
+import Unification hiding(Substitution)
 import Data.Map qualified as Map
 import Syntax.Common(Global(..))
 import Numeric.Natural
@@ -27,14 +27,26 @@ type Search sig m =
   , Norm sig m
   , Has (State SearchState) sig m )
 
-prove :: forall sig m. Search sig m => Seq Term -> Term -> m (Map.Map Global Term)
-prove ctx (Neutral p _) = do
+type Substitution = Map.Map Global Term
+
+withSubst :: Search sig m => Substitution -> m Substitution -> m Substitution
+withSubst subst = local (\ctx -> ctx { unTypeUVs = subst `Map.union` (unTypeUVs ctx) })
+
+prove :: forall sig m. Search sig m => Seq Term -> Term -> m Substitution
+prove ctx goal@(Neutral p _) = do
   p <- force p
   case p of
     Just p -> prove ctx p
-    Nothing -> empty
-prove ctx (Rigid (ConjType p q)) =
-  (<>) <$> prove ctx p <*> prove ctx q
+    Nothing ->
+      if isAtomic goal then do
+        substs <- filterTraverse (go ctx goal) ctx
+        let !() = trace (shower substs) ()
+        oneOf substs
+      else
+        trace "PROVEEMPTY222" empty
+prove ctx (Rigid (ConjType p q)) = do
+  subst <- prove ctx p
+  withSubst subst (prove ctx q)
 prove ctx (Rigid (DisjType p q)) =
   prove ctx p <|> prove ctx q
 prove ctx (Rigid (SomeType (MetaFunIntro p))) = do
@@ -47,36 +59,40 @@ prove ctx (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
   vP <- appClosure p uv
   prove ctx vP
-prove ctx goal | isAtomic (traceWith shower goal) = do
-  substs <- filterTraverse (\ty -> go ctx goal (traceWith shower ty)) ctx
-  oneOf substs
-prove _ goal = empty
+prove _ goal = trace "PROVEEMPTY" empty
 
-go :: Search sig m => Seq Term -> Term -> Term -> m (Maybe (Map.Map Global Term))
-go ctx goal (Neutral p _) = do
-  p <- force p
-  case p of
-    Just p -> go ctx goal p
-    Nothing -> empty
+go :: Search sig m => Seq Term -> Term -> Term -> m (Maybe Substitution)
+go ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
+  | length dArgs == length gArgs
+  = do
+    normCtx <- ask
+    let !() = trace ((("CTX"++) . shower) $ unTypeUVs normCtx) ()
+    substs <-
+      traverse
+        (\(dArg, gArg) -> unify gArg dArg)
+        (traceWith (("ARGS"++) . shower) $ zip dArgs gArgs)
+    pure
+      (fmap concat .
+      fmap (fmap \(Subst ts _ _) -> ts) .
+      allJustOrNothing $
+      traceWith (("SUBSTS"++) . shower) substs)
 go ctx goal (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
   vP <- appClosure p uv
   go ctx goal vP
 go ctx goal (Rigid (ImplType p q)) = do
-  subst <- go ctx goal q
-  traverse (\s -> (<>) <$> prove ctx p <*> pure s) subst
-go ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
-  | length dArgs == length gArgs
-  = do
-    substs <- traverse (\(dArg, gArg) -> unify gArg dArg) (zip dArgs gArgs)
-    -- let !() = trace (shower (zip dArgs gArgs)) ()
-    -- let !() = trace (shower substs) ()
-    pure
-      (fmap concat .
-      fmap (fmap \(Subst ts _ _) -> ts) .
-      allJustOrNothing $
-      substs)
-go _ g d = empty
+  qSubst <- go ctx goal q
+  case qSubst of
+    Just qSubst -> do
+      pSubst <- withSubst qSubst (prove ctx p)
+      pure (Just (qSubst `Map.union` pSubst))
+    Nothing -> pure Nothing
+go ctx goal (Neutral p _) = do
+  p <- force p
+  case p of
+    Just p -> go ctx goal p
+    Nothing -> trace "GOEMPTY" empty
+go _ g d = trace "GOEMPTY222" empty
 
 freshUV :: Search sig m => m Term
 freshUV = do
@@ -88,7 +104,7 @@ isAtomic :: Term -> Bool
 isAtomic (MetaFunElims _ _) = True
 isAtomic _ = False
 
-proveDet :: Norm sig m => Seq Term -> Term -> m (Seq (Map.Map Global Term))
+proveDet :: Norm sig m => Seq Term -> Term -> m (Seq Substitution)
 proveDet ctx goal =
   runNonDetA .
   evalState (SearchState 2000) $

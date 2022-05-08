@@ -51,7 +51,7 @@ data QueryState = QueryState
   , unErrors :: Seq (SourcePos, Error) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs suvs {-vcuvs-} eqs errs) = show (tuvs, suvs, {-vcuvs,-} eqs, errs)
+  show (QueryState _ _ _ tuvs suvs {-vcuvs-} eqs errs) = show (tuvs, suvs, {-vcuvs,-} eqs{-, errs-})
 
 data Error
   = TooManyParams

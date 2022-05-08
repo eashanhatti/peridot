@@ -172,8 +172,16 @@ unifyRigid _ _ = throwError ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = equateUVs gl1 gl2
-unify' (Neutral _ (UniVar gl)) sol = putTypeSol gl sol
-unify' sol (Neutral _ (UniVar gl)) = putTypeSol gl sol
+unify' (Neutral prevSol (UniVar gl)) term = do
+  prevSol <- force prevSol
+  case prevSol of
+    Just prevSol -> unify' prevSol term
+    Nothing -> putTypeSol gl term
+unify' term (Neutral prevSol (UniVar gl)) = do
+  prevSol <- force prevSol
+  case prevSol of
+    Just prevSol -> unify' prevSol term
+    Nothing -> putTypeSol gl term
 unify' (Neutral term1 redex1) (Neutral term2 redex2) = catchError (unifyRedexes redex1 redex2) (\() -> go) where
   go :: Unify sig m => m ()
   go = do
