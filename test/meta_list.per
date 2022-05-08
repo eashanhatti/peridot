@@ -1,0 +1,29 @@
+let {
+	assume List : [_ : MType] -> MType;
+	assume nil : [A : MType] -> <List A>;
+	assume cons : [A : MType] -> [_ : A] -> [_ : <List A>] -> <List A>;
+
+	atomicformula Append
+		: [A : MType] -> [_ : <List A>] -> [_ : <List A>] -> [_ : <List A>] -> Prop
+	{
+		appnil :
+			all A,
+			all xs,
+			<Append A <nil A> xs xs>;
+		appcons :
+			all A,
+			all ys, all zs, all ws,
+			all x,
+			(impl
+				<Append A ys zs ws>
+				<Append A <cons A x ys> zs <cons A x ws>>);
+	};
+
+	assume Unit : MType;
+	assume unit : Unit;
+
+	fresh xs : <List Unit>;
+	prove <Append Unit <nil Unit> <nil Unit> xs>;
+} in {
+	OType
+}
