@@ -2,7 +2,7 @@ module Syntax.Surface where
 
 import Data.Text(Text)
 import Numeric.Natural
-import Syntax.Common hiding(unId, CStatement(..))
+import Syntax.Common hiding(unId, CStatement(..), Declaration(..))
 import Text.Megaparsec(SourcePos)
 import Data.Sequence
 

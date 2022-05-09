@@ -76,3 +76,13 @@ data RigidTerm a
   -- Other
   | ElabError
   deriving (Eq, Show, Functor, Foldable, Traversable)
+
+data Declaration a
+  = MetaConst Id a
+  | PropConst Id a
+  | ObjConst Id a
+  | ObjTerm Id a a -- sig, def
+  | MetaTerm Id a a -- sig, def
+  | CFun Id (Seq a) a (CStatement a)
+  | DElabError
+  deriving (Eq, Show, Functor, Foldable, Traversable)

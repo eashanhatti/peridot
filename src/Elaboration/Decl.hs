@@ -3,7 +3,7 @@ module Elaboration.Decl where
 import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Syntax.Common
+import Syntax.Common hiding(Declaration(..))
 import Elaboration.Effect
 import Control.Effect.Reader
 import Control.Effect.State
@@ -23,7 +23,7 @@ import Prelude hiding(traverse, map, zip)
 import Debug.Trace
 import Extra
 
-constDecl :: Universe -> (Id -> C.Signature -> C.Declaration)
+constDecl :: Universe -> (Id -> C.Term -> C.Declaration)
 constDecl Obj = C.ObjConst
 constDecl Meta = C.MetaConst
 constDecl Prop = C.PropConst

@@ -4,9 +4,10 @@ module Syntax.Semantic
 , module Syntax.Common
 ) where
 
-import Syntax.Common
+import Syntax.Common hiding(Declaration)
+import Syntax.Common qualified as Cm
 import Syntax.Core qualified as C
-import Data.Map(Map)
+import Data.Map(Map, insert)
 import Data.Sequence
 import Prelude hiding(length)
 import {-# SOURCE #-} Normalization
@@ -22,6 +23,9 @@ data Environment = Env
 withLocal :: Term -> Environment -> Environment
 withLocal def (Env locals globals) = Env (def <| locals) globals
 
+withGlobal :: Id -> Term -> Environment -> Environment
+withGlobal did def (Env locals globals) = Env locals (insert did def globals)
+
 envSize :: Environment -> Int
 envSize (Env locals _) = length locals
 
@@ -30,6 +34,8 @@ instance Show Environment where
 
 data Closure = Clo Environment C.Term
   deriving (Eq, Show)
+
+type Declaration = Cm.Declaration Term
 
 type Type = Term
 
@@ -67,6 +73,7 @@ data Redex
   | CodeLowCTmElim Term
   | GlobalVar Id
   | UniVar Global
+  | Let (Seq Declaration) Term
   deriving (Eq, Show)
 
 data Universe = Meta | Obj | Low Language | Prop | SUniVar Global

@@ -4,7 +4,7 @@ import Text.Megaparsec hiding(State, SourcePos)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Error
 import Syntax.Surface
-import Syntax.Common hiding(CStatement(..), RigidTerm(..))
+import Syntax.Common hiding(CStatement(..), RigidTerm(..), Declaration(..))
 import Data.Void
 import Data.Text hiding(singleton)
 import Control.Monad.Combinators

@@ -1,11 +1,11 @@
 module Elaboration where
 
-import Elaboration.Effect
+import Elaboration.Effect hiding(eval, zonk)
 import Elaboration.Term qualified as EE
 import Syntax.Surface qualified as S
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Normalization
+import Normalization hiding(unTypeUVs)
 import Control.Carrier.Reader
 import Control.Carrier.State.Strict
 import Control.Carrier.Throw.Either
@@ -19,12 +19,20 @@ elaborate = snd . elaborate'
 
 elaborate' :: S.TermAst -> (QueryState, C.Term)
 elaborate' term =
-  run $
-  runState (QueryState mempty mempty 1000 mempty mempty {-mempty-} mempty mempty) $
-  evalState ElabState $
-  runReader (NormContext (N.Env mempty mempty) mempty {-mempty-} mempty mempty) $
-  runReader (ElabContext mempty (initialPos "<TODO>")) $
-  EE.check term (N.TypeType N.Obj)
+  let
+    (qs, term') =
+      run $
+      runState (QueryState mempty mempty 1000 mempty mempty {-mempty-} mempty mempty) $
+      evalState ElabState $
+      runReader (NormContext (N.Env mempty mempty) mempty {-mempty-} mempty mempty) $
+      runReader (ElabContext mempty (initialPos "<TODO>")) $
+      EE.check term (N.TypeType N.Obj)
+    term'' =
+      run $
+      runReader (NormContext (N.Env mempty mempty) mempty (justs $ unTypeUVs qs) mempty)
+      (eval term' >>= zonk)
+  in
+    (qs, term'')
 
 elaborateFile :: String -> IO (Either String C.Term)
 elaborateFile f = do

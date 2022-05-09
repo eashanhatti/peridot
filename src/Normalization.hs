@@ -84,6 +84,11 @@ uvRedex gl = do
           Just gl' -> Just <$> eval (C.UniVar gl')
           Nothing -> pure Nothing
 
+gvRedex :: Norm sig m => Id -> m (Maybe N.Term)
+gvRedex did = do
+  N.Env _ globals <- unEnv <$> ask
+  pure (Map.lookup did globals)
+
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
 eval (C.MetaFunType inTy outTy) = N.MetaFunType <$> eval inTy <*> closureOf outTy
 eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
@@ -106,19 +111,14 @@ eval (C.MetaFunElim lam arg) = do
         N.MetaFunIntro body -> Just <$> appClosure body vArg
         _ -> pure Nothing
   pure (N.Neutral reded (N.MetaFunElim vLam vArg))
--- eval (C.Let decls body) = do
---   N.Env locals globals <- unEnv <$> ask
---   let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), definition def) acc) mempty decls
---   local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (eval body)
 eval (C.TypeType (C.SUniVar gl)) = undefined -- FIXME?
 eval (C.TypeType C.Meta) = pure (N.TypeType N.Meta)
 eval (C.TypeType C.Obj) = pure (N.TypeType N.Obj)
 eval (C.TypeType C.Prop) = pure (N.TypeType N.Prop)
 eval (C.TypeType (C.Low l)) = pure (N.TypeType (N.Low l))
 eval (C.LocalVar ix) = entry ix
-eval (C.GlobalVar did) = do
-  N.Env _ ((! did) -> term) <- unEnv <$> ask
-  pure (N.Neutral (pure (Just term)) (N.GlobalVar did))
+eval (C.GlobalVar did) =
+  pure (N.Neutral (gvRedex did) (N.GlobalVar did))
 eval (C.UniVar gl) = pure (N.Neutral (uvRedex gl) (N.UniVar gl))
 eval (C.CodeCoreElim term) = do
   term' <- eval term
@@ -137,6 +137,22 @@ eval (C.CodeLowCTmElim term) = do
         _ -> Nothing
   pure (N.Neutral (pure reded) (N.CodeLowCTmElim term'))
 eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
+eval (C.Let decls body) = do
+  let defs = fmap (\decl -> (C.unId decl, definition decl)) decls
+  vDefs <- traverse (\(did, def) -> eval def >>= pure . (did,)) defs
+  let
+    reded =
+      local
+        (\ctx -> ctx { unEnv = withGlobals vDefs (unEnv ctx) })
+        (eval body)
+  vDecls <- traverse (traverse eval) decls
+  vBody <- eval body
+  pure (N.Neutral (Just <$> reded) (N.Let vDecls vBody))
+
+withGlobals :: Seq (Id, N.Term) -> N.Environment -> N.Environment
+withGlobals defs (N.Env locals globals) =
+  let globals' = foldl' (\acc (did, def) -> Map.insert did def acc) globals defs
+  in N.Env locals globals'
 
 entry :: HasCallStack => Norm sig m => Index -> m N.Term
 entry ix = do
@@ -175,6 +191,7 @@ readbackRedex opt (N.CodeCoreElim quote) = C.CodeCoreElim <$> readback' opt quot
 readbackRedex opt (N.CodeLowCTmElim quote) = C.CodeLowCTmElim <$> readback' opt quote
 readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)
 readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)
+readbackRedex opt (N.Let decls body) = C.Let <$> traverse (traverse (readback' opt)) decls <*> readback' opt body
 
 readback :: HasCallStack => Norm sig m => N.Term -> m C.Term
 readback = readback' False
@@ -184,7 +201,3 @@ zonk = readback' True
 
 -- normalize :: HasCallStack => Norm sig m => N.Term -> m N.Term
 -- normalize = readbackFull >=> eval
-
--- withGlobals :: Norm sig m => Map.Map Id (N.Environment, C.Term) -> m a -> m a
--- withGlobals globals =
---   local (\ctx@(unEnv -> N.Env locals globals') -> ctx { unEnv = N.Env locals (globals <> globals') })

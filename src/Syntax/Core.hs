@@ -3,20 +3,9 @@ module Syntax.Core
 , module Syntax.Common
 ) where
 
-import Syntax.Common hiding(unId)
+import Syntax.Common hiding(unId, Declaration)
+import Syntax.Common qualified as Cm
 import Data.Sequence
-
-type Signature = Term
-
-data Declaration
-  = MetaConst Id Signature
-  | PropConst Id Signature
-  | ObjConst Id Signature
-  | ObjTerm Id Signature Term -- sig, def
-  | MetaTerm Id Signature Term -- sig, def
-  | CFun Id (Seq Term) Term (CStatement Term)
-  | DElabError
-  deriving (Eq, Show)
 
 unId :: Declaration -> Id
 unId (ObjConst did _) = did
@@ -26,6 +15,8 @@ unId (MetaTerm did _ _) = did
 unId DElabError = error "FIXME"
 
 type Type = Term
+
+type Declaration = Cm.Declaration Term
 
 data Term
   -- Object level
