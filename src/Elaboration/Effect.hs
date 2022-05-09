@@ -131,7 +131,6 @@ unPDDeclId (PDConstr _ (SourcePos (ConstrAst _ did _) _)) = did
 convertUniv :: Universe -> N.Universe
 convertUniv Obj = N.Obj
 convertUniv Meta = N.Meta
-convertUniv Prop = N.Prop
 
 -- Move unification stuff to `QueryState`, but I'll leave this around just in case
 data ElabState = ElabState

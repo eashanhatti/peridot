@@ -79,7 +79,6 @@ data RigidTerm a
 
 data Declaration a
   = MetaConst Id a
-  | PropConst Id a
   | ObjConst Id a
   | ObjTerm Id a a -- sig, def
   | MetaTerm Id a a -- sig, def

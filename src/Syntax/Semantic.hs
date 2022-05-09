@@ -76,7 +76,7 @@ data Redex
   | Let (Seq Declaration) Term
   deriving (Eq, Show)
 
-data Universe = Meta | Obj | Low Language | Prop | SUniVar Global
+data Universe = Meta | Obj | Low Language | SUniVar Global
   deriving (Eq, Show)
 
 viewFunType :: Term -> Maybe (Term, Closure)

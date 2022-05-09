@@ -62,7 +62,6 @@ force act = do
 definition :: C.Declaration -> C.Term
 definition (C.MetaConst did sig) = funIntros sig (C.Rigid (C.MetaConstIntro did))
 definition (C.ObjConst did sig) = funIntros sig (C.Rigid (C.ObjConstIntro did))
-definition (C.PropConst did sig) = funIntros sig (C.Rigid (C.PropConstIntro did))
 definition (C.ObjTerm _ _ def) = def
 definition (C.MetaTerm _ _ def) = def
 definition (C.DElabError) = C.Rigid C.ElabError
@@ -112,7 +111,6 @@ eval (C.MetaFunElim lam arg) = do
 eval (C.TypeType (C.SUniVar gl)) = undefined -- FIXME?
 eval (C.TypeType C.Meta) = pure (N.TypeType N.Meta)
 eval (C.TypeType C.Obj) = pure (N.TypeType N.Obj)
-eval (C.TypeType C.Prop) = pure (N.TypeType N.Prop)
 eval (C.TypeType (C.Low l)) = pure (N.TypeType (N.Low l))
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) =
@@ -171,7 +169,6 @@ readback' opt (N.TypeType (N.SUniVar gl)) = undefined -- FIXME?
 readback' opt (N.TypeType (N.Low l)) = pure (C.TypeType (C.Low l))
 readback' opt (N.TypeType N.Meta) = pure (C.TypeType C.Meta)
 readback' opt (N.TypeType N.Obj) = pure (C.TypeType C.Obj)
-readback' opt (N.TypeType N.Prop) = pure (C.TypeType C.Prop)
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
   pure (C.LocalVar (Index (fromIntegral (N.envSize env) - lvl - 1)))

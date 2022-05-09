@@ -72,7 +72,6 @@ unifyUnivs (SUniVar gl) s = putUniverseSol gl s
 unifyUnivs s (SUniVar gl) = putUniverseSol gl s
 unifyUnivs Meta Meta = pure ()
 unifyUnivs Obj Obj = pure ()
-unifyUnivs Prop Prop = pure ()
 unifyUnivs (Low l1) (Low l2) | l1 == l2 = pure ()
 unifyUnivs _ _ = throwError ()
 

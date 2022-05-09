@@ -26,7 +26,6 @@ import Extra
 constDecl :: Universe -> (Id -> C.Term -> C.Declaration)
 constDecl Obj = C.ObjConst
 constDecl Meta = C.MetaConst
-constDecl Prop = C.PropConst
 
 check :: HasCallStack => Elab sig m => Id -> m C.Declaration
 check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
@@ -54,14 +53,14 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
         filterTraverse
           (\gDid -> declType gDid >>= \(ty, u) ->
             case u of
-              N.TypeType N.Prop -> Just <$> eval ty
+              N.TypeType N.Meta -> Just <$> eval ty
               _ -> pure Nothing)
           gDids
       substs <- proveDet gTys vSig
       case substs of
         subst :<| Empty -> do
           putTypeUVSols subst
-          pure (C.PropConst did cSig)
+          pure (C.MetaConst did cSig)
         Empty -> errorDecl (FailedProve vSig)
         _ -> errorDecl (AmbiguousProve vSig substs)
     PDDecl (DeclAst (Fresh name _) did) ->
@@ -77,8 +76,6 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
           vOutTy <- eval outTy
           unify vOutTy retTy
           pure (C.CFun did inTys outTy cStmt)
-    PDDecl (DeclAst (Relation _ _ _) did) ->
-      pure (C.MetaConst did cSig)
 
 withPos' :: HasCallStack => Elab sig m => (Predeclaration -> m a) -> (Predeclaration -> m a)
 withPos' act (PDDecl (SourcePos ast pos)) = withPos pos (act (PDDecl ast))
@@ -100,4 +97,3 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
       pure (C.Rigid (C.CFunType cInTys cOutTy), N.TypeType (N.Low C))
     PDConstr univ constr@(ConstrAst (Constr _ sig) _ _) ->
       (,) <$> EE.check sig (N.TypeType (convertUniv univ)) <*> pure (N.TypeType (convertUniv univ)) -- TODO: Form check
-    PDDecl (DeclAst (Relation _ sig _) _) -> EE.checkMetaType sig -- TODO: Form check

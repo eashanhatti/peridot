@@ -164,21 +164,6 @@ letB = do
   char '}'
   pure (TermAst (Let (fromList decls) body))
 
-rel :: Parser DeclarationAst
-rel = do
-  did <- freshId
-  string "atomicformula"; ws
-  n <- name; ws
-  char ':'; ws
-  ty <- term; ws
-  char '{'; ws
-  cs <- fromList <$> many do
-    c <- fmap ($ did) con; ws
-    char ';'; ws
-    pure c
-  char '}'
-  pure (DeclAst (Relation n ty cs) did)
-
 decl :: Parser DeclarationAst
 decl = do
   pos <- getSourcePos
@@ -189,7 +174,6 @@ decl = do
     try axiom <|>
     try prove <|>
     try fresh <|>
-    try rel <|>
     cFun
   pure (SourcePos d pos)
 

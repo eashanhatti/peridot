@@ -26,7 +26,6 @@ data Universe = Obj | Meta | Prop
 viewConstrs :: DeclarationAst -> Maybe (Universe, Seq ConstructorAst)
 viewConstrs (SourcePos ast _) = viewConstrs ast
 viewConstrs (DeclAst (Datatype _ _ cs) _) = Just (Obj, cs)
-viewConstrs (DeclAst (Relation _ _ cs) _) = Just (Prop, cs)
 viewConstrs _ = Nothing
 
 unDeclName :: DeclarationAst -> Name
@@ -37,7 +36,6 @@ unDeclName (DeclAst (Axiom (NameAst name) _) _) = name
 unDeclName (DeclAst (Prove _) did) = MachineName (fromIntegral did)
 unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
 unDeclName (DeclAst (CFun (NameAst name) _ _ _) _) = name
-unDeclName (DeclAst (Relation (NameAst name) _ _) _) = name
 unDeclName (SourcePos ast _) = unDeclName ast
 
 unConstrName :: ConstructorAst -> Name
@@ -62,7 +60,6 @@ data Declaration
   | MetaTerm NameAst SignatureAst TermAst
   | ObjTerm NameAst SignatureAst TermAst
   | Axiom NameAst SignatureAst
-  | Relation NameAst SignatureAst (Seq ConstructorAst)
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
   | CFun NameAst (Seq (NameAst, TermAst)) TermAst CStatementAst

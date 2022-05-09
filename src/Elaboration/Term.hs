@@ -89,7 +89,7 @@ infer term = case term of
   TermAst OUniv -> pure (C.TypeType C.Obj, N.TypeType N.Obj)
   TermAst MUniv -> pure (C.TypeType C.Meta, N.TypeType N.Meta)
   TermAst LCUniv -> pure (C.TypeType (C.Low C), N.TypeType N.Meta)
-  TermAst PUniv -> pure (C.TypeType C.Prop, N.TypeType N.Meta)
+  TermAst PUniv -> pure (C.TypeType C.Meta, N.TypeType N.Meta)
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
@@ -187,32 +187,32 @@ infer term = case term of
     pure (cTerm, N.TypeType (N.Low C))
   TermAst (CInt x) -> pure (C.Rigid (C.CIntIntro x), N.Rigid N.CIntType)
   TermAst (ImplProp p q) -> do
-    cP <- check p (N.TypeType N.Prop)
-    cQ <- check q (N.TypeType N.Prop)
-    pure (C.Rigid (C.ImplType cP cQ), N.TypeType N.Prop)
+    cP <- check p (N.TypeType N.Meta)
+    cQ <- check q (N.TypeType N.Meta)
+    pure (C.Rigid (C.ImplType cP cQ), N.TypeType N.Meta)
   TermAst (ConjProp p q) -> do
-    cP <- check p (N.TypeType N.Prop)
-    cQ <- check q (N.TypeType N.Prop)
-    pure (C.Rigid (C.ConjType cP cQ), N.TypeType N.Prop)
+    cP <- check p (N.TypeType N.Meta)
+    cQ <- check q (N.TypeType N.Meta)
+    pure (C.Rigid (C.ConjType cP cQ), N.TypeType N.Meta)
   TermAst (DisjProp p q) -> do
-    cP <- check p (N.TypeType N.Prop)
-    cQ <- check q (N.TypeType N.Prop)
-    pure (C.Rigid (C.DisjType cP cQ), N.TypeType N.Prop)
+    cP <- check p (N.TypeType N.Meta)
+    cQ <- check q (N.TypeType N.Meta)
+    pure (C.Rigid (C.DisjType cP cQ), N.TypeType N.Meta)
   TermAst (ForallProp body) -> do
     inTy <- freshTypeUV
-    outTy <- closureOf (C.TypeType C.Prop)
+    outTy <- closureOf (C.TypeType C.Meta)
     cBody <- check body (N.MetaFunType inTy outTy)
-    pure (C.Rigid (C.AllType cBody), N.TypeType N.Prop)
+    pure (C.Rigid (C.AllType cBody), N.TypeType N.Meta)
   TermAst (ExistsProp body) -> do
     inTy <- freshTypeUV
-    outTy <- closureOf (C.TypeType C.Prop)
+    outTy <- closureOf (C.TypeType C.Meta)
     cBody <- check body (N.MetaFunType inTy outTy)
-    pure (C.Rigid (C.SomeType cBody), N.TypeType N.Prop)
+    pure (C.Rigid (C.SomeType cBody), N.TypeType N.Meta)
   TermAst (EqualProp x y) -> do
     ty <- freshTypeUV
     cX <- check x ty
     cY <- check y ty
-    pure (C.Rigid (C.IdType cX cY), N.TypeType N.Prop)
+    pure (C.Rigid (C.IdType cX cY), N.TypeType N.Meta)
 
 -- checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 -- checkType term = do
@@ -221,9 +221,6 @@ infer term = case term of
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term = (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)
-
-checkPropType :: Elab sig m => TermAst -> m (C.Term, N.Term)
-checkPropType term = (,) <$> check term (N.TypeType N.Prop) <*> pure (N.TypeType N.Prop)
 
 checkMetaType' :: Elab sig m => TermAst -> m C.Term
 checkMetaType' ty = fst <$> checkMetaType ty
@@ -246,5 +243,4 @@ declsIds = concatMap go where
   go :: DeclarationAst -> Seq Id
   go (SourcePos decl _) = go decl
   go (DeclAst (Datatype _ _ constrs) did) = did <| fmap unCId constrs
-  go (DeclAst (Relation _ _ constrs) did) = did <| fmap unCId constrs
   go decl = singleton (unId decl)
