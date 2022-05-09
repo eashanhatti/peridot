@@ -89,7 +89,6 @@ infer term = case term of
   TermAst OUniv -> pure (C.TypeType C.Obj, N.TypeType N.Obj)
   TermAst MUniv -> pure (C.TypeType C.Meta, N.TypeType N.Meta)
   TermAst LCUniv -> pure (C.TypeType (C.Low C), N.TypeType N.Meta)
-  TermAst PUniv -> pure (C.TypeType C.Meta, N.TypeType N.Meta)
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)

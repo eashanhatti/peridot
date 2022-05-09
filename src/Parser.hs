@@ -139,11 +139,6 @@ metaUniv = do
   string "MType"
   pure (TermAst MUniv)
 
-propUniv :: Parser TermAst
-propUniv = do
-  string "Prop"
-  pure (TermAst PUniv)
-
 objUniv :: Parser TermAst
 objUniv = do
   string "OType"
@@ -536,7 +531,6 @@ term = do
     try app <|>
     try metaUniv <|>
     try objUniv <|>
-    try propUniv <|>
     try letB <|>
     try metaPiTy <|>
     try objPiTy <|>

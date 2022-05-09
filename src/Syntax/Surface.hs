@@ -80,7 +80,6 @@ data Term
   | OUniv
   | MUniv
   | LCUniv
-  | PUniv
   | Let (Seq DeclarationAst) TermAst
   | LiftCore TermAst
   | QuoteCore TermAst
