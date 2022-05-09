@@ -47,9 +47,7 @@ appClosure :: HasCallStack => Norm sig m => N.Closure -> N.Term -> m N.Term
 appClosure (N.Clo env body) arg = local (\ctx -> ctx { unEnv = N.withLocal arg env }) (eval body)
 
 evalClosure :: HasCallStack => Norm sig m => N.Closure -> m N.Term
-evalClosure clo = do
-  env <- unEnv <$> ask
-  appClosure clo (N.LocalVar (fromIntegral (N.envSize env)))
+evalClosure clo@(N.Clo env _) = appClosure clo (N.LocalVar (fromIntegral (N.envSize env)))
 
 funIntros :: C.Term -> (C.Term -> C.Term)
 funIntros (C.MetaFunType _ outTy) = C.MetaFunIntro . funIntros outTy
@@ -159,24 +157,24 @@ entry ix = do
   N.Env locals _ <- unEnv <$> ask
   if fromIntegral ix >= length locals then
     error $ "`entry`:" ++ shower (ix, locals)
-  else 
+  else
     pure (locals `index` fromIntegral ix)
 
 type ShouldZonk = Bool
 
 readback' :: HasCallStack => Norm sig m => ShouldZonk -> N.Term -> m C.Term
-readback' opt (N.MetaFunType inTy outTy) = C.MetaFunType <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
-readback' opt (N.MetaFunIntro body) = C.MetaFunIntro <$> (evalClosure body >>= readback' opt)
-readback' opt (N.ObjFunType inTy outTy) =
-  C.ObjFunType <$> readback' opt inTy <*> (evalClosure outTy >>= readback' opt)
-readback' opt (N.ObjFunIntro body) = C.ObjFunIntro <$> (evalClosure body >>= readback' opt)
+readback' opt (N.MetaFunType inTy outTy) = C.MetaFunType <$> readback' opt inTy <*> bind (evalClosure outTy >>= readback' opt)
+readback' opt (N.MetaFunIntro body) = C.MetaFunIntro <$> bind (evalClosure body >>= readback' opt)
+readback' opt (N.ObjFunType inTy outTy) = C.ObjFunType <$> readback' opt inTy <*> bind (evalClosure outTy >>= readback' opt)
+readback' opt (N.ObjFunIntro body) = C.ObjFunIntro <$> bind (evalClosure body >>= readback' opt)
 readback' opt (N.TypeType (N.SUniVar gl)) = undefined -- FIXME?
 readback' opt (N.TypeType (N.Low l)) = pure (C.TypeType (C.Low l))
 readback' opt (N.TypeType N.Meta) = pure (C.TypeType C.Meta)
 readback' opt (N.TypeType N.Obj) = pure (C.TypeType C.Obj)
+readback' opt (N.TypeType N.Prop) = pure (C.TypeType C.Prop)
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
-  pure (C.LocalVar (Index (lvl - fromIntegral (N.envSize env) - 1)))
+  pure (C.LocalVar (Index (fromIntegral (N.envSize env) - lvl - 1)))
 readback' opt (N.Neutral sol redex) = do
   vSol <- force sol
   case (opt, vSol, redex) of

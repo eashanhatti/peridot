@@ -50,3 +50,9 @@ allJustOrNothing Empty = Just Empty
 
 traceWith :: (a -> String) -> a -> a
 traceWith f x = trace (f x) x
+
+tracePrettyS :: Show a => String -> a -> a
+tracePrettyS s = traceWith ((s++) . shower)
+
+tracePretty :: Show a => a -> a
+tracePretty = tracePrettyS ""
