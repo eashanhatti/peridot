@@ -1,13 +1,11 @@
 let {
 	assume Socrates : MType;
 	
-	atomicformula Man : [_ : MType] -> Prop {
-		man : <Man Socrates>;
-	};
+	assume Man : [_ : MType] -> MType;
+	assume man : <Man Socrates>;
 
-	atomicformula Mortal : [_ : MType] -> Prop {
-		mortal : all x, (impl <Man x> <Mortal x>);
-	};
+	assume Mortal : [_ : MType] -> MType;
+	assume mortal : all x, (impl <Man x> <Mortal x>);
 
 	prove <Mortal Socrates>;
 } in {

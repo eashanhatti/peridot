@@ -3,10 +3,9 @@ let {
 	assume true : Bool;
 	assume false : Bool;
 
-	atomicformula NonDet : [_ : Bool] -> Prop {
-		inl : <NonDet true>;
-		inr : <NonDet false>;
-	};
+	assume NonDet : [_ : Bool] -> MType;
+	assume inl : <NonDet true>;
+	assume inr : <NonDet false>;
 
 	fresh x : Bool;
 	prove <NonDet x>;
