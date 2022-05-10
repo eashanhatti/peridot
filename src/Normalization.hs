@@ -81,10 +81,10 @@ uvRedex gl = do
           Just gl' -> Just <$> eval (C.UniVar gl')
           Nothing -> pure Nothing
 
-gvRedex :: Norm sig m => Id -> m (Maybe N.Term)
-gvRedex did = do
-  N.Env _ globals <- unEnv <$> ask
-  pure (Map.lookup did globals)
+-- gvRedex :: Norm sig m => Id -> m (Maybe N.Term)
+-- gvRedex did = do
+--   N.Env _ globals <- unEnv <$> ask
+--   pure (Map.lookup did globals)
 
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
 eval (C.MetaFunType inTy outTy) = N.MetaFunType <$> eval inTy <*> closureOf outTy
@@ -113,8 +113,9 @@ eval (C.TypeType C.Meta) = pure (N.TypeType N.Meta)
 eval (C.TypeType C.Obj) = pure (N.TypeType N.Obj)
 eval (C.TypeType (C.Low l)) = pure (N.TypeType (N.Low l))
 eval (C.LocalVar ix) = entry ix
-eval (C.GlobalVar did) =
-  pure (N.Neutral (gvRedex did) (N.GlobalVar did))
+eval (C.GlobalVar did) = do
+  N.Env _ ((! did) -> def) <- unEnv <$> ask
+  pure (N.Neutral (pure (Just def)) (N.GlobalVar did))
 eval (C.UniVar gl) = pure (N.Neutral (uvRedex gl) (N.UniVar gl))
 eval (C.CodeCoreElim term) = do
   term' <- eval term
@@ -176,6 +177,7 @@ readback' opt (N.Neutral sol redex) = do
   vSol <- force sol
   case (opt, vSol, redex) of
     (True, Just vSol, N.UniVar _) -> readback' True vSol
+    (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
     _ -> readbackRedex opt redex
 readback' opt (N.Rigid rterm) = C.Rigid <$> traverse (readback' opt) rterm
 

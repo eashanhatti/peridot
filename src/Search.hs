@@ -66,11 +66,16 @@ search :: Search sig m => Seq Term -> Term -> Term -> m Substitution
 search ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
+    normCtx <- ask
+    -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
     substs <-
       traverse
         (\(dArg, gArg) -> unify gArg dArg)
         (zip dArgs gArgs)
-    substs <- (<| substs) <$> unify gHead dHead
+    -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+    -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
+    substs <- ((<| substs) <$> unify gHead dHead)
+    -- let !_ = tracePrettyS "SUBSTS" substs
     case allJustOrNothing substs of
       Just substs -> pure (concat (fmap (\(Subst ts _ _) -> ts) substs))
       Nothing -> empty
@@ -108,12 +113,4 @@ proveDet ctx goal = do
   if null substs then
     pure Nothing
   else
-    pure . Just $ filter cond substs
-    where
-      cond :: Substitution -> Bool
-      cond =
-        not .
-        Map.null .
-        Map.filterWithKey \k _ -> case k of
-          UVGlobal _ -> True
-          LVGlobal _ -> False
+    pure (Just substs)

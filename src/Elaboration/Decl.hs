@@ -9,6 +9,7 @@ import Control.Effect.Reader
 import Control.Effect.State
 import Control.Carrier.NonDet.Church hiding(Empty)
 import Data.Map qualified as Map
+import Data.Set qualified as Set
 import {-# SOURCE #-} Elaboration.Term qualified as EE
 import Elaboration.CStatement qualified as ES
 import Normalization hiding(eval)
@@ -19,7 +20,7 @@ import Data.Traversable
 import GHC.Stack
 import Data.Sequence
 import Search
-import Prelude hiding(traverse, map, zip)
+import Prelude hiding(traverse, map, zip, concat, filter)
 import Debug.Trace
 import Extra
 
@@ -58,12 +59,28 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
       substs <- proveDet gTys vSig
       case substs of
         Nothing -> errorDecl (FailedProve vSig)
-        Just Empty ->
-          pure (C.MetaConst did cSig)
-        Just (subst :<| Empty) -> do
-          putTypeUVSols subst
-          pure (C.MetaConst did cSig)
-        Just substs -> errorDecl (AmbiguousProve vSig substs)
+        Just substs ->
+          if isAmbiguous substs then
+            errorDecl (AmbiguousProve vSig substs)
+          else do
+            putTypeUVSols (concat substs)
+            pure (C.MetaConst did cSig)
+      where
+        isAmbiguous :: Seq Substitution -> Bool
+        isAmbiguous substs =
+          let
+            substs' =
+              filter (not . Set.null) .
+              fmap
+                (Set.filter \case
+                  LVGlobal _ -> False
+                  UVGlobal _ -> True) .
+              fmap Map.keysSet $
+              substs
+          in
+            not .
+            all (uncurry Set.disjoint) $
+            [(x, y) | x <- substs', y <- substs', x /= y]
     PDDecl (DeclAst (Fresh name _) did@(Id n)) ->
       pure (C.MetaTerm did cSig (C.UniVar (UVGlobal n)))
     PDConstr conUniv constr@(ConstrAst (Constr _ _) did dtDid) -> do
