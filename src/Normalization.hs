@@ -177,7 +177,7 @@ readback' opt (N.Neutral sol redex) = do
   vSol <- force sol
   case (opt, vSol, redex) of
     (True, Just vSol, N.UniVar _) -> readback' True vSol
-    (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
+    -- (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
     _ -> readbackRedex opt redex
 readback' opt (N.Rigid rterm) = C.Rigid <$> traverse (readback' opt) rterm
 

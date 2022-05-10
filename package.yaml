@@ -45,6 +45,7 @@ default-extensions:
 - RecursiveDo
 - EmptyDataDeriving
 - PatternSynonyms
+- MonadComprehensions
 
 dependencies:
 - base >= 4.7 && < 5
