@@ -43,7 +43,7 @@ import Control.Monad.Fix
 data QueryState = QueryState
   { unMemoTable :: DHashMap Key Identity
   , unPredecls :: Map Id (AllState, Predeclaration)
-  , unNextUV :: Global
+  , unNextUV :: Natural
   , unTypeUVs :: Map Global (Maybe N.Term)
   , unUnivUVs :: Map Global (Maybe N.Universe)
   -- , unVCUVs :: Map Global (Maybe N.ValueCategory)
@@ -230,9 +230,9 @@ freshTypeUV :: Elab sig m => m N.Term
 freshTypeUV = do
   state <- get
   put (state
-    { unTypeUVs = insert (unNextUV state) Nothing (unTypeUVs state)
+    { unTypeUVs = insert (UVGlobal (unNextUV state)) Nothing (unTypeUVs state)
     , unNextUV = unNextUV state + 1 })
-  pure (N.Neutral (uvRedex (unNextUV state)) (N.UniVar (unNextUV state)))
+  pure (N.Neutral (uvRedex (UVGlobal (unNextUV state))) (N.UniVar (UVGlobal (unNextUV state))))
 
 -- freshVCUV :: Elab sig m => m N.ValueCategory
 -- freshVCUV = do

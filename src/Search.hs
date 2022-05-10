@@ -6,6 +6,7 @@ import Control.Effect.State(State, get, put, modify)
 import Control.Carrier.NonDet.Church
 import Control.Carrier.State.Strict
 import Control.Carrier.Reader
+import Control.Effect.Throw
 import Control.Algebra(Has, run)
 import Normalization
 import Unification hiding(Substitution)
@@ -15,8 +16,9 @@ import Numeric.Natural
 import Data.Sequence hiding(empty)
 import Extra
 import Debug.Trace
+import Control.Applicative
 import Shower
-import Prelude hiding(length, zip, concatMap, concat, filter)
+import Prelude hiding(length, zip, concatMap, concat, filter, null)
 
 data SearchState = SearchState
   { unNextUV :: Natural }
@@ -64,13 +66,10 @@ search :: Search sig m => Seq Term -> Term -> Term -> m Substitution
 search ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    -- let !_ = tracePrettyS "DARGS" dArgs
-    -- let !_ = tracePrettyS "GARGS" gArgs
     substs <-
       traverse
         (\(dArg, gArg) -> unify gArg dArg)
         (zip dArgs gArgs)
-    -- let !_ = tracePrettyS "SUBSTS" substs
     substs <- (<| substs) <$> unify gHead dHead
     case allJustOrNothing substs of
       Just substs -> pure (concat (fmap (\(Subst ts _ _) -> ts) substs))
@@ -94,14 +93,27 @@ freshUV :: Search sig m => m Term
 freshUV = do
   state <- get
   put (state { unNextUV = unNextUV state + 1 })
-  pure (Neutral (uvRedex . Global $ unNextUV state) . UniVar . Global $ unNextUV state)
+  pure (Neutral (uvRedex . LVGlobal $ unNextUV state) . UniVar . LVGlobal $ unNextUV state)
 
 isAtomic :: Term -> Bool
 isAtomic (MetaFunElims _ _) = True
 isAtomic _ = False
 
-proveDet :: Norm sig m => Seq Term -> Term -> m (Seq Substitution)
-proveDet ctx goal =
-  runNonDetA .
-  evalState (SearchState 2000) $
-  prove ctx goal
+proveDet :: Norm sig m => Seq Term -> Term -> m (Maybe (Seq Substitution))
+proveDet ctx goal = do
+  substs <-
+    runNonDetA .
+    evalState (SearchState 2000) $
+    prove ctx goal
+  if null substs then
+    pure Nothing
+  else
+    pure . Just $ filter cond substs
+    where
+      cond :: Substitution -> Bool
+      cond =
+        not .
+        Map.null .
+        Map.filterWithKey \k _ -> case k of
+          UVGlobal _ -> True
+          LVGlobal _ -> False

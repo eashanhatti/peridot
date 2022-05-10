@@ -19,8 +19,13 @@ newtype Level = Level { unLevel :: Natural }
 newtype Id = Id { unId :: Natural }
   deriving (Eq, Ord, Generic, Num, Enum, Real, Integral, Show)
 
-newtype Global = Global { unGlobal :: Natural }
-  deriving (Num, Eq, Ord, Show)
+data Global
+  = UVGlobal Natural
+  | LVGlobal Natural
+  deriving (Eq, Ord, Show)
+
+unGlobal (UVGlobal n) = n
+unGlobal (LVGlobal n) = n
 
 instance Hashable Id
 

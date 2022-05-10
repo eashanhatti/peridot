@@ -55,15 +55,17 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             (ty, _) <- declType gDid
             eval ty)
           gDids
-      substs <- tracePretty <$> proveDet gTys vSig
+      substs <- proveDet gTys vSig
       case substs of
-        subst :<| Empty -> do
+        Nothing -> errorDecl (FailedProve vSig)
+        Just Empty ->
+          pure (C.MetaConst did cSig)
+        Just (subst :<| Empty) -> do
           putTypeUVSols subst
           pure (C.MetaConst did cSig)
-        Empty -> errorDecl (FailedProve vSig)
-        _ -> errorDecl (AmbiguousProve vSig substs)
-    PDDecl (DeclAst (Fresh name _) did) ->
-      pure (C.MetaTerm did cSig (C.UniVar (fromIntegral did)))
+        Just substs -> errorDecl (AmbiguousProve vSig substs)
+    PDDecl (DeclAst (Fresh name _) did@(Id n)) ->
+      pure (C.MetaTerm did cSig (C.UniVar (UVGlobal n)))
     PDConstr conUniv constr@(ConstrAst (Constr _ _) did dtDid) -> do
       unify univ (N.TypeType (convertUniv conUniv))
       pure (constDecl conUniv did cSig)
