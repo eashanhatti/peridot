@@ -2,7 +2,7 @@
 
 An experimental language for exploring the practical applications of two level type theory.
 
-Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/jFZ8JyUNtn) - Projects K-P 🠒 #peridot.
+Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/jFZ8JyUNtn) - #peridot.
 
 ### References and Inspiration
 
