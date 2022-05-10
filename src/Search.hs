@@ -16,7 +16,7 @@ import Data.Sequence hiding(empty)
 import Extra
 import Debug.Trace
 import Shower
-import Prelude hiding(length, zip, concatMap, concat)
+import Prelude hiding(length, zip, concatMap, concat, filter)
 
 data SearchState = SearchState
   { unNextUV :: Natural }
@@ -39,8 +39,8 @@ prove ctx goal@(Neutral p _) = do
     Just p -> prove ctx p
     Nothing ->
       if isAtomic goal then do
-        substs <- filterTraverse (search ctx goal{- . (traceWith (("DEF"++) . shower))-}) ctx
-        oneOf substs
+        def <- oneOf ctx
+        search ctx goal def
       else
         empty
 prove ctx (Rigid (ConjType p q)) = do
@@ -60,33 +60,29 @@ prove ctx (Rigid (AllType (MetaFunIntro p))) = do
   prove ctx vP
 prove _ goal = empty
 
-search :: Search sig m => Seq Term -> Term -> Term -> m (Maybe Substitution)
+search :: Search sig m => Seq Term -> Term -> Term -> m Substitution
 search ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    {-normCtx <- ask-}
-    {-let !() = trace (shower (unTypeUVs normCtx)) ()-}
+    -- let !_ = tracePrettyS "DARGS" dArgs
+    -- let !_ = tracePrettyS "GARGS" gArgs
     substs <-
       traverse
         (\(dArg, gArg) -> unify gArg dArg)
-        ({-traceWith (("ARGS"++) . shower) $ -}zip dArgs gArgs)
+        (zip dArgs gArgs)
+    -- let !_ = tracePrettyS "SUBSTS" substs
     substs <- (<| substs) <$> unify gHead dHead
-    pure
-      (fmap concat .
-      fmap (fmap \(Subst ts _ _) -> ts) .
-      allJustOrNothing $
-      {-traceWith (("SUBSTS"++) . shower) -}substs)
+    case allJustOrNothing substs of
+      Just substs -> pure (concat (fmap (\(Subst ts _ _) -> ts) substs))
+      Nothing -> empty
 search ctx goal (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
   vP <- appClosure p uv
   search ctx goal vP
 search ctx goal (Rigid (ImplType p q)) = do
   qSubst <- search ctx goal q
-  case qSubst of
-    Just qSubst -> do
-      pSubst <- withSubst qSubst (prove ctx p)
-      pure (Just (qSubst `Map.union` pSubst))
-    Nothing -> pure Nothing
+  pSubst <- withSubst qSubst (prove ctx p)
+  pure (qSubst `Map.union` pSubst)
 search ctx goal (Neutral p _) = do
   p <- force p
   case p of

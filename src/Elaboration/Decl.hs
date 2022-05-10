@@ -50,13 +50,12 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             BGlobal gDid -> Just gDid
             _ -> Nothing
       gTys <-
-        filterTraverse
-          (\gDid -> declType gDid >>= \(ty, u) ->
-            case u of
-              N.TypeType N.Meta -> Just <$> eval ty
-              _ -> pure Nothing)
+        traverse
+          (\gDid -> do
+            (ty, _) <- declType gDid
+            eval ty)
           gDids
-      substs <- proveDet gTys vSig
+      substs <- tracePretty <$> proveDet gTys vSig
       case substs of
         subst :<| Empty -> do
           putTypeUVSols subst

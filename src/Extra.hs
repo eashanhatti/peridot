@@ -44,6 +44,7 @@ filterTraverse f (x :<| xs) = do
     Just y -> (y <|) <$> filterTraverse f xs
     Nothing -> filterTraverse f xs
 
+allJustOrNothing :: Seq (Maybe a) -> Maybe (Seq a)
 allJustOrNothing (Just x :<| xs) = (x <|) <$> allJustOrNothing xs
 allJustOrNothing (Nothing :<| _) = Nothing
 allJustOrNothing Empty = Just Empty
