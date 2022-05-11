@@ -20,7 +20,7 @@ import Data.Traversable
 import GHC.Stack
 import Data.Sequence
 import Search
-import Prelude hiding(traverse, map, zip, concat, filter)
+import Prelude hiding(traverse, map, zip, concat, filter, mapWithIndex)
 import Debug.Trace
 import Extra
 
@@ -70,6 +70,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
         isAmbiguous substs =
           let
             substs' =
+              mapWithIndex (,) .
               filter (not . Set.null) .
               fmap
                 (Set.filter \case
@@ -80,7 +81,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
           in
             not .
             all (uncurry Set.disjoint) $
-            [(x, y) | x <- substs', y <- substs', x /= y]
+            [(x, y) | (i1, x) <- substs', (i2, y) <- substs', i1 /= i2]
     PDDecl (DeclAst (Fresh name _) did@(Id n)) ->
       pure (C.MetaTerm did cSig (C.UniVar (UVGlobal n)))
     PDConstr conUniv constr@(ConstrAst (Constr _ _) did dtDid) -> do

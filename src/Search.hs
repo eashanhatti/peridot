@@ -66,16 +66,16 @@ search :: Search sig m => Seq Term -> Term -> Term -> m Substitution
 search ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    -- normCtx <- ask
-    -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
+    normCtx <- ask
+    let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
     substs <-
       traverse
         (\(dArg, gArg) -> unify gArg dArg)
         (zip dArgs gArgs)
-    -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-    -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
+    let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+    let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
     substs <- ((<| substs) <$> unify gHead dHead)
-    -- let !_ = tracePrettyS "SUBSTS" substs
+    let !_ = tracePrettyS "SUBSTS" substs
     case allJustOrNothing substs of
       Just substs -> pure (concat (fmap (\(Subst ts _ _) -> ts) substs))
       Nothing -> empty
