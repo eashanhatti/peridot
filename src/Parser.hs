@@ -13,7 +13,7 @@ import Data.Sequence
 
 keywords =
   [ "let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC", "rule", "Int"
-  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop"]
+  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop", "case"]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -522,6 +522,40 @@ eqProp = do
 cInt :: Parser TermAst
 cInt = (TermAst . CInt . read) <$> some digitChar
 
+caseE :: Parser TermAst
+caseE = do
+  string "case"; ws
+  scrs <- fromList <$> many (ws *> term); ws
+  char '{';
+  cls <- fromList <$> many (ws *> clause <* ws <* char ';'); ws
+  char '}'
+  pure (TermAst (Match scrs cls))
+
+clause :: Parser ClauseAst
+clause = do
+  p <- pat; ws
+  string "=>"; ws
+  e <- term
+  pure (ClseAst (Clse p e))
+
+pat :: Parser PatternAst
+pat = try pApp <|> try pCon <|> PatAst . PBind <$> name
+
+pApp :: Parser PatternAst
+pApp = do
+  char '['
+  args <- fromList <$> some (ws *> pat); ws
+  char ']'
+  pure (PatAst (PApp args))
+
+pCon :: Parser PatternAst
+pCon = do
+  char '('; ws
+  c <- name
+  args <- fromList <$> some (ws *> pat); ws
+  char ')'
+  pure (PatAst (PCon c args))
+
 term :: Parser TermAst
 term = do
   pos <- getSourcePos
@@ -563,6 +597,7 @@ term = do
     try allProp <|>
     try someProp <|>
     try eqProp <|>
+    try caseE <|>
     var
   pure (SourcePos e pos)
 

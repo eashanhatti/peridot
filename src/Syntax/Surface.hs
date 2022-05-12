@@ -13,6 +13,8 @@ data Ast a where
   -- .., constr id, datatype id
   ConstrAst :: Constructor -> Id -> Id -> ConstructorAst
   CStmtAst :: CStatement -> CStatementAst
+  PatAst :: Pattern -> PatternAst
+  ClseAst :: Clause -> ClauseAst
   SourcePos :: Ast a -> SourcePos -> Ast a
 deriving instance Show (Ast a)
 
@@ -110,6 +112,7 @@ data Term
   | ForallProp TermAst
   | ExistsProp TermAst
   | EqualProp TermAst TermAst
+  | Match (Seq TermAst) (Seq ClauseAst)
   deriving (Show)
 
 type CStatementAst = Ast CStatement
@@ -120,4 +123,15 @@ data CStatement
   | Assign TermAst TermAst
   | Return (Maybe TermAst)
   | SpliceLowCStmt TermAst
+  deriving (Show)
+
+type PatternAst = Ast Pattern
+data Pattern
+  = PApp (Seq PatternAst)
+  | PCon NameAst (Seq PatternAst)
+  | PBind NameAst
+  deriving (Show)
+
+type ClauseAst = Ast Clause
+data Clause = Clse PatternAst TermAst
   deriving (Show)

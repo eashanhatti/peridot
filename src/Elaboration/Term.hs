@@ -6,7 +6,7 @@ import Syntax.Semantic qualified as N
 import Syntax.Common hiding(unId, RigidTerm(..))
 import Extra
 import Elaboration.Effect
-import Elaboration.Decl qualified as ED
+import Elaboration.Declaration qualified as ED
 import Elaboration.CStatement qualified as ES
 import Control.Monad
 import Normalization hiding(eval, readback)

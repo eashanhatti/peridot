@@ -1,4 +1,4 @@
-module Elaboration.Decl where
+module Elaboration.Declaration where
 
 import Syntax.Surface
 import Syntax.Core qualified as C

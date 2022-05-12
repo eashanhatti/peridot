@@ -69,6 +69,7 @@ instance Eq Term where
 data Redex
   = MetaFunElim Term Term
   | ObjFunElim Term Term
+  | ObjConstElim (Map Id Term)
   | CodeCoreElim Term
   | CodeLowCTmElim Term
   | GlobalVar Id

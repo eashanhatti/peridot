@@ -5,6 +5,7 @@ module Syntax.Core
 
 import Syntax.Common hiding(unId, Declaration)
 import Syntax.Common qualified as Cm
+import Data.Map
 import Data.Sequence
 
 unId :: Declaration -> Id
@@ -22,6 +23,7 @@ data Term
   = ObjFunType Term Term
   | ObjFunIntro Term
   | ObjFunElim Term Term
+  | ObjConstElim (Map Id Term)
   -- Meta level
   | MetaFunType Term Term
   | MetaFunIntro Term
