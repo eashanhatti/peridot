@@ -61,6 +61,7 @@ data Error
   | ExpectedCFunType N.Term
   | FailedProve N.Term
   | AmbiguousProve N.Term (Seq (Map Global N.Term))
+  | Todo
   deriving (Show)
 
 type Query sig m = Has (State QueryState) sig m
@@ -225,6 +226,14 @@ withDecl :: Query sig m => Id -> (Predeclaration -> C m a) -> m a
 withDecl did act = do
   (as, decl) <- (! did) . unPredecls <$> get
   restore as (act decl)
+
+freshBareTypeUV :: Elab sig m => m Global
+freshBareTypeUV = do
+  state <- get
+  put (state
+    { unTypeUVs = insert (UVGlobal (unNextUV state)) Nothing (unTypeUVs state)
+    , unNextUV = unNextUV state + 1 })
+  pure (UVGlobal (unNextUV state))
 
 freshTypeUV :: Elab sig m => m N.Term
 freshTypeUV = do
