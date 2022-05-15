@@ -25,11 +25,6 @@ check cls goal = check' goal cls'
 
 check' :: Elab sig m => N.Term -> Seq PDClause -> m C.Term
 check' (N.MetaFunElims (N.Rigid (N.ObjConstIntro did)) args) _ = undefined
-check' (N.Neutral ty _) cls = do
-  ty <- force ty
-  case ty of
-    Just ty -> check' ty cls
-    Nothing -> fst <$> errorTerm Todo
 check' (N.ObjFunType inTy outTy) cls = do
   let cls' = stripAppPat cls
   case cls' of
@@ -37,7 +32,12 @@ check' (N.ObjFunType inTy outTy) cls = do
       cls' <- traverse (<$> freshBareTypeUV) cls'
       C.ObjFunIntro <$> (evalClosure outTy >>= flip check' cls')
     Nothing -> fst <$> errorTerm Todo
-  
+check' (N.Neutral ty _) cls = do
+  ty <- force ty
+  case ty of
+    Just ty -> check' ty cls
+    Nothing -> fst <$> errorTerm Todo
+
 stripAppPat :: Seq PDClause -> Maybe (Seq (Global -> PDClause))
 stripAppPat pcs = allJustOrNothing (fmap go pcs) where
   go (PDClse cs (PatAst (PApp (p :<| ps))) body) =

@@ -117,7 +117,8 @@ instance Ord Binding where
 
 data ElabContext = ElabContext
   { unBindings :: Map Name Binding
-  , unSourcePos :: SourcePos }
+  , unSourcePos :: SourcePos
+  , unConstrs :: Map Id (Set Id) }
   deriving (Show)
 
 data Predeclaration = PDDecl DeclarationAst | PDConstr Universe ConstructorAst
@@ -189,6 +190,7 @@ withDecls decls act = do
   normContext <- ask
   let
     bindings' = toBindings decls `union` unBindings elabContext
+    constrs' = toConstrs decls `union` unConstrs elabContext
     allState = AllState elabState (elabContext { unBindings = bindings' }) normContext
 
     toBindings :: Seq DeclarationAst -> Map Name Binding
@@ -200,6 +202,14 @@ withDecls decls act = do
         ((unDeclName decl, BGlobal (unId decl)) <| zip (fmap unConstrName constrs) (fmap (BGlobal . unCId) constrs))
     toBindings (decl :<| decls) =
       insert (unDeclName decl) (BGlobal (unId decl)) (toBindings decls)
+
+    toConstrs :: Seq DeclarationAst -> Map Id (Set Id)
+    toConstrs Empty = mempty
+    toConstrs (decl@(viewConstrs -> Just (_, dids)) :<| decls) =
+      insert
+        (unId decl)
+        (Set.fromList . toList . fmap unCId $ dids)
+        (toConstrs decls)
 
     go :: Elab sig m => Seq DeclarationAst -> m a
     go Empty = act
@@ -215,7 +225,7 @@ withDecls decls act = do
       state <- get
       put (state { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })
       go decls
-  local (\ctx -> ctx { unBindings = bindings' }) (go decls)
+  local (\ctx -> ctx { unBindings = bindings', unConstrs = constrs' }) (go decls)
 
 lookupBinding :: Elab sig m => Name -> m (Maybe Binding)
 lookupBinding name = do
