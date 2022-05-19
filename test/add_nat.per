@@ -1,0 +1,14 @@
+let {
+	datatype Nat : OType {
+		zero : Nat;
+		succ : [_ : Nat] -> Nat;
+	};
+
+	'val add
+		: [_ : Nat] -> [_ : Nat] -> Nat
+		= case {
+			x => x;
+		};
+} in {
+	OType
+}
