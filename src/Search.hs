@@ -60,7 +60,7 @@ prove ctx (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
   vP <- appClosure p uv
   prove ctx vP
-prove ctx (Rigid (IdType x y)) = do
+prove ctx (Rigid (PropIdType x y)) = do
   r <- unify x y
   case r of
     Just (Subst ts _ _) -> pure ts

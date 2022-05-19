@@ -211,7 +211,7 @@ infer term = case term of
     ty <- freshTypeUV
     cX <- check x ty
     cY <- check y ty
-    pure (C.Rigid (C.IdType cX cY), N.TypeType N.Meta)
+    pure (C.Rigid (C.PropIdType cX cY), N.TypeType N.Meta)
 
 -- checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 -- checkType term = do

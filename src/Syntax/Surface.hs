@@ -66,7 +66,8 @@ data Term
   | LiftLowCTm TermAst
   | QuoteLowCTm TermAst
   | SpliceLowCTm TermAst
-  | LiftLowCStmt TermAst -- Carries return type
+   -- Carries return type
+  | LiftLowCStmt TermAst
   | QuoteLowCStmt CStatementAst
   | CIntType
   | CVoidType
@@ -89,6 +90,19 @@ data Term
   | ForallProp TermAst
   | ExistsProp TermAst
   | EqualProp TermAst TermAst
+  | Bool
+  | BTrue
+  | BFalse
+  -- case foo returns x. ty { true => body1, false => body2 }
+  | Case TermAst NameAst TermAst TermAst TermAst
+  | Sigma TermAst NameAst TermAst
+  | Pair TermAst TermAst
+  -- split foo returns x. ty { body }
+  | Split TermAst NameAst TermAst TermAst
+  | Singleton TermAst
+  | Sing TermAst
+  | Equal TermAst TermAst
+  | Refl TermAst
   deriving (Show)
 
 type CStatementAst = Ast CStatement

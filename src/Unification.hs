@@ -160,9 +160,13 @@ unifyRigid (ConjType lprj1 rprj1) (ConjType lprj2 rprj2) = do
 unifyRigid (DisjType linj1 rinj1) (DisjType linj2 rinj2) = do
   unify' linj1 linj2
   unify' rinj1 rinj2
-unifyRigid (IdType x1 y1) (IdType x2 y2) = do
+unifyRigid (ObjIdType x1 y1) (ObjIdType x2 y2) = do
   unify' x1 x2
   unify' y1 y2
+unifyRigid (PropIdType x1 y1) (PropIdType x2 y2) = do
+  unify' x1 x2
+  unify' y1 y2
+unifyRigid (ObjIdIntro x1) (ObjIdIntro x2) = unify' x1 x2
 unifyRigid (AllType f1) (AllType f2) = unify' f1 f2
 unifyRigid (SomeType f1) (SomeType f2) = unify' f1 f2
 unifyRigid ElabError _ = pure ()

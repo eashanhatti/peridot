@@ -54,6 +54,18 @@ data COp a
 data RigidTerm a
   -- Object level
   = ObjConstIntro Id
+  | TwoType
+  | TwoIntro0
+  | TwoIntro1
+  | TwoElim a a a a
+  | SigmaType a a
+  | SigmaIntro a a
+  | SigmaElim a a a
+  | SingType a
+  | SingIntro a
+  | SingElim a
+  | ObjIdType a a
+  | ObjIdIntro a
   -- Low C level
   | CIntIntro Int
   | COp (COp a)
@@ -77,7 +89,7 @@ data RigidTerm a
   | DisjType a a
   | AllType a
   | SomeType a
-  | IdType a a
+  | PropIdType a a
   -- Other
   | ElabError
   deriving (Eq, Show, Functor, Foldable, Traversable)

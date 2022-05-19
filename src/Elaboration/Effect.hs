@@ -22,7 +22,7 @@ import Data.Dependent.HashMap qualified as DMap
 import Data.Dependent.HashMap(DHashMap)
 import Data.Functor.Identity
 import Data.GADT.Compare
-import Data.Type.Equality
+import Data.Type.Equality qualified as Equal
 import Data.Hashable
 import GHC.Generics hiding (Constructor, C)
 import Normalization hiding (eval, unTypeUVs, unRepUVs, unUVEqs, unVCUVs, readback', readback', zonk)
@@ -87,8 +87,8 @@ data Key a where
 
 
 instance GEq Key where
-  geq (CheckDecl _) (CheckDecl _) = Just Refl
-  geq (DeclType _) (DeclType _) = Just Refl
+  geq (CheckDecl _) (CheckDecl _) = Just Equal.Refl
+  geq (DeclType _) (DeclType _) = Just Equal.Refl
   geq _ _ = Nothing
 
 instance Hashable (Some Key) where
