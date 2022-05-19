@@ -119,14 +119,12 @@ data ElabContext = ElabContext
   , unSourcePos :: SourcePos }
   deriving (Show)
 
-data Predeclaration = PDDecl DeclarationAst | PDConstr Universe ConstructorAst
+data Predeclaration = PDDecl DeclarationAst
   deriving (Show)
 
 unPDDeclId :: Predeclaration -> Id
 unPDDeclId (PDDecl (DeclAst _ did)) = did
-unPDDeclId (PDConstr _ (ConstrAst _ did _)) = did
 unPDDeclId (PDDecl (SourcePos (DeclAst _ did) _)) = did
-unPDDeclId (PDConstr _ (SourcePos (ConstrAst _ did _) _)) = did
 
 convertUniv :: Universe -> N.Universe
 convertUniv Obj = N.Obj
@@ -192,24 +190,11 @@ withDecls decls act = do
 
     toBindings :: Seq DeclarationAst -> Map Name Binding
     toBindings Empty = mempty
-    toBindings (decl@(viewConstrs -> Just (_, constrs)) :<| decls) = 
-      foldl'
-        (\m (n, b) -> insert n b m)
-        (toBindings decls)
-        ((unDeclName decl, BGlobal (unId decl)) <| zip (fmap unConstrName constrs) (fmap (BGlobal . unCId) constrs))
     toBindings (decl :<| decls) =
       insert (unDeclName decl) (BGlobal (unId decl)) (toBindings decls)
 
     go :: Elab sig m => Seq DeclarationAst -> m a
     go Empty = act
-    go (decl@(viewConstrs -> Just (univ, constrs)) :<| decls) = do
-      state <- get
-      put (state
-        { unPredecls =
-            union
-              (insert (unId decl) (allState, PDDecl decl) (unPredecls state))
-              (foldl' (\acc c -> Map.insert (unCId c) (allState, PDConstr univ c) acc) mempty constrs) })
-      go decls
     go (decl :<| decls) = do
       state <- get
       put (state { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })

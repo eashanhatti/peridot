@@ -163,7 +163,6 @@ decl :: Parser DeclarationAst
 decl = do
   pos <- getSourcePos
   d <-
-    try datatype <|>
     try metaVal <|>
     try objVal <|>
     try axiom <|>
@@ -252,22 +251,6 @@ cFun = do
       ty <- term
       pure (pn, ty)
 
-
-datatype :: Parser DeclarationAst
-datatype = do
-  did <- freshId
-  string "datatype"; ws
-  n <- name; ws
-  char ':'; ws
-  sig <- term; ws
-  char '{'; ws
-  cs <- many do
-    c <- fmap ($ did) con; ws
-    char ';'; ws
-    pure c
-  char '}'; ws
-  pure (DeclAst (Datatype n sig (fromList cs)) did)
-
 metaVal :: Parser DeclarationAst
 metaVal = do
   did <- freshId
@@ -314,14 +297,6 @@ fresh = do
   char ':'; ws
   sig <- term
   pure (DeclAst (Fresh n sig) did)
-
-con :: Parser (Id -> ConstructorAst)
-con = do
-  did <- freshId
-  n <- name; ws
-  char ':'; ws
-  sig <- term
-  pure (\dtDid -> ConstrAst (Constr n sig) did dtDid)
 
 liftLowStmt :: Parser TermAst
 liftLowStmt = do

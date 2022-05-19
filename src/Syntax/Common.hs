@@ -84,7 +84,6 @@ data RigidTerm a
 
 data Declaration a
   = MetaConst Id a
-  | ObjConst Id a
   | ObjTerm Id a a -- sig, def
   | MetaTerm Id a a -- sig, def
   | CFun Id (Seq a) a (CStatement a)

@@ -61,7 +61,6 @@ force act = do
 
 definition :: C.Declaration -> C.Term
 definition (C.MetaConst did sig) = funIntros sig (C.Rigid (C.MetaConstIntro did))
-definition (C.ObjConst did sig) = funIntros sig (C.Rigid (C.ObjConstIntro did))
 definition (C.ObjTerm _ _ def) = def
 definition (C.MetaTerm _ _ def) = def
 definition (C.DElabError) = C.Rigid C.ElabError

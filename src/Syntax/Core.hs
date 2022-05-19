@@ -8,7 +8,6 @@ import Syntax.Common qualified as Cm
 import Data.Sequence
 
 unId :: Declaration -> Id
-unId (ObjConst did _) = did
 unId (MetaConst did _) = did
 unId (MetaTerm did _ _) = did
 unId DElabError = error "FIXME"

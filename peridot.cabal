@@ -26,7 +26,7 @@ library
   exposed-modules:
       Elaboration
       Elaboration.CStatement
-      Elaboration.Decl
+      Elaboration.Declaration
       Elaboration.Effect
       Elaboration.Term
       Extra
