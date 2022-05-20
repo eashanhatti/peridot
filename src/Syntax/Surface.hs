@@ -95,10 +95,6 @@ data Term
   | BFalse
   -- case foo returns x. ty { true => body1, false => body2 }
   | Case TermAst (Maybe (NameAst, TermAst)) TermAst TermAst
-  | Sigma TermAst NameAst TermAst
-  | Pair TermAst TermAst
-  -- split foo returns x. ty { body }
-  | Split TermAst (Maybe (NameAst, TermAst)) TermAst
   | Singleton TermAst
   | Sing
   | Equal TermAst TermAst

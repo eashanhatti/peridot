@@ -233,29 +233,6 @@ infer term = case term of
         cBody1 <- check body1 vTy
         cBody2 <- check body2 vTy
         pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
-  TermAst (Sigma ty1 (NameAst name) ty2) -> do
-    cTy1 <- check ty1 (N.TypeType N.Obj)
-    vTy1 <- eval cTy1
-    cTy2 <- bindLocal name vTy1 (check ty2 (N.TypeType N.Obj))
-    pure (C.Rigid (C.SigmaType cTy1 cTy2), N.TypeType N.Obj)
-  TermAst (Pair prj1 prj2) -> do
-    ty1 <- freshTypeUV
-    cPrj1 <- check prj1 ty1
-    ty2 <- freshTypeUV
-    cPrj2 <- check prj2 ty2
-    pure (C.Rigid (C.SigmaIntro cPrj1 cPrj2), N.Rigid (N.SigmaType ty1 ty2))
-  TermAst (Split scr ty body) -> do
-    scrTy <- N.Rigid <$> (N.SigmaType <$> freshTypeUV <*> freshTypeUV)
-    cScr <- check scr scrTy
-    vScr <- eval cScr
-    vTy <- case ty of
-      Just (NameAst name, ty) -> do
-        cTy <- bindLocal name scrTy (check ty (N.TypeType N.Obj))
-        define vScr (eval cTy)
-      Nothing -> freshTypeUV
-    cTy <- readback vTy
-    cBody <- check body vTy
-    pure (C.SigmaElim cScr cTy cBody, vTy)
   TermAst (Singleton term) -> do
     cTerm <- freshTypeUV >>= check term
     pure (C.Rigid (C.SingType cTerm), N.TypeType N.Obj)
