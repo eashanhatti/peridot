@@ -73,6 +73,9 @@ data Redex
   | CodeLowCTmElim Term
   | GlobalVar Id
   | UniVar Global
+  | TwoElim Term Closure Term Term
+  | SigmaElim Term Closure Closure
+  | SingElim Term
   | Let (Seq Declaration) Term
   deriving (Eq, Show)
 

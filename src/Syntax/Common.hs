@@ -57,13 +57,10 @@ data RigidTerm a
   | TwoType
   | TwoIntro0
   | TwoIntro1
-  | TwoElim a a a a
   | SigmaType a a
   | SigmaIntro a a
-  | SigmaElim a a a
   | SingType a
   | SingIntro a
-  | SingElim a
   | ObjIdType a a
   | ObjIdIntro a
   -- Low C level

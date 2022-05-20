@@ -212,11 +212,65 @@ infer term = case term of
     cX <- check x ty
     cY <- check y ty
     pure (C.Rigid (C.PropIdType cX cY), N.TypeType N.Meta)
-
--- checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
--- checkType term = do
---   stage <- freshStageUV
---   (,) <$> check term (N.TypeType stage) <*> pure (N.TypeType stage)
+  TermAst Bool -> pure (C.Rigid C.TwoType, N.TypeType N.Obj)
+  TermAst BTrue -> pure (C.Rigid C.TwoIntro0, N.Rigid N.TwoType)
+  TermAst BFalse -> pure (C.Rigid C.TwoIntro1, N.Rigid N.TwoType)
+  TermAst (Case scr ty body1 body2) -> do
+    cScr <- check scr (N.Rigid N.TwoType)
+    vScr <- eval cScr
+    case ty of
+      Just (NameAst name, ty) -> do
+        cTy <- bindLocal name (N.Rigid N.TwoType) (check ty (N.TypeType N.Obj))
+        vTy <- define vScr (eval cTy)
+        vTy1 <- define (N.Rigid N.TwoIntro0) (eval cTy)
+        vTy2 <- define (N.Rigid N.TwoIntro1) (eval cTy)
+        cBody1 <- check body1 vTy1
+        cBody2 <- check body2 vTy2
+        pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
+      Nothing -> do
+        vTy <- freshTypeUV
+        cTy <- readback vTy
+        cBody1 <- check body1 vTy
+        cBody2 <- check body2 vTy
+        pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
+  TermAst (Sigma ty1 (NameAst name) ty2) -> do
+    cTy1 <- check ty1 (N.TypeType N.Obj)
+    vTy1 <- eval cTy1
+    cTy2 <- bindLocal name vTy1 (check ty2 (N.TypeType N.Obj))
+    pure (C.Rigid (C.SigmaType cTy1 cTy2), N.TypeType N.Obj)
+  TermAst (Pair prj1 prj2) -> do
+    ty1 <- freshTypeUV
+    cPrj1 <- check prj1 ty1
+    ty2 <- freshTypeUV
+    cPrj2 <- check prj2 ty2
+    pure (C.Rigid (C.SigmaIntro cPrj1 cPrj2), N.Rigid (N.SigmaType ty1 ty2))
+  TermAst (Split scr ty body) -> do
+    scrTy <- N.Rigid <$> (N.SigmaType <$> freshTypeUV <*> freshTypeUV)
+    cScr <- check scr scrTy
+    vScr <- eval cScr
+    vTy <- case ty of
+      Just (NameAst name, ty) -> do
+        cTy <- bindLocal name scrTy (check ty (N.TypeType N.Obj))
+        define vScr (eval cTy)
+      Nothing -> freshTypeUV
+    cTy <- readback vTy
+    cBody <- check body vTy
+    pure (C.SigmaElim cScr cTy cBody, vTy)
+  TermAst (Singleton term) -> do
+    cTerm <- freshTypeUV >>= check term
+    pure (C.Rigid (C.SingType cTerm), N.TypeType N.Obj)
+  TermAst Sing -> do
+    term <- freshTypeUV
+    cTerm <- readback term
+    pure (C.Rigid (C.SingIntro cTerm), N.Rigid (N.SingType term))
+  TermAst (Equal term1 term2) -> do
+    cTerm1 <- freshTypeUV >>= check term1
+    cTerm2 <- freshTypeUV >>= check term2
+    pure (C.Rigid (C.ObjIdType cTerm1 cTerm2), N.TypeType N.Obj)
+  TermAst Refl -> do
+    term <- freshTypeUV
+    cTerm <- readback term
+    pure (C.Rigid (C.ObjIdIntro cTerm), N.Rigid (N.ObjIdType term term))
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term = (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)

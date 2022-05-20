@@ -94,15 +94,15 @@ data Term
   | BTrue
   | BFalse
   -- case foo returns x. ty { true => body1, false => body2 }
-  | Case TermAst NameAst TermAst TermAst TermAst
+  | Case TermAst (Maybe (NameAst, TermAst)) TermAst TermAst
   | Sigma TermAst NameAst TermAst
   | Pair TermAst TermAst
   -- split foo returns x. ty { body }
-  | Split TermAst NameAst TermAst TermAst
+  | Split TermAst (Maybe (NameAst, TermAst)) TermAst
   | Singleton TermAst
-  | Sing TermAst
+  | Sing
   | Equal TermAst TermAst
-  | Refl TermAst
+  | Refl
   deriving (Show)
 
 type CStatementAst = Ast CStatement

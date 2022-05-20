@@ -21,6 +21,9 @@ data Term
   = ObjFunType Term Term
   | ObjFunIntro Term
   | ObjFunElim Term Term
+  | TwoElim Term Term Term Term
+  | SigmaElim Term Term Term
+  | SingElim Term
   -- Meta level
   | MetaFunType Term Term
   | MetaFunIntro Term
