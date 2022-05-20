@@ -47,7 +47,7 @@ putTypeSol gl sol = do
   sols <- get
   case Map.lookup gl (unTypeSols sols) of
     Nothing -> put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
-    Just sol' -> pure ()-- unify' sol sol'
+    Just sol' -> unify' sol sol'
 
 -- putVCSol :: Unify sig m => Global -> ValueCategory -> m ()
 -- putVCSol gl sol = do
@@ -166,6 +166,9 @@ unifyRigid (ObjIdType x1 y1) (ObjIdType x2 y2) = do
 unifyRigid (PropIdType x1 y1) (PropIdType x2 y2) = do
   unify' x1 x2
   unify' y1 y2
+unifyRigid TwoIntro0 TwoIntro0 = pure ()
+unifyRigid TwoIntro1 TwoIntro1 = pure ()
+unifyRigid TwoType TwoType = pure ()
 unifyRigid (ObjIdIntro x1) (ObjIdIntro x2) = unify' x1 x2
 unifyRigid (AllType f1) (AllType f2) = unify' f1 f2
 unifyRigid (SomeType f1) (SomeType f2) = unify' f1 f2

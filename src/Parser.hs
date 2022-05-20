@@ -13,7 +13,7 @@ import Data.Sequence
 
 keywords =
   [ "let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC", "rule", "Int"
-  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop"]
+  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop", "Bool", "Equal", "tt", "ff", "refl" ]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -497,6 +497,53 @@ eqProp = do
 cInt :: Parser TermAst
 cInt = (TermAst . CInt . read) <$> some digitChar
 
+boolTy :: Parser TermAst
+boolTy = do
+  string "Bool"
+  pure (TermAst Bool)
+
+trueE :: Parser TermAst
+trueE = do
+  string "tt"
+  pure (TermAst BTrue)
+
+falseE :: Parser TermAst
+falseE = do
+  string "ff"
+  pure (TermAst BFalse)
+
+caseE :: Parser TermAst
+caseE = do
+  string "bool_elim"; ws
+  scr <- term; ws
+  ty <- optional do
+    string "returns"; ws
+    n <- name; ws
+    char '.'; ws
+    ty <- term; ws
+    pure (n, ty)
+  char '{'; ws
+  body1 <- term; ws
+  char ';'; ws
+  body2 <- term; ws
+  char ';'; ws
+  char '}'
+  pure (TermAst (Case scr ty body1 body2))
+
+equal :: Parser TermAst
+equal = do
+  char '('; ws
+  string "Equal"; ws
+  x <- term; ws
+  y <- term; ws
+  char ')'
+  pure (TermAst (Equal x y))
+
+refl :: Parser TermAst
+refl = do
+  string "refl"
+  pure (TermAst Refl)
+
 term :: Parser TermAst
 term = do
   pos <- getSourcePos
@@ -538,6 +585,12 @@ term = do
     try allProp <|>
     try someProp <|>
     try eqProp <|>
+    try equal <|>
+    try refl <|>
+    try boolTy <|>
+    try trueE <|>
+    try falseE <|>
+    try caseE <|>
     var
   pure (SourcePos e pos)
 
