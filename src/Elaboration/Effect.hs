@@ -17,7 +17,7 @@ import Syntax.Semantic qualified as N
 import Syntax.Surface
 import Syntax.Common hiding(unId)
 import Data.Some
-import Data.Maybe(isJust, fromMaybe, fromJust)
+import Data.Maybe
 import Data.Dependent.HashMap qualified as DMap
 import Data.Dependent.HashMap(DHashMap)
 import Data.Functor.Identity
@@ -38,6 +38,7 @@ import Text.Megaparsec(SourcePos)
 import Debug.Trace
 import Data.Sequence
 import Control.Monad.Fix
+import Data.Bifunctor
 
 -- Contains query state *and* general global state
 data QueryState = QueryState
@@ -148,11 +149,25 @@ unify term1 term2 = do
   case subst of
     Just (Uni.Subst ts ss {-vcs-} eqs) -> do
       state <- get
-      put (state
-        { unTypeUVs = fmap Just ts <> unTypeUVs state
-        , unUnivUVs = fmap Just ss <> unUnivUVs state
-        -- , unVCUVs = fmap Just vcs <> unVCUVs state
-        , unUVEqs = eqs <> unUVEqs state })
+      let
+        dups =
+          [ (sol1, sol2)
+          | (gl1, sol1) <- Map.toList ts
+          , (gl2, sol2) <-
+              Pre.map (second fromJust) .
+              Pre.filter (\(_, e) -> isJust e) $
+              (Map.toList (unTypeUVs state))
+          , gl1 == gl2]
+      extraSubsts <- traverse (uncurry Uni.unify) dups
+      let r = sequence extraSubsts
+      case r of
+        Just _ ->
+          put (state
+            { unTypeUVs = fmap Just ts <> unTypeUVs state
+            , unUnivUVs = fmap Just ss <> unUnivUVs state
+            -- , unVCUVs = fmap Just vcs <> unVCUVs state
+            , unUVEqs = eqs <> unUVEqs state })
+        Nothing -> report (FailedUnify term1 term2)
     Nothing -> report (FailedUnify term1 term2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
