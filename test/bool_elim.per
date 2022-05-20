@@ -1,0 +1,12 @@
+let {
+	'val foo
+		: '[b : Bool] -> bool_elim b { Bool; (Equal tt tt); }
+		= '\b {
+			bool_elim b {
+				tt;
+				refl;
+			}
+		};
+} in {
+	OType
+}

@@ -44,10 +44,24 @@ closureOf term = do
   pure (N.Clo env term)
 
 appClosure :: HasCallStack => Norm sig m => N.Closure -> N.Term -> m N.Term
-appClosure (N.Clo env body) arg = local (\ctx -> ctx { unEnv = N.withLocal arg env }) (eval body)
+appClosure (N.Clo env body) arg =
+  local (\ctx -> ctx { unEnv = N.withLocal arg env }) (eval body)
+
+appClosure2 :: HasCallStack => Norm sig m => N.Closure -> N.Term -> N.Term -> m N.Term
+appClosure2 (N.Clo env body) arg1 arg2 =
+  local
+    (\ctx -> ctx { unEnv = N.withLocal arg2 . N.withLocal arg1 $ env })
+    (eval body)
 
 evalClosure :: HasCallStack => Norm sig m => N.Closure -> m N.Term
 evalClosure clo@(N.Clo env _) = appClosure clo (N.LocalVar (fromIntegral (N.envSize env)))
+
+evalClosure2 :: HasCallStack => Norm sig m => N.Closure -> m N.Term
+evalClosure2 clo@(N.Clo env _) =
+  appClosure2
+    clo
+    (N.LocalVar (fromIntegral (N.envSize env)))
+    (N.LocalVar (fromIntegral (N.envSize env) + 1))
 
 funIntros :: C.Term -> (C.Term -> C.Term)
 funIntros (C.MetaFunType _ outTy) = C.MetaFunIntro . funIntros outTy
@@ -117,21 +131,21 @@ eval (C.GlobalVar did) = do
   pure (N.Neutral (pure (Just def)) (N.GlobalVar did))
 eval (C.UniVar gl) = pure (N.Neutral (uvRedex gl) (N.UniVar gl))
 eval (C.CodeCoreElim term) = do
-  term' <- eval term
+  vTerm <- eval term
   let
     reded =
-      case term' of
+      case vTerm of
         N.Rigid (N.CodeCoreIntro code) -> Just code
         _ -> Nothing
-  pure (N.Neutral (pure reded) (N.CodeCoreElim term'))
+  pure (N.Neutral (pure reded) (N.CodeCoreElim vTerm))
 eval (C.CodeLowCTmElim term) = do
-  term' <- eval term
+  vTerm <- eval term
   let
     reded =
-      case term' of
+      case vTerm of
         N.Rigid (N.CodeLowCTmIntro code) -> Just code
         _ -> Nothing
-  pure (N.Neutral (pure reded) (N.CodeLowCTmElim term'))
+  pure (N.Neutral (pure reded) (N.CodeLowCTmElim vTerm))
 eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
 eval (C.Let decls body) = do
   let defs = fmap (\decl -> (C.unId decl, definition decl)) decls
@@ -144,6 +158,36 @@ eval (C.Let decls body) = do
   vDecls <- traverse (traverse eval) decls
   vBody <- eval body
   pure (N.Neutral (Just <$> reded) (N.Let vDecls vBody))
+eval (C.TwoElim scr ty body1 body2) = do
+  vScr <- eval scr
+  tyClo <- closureOf ty
+  vBody1 <- eval body1
+  vBody2 <- eval body2
+  let
+    reded =
+      case vScr of
+        N.Rigid N.TwoIntro0 -> Just vBody1
+        N.Rigid N.TwoIntro1 -> Just vBody2
+        _ -> Nothing
+  pure (N.Neutral (pure reded) (N.TwoElim vScr tyClo vBody1 vBody2))
+eval (C.SigmaElim scr ty body) = do
+  vScr <- eval scr
+  tyClo <- closureOf ty
+  vBody <- closureOf body
+  let
+    reded =
+      case vScr of
+        N.Rigid (N.SigmaIntro prj1 prj2) ->
+          Just <$> (define prj1 (define prj2 (eval body)))
+  pure (N.Neutral reded (N.SigmaElim vScr tyClo vBody))
+eval (C.SingElim scr) = do
+  vSrc <- eval scr
+  let
+    reded =
+      case vSrc of
+        N.Rigid (N.SingIntro term) -> Just term
+        _ -> Nothing
+  pure (N.Neutral (pure reded) (N.SingElim vSrc))
 
 withGlobals :: Seq (Id, N.Term) -> N.Environment -> N.Environment
 withGlobals defs (N.Env locals globals) =
@@ -188,6 +232,11 @@ readbackRedex opt (N.CodeLowCTmElim quote) = C.CodeLowCTmElim <$> readback' opt 
 readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)
 readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)
 readbackRedex opt (N.Let decls body) = C.Let <$> traverse (traverse (readback' opt)) decls <*> readback' opt body
+readbackRedex opt (N.TwoElim scr ty body1 body2) =
+  C.TwoElim <$> readback' opt scr <*> (evalClosure ty >>= readback' opt) <*> readback' opt body1 <*> readback' opt body2
+readbackRedex opt (N.SigmaElim scr ty body) =
+  C.SigmaElim <$> readback' opt scr <*> (evalClosure2 ty >>= readback' opt) <*> (evalClosure2 body >>= readback' opt)
+readbackRedex opt (N.SingElim scr) = C.SingElim <$> readback' opt scr
 
 readback :: HasCallStack => Norm sig m => N.Term -> m C.Term
 readback = readback' False

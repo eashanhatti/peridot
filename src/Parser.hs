@@ -13,7 +13,7 @@ import Data.Sequence
 
 keywords =
   [ "let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC", "rule", "Int"
-  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop", "Bool", "Equal", "tt", "ff", "refl" ]
+  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop", "Bool", "Equal", "tt", "ff", "refl", "bool_elim" ]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
