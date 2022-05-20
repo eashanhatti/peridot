@@ -2,7 +2,9 @@ let {
 	'val foo
 		: '[b : Bool] -> bool_elim b { Bool; (Equal tt tt); }
 		= '\b {
-			bool_elim b {
+			bool_elim b
+				returns x. bool_elim x { Bool; (Equal tt tt); }
+			{
 				tt;
 				refl;
 			}
@@ -10,3 +12,4 @@ let {
 } in {
 	OType
 }
+
