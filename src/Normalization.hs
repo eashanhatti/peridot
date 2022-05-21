@@ -146,7 +146,7 @@ eval (C.CodeLowCTmElim term) = do
         N.Rigid (N.CodeLowCTmIntro code) -> Just code
         _ -> Nothing
   pure (N.Neutral (pure reded) (N.CodeLowCTmElim vTerm))
-eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
+eval (C.Rigid rterm) = N.Rigid <$> traverse eval (tracePretty rterm)
 eval (C.Let decls body) = do
   let defs = fmap (\decl -> (C.unId decl, definition decl)) decls
   vDefs <- traverse (\(did, def) -> eval def >>= pure . (did,)) defs
@@ -183,10 +183,23 @@ eval (C.RecElim str name) = do
   let
     reded =
       case vStr of
-        N.Rigid (N.RecIntro fds) ->
+        N.RecIntro fds ->
           snd <$> find (\(name', _) -> name == name') fds
         _ -> Nothing
   pure (N.Neutral (pure reded) (N.RecElim vStr name))
+eval (C.RecIntro fds) = N.RecIntro <$> evalFields define fds
+eval (C.RecType tys) = N.RecType <$> evalFields (const bind) tys
+
+evalFields ::
+  Norm sig m =>
+  (N.Term -> m (Seq (Field, N.Term)) -> m (Seq (Field, N.Term))) ->
+  Seq (Field, C.Term) ->
+  m (Seq (Field, N.Term))
+evalFields _ Empty = pure Empty
+evalFields f ((name, fd) :<| fds) = do
+  vFd <- eval fd
+  fds' <- f vFd (evalFields f fds)
+  pure ((name, vFd) <| fds')
 
 withGlobals :: Seq (Id, N.Term) -> N.Environment -> N.Environment
 withGlobals defs (N.Env locals globals) =

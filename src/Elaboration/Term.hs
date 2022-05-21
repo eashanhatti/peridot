@@ -13,7 +13,7 @@ import Normalization hiding(eval, readback)
 import Data.Foldable(foldl', foldr, foldrM)
 import Debug.Trace
 import Data.Sequence
-import Prelude hiding(zip, concatMap, head, tail, length)
+import Prelude hiding(zip, concatMap, head, tail, length, unzip)
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check term goal = do
@@ -241,6 +241,31 @@ infer term = case term of
     term <- freshTypeUV
     cTerm <- readback term
     pure (C.Rigid (C.ObjIdIntro cTerm), N.Rigid (N.ObjIdType term term))
+  TermAst (Sig tys) -> do
+    cTys <- go tys
+    pure (C.RecType cTys, N.TypeType N.Obj)
+    where
+      go :: Elab sig m => Seq (NameAst, TermAst) -> m (Seq (Field, C.Term))
+      go Empty = pure Empty
+      go ((NameAst name, ty) :<| tys) = do
+        cTy <- check ty (N.TypeType N.Obj)
+        vTy <- eval cTy
+        cTys <- bindLocal name vTy (go tys)
+        pure ((nameToField name, cTy) <| cTys)
+  TermAst (Struct fds) -> do
+    (cFds, cTys) <- unzip <$> go fds
+    pure (C.RecIntro cFds, N.RecType cTys)
+    where
+      go ::
+        Elab sig m =>
+        Seq (NameAst, TermAst) ->
+        m (Seq ((Field, C.Term), (Field, N.Term)))
+      go Empty = pure Empty
+      go ((NameAst name, fd) :<| fds) = do
+        ty <- freshTypeUV
+        cFd <- check fd ty
+        cFds <- bindLocal name ty (go fds)
+        pure (((nameToField name, cFd), (nameToField name, ty)) <| cFds)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term = (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)

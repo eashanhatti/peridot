@@ -180,18 +180,6 @@ unifyRigid TwoType TwoType = pure ()
 unifyRigid (ObjIdIntro x1) (ObjIdIntro x2) = unify' x1 x2
 unifyRigid (AllType f1) (AllType f2) = unify' f1 f2
 unifyRigid (SomeType f1) (SomeType f2) = unify' f1 f2
-unifyRigid (RecType fdTys1) (RecType fdTys2) =
-  traverse_
-    (\((name1, ty1), (name2, ty2)) -> do
-      when (name1 /= name2) (throwError ())
-      unify' ty1 ty2)
-    (zip fdTys1 fdTys2)
-unifyRigid (RecIntro fds1) (RecIntro fds2) =
-  traverse_
-    (\((name1, fd1), (name2, fd2)) -> do
-      when (name1 /= name2) (throwError ())
-      unify' fd1 fd2)
-    (zip fds1 fds2)
 unifyRigid ElabError _ = pure ()
 unifyRigid _ ElabError = pure ()
 unifyRigid _ _ = throwError ()
@@ -236,6 +224,18 @@ unify' (ObjFunType inTy1 outTy1) (ObjFunType inTy2 outTy2) = do
 unify' (ObjFunIntro body1) (ObjFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (TypeType s1) (TypeType s2) = unifyUnivs s1 s2
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
+unify' (RecType fdTys1) (RecType fdTys2) =
+  traverse_
+    (\((name1, ty1), (name2, ty2)) -> do
+      when (name1 /= name2) (throwError ())
+      unify' ty1 ty2)
+    (zip fdTys1 fdTys2)
+unify' (RecIntro fds1) (RecIntro fds2) =
+  traverse_
+    (\((name1, fd1), (name2, fd2)) -> do
+      when (name1 /= name2) (throwError ())
+      unify' fd1 fd2)
+    (zip fds1 fds2)
 unify' (Rigid term1) (Rigid term2) = unifyRigid term1 term2
 unify' _ _ = throwError ()
 

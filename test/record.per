@@ -1,0 +1,15 @@
+let {
+	'val Ty : OType =
+		signature {
+			T : OType,
+			f : '[_ : T] -> T
+		};
+
+	'val rec : Ty =
+		structure {
+			T = Bool,
+			f = '\b { b }
+		};
+} in {
+	OType
+}

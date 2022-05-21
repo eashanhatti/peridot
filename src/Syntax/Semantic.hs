@@ -43,6 +43,8 @@ data Term
   -- Object level
   = ObjFunType Term Closure
   | ObjFunIntro Closure
+  | RecType (Seq (Field, Term))
+  | RecIntro (Seq (Field, Term))
   -- Meta level
   | MetaFunType Term Closure
   | MetaFunIntro Closure
@@ -60,6 +62,8 @@ instance Show Term where
   show (MetaFunIntro body) = "(MetaFunIntro " ++ show body ++ ")"
   show (TypeType univ) = "(TypeType " ++ show univ ++ ")"
   show (LocalVar lvl) = "(LocalVar " ++ show lvl ++ ")"
+  show (RecType tys) = "(RecType " ++ show tys ++ ")"
+  show (RecIntro tys) = "(RecIntro " ++ show tys ++ ")"
   show (Rigid term) = "(Rigid " ++ show term ++ ")"
   show (Neutral _ redex) = "(Neutral _ (" ++ show redex ++ "))"
 

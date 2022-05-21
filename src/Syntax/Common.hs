@@ -13,6 +13,8 @@ data Language = C
 newtype Field = Field { unField :: Text }
   deriving (Eq, Show)
 
+nameToField (UserName name) = Field name
+
 newtype Index = Index { unIndex :: Natural }
   deriving (Num, Eq, Ord, Enum, Real, Integral, Show)
 
@@ -60,8 +62,6 @@ data RigidTerm a
   | TwoType
   | TwoIntro0
   | TwoIntro1
-  | RecType (Seq (Field, a))
-  | RecIntro (Seq (Field, a))
   | SingType a
   | SingIntro a
   | ObjIdType a a

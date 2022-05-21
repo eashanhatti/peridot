@@ -13,7 +13,8 @@ import Data.Sequence
 
 keywords =
   [ "let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC", "rule", "Int"
-  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop", "Bool", "Equal", "tt", "ff", "refl", "bool_elim" ]
+  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop", "Bool", "Equal", "tt", "ff", "refl", "bool_elim"
+  , "signature", "structure" ]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -25,6 +26,30 @@ name :: Parser NameAst
 name = do
   s <- some nameChar
   pure (NameAst (UserName (pack s)))
+
+sig :: Parser TermAst
+sig = do
+  string "signature"; ws
+  char '{'; ws
+  fdTys <- fromList <$> flip sepBy (ws *> char ',' *> ws) do
+    n <- name; ws
+    char ':'; ws
+    ty <- term; ws
+    pure (n, ty)
+  char '}'
+  pure (TermAst (Sig fdTys))
+
+struct :: Parser TermAst
+struct = do
+  string "structure"; ws
+  char '{'; ws
+  fds <- fromList <$> flip sepBy (ws *> char ',' *> ws) do
+    n <- name; ws
+    char '='; ws
+    fd <- term; ws
+    pure (n, fd)
+  char '}'
+  pure (TermAst (Struct fds))
 
 objPiTy :: Parser TermAst
 objPiTy = do
@@ -591,6 +616,8 @@ term = do
     try trueE <|>
     try falseE <|>
     try caseE <|>
+    try sig <|>
+    try struct <|>
     var
   pure (SourcePos e pos)
 
