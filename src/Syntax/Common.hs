@@ -57,8 +57,6 @@ data RigidTerm a
   | TwoType
   | TwoIntro0
   | TwoIntro1
-  | SigmaType a a
-  | SigmaIntro a a
   | SingType a
   | SingIntro a
   | ObjIdType a a

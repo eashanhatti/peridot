@@ -170,16 +170,6 @@ eval (C.TwoElim scr ty body1 body2) = do
         N.Rigid N.TwoIntro1 -> Just vBody2
         _ -> Nothing
   pure (N.Neutral (pure reded) (N.TwoElim vScr tyClo vBody1 vBody2))
-eval (C.SigmaElim scr ty body) = do
-  vScr <- eval scr
-  tyClo <- closureOf ty
-  vBody <- closureOf body
-  let
-    reded =
-      case vScr of
-        N.Rigid (N.SigmaIntro prj1 prj2) ->
-          Just <$> (define prj1 (define prj2 (eval body)))
-  pure (N.Neutral reded (N.SigmaElim vScr tyClo vBody))
 eval (C.SingElim scr) = do
   vSrc <- eval scr
   let
@@ -234,8 +224,6 @@ readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)
 readbackRedex opt (N.Let decls body) = C.Let <$> traverse (traverse (readback' opt)) decls <*> readback' opt body
 readbackRedex opt (N.TwoElim scr ty body1 body2) =
   C.TwoElim <$> readback' opt scr <*> (evalClosure ty >>= readback' opt) <*> readback' opt body1 <*> readback' opt body2
-readbackRedex opt (N.SigmaElim scr ty body) =
-  C.SigmaElim <$> readback' opt scr <*> (evalClosure2 ty >>= readback' opt) <*> (evalClosure2 body >>= readback' opt)
 readbackRedex opt (N.SingElim scr) = C.SingElim <$> readback' opt scr
 
 readback :: HasCallStack => Norm sig m => N.Term -> m C.Term

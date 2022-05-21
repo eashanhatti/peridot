@@ -89,9 +89,6 @@ unifyRedexes (TwoElim scr1 _ body11 body21) (TwoElim scr2 _ body12 body22) = do
   unify' scr1 scr2
   unify' body11 body12
   unify' body21 body22
-unifyRedexes (SigmaElim scr1 _ body1) (SigmaElim scr2 _ body2) = do
-  unify' scr1 scr2
-  bind2 unify' (evalClosure2 body1) (evalClosure2 body2)
 unifyRedexes (SingElim term1) (SingElim term2) = unify' term1 term2
 unifyRedexes _ _ = throwError ()
 
