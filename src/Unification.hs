@@ -15,6 +15,7 @@ import Data.Foldable
 import GHC.Stack
 import Debug.Trace
 import Data.Sequence
+import Control.Applicative
 import Prelude hiding(zip)
 
 data Substitution = Subst
@@ -75,7 +76,7 @@ unifyUnivs Obj Obj = pure ()
 unifyUnivs (Low l1) (Low l2) | l1 == l2 = pure ()
 unifyUnivs _ _ = throwError ()
 
-unifyRedexes :: Unify sig m => Redex ->  Redex -> m ()
+unifyRedexes :: Unify sig m => Redex -> Redex -> m ()
 unifyRedexes (MetaFunElim lam1 arg1) (MetaFunElim lam2 arg2) = do
   unify' lam1 lam2
   unify' arg1 arg2
@@ -90,6 +91,8 @@ unifyRedexes (TwoElim scr1 _ body11 body21) (TwoElim scr2 _ body12 body22) = do
   unify' body11 body12
   unify' body21 body22
 unifyRedexes (SingElim term1) (SingElim term2) = unify' term1 term2
+unifyRedexes (RecElim str1 name1) (RecElim str2 name2) | name1 == name2 =
+  unify' str1 str2
 unifyRedexes _ _ = throwError ()
 
 unifyStmts :: Unify sig m => CStatement Term -> CStatement Term -> m ()
@@ -177,6 +180,18 @@ unifyRigid TwoType TwoType = pure ()
 unifyRigid (ObjIdIntro x1) (ObjIdIntro x2) = unify' x1 x2
 unifyRigid (AllType f1) (AllType f2) = unify' f1 f2
 unifyRigid (SomeType f1) (SomeType f2) = unify' f1 f2
+unifyRigid (RecType fdTys1) (RecType fdTys2) =
+  traverse_
+    (\((name1, ty1), (name2, ty2)) -> do
+      when (name1 /= name2) (throwError ())
+      unify' ty1 ty2)
+    (zip fdTys1 fdTys2)
+unifyRigid (RecIntro fds1) (RecIntro fds2) =
+  traverse_
+    (\((name1, fd1), (name2, fd2)) -> do
+      when (name1 /= name2) (throwError ())
+      unify' fd1 fd2)
+    (zip fds1 fds2)
 unifyRigid ElabError _ = pure ()
 unifyRigid _ ElabError = pure ()
 unifyRigid _ _ = throwError ()

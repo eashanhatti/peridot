@@ -95,10 +95,11 @@ data Term
   | BFalse
   -- case foo returns x. ty { true => body1, false => body2 }
   | Case TermAst (Maybe (NameAst, TermAst)) TermAst TermAst
-  | Singleton TermAst
-  | Sing
   | Equal TermAst TermAst
   | Refl
+  | Sig (Seq (NameAst, TermAst))
+  | Struct (Seq (NameAst, TermAst))
+  | Select TermAst NameAst
   deriving (Show)
 
 type CStatementAst = Ast CStatement

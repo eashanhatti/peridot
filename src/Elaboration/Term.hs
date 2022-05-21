@@ -233,13 +233,6 @@ infer term = case term of
         cBody1 <- check body1 vTy
         cBody2 <- check body2 vTy
         pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
-  TermAst (Singleton term) -> do
-    cTerm <- freshTypeUV >>= check term
-    pure (C.Rigid (C.SingType cTerm), N.TypeType N.Obj)
-  TermAst Sing -> do
-    term <- freshTypeUV
-    cTerm <- readback term
-    pure (C.Rigid (C.SingIntro cTerm), N.Rigid (N.SingType term))
   TermAst (Equal term1 term2) -> do
     cTerm1 <- freshTypeUV >>= check term1
     cTerm2 <- freshTypeUV >>= check term2

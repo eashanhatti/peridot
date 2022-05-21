@@ -74,6 +74,7 @@ data Redex
   | GlobalVar Id
   | UniVar Global
   | TwoElim Term Closure Term Term
+  | RecElim Term Field
   | SingElim Term
   | Let (Seq Declaration) Term
   deriving (Eq, Show)

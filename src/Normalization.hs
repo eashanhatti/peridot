@@ -178,6 +178,15 @@ eval (C.SingElim scr) = do
         N.Rigid (N.SingIntro term) -> Just term
         _ -> Nothing
   pure (N.Neutral (pure reded) (N.SingElim vSrc))
+eval (C.RecElim str name) = do
+  vStr <- eval str
+  let
+    reded =
+      case vStr of
+        N.Rigid (N.RecIntro fds) ->
+          snd <$> find (\(name', _) -> name == name') fds
+        _ -> Nothing
+  pure (N.Neutral (pure reded) (N.RecElim vStr name))
 
 withGlobals :: Seq (Id, N.Term) -> N.Environment -> N.Environment
 withGlobals defs (N.Env locals globals) =
@@ -225,6 +234,7 @@ readbackRedex opt (N.Let decls body) = C.Let <$> traverse (traverse (readback' o
 readbackRedex opt (N.TwoElim scr ty body1 body2) =
   C.TwoElim <$> readback' opt scr <*> (evalClosure ty >>= readback' opt) <*> readback' opt body1 <*> readback' opt body2
 readbackRedex opt (N.SingElim scr) = C.SingElim <$> readback' opt scr
+readbackRedex opt (N.RecElim str name) = C.RecElim <$> readback' opt str <*> pure name
 
 readback :: HasCallStack => Norm sig m => N.Term -> m C.Term
 readback = readback' False

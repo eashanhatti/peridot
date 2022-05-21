@@ -22,6 +22,7 @@ data Term
   | ObjFunIntro Term
   | ObjFunElim Term Term
   | TwoElim Term Term Term Term
+  | RecElim Term Field
   | SingElim Term
   -- Meta level
   | MetaFunType Term Term

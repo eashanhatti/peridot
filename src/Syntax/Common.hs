@@ -10,6 +10,9 @@ import Data.Sequence
 data Language = C
   deriving (Eq, Show)
 
+newtype Field = Field { unField :: Text }
+  deriving (Eq, Show)
+
 newtype Index = Index { unIndex :: Natural }
   deriving (Num, Eq, Ord, Enum, Real, Integral, Show)
 
@@ -57,6 +60,8 @@ data RigidTerm a
   | TwoType
   | TwoIntro0
   | TwoIntro1
+  | RecType (Seq (Field, a))
+  | RecIntro (Seq (Field, a))
   | SingType a
   | SingIntro a
   | ObjIdType a a
