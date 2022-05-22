@@ -46,6 +46,7 @@ default-extensions:
 - EmptyDataDeriving
 - PatternSynonyms
 - MonadComprehensions
+- RankNTypes
 
 dependencies:
 - base >= 4.7 && < 5

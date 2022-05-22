@@ -12,8 +12,10 @@ import Control.Monad.State
 import Data.Sequence
 
 keywords =
-  [ "let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC", "rule", "Int"
-  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop", "case"]
+  [ "let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt"
+  , "quoteC", "spliceC", "LiftC", "rule", "Int", "all", "conj", "disj", "impl"
+  , "some", "atomicformula", "Prop", "Bool", "Equal", "tt", "ff", "refl", "bool_elim"
+  , "signature", "structure" ]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
 
@@ -25,6 +27,52 @@ name :: Parser NameAst
 name = do
   s <- some nameChar
   pure (NameAst (UserName (pack s)))
+
+patch :: Parser TermAst
+patch = do
+  char '#'
+  str <- term; ws
+  char '['; ws
+  fds <- fromList <$> flip sepBy (ws *> char ',' *> ws) do
+    n <- name; ws
+    char '='; ws
+    fd <- term; ws
+    pure (n, fd)
+  char ']'
+  pure (TermAst (Patch str fds))
+
+sig :: Parser TermAst
+sig = do
+  string "signature"; ws
+  char '{'; ws
+  fdTys <- fromList <$> flip sepBy (ws *> char ',' *> ws) do
+    n <- name; ws
+    char ':'; ws
+    ty <- term; ws
+    pure (n, ty)
+  char '}'
+  pure (TermAst (Sig fdTys))
+
+struct :: Parser TermAst
+struct = do
+  string "structure"; ws
+  char '{'; ws
+  fds <- fromList <$> flip sepBy (ws *> char ',' *> ws) do
+    n <- name; ws
+    char '='; ws
+    fd <- term; ws
+    pure (n, fd)
+  char '}'
+  pure (TermAst (Struct fds))
+
+select :: Parser TermAst
+select = do
+  char '('; ws
+  char '#'
+  n <- name; ws
+  str <- term; ws
+  char ')'
+  pure (TermAst (Select str n))
 
 objPiTy :: Parser TermAst
 objPiTy = do
@@ -163,7 +211,6 @@ decl :: Parser DeclarationAst
 decl = do
   pos <- getSourcePos
   d <-
-    try datatype <|>
     try metaVal <|>
     try objVal <|>
     try axiom <|>
@@ -252,22 +299,6 @@ cFun = do
       ty <- term
       pure (pn, ty)
 
-
-datatype :: Parser DeclarationAst
-datatype = do
-  did <- freshId
-  string "datatype"; ws
-  n <- name; ws
-  char ':'; ws
-  sig <- term; ws
-  char '{'; ws
-  cs <- many do
-    c <- fmap ($ did) con; ws
-    char ';'; ws
-    pure c
-  char '}'; ws
-  pure (DeclAst (Datatype n sig (fromList cs)) did)
-
 metaVal :: Parser DeclarationAst
 metaVal = do
   did <- freshId
@@ -314,14 +345,6 @@ fresh = do
   char ':'; ws
   sig <- term
   pure (DeclAst (Fresh n sig) did)
-
-con :: Parser (Id -> ConstructorAst)
-con = do
-  did <- freshId
-  n <- name; ws
-  char ':'; ws
-  sig <- term
-  pure (\dtDid -> ConstrAst (Constr n sig) did dtDid)
 
 liftLowStmt :: Parser TermAst
 liftLowStmt = do
@@ -522,39 +545,52 @@ eqProp = do
 cInt :: Parser TermAst
 cInt = (TermAst . CInt . read) <$> some digitChar
 
+boolTy :: Parser TermAst
+boolTy = do
+  string "Bool"
+  pure (TermAst Bool)
+
+trueE :: Parser TermAst
+trueE = do
+  string "tt"
+  pure (TermAst BTrue)
+
+falseE :: Parser TermAst
+falseE = do
+  string "ff"
+  pure (TermAst BFalse)
+
 caseE :: Parser TermAst
 caseE = do
-  string "case"; ws
-  scrs <- fromList <$> many (ws *> term); ws
-  char '{';
-  cls <- fromList <$> many (ws *> clause <* ws <* char ';'); ws
+  string "bool_elim"; ws
+  scr <- term; ws
+  ty <- optional do
+    string "returns"; ws
+    n <- name; ws
+    char '.'; ws
+    ty <- term; ws
+    pure (n, ty)
+  char '{'; ws
+  body1 <- term; ws
+  char ';'; ws
+  body2 <- term; ws
+  char ';'; ws
   char '}'
-  pure (TermAst (Match scrs cls))
+  pure (TermAst (Case scr ty body1 body2))
 
-clause :: Parser ClauseAst
-clause = do
-  p <- pat; ws
-  string "=>"; ws
-  e <- term
-  pure (ClseAst (Clse p e))
-
-pat :: Parser PatternAst
-pat = try pApp <|> try pCon <|> PatAst . PBind <$> name
-
-pApp :: Parser PatternAst
-pApp = do
-  char '['
-  args <- fromList <$> some (ws *> pat); ws
-  char ']'
-  pure (PatAst (PApp args))
-
-pCon :: Parser PatternAst
-pCon = do
+equal :: Parser TermAst
+equal = do
   char '('; ws
-  c <- name
-  args <- fromList <$> some (ws *> pat); ws
+  string "Equal"; ws
+  x <- term; ws
+  y <- term; ws
   char ')'
-  pure (PatAst (PCon c args))
+  pure (TermAst (Equal x y))
+
+refl :: Parser TermAst
+refl = do
+  string "refl"
+  pure (TermAst Refl)
 
 term :: Parser TermAst
 term = do
@@ -597,7 +633,16 @@ term = do
     try allProp <|>
     try someProp <|>
     try eqProp <|>
+    try equal <|>
+    try refl <|>
+    try boolTy <|>
+    try trueE <|>
+    try falseE <|>
     try caseE <|>
+    try sig <|>
+    try struct <|>
+    try select <|>
+    try patch <|>
     var
   pure (SourcePos e pos)
 
@@ -609,6 +654,11 @@ freshId = do
 
 parse :: Text -> Either String TermAst
 parse text =
-  case fst . flip runState 0 . runParserT (term >>= \e -> ws *> eof *> pure e) "<TODO>" $ text of
+  case
+      fst .
+      flip runState 0 .
+      runParserT (term >>= \e -> ws *> eof *> pure e) "<TODO>" $
+      text
+    of
     Right term -> Right term
     Left err -> Left (errorBundlePretty err)

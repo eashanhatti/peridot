@@ -17,15 +17,15 @@ import Syntax.Semantic qualified as N
 import Syntax.Surface
 import Syntax.Common hiding(unId)
 import Data.Some
-import Data.Maybe(isJust, fromMaybe, fromJust)
+import Data.Maybe
 import Data.Dependent.HashMap qualified as DMap
 import Data.Dependent.HashMap(DHashMap)
 import Data.Functor.Identity
 import Data.GADT.Compare
-import Data.Type.Equality
+import Data.Type.Equality qualified as Equal
 import Data.Hashable
 import GHC.Generics hiding (Constructor, C)
-import Normalization hiding (eval, unTypeUVs, unRepUVs, unUVEqs, unVCUVs, readback', readback', zonk)
+import Normalization hiding(eval, unTypeUVs, unRepUVs, unUVEqs, unVCUVs, readback', readback', zonk)
 import Normalization qualified as Norm
 import Unification qualified as Uni
 import Numeric.Natural
@@ -38,6 +38,7 @@ import Text.Megaparsec(SourcePos)
 import Debug.Trace
 import Data.Sequence
 import Control.Monad.Fix
+import Data.Bifunctor
 
 -- Contains query state *and* general global state
 data QueryState = QueryState
@@ -51,7 +52,8 @@ data QueryState = QueryState
   , unErrors :: Seq (SourcePos, Error) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs suvs {-vcuvs-} eqs errs) = show (tuvs, suvs, {-vcuvs,-} eqs, errs)
+  show (QueryState _ _ _ tuvs suvs {-vcuvs-} eqs errs) =
+    show (tuvs, suvs, {-vcuvs,-} eqs, errs)
 
 data Error
   = TooManyParams
@@ -59,6 +61,8 @@ data Error
   | FailedUnify N.Term N.Term
   | UnboundVariable Name
   | ExpectedCFunType N.Term
+  | ExpectedRecordType N.Term
+  | MissingField Name
   | FailedProve N.Term
   | AmbiguousProve N.Term (Seq (Map Global N.Term))
   | Todo
@@ -88,8 +92,8 @@ data Key a where
 
 
 instance GEq Key where
-  geq (CheckDecl _) (CheckDecl _) = Just Refl
-  geq (DeclType _) (DeclType _) = Just Refl
+  geq (CheckDecl _) (CheckDecl _) = Just Equal.Refl
+  geq (DeclType _) (DeclType _) = Just Equal.Refl
   geq _ _ = Nothing
 
 instance Hashable (Some Key) where
@@ -121,14 +125,12 @@ data ElabContext = ElabContext
   , unConstrs :: Map Id (Set Id) }
   deriving (Show)
 
-data Predeclaration = PDDecl DeclarationAst | PDConstr Universe ConstructorAst
+data Predeclaration = PDDecl DeclarationAst
   deriving (Show)
 
 unPDDeclId :: Predeclaration -> Id
 unPDDeclId (PDDecl (DeclAst _ did)) = did
-unPDDeclId (PDConstr _ (ConstrAst _ did _)) = did
 unPDDeclId (PDDecl (SourcePos (DeclAst _ did) _)) = did
-unPDDeclId (PDConstr _ (SourcePos (ConstrAst _ did _) _)) = did
 
 convertUniv :: Universe -> N.Universe
 convertUniv Obj = N.Obj
@@ -146,21 +148,67 @@ type Elab sig m =
   , Norm sig m
   , Query sig m )
 
-unify :: Elab sig m => N.Term -> N.Term -> m ()
-unify term1 term2 = do
-  subst <- Uni.unify term1 term2
+unify :: Elab sig m => C.Term -> N.Term -> N.Term -> m C.Term
+unify e term1 term2 = do
+  r <- Uni.unify e term1 term2
+  case r of
+    Just (Uni.Subst ts ss {-vcs-} eqs, e') -> do
+      state <- get
+      let
+        dups =
+          [ (sol1, sol2)
+          | (gl1, sol1) <- Map.toList ts
+          , (gl2, sol2) <-
+              Pre.map (second fromJust) .
+              Pre.filter (\(_, e) -> isJust e) $
+              (Map.toList (unTypeUVs state))
+          , gl1 == gl2]
+      extraSubsts <- traverse (uncurry Uni.unifyR) dups
+      let r = sequence extraSubsts
+      case r of
+        Just _ ->
+          put (state
+            { unTypeUVs = fmap Just ts <> unTypeUVs state
+            , unUnivUVs = fmap Just ss <> unUnivUVs state
+            -- , unVCUVs = fmap Just vcs <> unVCUVs state
+            , unUVEqs = eqs <> unUVEqs state })
+        Nothing -> do
+          report (FailedUnify term1 term2)
+      pure e'
+    Nothing -> do
+      report (FailedUnify term1 term2)
+      pure e
+
+unifyR :: Elab sig m => N.Term -> N.Term -> m ()
+unifyR term1 term2 = do
+  subst <- Uni.unifyR term1 term2
   case subst of
     Just (Uni.Subst ts ss {-vcs-} eqs) -> do
       state <- get
-      put (state
-        { unTypeUVs = fmap Just ts <> unTypeUVs state
-        , unUnivUVs = fmap Just ss <> unUnivUVs state
-        -- , unVCUVs = fmap Just vcs <> unVCUVs state
-        , unUVEqs = eqs <> unUVEqs state })
+      let
+        dups =
+          [ (sol1, sol2)
+          | (gl1, sol1) <- Map.toList ts
+          , (gl2, sol2) <-
+              Pre.map (second fromJust) .
+              Pre.filter (\(_, e) -> isJust e) $
+              (Map.toList (unTypeUVs state))
+          , gl1 == gl2]
+      extraSubsts <- traverse (uncurry Uni.unifyR) dups
+      let r = sequence extraSubsts
+      case r of
+        Just _ ->
+          put (state
+            { unTypeUVs = fmap Just ts <> unTypeUVs state
+            , unUnivUVs = fmap Just ss <> unUnivUVs state
+            -- , unVCUVs = fmap Just vcs <> unVCUVs state
+            , unUVEqs = eqs <> unUVEqs state })
+        Nothing -> do
+          report (FailedUnify term1 term2)
     Nothing -> report (FailedUnify term1 term2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
-convertible term1 term2 = isJust <$> Uni.unify term1 term2
+convertible term1 term2 = isJust <$> Uni.unifyR term1 term2
 
 putTypeUVSols :: Elab sig m => Map Global N.Term -> m ()
 putTypeUVSols sols = do
@@ -169,7 +217,9 @@ putTypeUVSols sols = do
 
 bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =
-  local (\ctx -> ctx { unBindings = insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
+  local (\ctx ->
+    ctx { unBindings =
+      insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
   bind $
   act
   where
@@ -195,11 +245,6 @@ withDecls decls act = do
 
     toBindings :: Seq DeclarationAst -> Map Name Binding
     toBindings Empty = mempty
-    toBindings (decl@(viewConstrs -> Just (_, constrs)) :<| decls) = 
-      foldl'
-        (\m (n, b) -> insert n b m)
-        (toBindings decls)
-        ((unDeclName decl, BGlobal (unId decl)) <| zip (fmap unConstrName constrs) (fmap (BGlobal . unCId) constrs))
     toBindings (decl :<| decls) =
       insert (unDeclName decl) (BGlobal (unId decl)) (toBindings decls)
 
@@ -213,17 +258,10 @@ withDecls decls act = do
 
     go :: Elab sig m => Seq DeclarationAst -> m a
     go Empty = act
-    go (decl@(viewConstrs -> Just (univ, constrs)) :<| decls) = do
-      state <- get
-      put (state
-        { unPredecls =
-            union
-              (insert (unId decl) (allState, PDDecl decl) (unPredecls state))
-              (foldl' (\acc c -> Map.insert (unCId c) (allState, PDConstr univ c) acc) mempty constrs) })
-      go decls
     go (decl :<| decls) = do
       state <- get
-      put (state { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })
+      put (state
+        { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })
       go decls
   local (\ctx -> ctx { unBindings = bindings', unConstrs = constrs' }) (go decls)
 
@@ -251,7 +289,10 @@ freshTypeUV = do
   put (state
     { unTypeUVs = insert (UVGlobal (unNextUV state)) Nothing (unTypeUVs state)
     , unNextUV = unNextUV state + 1 })
-  pure (N.Neutral (uvRedex (UVGlobal (unNextUV state))) (N.UniVar (UVGlobal (unNextUV state))))
+  pure
+    (N.Neutral
+      (uvRedex (UVGlobal (unNextUV state)))
+      (N.UniVar (UVGlobal (unNextUV state))))
 
 -- freshVCUV :: Elab sig m => m N.ValueCategory
 -- freshVCUV = do

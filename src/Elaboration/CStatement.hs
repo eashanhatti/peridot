@@ -8,8 +8,12 @@ import Syntax.Semantic qualified as N
 import {-# SOURCE #-} Elaboration.Term qualified as EE
 import Data.Maybe(fromMaybe)
 import Data.Sequence
+import Control.Monad
 
-infer' :: forall sig m. Elab sig m => CStatementAst -> m (CStatement C.Term, Maybe N.Term, Maybe (Name, N.Term))
+infer' ::
+  forall sig m. Elab sig m =>
+  CStatementAst ->
+  m (CStatement C.Term, Maybe N.Term, Maybe (Name, N.Term))
 infer' (CStmtAst (Block stmts)) = do
   (cStmt, retTy) <- go stmts
   pure (cStmt, retTy, Nothing)
@@ -61,7 +65,7 @@ infer stmt = do
   pure (cStmt, fromMaybe (N.Rigid N.CVoidType) retTy)
 
 unifyRetTys :: Elab sig m => Maybe N.Term -> Maybe N.Term -> m ()
-unifyRetTys (Just ty1) (Just ty2) = unify ty1 ty2
+unifyRetTys (Just ty1) (Just ty2) = unifyR ty1 ty2
 unifyRetTys _ _ = pure ()
 
 pickMaybe (Just x) (Just _) = Just x

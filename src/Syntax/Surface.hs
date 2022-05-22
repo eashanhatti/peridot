@@ -10,8 +10,6 @@ data Ast a where
   TermAst :: Term -> TermAst
   NameAst :: Name -> NameAst
   DeclAst :: Declaration -> Id -> DeclarationAst
-  -- .., constr id, datatype id
-  ConstrAst :: Constructor -> Id -> Id -> ConstructorAst
   CStmtAst :: CStatement -> CStatementAst
   PatAst :: Pattern -> PatternAst
   ClseAst :: Clause -> ClauseAst
@@ -25,13 +23,7 @@ unName (NameAst name) = name
 data Universe = Obj | Meta | Prop
   deriving (Show)
 
-viewConstrs :: DeclarationAst -> Maybe (Universe, Seq ConstructorAst)
-viewConstrs (SourcePos ast _) = viewConstrs ast
-viewConstrs (DeclAst (Datatype _ _ cs) _) = Just (Obj, cs)
-viewConstrs _ = Nothing
-
 unDeclName :: DeclarationAst -> Name
-unDeclName (DeclAst (Datatype (NameAst name) _ _) _) = name
 unDeclName (DeclAst (MetaTerm (NameAst name) _ _) _) = name
 unDeclName (DeclAst (ObjTerm (NameAst name) _ _) _) = name
 unDeclName (DeclAst (Axiom (NameAst name) _) _) = name
@@ -40,17 +32,9 @@ unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
 unDeclName (DeclAst (CFun (NameAst name) _ _ _) _) = name
 unDeclName (SourcePos ast _) = unDeclName ast
 
-unConstrName :: ConstructorAst -> Name
-unConstrName (ConstrAst (Constr (NameAst name) _) _ _) = name
-unConstrName (SourcePos ast _) = unConstrName ast
-
 unId :: DeclarationAst -> Id
 unId (DeclAst _ did) = did
 unId (SourcePos ast _) = unId ast
-
-unCId :: ConstructorAst -> Id
-unCId (ConstrAst _ did _) = did
-unCId (SourcePos ast _) = unCId ast
 
 type NameAst = Ast Name
 
@@ -58,17 +42,12 @@ type SignatureAst = TermAst
 
 type DeclarationAst = Ast Declaration
 data Declaration
-  = Datatype NameAst SignatureAst (Seq ConstructorAst)
-  | MetaTerm NameAst SignatureAst TermAst
+  = MetaTerm NameAst SignatureAst TermAst
   | ObjTerm NameAst SignatureAst TermAst
   | Axiom NameAst SignatureAst
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
   | CFun NameAst (Seq (NameAst, TermAst)) TermAst CStatementAst
-  deriving (Show)
-
-type ConstructorAst = Ast Constructor
-data Constructor = Constr NameAst SignatureAst
   deriving (Show)
 
 type TermAst = Ast Term
@@ -89,7 +68,8 @@ data Term
   | LiftLowCTm TermAst
   | QuoteLowCTm TermAst
   | SpliceLowCTm TermAst
-  | LiftLowCStmt TermAst -- Carries return type
+   -- Carries return type
+  | LiftLowCStmt TermAst
   | QuoteLowCStmt CStatementAst
   | CIntType
   | CVoidType
@@ -112,7 +92,17 @@ data Term
   | ForallProp TermAst
   | ExistsProp TermAst
   | EqualProp TermAst TermAst
-  | Match (Seq TermAst) (Seq ClauseAst)
+  | Bool
+  | BTrue
+  | BFalse
+  -- case foo returns x. ty { true => body1, false => body2 }
+  | Case TermAst (Maybe (NameAst, TermAst)) TermAst TermAst
+  | Equal TermAst TermAst
+  | Refl
+  | Sig (Seq (NameAst, TermAst))
+  | Struct (Seq (NameAst, TermAst))
+  | Select TermAst NameAst
+  | Patch TermAst (Seq (NameAst, TermAst))
   deriving (Show)
 
 type CStatementAst = Ast CStatement

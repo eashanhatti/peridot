@@ -9,17 +9,20 @@ import Elaboration.Effect
 import Elaboration.Declaration qualified as ED
 import Elaboration.CStatement qualified as ES
 import Control.Monad
-import Normalization hiding(eval, readback)
-import Data.Foldable(foldl', foldr, foldrM)
+import Normalization hiding(eval, readback, zonk)
+import Data.Foldable(foldl', foldr, foldrM, find)
 import Debug.Trace
 import Data.Sequence
-import Prelude hiding(zip, concatMap, head, tail, length)
+import Prelude hiding(zip, concatMap, head, tail, length, unzip)
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check term goal = do
   (cTerm, ty) <- infer term
-  unify goal ty
-  pure cTerm
+  -- let !_ = tracePrettyS "cTerm " cTerm
+  -- let !_ = tracePrettyS "goal " goal
+  -- let !_ = tracePrettyS "ty " ty
+  cTerm' <- unify cTerm goal ty
+  pure cTerm'
 
 infer :: Elab sig m => TermAst -> m (C.Term, N.Term)
 infer term = case term of
@@ -37,7 +40,8 @@ infer term = case term of
     where
       checkBody :: Elab sig m => Seq (Name, N.Term) -> N.Term -> m C.Term
       checkBody Empty outTy = check body outTy
-      checkBody ((name, inTy) :<| params) outTy = bindLocal name inTy (checkBody params outTy)
+      checkBody ((name, inTy) :<| params) outTy =
+        bindLocal name inTy (checkBody params outTy)
   TermAst (ObjLam (fmap unName -> names) body) -> do
     inTys <- traverse (const freshTypeUV) names
     cInTys <- traverse readback inTys
@@ -51,7 +55,8 @@ infer term = case term of
     where
       checkBody :: Elab sig m => Seq (Name, N.Term) -> N.Term -> m C.Term
       checkBody Empty outTy = check body outTy
-      checkBody ((name, inTy) :<| params) outTy = bindLocal name inTy (checkBody params outTy)    
+      checkBody ((name, inTy) :<| params) outTy =
+        bindLocal name inTy (checkBody params outTy)    
   TermAst (MetaPi (NameAst name) inTy outTy) -> do
     cInTy <- check inTy (N.TypeType N.Meta)
     vInTy <- eval cInTy
@@ -170,7 +175,10 @@ infer term = case term of
         cArgs <- traverse (\(arg, inTy) -> check arg inTy) (zip args inTys)
         pure (C.Rigid (C.CFunCall cFn cArgs), outTy)
       Just (inTys, _) ->
-        errorTerm (WrongAppArity (fromIntegral (length inTys)) (fromIntegral (length args)))
+        errorTerm
+          (WrongAppArity
+            (fromIntegral (length inTys))
+            (fromIntegral (length args)))
       Nothing -> errorTerm (ExpectedCFunType fnTy)
     where
       go :: Norm sig m => N.Term -> m (Maybe (Seq N.Term, N.Term))
@@ -182,7 +190,11 @@ infer term = case term of
           Nothing -> pure Nothing
       go _ = pure Nothing
   TermAst (CFunType inTys outTy) -> do
-    cTerm <- C.Rigid <$> (C.CFunType <$> traverse (flip check (N.TypeType (N.Low C))) inTys <*> check outTy (N.TypeType (N.Low C)))
+    cTerm <-
+      C.Rigid <$> (
+        C.CFunType <$>
+          traverse (flip check (N.TypeType (N.Low C))) inTys <*>
+          check outTy (N.TypeType (N.Low C)))
     pure (cTerm, N.TypeType (N.Low C))
   TermAst (CInt x) -> pure (C.Rigid (C.CIntIntro x), N.Rigid N.CIntType)
   TermAst (ImplProp p q) -> do
@@ -211,21 +223,114 @@ infer term = case term of
     ty <- freshTypeUV
     cX <- check x ty
     cY <- check y ty
-    pure (C.Rigid (C.IdType cX cY), N.TypeType N.Meta)
-
--- checkType :: Elab sig m => TermAst -> m (C.Term, N.Term)
--- checkType term = do
---   stage <- freshStageUV
---   (,) <$> check term (N.TypeType stage) <*> pure (N.TypeType stage)
+    pure (C.Rigid (C.PropIdType cX cY), N.TypeType N.Meta)
+  TermAst Bool -> pure (C.Rigid C.TwoType, N.TypeType N.Obj)
+  TermAst BTrue -> pure (C.Rigid C.TwoIntro0, N.Rigid N.TwoType)
+  TermAst BFalse -> pure (C.Rigid C.TwoIntro1, N.Rigid N.TwoType)
+  TermAst (Case scr ty body1 body2) -> do
+    cScr <- check scr (N.Rigid N.TwoType)
+    vScr <- eval cScr
+    case ty of
+      Just (NameAst name, ty) -> do
+        cTy <- bindLocal name (N.Rigid N.TwoType) (check ty (N.TypeType N.Obj))
+        vTy <- define vScr (eval cTy)
+        vTy1 <- define (N.Rigid N.TwoIntro0) (eval cTy)
+        vTy2 <- define (N.Rigid N.TwoIntro1) (eval cTy)
+        cBody1 <- check body1 vTy1
+        cBody2 <- check body2 vTy2
+        pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
+      Nothing -> do
+        vTy <- freshTypeUV
+        cTy <- readback vTy
+        cBody1 <- check body1 vTy
+        cBody2 <- check body2 vTy
+        pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
+  TermAst (Equal term1 term2) -> do
+    cTerm1 <- freshTypeUV >>= check term1
+    cTerm2 <- freshTypeUV >>= check term2
+    pure (C.Rigid (C.ObjIdType cTerm1 cTerm2), N.TypeType N.Obj)
+  TermAst Refl -> do
+    term <- freshTypeUV
+    cTerm <- readback term
+    pure (C.Rigid (C.ObjIdIntro cTerm), N.Rigid (N.ObjIdType term term))
+  TermAst (Sig tys) -> do
+    cTys <- go tys
+    pure (C.RecType cTys, N.TypeType N.Obj)
+    where
+      go :: Elab sig m => Seq (NameAst, TermAst) -> m (Seq (Field, C.Term))
+      go Empty = pure Empty
+      go ((NameAst name, ty) :<| tys) = do
+        cTy <- check ty (N.TypeType N.Obj)
+        vTy <- eval cTy
+        cTys <- bindLocal name vTy (go tys)
+        pure ((nameToField name, cTy) <| cTys)
+  TermAst (Struct fds) -> do
+    (cFds, cTys) <- unzip <$> go fds
+    pure (C.RecIntro cFds, N.RecType cTys)
+    where
+      go ::
+        Elab sig m =>
+        Seq (NameAst, TermAst) ->
+        m (Seq ((Field, C.Term), (Field, N.Closure)))
+      go Empty = pure Empty
+      go ((NameAst name, fd) :<| fds) = do
+        ty <- freshTypeUV
+        cFd <- check fd ty
+        cFds <- bindLocal name ty (go fds)
+        tyClo <- readback ty >>= closureOf
+        pure (((nameToField name, cFd), (nameToField name, tyClo)) <| cFds)
+  TermAst (Select str (NameAst name)) -> do
+    (cStr, strTy) <- infer str
+    strTy <- unfold strTy
+    case strTy of
+      N.RecType fdTys -> do
+        fdTy <- go cStr Empty fdTys
+        pure (C.RecElim cStr (nameToField name), fdTy)
+      _ -> errorTerm (ExpectedRecordType strTy)
+    where
+      go :: Elab sig m => C.Term -> Seq N.Term -> Seq (Field, N.Closure) -> m N.Term
+      go _ _ Empty = do
+        report (MissingField name)
+        pure (N.Rigid N.ElabError)
+      go str defs ((fd, ty) :<| tys) =
+        if fd == nameToField name then
+          -- FIXME: `Elaboration.Effect` version of `appClosureN`
+          appClosureN ty defs
+        else do
+          vTy <- appClosureN ty defs >>= unfold
+          def <- case vTy of
+            N.Rigid (N.SingType term) -> pure term
+            _ -> eval (C.RecElim str fd)
+          define def (go str (def <| defs) tys)
+  TermAst (Patch sig defs) -> do
+    cSig <- check sig (N.TypeType N.Obj)
+    vSig <- eval cSig >>= unfold
+    case vSig of
+      N.RecType tys -> do
+        vTys <- evalFieldTypes Empty tys
+        cSig' <-
+          C.RecType <$>
+            traverseWithIndex
+              (\i (fd, ty) ->
+                case find (\(NameAst name, _) -> fd == nameToField name) defs of
+                  Just (_, def) -> do
+                    cDef <- check def ty
+                    pure (fd, C.Rigid (C.SingType cDef))
+                  Nothing -> (fd ,) <$> bindN i (readback ty))
+              vTys
+        pure (cSig', N.TypeType N.Obj)
+      _ -> errorTerm (ExpectedRecordType vSig)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
-checkMetaType term = (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)
+checkMetaType term =
+  (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)
 
 checkMetaType' :: Elab sig m => TermAst -> m C.Term
 checkMetaType' ty = fst <$> checkMetaType ty
 
 checkLowCType :: Elab sig m => TermAst -> m (C.Term, N.Term)
-checkLowCType term = (,) <$> check term (N.TypeType (N.Low C)) <*> pure (N.TypeType (N.Low C))
+checkLowCType term =
+  (,) <$> check term (N.TypeType (N.Low C)) <*> pure (N.TypeType (N.Low C))
 
 checkLowCType' :: Elab sig m => TermAst -> m C.Term
 checkLowCType' ty = fst <$> checkLowCType ty
@@ -241,5 +346,4 @@ declsIds :: Seq DeclarationAst -> Seq Id
 declsIds = concatMap go where
   go :: DeclarationAst -> Seq Id
   go (SourcePos decl _) = go decl
-  go (DeclAst (Datatype _ _ constrs) did) = did <| fmap unCId constrs
   go decl = singleton (unId decl)

@@ -43,6 +43,8 @@ data Term
   -- Object level
   = ObjFunType Term Closure
   | ObjFunIntro Closure
+  | RecType (Seq (Field, Closure))
+  | RecIntro (Seq (Field, Term))
   -- Meta level
   | MetaFunType Term Closure
   | MetaFunIntro Closure
@@ -54,12 +56,16 @@ data Term
   | Neutral (ReaderC NormContext Identity (Maybe Term)) Redex
 
 instance Show Term where
-  show (ObjFunType inTy outTy) = "(ObjFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
+  show (ObjFunType inTy outTy) =
+    "(ObjFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
   show (ObjFunIntro body) = "(ObjFunIntro " ++ show body ++ ")"
-  show (MetaFunType inTy outTy) = "(MetaFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
+  show (MetaFunType inTy outTy) =
+    "(MetaFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
   show (MetaFunIntro body) = "(MetaFunIntro " ++ show body ++ ")"
   show (TypeType univ) = "(TypeType " ++ show univ ++ ")"
   show (LocalVar lvl) = "(LocalVar " ++ show lvl ++ ")"
+  show (RecType tys) = "(RecType " ++ show tys ++ ")"
+  show (RecIntro tys) = "(RecIntro " ++ show tys ++ ")"
   show (Rigid term) = "(Rigid " ++ show term ++ ")"
   show (Neutral _ redex) = "(Neutral _ (" ++ show redex ++ "))"
 
@@ -74,6 +80,9 @@ data Redex
   | CodeLowCTmElim Term
   | GlobalVar Id
   | UniVar Global
+  | TwoElim Term Closure Term Term
+  | RecElim Term Field
+  | SingElim Term
   | Let (Seq Declaration) Term
   deriving (Eq, Show)
 
@@ -94,3 +103,6 @@ viewMetaFunElims (Neutral _ (MetaFunElim lam arg)) =
 viewMetaFunElims term = (term, mempty)
 
 pattern MetaFunElims lam args <- (viewMetaFunElims -> (lam, args))
+
+pattern ObjTypeType = TypeType Obj
+pattern MetaTypeType = TypeType Meta

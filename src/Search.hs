@@ -60,8 +60,8 @@ prove ctx (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
   vP <- appClosure p uv
   prove ctx vP
-prove ctx (Rigid (IdType x y)) = do
-  r <- unify x y
+prove ctx (Rigid (PropIdType x y)) = do
+  r <- unifyR x y
   case r of
     Just (Subst ts _ _) -> pure ts
     Nothing -> empty
@@ -75,11 +75,11 @@ search ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
     let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
     substs <-
       traverse
-        (\(dArg, gArg) -> unify gArg dArg)
+        (\(dArg, gArg) -> unifyR gArg dArg)
         (zip dArgs gArgs)
     let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
     let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
-    substs <- ((<| substs) <$> unify gHead dHead)
+    substs <- ((<| substs) <$> unifyR gHead dHead)
     let !_ = tracePrettyS "SUBSTS" substs
     case allJustOrNothing substs of
       Just substs -> pure (concat (fmap (\(Subst ts _ _) -> ts) substs))
@@ -103,7 +103,11 @@ freshUV :: Search sig m => m Term
 freshUV = do
   state <- get
   put (state { unNextUV = unNextUV state + 1 })
-  pure (Neutral (uvRedex . LVGlobal $ unNextUV state) . UniVar . LVGlobal $ unNextUV state)
+  pure
+    (Neutral (uvRedex . LVGlobal $ unNextUV state) .
+    UniVar .
+    LVGlobal $
+    unNextUV state)
 
 isAtomic :: Term -> Bool
 isAtomic (MetaFunElims _ _) = True

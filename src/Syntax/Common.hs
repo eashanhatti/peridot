@@ -10,6 +10,11 @@ import Data.Sequence
 data Language = C
   deriving (Eq, Show)
 
+newtype Field = Field { unField :: Text }
+  deriving (Eq, Show)
+
+nameToField (UserName name) = Field name
+
 newtype Index = Index { unIndex :: Natural }
   deriving (Num, Eq, Ord, Enum, Real, Integral, Show)
 
@@ -54,6 +59,13 @@ data COp a
 data RigidTerm a
   -- Object level
   = ObjConstIntro Id
+  | TwoType
+  | TwoIntro0
+  | TwoIntro1
+  | SingType a
+  | SingIntro a
+  | ObjIdType a a
+  | ObjIdIntro a
   -- Low C level
   | CIntIntro Int
   | COp (COp a)
@@ -77,14 +89,13 @@ data RigidTerm a
   | DisjType a a
   | AllType a
   | SomeType a
-  | IdType a a
+  | PropIdType a a
   -- Other
   | ElabError
   deriving (Eq, Show, Functor, Foldable, Traversable)
 
 data Declaration a
   = MetaConst Id a
-  | ObjConst Id a
   | ObjTerm Id a a -- sig, def
   | MetaTerm Id a a -- sig, def
   | CFun Id (Seq a) a (CStatement a)

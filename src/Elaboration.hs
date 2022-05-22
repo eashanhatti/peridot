@@ -32,7 +32,7 @@ elaborate' term =
       runReader (NormContext (N.Env mempty mempty) mempty (justs $ unTypeUVs qs) mempty)
       (eval term' >>= zonk)
   in
-    (qs, term'')
+    (qs, term')
 
 elaborateFile :: String -> IO (Either String C.Term)
 elaborateFile f = do

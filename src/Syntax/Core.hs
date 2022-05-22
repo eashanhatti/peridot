@@ -9,9 +9,9 @@ import Data.Map
 import Data.Sequence
 
 unId :: Declaration -> Id
-unId (ObjConst did _) = did
 unId (MetaConst did _) = did
 unId (MetaTerm did _ _) = did
+unId (ObjTerm did _ _) = did
 unId DElabError = error "FIXME"
 
 type Type = Term
@@ -23,7 +23,11 @@ data Term
   = ObjFunType Term Term
   | ObjFunIntro Term
   | ObjFunElim Term Term
-  | ObjConstElim (Map Id Term)
+  | TwoElim Term Term Term Term
+  | RecType (Seq (Field, Term))
+  | RecIntro (Seq (Field, Term))
+  | RecElim Term Field
+  | SingElim Term
   -- Meta level
   | MetaFunType Term Term
   | MetaFunIntro Term
