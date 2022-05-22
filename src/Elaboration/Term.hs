@@ -259,13 +259,33 @@ infer term = case term of
       go ::
         Elab sig m =>
         Seq (NameAst, TermAst) ->
-        m (Seq ((Field, C.Term), (Field, N.Term)))
+        m (Seq ((Field, C.Term), (Field, N.Closure)))
       go Empty = pure Empty
       go ((NameAst name, fd) :<| fds) = do
         ty <- freshTypeUV
         cFd <- check fd ty
         cFds <- bindLocal name ty (go fds)
-        pure (((nameToField name, cFd), (nameToField name, ty)) <| cFds)
+        tyClo <- readback ty >>= closureOf
+        pure (((nameToField name, cFd), (nameToField name, tyClo)) <| cFds)
+  TermAst (Select str (NameAst name)) -> do
+    (cStr, strTy) <- infer str
+    strTy <- unfold strTy
+    case strTy of
+      N.RecType fdTys -> do
+        fdTy <- go cStr Empty fdTys
+        pure (C.RecElim cStr (nameToField name), fdTy)
+      _ -> errorTerm (ExpectedRecordType strTy)
+    where
+      go :: Elab sig m => C.Term -> Seq N.Term -> Seq (Field, N.Closure) -> m N.Term
+      go _ _ Empty = do
+        report (MissingField name)
+        pure (N.Rigid N.ElabError)
+      go str defs ((fd, ty) :<| tys) =
+        if fd == nameToField name then
+          tracePretty <$> appClosureN ty defs -- FIXME: `Elaboration.Effect` version of `appClosureN`
+        else do
+          def <- eval (C.RecElim str fd)
+          bind (go str (def <| defs) tys)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term = (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)

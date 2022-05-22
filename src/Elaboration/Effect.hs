@@ -60,6 +60,8 @@ data Error
   | FailedUnify N.Term N.Term
   | UnboundVariable Name
   | ExpectedCFunType N.Term
+  | ExpectedRecordType N.Term
+  | MissingField Name
   | FailedProve N.Term
   | AmbiguousProve N.Term (Seq (Map Global N.Term))
   deriving (Show)

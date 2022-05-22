@@ -44,34 +44,35 @@ closureOf term = do
   pure (N.Clo env term)
 
 appClosure :: HasCallStack => Norm sig m => N.Closure -> N.Term -> m N.Term
-appClosure (N.Clo env body) arg =
-  local (\ctx -> ctx { unEnv = N.withLocal arg env }) (eval body)
+appClosure clo arg = appClosureN clo (singleton arg)
 
-appClosure2 :: HasCallStack => Norm sig m => N.Closure -> N.Term -> N.Term -> m N.Term
-appClosure2 (N.Clo env body) arg1 arg2 =
-  local
-    (\ctx -> ctx { unEnv = N.withLocal arg2 . N.withLocal arg1 $ env })
-    (eval body)
+appClosureN :: HasCallStack => Norm sig m => N.Closure -> Seq N.Term -> m N.Term
+appClosureN (N.Clo env body) args =
+  local (\ctx -> ctx { unEnv = foldr N.withLocal env args }) (eval body)
 
 evalClosure :: HasCallStack => Norm sig m => N.Closure -> m N.Term
 evalClosure clo@(N.Clo env _) = appClosure clo (N.LocalVar (fromIntegral (N.envSize env)))
-
-evalClosure2 :: HasCallStack => Norm sig m => N.Closure -> m N.Term
-evalClosure2 clo@(N.Clo env _) =
-  appClosure2
-    clo
-    (N.LocalVar (fromIntegral (N.envSize env)))
-    (N.LocalVar (fromIntegral (N.envSize env) + 1))
 
 funIntros :: C.Term -> (C.Term -> C.Term)
 funIntros (C.MetaFunType _ outTy) = C.MetaFunIntro . funIntros outTy
 funIntros (C.ObjFunType _ outTy) = C.ObjFunIntro . funIntros outTy
 funIntros _ = id
 
+level :: Norm sig m => m Level
+level = fromIntegral . N.envSize . unEnv <$> ask
+
 force :: Norm sig m => ReaderC NormContext Identity a -> m a
 force act = do
   ctx <- ask
   pure (run . runReader ctx $ act)
+
+unfold :: Norm sig m => N.Term -> m N.Term
+unfold n@(N.Neutral term redex) = do
+  term <- force term
+  case term of
+    Just term -> unfold term
+    Nothing -> pure n
+unfold term = pure term
 
 definition :: C.Declaration -> C.Term
 definition (C.MetaConst did sig) = funIntros sig (C.Rigid (C.MetaConstIntro did))
@@ -146,7 +147,7 @@ eval (C.CodeLowCTmElim term) = do
         N.Rigid (N.CodeLowCTmIntro code) -> Just code
         _ -> Nothing
   pure (N.Neutral (pure reded) (N.CodeLowCTmElim vTerm))
-eval (C.Rigid rterm) = N.Rigid <$> traverse eval (tracePretty rterm)
+eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
 eval (C.Let decls body) = do
   let defs = fmap (\decl -> (C.unId decl, definition decl)) decls
   vDefs <- traverse (\(did, def) -> eval def >>= pure . (did,)) defs
@@ -183,22 +184,18 @@ eval (C.RecElim str name) = do
   let
     reded =
       case vStr of
-        N.RecIntro fds ->
-          snd <$> find (\(name', _) -> name == name') fds
+        N.RecIntro defs -> snd <$> find (\(name', _) -> name == name') defs
         _ -> Nothing
   pure (N.Neutral (pure reded) (N.RecElim vStr name))
-eval (C.RecIntro fds) = N.RecIntro <$> evalFields define fds
-eval (C.RecType tys) = N.RecType <$> evalFields (const bind) tys
+eval (C.RecIntro defs) = N.RecIntro <$> evalFields defs
+eval (C.RecType tys) =
+  N.RecType <$> traverse (\(fd, ty) -> (fd ,) <$> closureOf ty) tys
 
-evalFields ::
-  Norm sig m =>
-  (N.Term -> m (Seq (Field, N.Term)) -> m (Seq (Field, N.Term))) ->
-  Seq (Field, C.Term) ->
-  m (Seq (Field, N.Term))
-evalFields _ Empty = pure Empty
-evalFields f ((name, fd) :<| fds) = do
+evalFields :: Norm sig m => Seq (Field, C.Term) -> m (Seq (Field, N.Term))
+evalFields Empty = pure Empty
+evalFields ((name, fd) :<| fds) = do
   vFd <- eval fd
-  fds' <- f vFd (evalFields f fds)
+  fds' <- define vFd (evalFields fds)
   pure ((name, vFd) <| fds')
 
 withGlobals :: Seq (Id, N.Term) -> N.Environment -> N.Environment
@@ -216,7 +213,7 @@ entry ix = do
 
 type ShouldZonk = Bool
 
-readback' :: HasCallStack => Norm sig m => ShouldZonk -> N.Term -> m C.Term
+readback' :: forall sig m. HasCallStack => Norm sig m => ShouldZonk -> N.Term -> m C.Term
 readback' opt (N.MetaFunType inTy outTy) = C.MetaFunType <$> readback' opt inTy <*> bind (evalClosure outTy >>= readback' opt)
 readback' opt (N.MetaFunIntro body) = C.MetaFunIntro <$> bind (evalClosure body >>= readback' opt)
 readback' opt (N.ObjFunType inTy outTy) = C.ObjFunType <$> readback' opt inTy <*> bind (evalClosure outTy >>= readback' opt)
@@ -234,6 +231,16 @@ readback' opt (N.Neutral sol redex) = do
     (True, Just vSol, N.UniVar _) -> readback' True vSol
     -- (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
     _ -> readbackRedex opt redex
+readback' opt (N.RecIntro fds) = C.RecIntro <$> traverse (\(fd, def) -> (fd ,) <$> readback' opt def) fds
+readback' opt (N.RecType tys) = C.RecType <$> go Empty tys
+  where
+    go :: HasCallStack => Norm sig m => Seq N.Term -> Seq (Field, N.Closure) -> m (Seq (Field, C.Term))
+    go _ Empty = pure Empty
+    go defs ((fd, ty) :<| tys) = do
+      cTy <- appClosureN ty defs >>= readback' opt
+      l <- level
+      cTys <- bind (go (N.LocalVar l <| defs) tys)
+      pure ((fd, cTy) <| cTys)
 readback' opt (N.Rigid rterm) = C.Rigid <$> traverse (readback' opt) rterm
 
 readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term

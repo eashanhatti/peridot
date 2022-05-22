@@ -51,6 +51,15 @@ struct = do
   char '}'
   pure (TermAst (Struct fds))
 
+select :: Parser TermAst
+select = do
+  char '('; ws
+  char '#'
+  n <- name; ws
+  str <- term; ws
+  char ')'
+  pure (TermAst (Select str n))
+
 objPiTy :: Parser TermAst
 objPiTy = do
   string "'["; ws
@@ -618,6 +627,7 @@ term = do
     try caseE <|>
     try sig <|>
     try struct <|>
+    try select <|>
     var
   pure (SourcePos e pos)
 

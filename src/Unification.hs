@@ -11,12 +11,12 @@ import Data.Set qualified as Set
 import Data.Map(Map)
 import Data.Map qualified as Map
 import Control.Monad
-import Data.Foldable
+import Data.Foldable hiding(length)
 import GHC.Stack
 import Debug.Trace
 import Data.Sequence
 import Control.Applicative
-import Prelude hiding(zip)
+import Prelude hiding(zip, length)
 
 data Substitution = Subst
   { unTypeSols :: Map Global Term
@@ -224,12 +224,18 @@ unify' (ObjFunType inTy1 outTy1) (ObjFunType inTy2 outTy2) = do
 unify' (ObjFunIntro body1) (ObjFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (TypeType s1) (TypeType s2) = unifyUnivs s1 s2
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
-unify' (RecType fdTys1) (RecType fdTys2) =
-  traverse_
-    (\((name1, ty1), (name2, ty2)) -> do
-      when (name1 /= name2) (throwError ())
-      unify' ty1 ty2)
-    (zip fdTys1 fdTys2)
+unify' (RecType tys1) (RecType tys2) | length tys1 == length tys2 =
+  go Empty (zip tys1 tys2)
+  where
+    go :: Unify sig m => Seq Term -> Seq ((Field, Closure), (Field, Closure)) -> m ()
+    go _ Empty = pure ()
+    go defs (((fd1, ty1), (fd2, ty2)) :<| tys) = do
+      when (fd1 /= fd2) (throwError ())
+      vTy1 <- appClosureN ty1 defs
+      vTy2 <- appClosureN ty2 defs
+      unify' vTy1 vTy2
+      l <- level
+      bind (go (LocalVar l <| defs) tys)
 unify' (RecIntro fds1) (RecIntro fds2) =
   traverse_
     (\((name1, fd1), (name2, fd2)) -> do

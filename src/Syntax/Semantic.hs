@@ -43,7 +43,7 @@ data Term
   -- Object level
   = ObjFunType Term Closure
   | ObjFunIntro Closure
-  | RecType (Seq (Field, Term))
+  | RecType (Seq (Field, Closure))
   | RecIntro (Seq (Field, Term))
   -- Meta level
   | MetaFunType Term Closure
