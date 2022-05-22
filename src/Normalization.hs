@@ -35,6 +35,10 @@ type Norm sig m =
 bind :: HasCallStack => Norm sig m => m a -> m a
 bind = local (\ctx -> ctx { unEnv = N.withLocal (N.LocalVar (fromIntegral (N.envSize (unEnv ctx)))) (unEnv ctx) })
 
+bindN :: HasCallStack => Norm sig m => Int -> m a -> m a
+bindN 0 = id
+bindN n = bind . bindN (n - 1)
+
 define :: HasCallStack => Norm sig m => N.Term -> m a -> m a
 define def = local (\ctx -> ctx { unEnv = N.withLocal def (unEnv ctx) })
 
@@ -232,16 +236,22 @@ readback' opt (N.Neutral sol redex) = do
     -- (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
     _ -> readbackRedex opt redex
 readback' opt (N.RecIntro fds) = C.RecIntro <$> traverse (\(fd, def) -> (fd ,) <$> readback' opt def) fds
-readback' opt (N.RecType tys) = C.RecType <$> go Empty tys
-  where
-    go :: HasCallStack => Norm sig m => Seq N.Term -> Seq (Field, N.Closure) -> m (Seq (Field, C.Term))
-    go _ Empty = pure Empty
-    go defs ((fd, ty) :<| tys) = do
-      cTy <- appClosureN ty defs >>= readback' opt
-      l <- level
-      cTys <- bind (go (N.LocalVar l <| defs) tys)
-      pure ((fd, cTy) <| cTys)
+readback' opt (N.RecType tys) = do
+  vTys <- evalFieldTypes Empty tys
+  cTys <-
+    traverseWithIndex
+      (\i (fd, ty) -> (fd ,) <$> bindN i (readback' opt ty))
+      vTys
+  pure (C.RecType cTys)
 readback' opt (N.Rigid rterm) = C.Rigid <$> traverse (readback' opt) rterm
+
+evalFieldTypes :: HasCallStack => Norm sig m => Seq N.Term -> Seq (Field, N.Closure) -> m (Seq (Field, N.Term))
+evalFieldTypes _ Empty = pure Empty
+evalFieldTypes defs ((fd, ty) :<| tys) = do
+  vTy <- appClosureN ty defs
+  l <- level
+  vTys <- bind (evalFieldTypes (N.LocalVar l <| defs) tys)
+  pure ((fd, vTy) <| vTys)
 
 readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term
 readbackRedex opt (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback' opt lam <*> readback' opt arg

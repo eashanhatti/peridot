@@ -27,6 +27,19 @@ name = do
   s <- some nameChar
   pure (NameAst (UserName (pack s)))
 
+patch :: Parser TermAst
+patch = do
+  char '#'
+  str <- term; ws
+  char '['; ws
+  fds <- fromList <$> flip sepBy (ws *> char ',' *> ws) do
+    n <- name; ws
+    char '='; ws
+    fd <- term; ws
+    pure (n, fd)
+  char ']'
+  pure (TermAst (Patch str fds))
+
 sig :: Parser TermAst
 sig = do
   string "signature"; ws
@@ -628,6 +641,7 @@ term = do
     try sig <|>
     try struct <|>
     try select <|>
+    try patch <|>
     var
   pure (SourcePos e pos)
 

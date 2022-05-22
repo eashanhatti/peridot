@@ -10,7 +10,7 @@ import Elaboration.Declaration qualified as ED
 import Elaboration.CStatement qualified as ES
 import Control.Monad
 import Normalization hiding(eval, readback)
-import Data.Foldable(foldl', foldr, foldrM)
+import Data.Foldable(foldl', foldr, foldrM, find)
 import Debug.Trace
 import Data.Sequence
 import Prelude hiding(zip, concatMap, head, tail, length, unzip)
@@ -284,8 +284,29 @@ infer term = case term of
         if fd == nameToField name then
           tracePretty <$> appClosureN ty defs -- FIXME: `Elaboration.Effect` version of `appClosureN`
         else do
-          def <- eval (C.RecElim str fd)
+          vTy <- appClosureN ty defs >>= unfold
+          def <- case vTy of
+            N.Rigid (N.SingType term) -> pure term
+            _ -> eval (C.RecElim str fd)
           bind (go str (def <| defs) tys)
+  TermAst (Patch sig defs) -> do
+    cSig <- check sig (N.TypeType N.Obj)
+    vSig <- eval cSig >>= unfold
+    case vSig of
+      N.RecType tys -> do
+        vTys <- evalFieldTypes Empty tys
+        cSig' <-
+          C.RecType <$>
+            traverseWithIndex
+              (\i (fd, ty) ->
+                case find (\(NameAst name, _) -> fd == nameToField name) defs of
+                  Just (_, def) -> do
+                    cDef <- check def ty
+                    pure (fd, C.Rigid (C.SingType cDef))
+                  Nothing -> (fd ,) <$> bindN i (readback ty))
+              vTys
+        pure (cSig', N.TypeType N.Obj)
+      _ -> errorTerm (ExpectedRecordType vSig)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term = (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)

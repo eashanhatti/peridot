@@ -100,6 +100,7 @@ data Term
   | Sig (Seq (NameAst, TermAst))
   | Struct (Seq (NameAst, TermAst))
   | Select TermAst NameAst
+  | Patch TermAst (Seq (NameAst, TermAst))
   deriving (Show)
 
 type CStatementAst = Ast CStatement

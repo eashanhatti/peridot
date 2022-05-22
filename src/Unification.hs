@@ -185,6 +185,8 @@ unifyRigid _ ElabError = pure ()
 unifyRigid _ _ = throwError ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
+unify' (Rigid ElabError) _ = pure ()
+unify' _ (Rigid ElabError) = pure ()
 unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = equateUVs gl1 gl2
 unify' (Neutral prevSol (UniVar gl)) term = do
   prevSol <- force prevSol
