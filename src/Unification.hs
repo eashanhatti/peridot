@@ -310,7 +310,6 @@ unify' (RecType tys1) (RecType tys2) | length tys1 == length tys2 = do
       m (Seq (Coercion sig m))
     go _ Empty = pure Empty
     go defs (((fd1, ty1), (fd2, ty2)) :<| tys) = do
-      let !_ = tracePretty (ty1, ty2)
       when (fd1 /= fd2) (throwError ())
       vTy1 <- appClosureN ty1 defs
       vTy2 <- appClosureN ty2 defs

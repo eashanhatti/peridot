@@ -28,7 +28,6 @@ library
       Elaboration.CStatement
       Elaboration.Declaration
       Elaboration.Effect
-      Elaboration.Match
       Elaboration.Term
       Extra
       Normalization
