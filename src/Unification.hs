@@ -5,6 +5,7 @@ import Control.Carrier.Error.Either(runError)
 import Control.Effect.State
 import Control.Carrier.State.Strict(runState)
 import Syntax.Semantic
+import Syntax.Core qualified as C
 import Syntax.Common
 import Normalization hiding(unUVEqs)
 import Data.Set qualified as Set
@@ -17,6 +18,17 @@ import Debug.Trace
 import Data.Sequence
 import Control.Applicative
 import Prelude hiding(zip, length)
+
+type Coercion = Maybe (C.Term -> C.Term)
+
+infixr 0 %
+
+(%) :: Coercion -> C.Term -> C.Term
+(%) (Just coe) term = coe term
+(%) Nothing term = term
+
+noop :: Coercion
+noop = Nothing
 
 data Substitution = Subst
   { unTypeSols :: Map Global Term
@@ -44,11 +56,13 @@ putUniverseSol gl sol = do
     Nothing -> put (sols { unUnivSols = Map.insert gl sol (unUnivSols sols) })
     Just sol' -> pure ()-- unifyUnivs sol sol'
 
-putTypeSol :: Unify sig m => Global -> Term -> m ()
+putTypeSol :: Unify sig m => Global -> Term -> m Coercion
 putTypeSol gl sol = do
   sols <- get
   case Map.lookup gl (unTypeSols sols) of
-    Nothing -> put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
+    Nothing -> do
+      put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
+      pure noop
     Just sol' -> unify' sol sol'
 
 -- putVCSol :: Unify sig m => Global -> ValueCategory -> m ()
@@ -81,38 +95,41 @@ unifyUnivs _ _ = throwError ()
 
 unifyRedexes :: Unify sig m => Redex -> Redex -> m ()
 unifyRedexes (MetaFunElim lam1 arg1) (MetaFunElim lam2 arg2) = do
-  unify' lam1 lam2
-  unify' arg1 arg2
+  unifyS' lam1 lam2
+  unifyS' arg1 arg2
 unifyRedexes (ObjFunElim lam1 arg1) (ObjFunElim lam2 arg2) = do
-  unify' lam1 lam2
-  unify' arg1 arg2
-unifyRedexes (CodeCoreElim quote1) (CodeCoreElim quote2) = unify' quote1 quote2
-unifyRedexes (CodeLowCTmElim quote1) (CodeLowCTmElim quote2) = unify' quote1 quote2
+  unifyS' lam1 lam2
+  unifyS' arg1 arg2
+unifyRedexes (CodeCoreElim quote1) (CodeCoreElim quote2) =
+  unifyS' quote1 quote2
+unifyRedexes (CodeLowCTmElim quote1) (CodeLowCTmElim quote2) =
+  unifyS' quote1 quote2
 unifyRedexes (GlobalVar did1) (GlobalVar did2) | did1 == did2 = pure ()
 unifyRedexes (TwoElim scr1 _ body11 body21) (TwoElim scr2 _ body12 body22) = do
-  unify' scr1 scr2
-  unify' body11 body12
-  unify' body21 body22
-unifyRedexes (SingElim term1) (SingElim term2) = unify' term1 term2
+  unifyS' scr1 scr2
+  unifyS' body11 body12
+  unifyS' body21 body22
+unifyRedexes (SingElim term1) (SingElim term2) =
+  unifyS' term1 term2
 unifyRedexes (RecElim str1 name1) (RecElim str2 name2) | name1 == name2 =
-  unify' str1 str2
+  unifyS' str1 str2
 unifyRedexes _ _ = throwError ()
 
 unifyStmts :: Unify sig m => CStatement Term -> CStatement Term -> m ()
-unifyStmts (VarDecl ty1) (VarDecl ty2) = unify' ty1 ty2
+unifyStmts (VarDecl ty1) (VarDecl ty2) = unifyS' ty1 ty2
 unifyStmts (Assign var1 val1) (Assign var2 val2) = do
-  unify' var1 var2
-  unify' val1 val2
+  unifyS' var1 var2
+  unifyS' val1 val2
 unifyStmts (If cond1 trueBody1 falseBody1) (If cond2 trueBody2 falseBody2) = do
-  unify' cond1 cond2
+  unifyS' cond1 cond2
   unifyStmts trueBody1 trueBody2
   unifyStmts falseBody1 falseBody2
 unifyStmts (Block lstmt1 rstmt1) (Block lstmt2 rstmt2) = do
   unifyStmts lstmt1 lstmt2
   unifyStmts rstmt1 rstmt2
-unifyStmts (Return (Just val1)) (Return (Just val2)) = unify' val1 val2
+unifyStmts (Return (Just val1)) (Return (Just val2)) = unifyS' val1 val2
 unifyStmts (Return Nothing) (Return Nothing) = pure ()
-unifyStmts (CodeLowCStmtElim quote1) (CodeLowCStmtElim quote2) = unify' quote1 quote2
+unifyStmts (CodeLowCStmtElim quote1) (CodeLowCStmtElim quote2) = unifyS' quote1 quote2
 
 -- unifyVCs :: Unify sig m => ValueCategory -> ValueCategory -> m ()
 -- unifyVCs (VCUniVar gl1) (VCUniVar gl2) = equateUVs gl1 gl2
@@ -123,46 +140,54 @@ unifyStmts (CodeLowCStmtElim quote1) (CodeLowCStmtElim quote2) = unify' quote1 q
 -- unifyVCs _ _ = throwError ()
 
 unifyOps :: Unify sig m => COp Term -> COp Term -> m ()
-unifyOps (Ref term1) (Ref term2) = unify' term1 term2
-unifyOps (Deref term1) (Deref term2) = unify' term1 term2
+unifyOps (Ref term1) (Ref term2) = unifyS' term1 term2
+unifyOps (Deref term1) (Deref term2) = unifyS' term1 term2
 unifyOps (Add x1 y1) (Add x2 y2) = do
-  unify' x1 x2
-  unify' y1 y2
+  unifyS' x1 x2
+  unifyS' y1 y2
 unifyOps (Sub x1 y1) (Sub x2 y2) = do
-  unify' x1 x2
-  unify' y1 y2
+  unifyS' x1 x2
+  unifyS' y1 y2
 unifyOps (Less x1 y1) (Less x2 y2) = do
-  unify' x1 x2
-  unify' y1 y2
+  unifyS' x1 x2
+  unifyS' y1 y2
 unifyOps (Grtr x1 y1) (Grtr x2 y2) = do
-  unify' x1 x2
-  unify' y1 y2
+  unifyS' x1 x2
+  unifyS' y1 y2
 unifyOps (Eql x1 y1) (Eql x2 y2) = do
-  unify' x1 x2
-  unify' y1 y2
+  unifyS' x1 x2
+  unifyS' y1 y2
 
-unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m ()
-unifyRigid (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 = pure ()
-unifyRigid (ObjConstIntro did1) (ObjConstIntro did2) | did1 == did2 = pure ()
+unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m Coercion
+unifyRigid (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 = pure noop
+unifyRigid (ObjConstIntro did1) (ObjConstIntro did2) | did1 == did2 = pure noop
 unifyRigid (CodeCoreType ty1) (CodeCoreType ty2) = unify' ty1 ty2
 unifyRigid (CodeLowCTmType ty1) (CodeLowCTmType ty2) = unify' ty1 ty2
-unifyRigid (CodeCoreIntro term1) (CodeCoreIntro term2) = unify' term1 term1
-unifyRigid (CodeLowCTmIntro term1) (CodeLowCTmIntro term2) = unify' term1 term1
+unifyRigid (CodeCoreIntro term1) (CodeCoreIntro term2) = do
+  unifyS' term1 term1
+  pure noop
+unifyRigid (CodeLowCTmIntro term1) (CodeLowCTmIntro term2) = do
+  unifyS' term1 term1
+  pure noop
 unifyRigid (CodeLowCStmtType ty1) (CodeLowCStmtType ty2) = unify' ty1 ty2
-unifyRigid (CodeLowCStmtIntro stmt1) (CodeLowCStmtIntro stmt2) =
+unifyRigid (CodeLowCStmtIntro stmt1) (CodeLowCStmtIntro stmt2) = do
   unifyStmts stmt1 stmt2
+  pure noop
 unifyRigid (CPtrType ty1) (CPtrType ty2) = unify' ty1 ty2
-unifyRigid CIntType CIntType = pure ()
-unifyRigid CVoidType CVoidType = pure ()
+unifyRigid CIntType CIntType = pure noop
+unifyRigid CVoidType CVoidType = pure noop
 unifyRigid (CFunType inTys1 outTy1) (CFunType inTys2 outTy2) = do
   traverse (uncurry unify') (zip inTys1 inTys2)
   unify' outTy1 outTy2
-unifyRigid (CIntIntro x1) (CIntIntro x2) | x1 == x2 = pure ()
-unifyRigid (COp op1) (COp op2) = unifyOps op1 op2
+unifyRigid (CIntIntro x1) (CIntIntro x2) | x1 == x2 = pure noop
+unifyRigid (COp op1) (COp op2) = do
+  unifyOps op1 op2
+  pure noop
 unifyRigid (CFunCall fn1 args1) (CFunCall fn2 args2) = do
-  unify' fn1 fn2
-  traverse_ (uncurry unify') (zip args1 args2)
-unifyRigid (PropConstIntro did1) (PropConstIntro did2) | did1 == did2 = pure ()
+  unifyS' fn1 fn2
+  traverse_ (uncurry unifyS') (zip args1 args2)
+  pure noop
+unifyRigid (PropConstIntro did1) (PropConstIntro did2) | did1 == did2 = pure noop
 unifyRigid (ImplType inTy1 outTy1) (ImplType inTy2 outTy2) = do
   unify' inTy1 inTy2
   unify' outTy1 outTy2
@@ -178,20 +203,27 @@ unifyRigid (ObjIdType x1 y1) (ObjIdType x2 y2) = do
 unifyRigid (PropIdType x1 y1) (PropIdType x2 y2) = do
   unify' x1 x2
   unify' y1 y2
-unifyRigid TwoIntro0 TwoIntro0 = pure ()
-unifyRigid TwoIntro1 TwoIntro1 = pure ()
-unifyRigid TwoType TwoType = pure ()
-unifyRigid (ObjIdIntro x1) (ObjIdIntro x2) = unify' x1 x2
+unifyRigid TwoIntro0 TwoIntro0 = pure noop
+unifyRigid TwoIntro1 TwoIntro1 = pure noop
+unifyRigid TwoType TwoType = pure noop
+unifyRigid (ObjIdIntro x1) (ObjIdIntro x2) = do
+  unifyS' x1 x2
+  pure noop
 unifyRigid (AllType f1) (AllType f2) = unify' f1 f2
 unifyRigid (SomeType f1) (SomeType f2) = unify' f1 f2
-unifyRigid ElabError _ = pure ()
-unifyRigid _ ElabError = pure ()
+unifyRigid (SingType term1) (SingType term2) = do
+  unifyS' term1 term2
+  pure noop
+unifyRigid ElabError _ = pure noop
+unifyRigid _ ElabError = pure noop
 unifyRigid _ _ = throwError ()
 
-unify' :: HasCallStack => Unify sig m => Term -> Term -> m ()
-unify' (Rigid ElabError) _ = pure ()
-unify' _ (Rigid ElabError) = pure ()
-unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = equateUVs gl1 gl2
+unify' :: HasCallStack => Unify sig m => Term -> Term -> m Coercion
+unify' (Rigid ElabError) _ = pure noop
+unify' _ (Rigid ElabError) = pure noop
+unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = do
+  equateUVs gl1 gl2
+  pure noop
 unify' (Neutral prevSol (UniVar gl)) term = do
   prevSol <- force prevSol
   case prevSol of
@@ -203,9 +235,9 @@ unify' term (Neutral prevSol (UniVar gl)) = do
     Just prevSol -> unify' prevSol term
     Nothing -> putTypeSol gl term
 unify' (Neutral term1 redex1) (Neutral term2 redex2) =
-  catchError (unifyRedexes redex1 redex2) (\() -> go)
+  catchError (unifyRedexes redex1 redex2 *> pure noop) (\() -> go)
   where
-    go :: Unify sig m => m ()
+    go :: Unify sig m => m Coercion
     go = do
       term1 <- force term1
       term2 <- force term2
@@ -225,35 +257,52 @@ unify' term1 (Neutral term2 _) = do
 unify' (MetaFunType inTy1 outTy1) (MetaFunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
-unify' (MetaFunIntro body1) (MetaFunIntro body2) =
-  bind2 unify' (evalClosure body1) (evalClosure body2)
+unify' (MetaFunIntro body1) (MetaFunIntro body2) = do
+  bind2 unifyS' (evalClosure body1) (evalClosure body2)
+  pure noop
 unify' (ObjFunType inTy1 outTy1) (ObjFunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
-unify' (ObjFunIntro body1) (ObjFunIntro body2) =
-  bind2 unify' (evalClosure body1) (evalClosure body2)
-unify' (TypeType s1) (TypeType s2) = unifyUnivs s1 s2
-unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
-unify' (RecType tys1) (RecType tys2) | length tys1 == length tys2 =
+unify' (ObjFunIntro body1) (ObjFunIntro body2) = do
+  bind2 unifyS' (evalClosure body1) (evalClosure body2)
+  pure noop
+unify' (TypeType s1) (TypeType s2) = do
+  unifyUnivs s1 s2
+  pure noop
+unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure noop
+unify' (RecType tys1) (RecType tys2) | length tys1 == length tys2 = do
   go Empty (zip tys1 tys2)
+  pure noop
   where
-    go :: Unify sig m => Seq Term -> Seq ((Field, Closure), (Field, Closure)) -> m ()
+    go ::
+      Unify sig m =>
+      Seq Term ->
+      Seq ((Field, Closure), (Field, Closure)) ->
+      m ()
     go _ Empty = pure ()
     go defs (((fd1, ty1), (fd2, ty2)) :<| tys) = do
       when (fd1 /= fd2) (throwError ())
       vTy1 <- appClosureN ty1 defs
       vTy2 <- appClosureN ty2 defs
-      unify' vTy1 vTy2
+      unifyS' vTy1 vTy2
       l <- level
       bind (go (LocalVar l <| defs) tys)
-unify' (RecIntro fds1) (RecIntro fds2) =
+unify' (RecIntro fds1) (RecIntro fds2) = do
   traverse_
     (\((name1, fd1), (name2, fd2)) -> do
       when (name1 /= name2) (throwError ())
-      unify' fd1 fd2)
+      unifyS' fd1 fd2)
     (zip fds1 fds2)
+  pure noop
 unify' (Rigid term1) (Rigid term2) = unifyRigid term1 term2
 unify' _ _ = throwError ()
+
+unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()
+unifyS' term1 term2 = do
+  r <- unify' term1 term2
+  case r of
+    Just _ -> throwError ()
+    Nothing -> pure ()
 
 unify :: HasCallStack => Norm sig m => Term -> Term -> m (Maybe Substitution)
 unify term1 term2 = do
