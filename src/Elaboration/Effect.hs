@@ -65,6 +65,7 @@ data Error
   | MissingField Name
   | FailedProve N.Term
   | AmbiguousProve N.Term (Seq (Map Global N.Term))
+  | Todo
   deriving (Show)
 
 type Query sig m = Has (State QueryState) sig m
@@ -120,7 +121,8 @@ instance Ord Binding where
 
 data ElabContext = ElabContext
   { unBindings :: Map Name Binding
-  , unSourcePos :: SourcePos }
+  , unSourcePos :: SourcePos
+  , unConstrs :: Map Id (Set Id) }
   deriving (Show)
 
 data Predeclaration = PDDecl DeclarationAst
@@ -238,12 +240,21 @@ withDecls decls act = do
   normContext <- ask
   let
     bindings' = toBindings decls `union` unBindings elabContext
+    constrs' = toConstrs decls `union` unConstrs elabContext
     allState = AllState elabState (elabContext { unBindings = bindings' }) normContext
 
     toBindings :: Seq DeclarationAst -> Map Name Binding
     toBindings Empty = mempty
     toBindings (decl :<| decls) =
       insert (unDeclName decl) (BGlobal (unId decl)) (toBindings decls)
+
+    toConstrs :: Seq DeclarationAst -> Map Id (Set Id)
+    toConstrs Empty = mempty
+    toConstrs (decl@(viewConstrs -> Just (_, dids)) :<| decls) =
+      insert
+        (unId decl)
+        (Set.fromList . toList . fmap unCId $ dids)
+        (toConstrs decls)
 
     go :: Elab sig m => Seq DeclarationAst -> m a
     go Empty = act
@@ -252,7 +263,7 @@ withDecls decls act = do
       put (state
         { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })
       go decls
-  local (\ctx -> ctx { unBindings = bindings' }) (go decls)
+  local (\ctx -> ctx { unBindings = bindings', unConstrs = constrs' }) (go decls)
 
 lookupBinding :: Elab sig m => Name -> m (Maybe Binding)
 lookupBinding name = do
@@ -263,6 +274,14 @@ withDecl :: Query sig m => Id -> (Predeclaration -> C m a) -> m a
 withDecl did act = do
   (as, decl) <- (! did) . unPredecls <$> get
   restore as (act decl)
+
+freshBareTypeUV :: Elab sig m => m Global
+freshBareTypeUV = do
+  state <- get
+  put (state
+    { unTypeUVs = insert (UVGlobal (unNextUV state)) Nothing (unTypeUVs state)
+    , unNextUV = unNextUV state + 1 })
+  pure (UVGlobal (unNextUV state))
 
 freshTypeUV :: Elab sig m => m N.Term
 freshTypeUV = do

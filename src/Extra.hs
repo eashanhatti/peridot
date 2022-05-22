@@ -5,6 +5,7 @@ import Shower
 import Data.Maybe
 import Data.Sequence
 import Debug.Trace
+import Data.Functor.Identity
 import Prelude hiding(concatMap, concat)
 
 fromRight :: Either () a -> a
@@ -21,9 +22,12 @@ concat :: Monoid a => Seq a -> a
 concat Empty = mempty
 concat (x :<| xs) = x <> concat xs
 
+concatMapM :: (Monad m, Monoid b) => (a -> m b) -> Seq a -> m b
+concatMapM f Empty = pure mempty
+concatMapM f (x :<| xs) = (<>) <$> f x <*> concatMapM f xs
+
 concatMap :: Monoid b => (a -> b) -> Seq a -> b
-concatMap f Empty = mempty
-concatMap f (x :<| xs) = f x <> concatMap f xs
+concatMap f = runIdentity . concatMapM (Identity . f)
 
 head :: Seq a -> a
 head (x :<| _) = x
@@ -31,10 +35,16 @@ head (x :<| _) = x
 tail :: Seq a -> Seq a
 tail (_ :<| xs) = xs
 
+filterMapM :: Monad m => (a -> m (Maybe b)) -> Seq a -> m (Seq b)
+filterMapM f Empty = pure Empty
+filterMapM f (x :<| xs) = do
+  r <- f x
+  case r of
+    Just y -> (y <|) <$> filterMapM f xs
+    Nothing -> filterMapM f xs
+
 filterMap :: (a -> Maybe b) -> Seq a -> Seq b
-filterMap f Empty = Empty
-filterMap f ((f -> Just y) :<| xs) = y <| filterMap f xs
-filterMap f (_ :<| xs) = filterMap f xs
+filterMap f = runIdentity . filterMapM (Identity . f)
 
 filterTraverse :: Monad m => (a -> m (Maybe b)) -> Seq a -> m (Seq b)
 filterTraverse f Empty = pure Empty

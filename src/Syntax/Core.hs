@@ -5,6 +5,7 @@ module Syntax.Core
 
 import Syntax.Common hiding(unId, Declaration)
 import Syntax.Common qualified as Cm
+import Data.Map
 import Data.Sequence
 
 unId :: Declaration -> Id

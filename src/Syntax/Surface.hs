@@ -11,6 +11,8 @@ data Ast a where
   NameAst :: Name -> NameAst
   DeclAst :: Declaration -> Id -> DeclarationAst
   CStmtAst :: CStatement -> CStatementAst
+  PatAst :: Pattern -> PatternAst
+  ClseAst :: Clause -> ClauseAst
   SourcePos :: Ast a -> SourcePos -> Ast a
 deriving instance Show (Ast a)
 
@@ -111,4 +113,15 @@ data CStatement
   | Assign TermAst TermAst
   | Return (Maybe TermAst)
   | SpliceLowCStmt TermAst
+  deriving (Show)
+
+type PatternAst = Ast Pattern
+data Pattern
+  = PApp (Seq PatternAst)
+  | PCon NameAst (Seq PatternAst)
+  | PBind NameAst
+  deriving (Show)
+
+type ClauseAst = Ast Clause
+data Clause = Clse PatternAst TermAst
   deriving (Show)
