@@ -90,7 +90,10 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
           unify vOutTy retTy
           pure (C.CFun did inTys outTy cStmt)
 
-withPos' :: HasCallStack => Elab sig m => (Predeclaration -> m a) -> (Predeclaration -> m a)
+withPos' ::
+  HasCallStack => Elab sig m =>
+  (Predeclaration -> m a) ->
+  (Predeclaration -> m a)
 withPos' act (PDDecl (SourcePos ast pos)) = withPos pos (act (PDDecl ast))
 withPos' act pd = act pd
 

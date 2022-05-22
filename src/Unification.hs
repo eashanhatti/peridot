@@ -26,7 +26,8 @@ data Substitution = Subst
   deriving (Show)
 
 instance Semigroup Substitution where
-  Subst ts1 ss1 {-vcs1-} eqs1 <> Subst ts2 ss2 {-vcs2-} eqs2 = Subst (ts1 <> ts2) (ss1 <> ss2) {-(vcs1 <> vcs2)-} (eqs1 <> eqs2)
+  Subst ts1 ss1 {-vcs1-} eqs1 <> Subst ts2 ss2 {-vcs2-} eqs2 =
+    Subst (ts1 <> ts2) (ss1 <> ss2) {-(vcs1 <> vcs2)-} (eqs1 <> eqs2)
 
 instance Monoid Substitution where
   mempty = Subst mempty mempty {-mempty-} mempty
@@ -58,7 +59,9 @@ putTypeSol gl sol = do
 --     Just sol' -> pure ()
 
 equateUVs :: Unify sig m => Global -> Global -> m ()
-equateUVs gl1 gl2 = modify (\st -> st { unUVEqs = Map.fromList [(gl1, gl2), (gl2, gl1)] <> unUVEqs st })
+equateUVs gl1 gl2 =
+  modify (\st -> st
+    { unUVEqs = Map.fromList [(gl1, gl2), (gl2, gl1)] <> unUVEqs st })
 
 bind2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c
 bind2 f act1 act2 = do
@@ -146,7 +149,8 @@ unifyRigid (CodeLowCTmType ty1) (CodeLowCTmType ty2) = unify' ty1 ty2
 unifyRigid (CodeCoreIntro term1) (CodeCoreIntro term2) = unify' term1 term1
 unifyRigid (CodeLowCTmIntro term1) (CodeLowCTmIntro term2) = unify' term1 term1
 unifyRigid (CodeLowCStmtType ty1) (CodeLowCStmtType ty2) = unify' ty1 ty2
-unifyRigid (CodeLowCStmtIntro stmt1) (CodeLowCStmtIntro stmt2) = unifyStmts stmt1 stmt2
+unifyRigid (CodeLowCStmtIntro stmt1) (CodeLowCStmtIntro stmt2) =
+  unifyStmts stmt1 stmt2
 unifyRigid (CPtrType ty1) (CPtrType ty2) = unify' ty1 ty2
 unifyRigid CIntType CIntType = pure ()
 unifyRigid CVoidType CVoidType = pure ()
@@ -198,14 +202,16 @@ unify' term (Neutral prevSol (UniVar gl)) = do
   case prevSol of
     Just prevSol -> unify' prevSol term
     Nothing -> putTypeSol gl term
-unify' (Neutral term1 redex1) (Neutral term2 redex2) = catchError (unifyRedexes redex1 redex2) (\() -> go) where
-  go :: Unify sig m => m ()
-  go = do
-    term1 <- force term1
-    term2 <- force term2
-    case (term1, term2) of
-      (Just term1, Just term2) -> unify' term1 term2
-      _ -> throwError ()
+unify' (Neutral term1 redex1) (Neutral term2 redex2) =
+  catchError (unifyRedexes redex1 redex2) (\() -> go)
+  where
+    go :: Unify sig m => m ()
+    go = do
+      term1 <- force term1
+      term2 <- force term2
+      case (term1, term2) of
+        (Just term1, Just term2) -> unify' term1 term2
+        _ -> throwError ()
 unify' (Neutral term1 _) term2 = do
   term1 <- force term1
   case term1 of
@@ -219,11 +225,13 @@ unify' term1 (Neutral term2 _) = do
 unify' (MetaFunType inTy1 outTy1) (MetaFunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
-unify' (MetaFunIntro body1) (MetaFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
+unify' (MetaFunIntro body1) (MetaFunIntro body2) =
+  bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (ObjFunType inTy1 outTy1) (ObjFunType inTy2 outTy2) = do
   unify' inTy1 inTy2
   bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
-unify' (ObjFunIntro body1) (ObjFunIntro body2) = bind2 unify' (evalClosure body1) (evalClosure body2)
+unify' (ObjFunIntro body1) (ObjFunIntro body2) =
+  bind2 unify' (evalClosure body1) (evalClosure body2)
 unify' (TypeType s1) (TypeType s2) = unifyUnivs s1 s2
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure ()
 unify' (RecType tys1) (RecType tys2) | length tys1 == length tys2 =

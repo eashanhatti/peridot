@@ -25,7 +25,7 @@ import Data.GADT.Compare
 import Data.Type.Equality qualified as Equal
 import Data.Hashable
 import GHC.Generics hiding (Constructor, C)
-import Normalization hiding (eval, unTypeUVs, unRepUVs, unUVEqs, unVCUVs, readback', readback', zonk)
+import Normalization hiding(eval, unTypeUVs, unRepUVs, unUVEqs, unVCUVs, readback', readback', zonk)
 import Normalization qualified as Norm
 import Unification qualified as Uni
 import Numeric.Natural
@@ -52,7 +52,8 @@ data QueryState = QueryState
   , unErrors :: Seq (SourcePos, Error) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs suvs {-vcuvs-} eqs errs) = show (tuvs, suvs, {-vcuvs,-} eqs, errs)
+  show (QueryState _ _ _ tuvs suvs {-vcuvs-} eqs errs) =
+    show (tuvs, suvs, {-vcuvs,-} eqs, errs)
 
 data Error
   = TooManyParams
@@ -182,7 +183,9 @@ putTypeUVSols sols = do
 
 bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =
-  local (\ctx -> ctx { unBindings = insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
+  local (\ctx ->
+    ctx { unBindings =
+      insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
   bind $
   act
   where
@@ -214,7 +217,8 @@ withDecls decls act = do
     go Empty = act
     go (decl :<| decls) = do
       state <- get
-      put (state { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })
+      put (state
+        { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })
       go decls
   local (\ctx -> ctx { unBindings = bindings' }) (go decls)
 
@@ -234,7 +238,10 @@ freshTypeUV = do
   put (state
     { unTypeUVs = insert (UVGlobal (unNextUV state)) Nothing (unTypeUVs state)
     , unNextUV = unNextUV state + 1 })
-  pure (N.Neutral (uvRedex (UVGlobal (unNextUV state))) (N.UniVar (UVGlobal (unNextUV state))))
+  pure
+    (N.Neutral
+      (uvRedex (UVGlobal (unNextUV state)))
+      (N.UniVar (UVGlobal (unNextUV state))))
 
 -- freshVCUV :: Elab sig m => m N.ValueCategory
 -- freshVCUV = do

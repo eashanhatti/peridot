@@ -103,7 +103,11 @@ freshUV :: Search sig m => m Term
 freshUV = do
   state <- get
   put (state { unNextUV = unNextUV state + 1 })
-  pure (Neutral (uvRedex . LVGlobal $ unNextUV state) . UniVar . LVGlobal $ unNextUV state)
+  pure
+    (Neutral (uvRedex . LVGlobal $ unNextUV state) .
+    UniVar .
+    LVGlobal $
+    unNextUV state)
 
 isAtomic :: Term -> Bool
 isAtomic (MetaFunElims _ _) = True

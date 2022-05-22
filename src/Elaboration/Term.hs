@@ -37,7 +37,8 @@ infer term = case term of
     where
       checkBody :: Elab sig m => Seq (Name, N.Term) -> N.Term -> m C.Term
       checkBody Empty outTy = check body outTy
-      checkBody ((name, inTy) :<| params) outTy = bindLocal name inTy (checkBody params outTy)
+      checkBody ((name, inTy) :<| params) outTy =
+        bindLocal name inTy (checkBody params outTy)
   TermAst (ObjLam (fmap unName -> names) body) -> do
     inTys <- traverse (const freshTypeUV) names
     cInTys <- traverse readback inTys
@@ -51,7 +52,8 @@ infer term = case term of
     where
       checkBody :: Elab sig m => Seq (Name, N.Term) -> N.Term -> m C.Term
       checkBody Empty outTy = check body outTy
-      checkBody ((name, inTy) :<| params) outTy = bindLocal name inTy (checkBody params outTy)    
+      checkBody ((name, inTy) :<| params) outTy =
+        bindLocal name inTy (checkBody params outTy)    
   TermAst (MetaPi (NameAst name) inTy outTy) -> do
     cInTy <- check inTy (N.TypeType N.Meta)
     vInTy <- eval cInTy
@@ -170,7 +172,10 @@ infer term = case term of
         cArgs <- traverse (\(arg, inTy) -> check arg inTy) (zip args inTys)
         pure (C.Rigid (C.CFunCall cFn cArgs), outTy)
       Just (inTys, _) ->
-        errorTerm (WrongAppArity (fromIntegral (length inTys)) (fromIntegral (length args)))
+        errorTerm
+          (WrongAppArity
+            (fromIntegral (length inTys))
+            (fromIntegral (length args)))
       Nothing -> errorTerm (ExpectedCFunType fnTy)
     where
       go :: Norm sig m => N.Term -> m (Maybe (Seq N.Term, N.Term))
@@ -182,7 +187,11 @@ infer term = case term of
           Nothing -> pure Nothing
       go _ = pure Nothing
   TermAst (CFunType inTys outTy) -> do
-    cTerm <- C.Rigid <$> (C.CFunType <$> traverse (flip check (N.TypeType (N.Low C))) inTys <*> check outTy (N.TypeType (N.Low C)))
+    cTerm <-
+      C.Rigid <$> (
+        C.CFunType <$>
+          traverse (flip check (N.TypeType (N.Low C))) inTys <*>
+          check outTy (N.TypeType (N.Low C)))
     pure (cTerm, N.TypeType (N.Low C))
   TermAst (CInt x) -> pure (C.Rigid (C.CIntIntro x), N.Rigid N.CIntType)
   TermAst (ImplProp p q) -> do
@@ -282,7 +291,8 @@ infer term = case term of
         pure (N.Rigid N.ElabError)
       go str defs ((fd, ty) :<| tys) =
         if fd == nameToField name then
-          tracePretty <$> appClosureN ty defs -- FIXME: `Elaboration.Effect` version of `appClosureN`
+          -- FIXME: `Elaboration.Effect` version of `appClosureN`
+          tracePretty <$> appClosureN ty defs
         else do
           vTy <- appClosureN ty defs >>= unfold
           def <- case vTy of
@@ -309,13 +319,15 @@ infer term = case term of
       _ -> errorTerm (ExpectedRecordType vSig)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
-checkMetaType term = (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)
+checkMetaType term =
+  (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)
 
 checkMetaType' :: Elab sig m => TermAst -> m C.Term
 checkMetaType' ty = fst <$> checkMetaType ty
 
 checkLowCType :: Elab sig m => TermAst -> m (C.Term, N.Term)
-checkLowCType term = (,) <$> check term (N.TypeType (N.Low C)) <*> pure (N.TypeType (N.Low C))
+checkLowCType term =
+  (,) <$> check term (N.TypeType (N.Low C)) <*> pure (N.TypeType (N.Low C))
 
 checkLowCType' :: Elab sig m => TermAst -> m C.Term
 checkLowCType' ty = fst <$> checkLowCType ty

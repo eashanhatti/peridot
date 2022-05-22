@@ -12,8 +12,9 @@ import Control.Monad.State
 import Data.Sequence
 
 keywords =
-  [ "let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt", "quoteC", "spliceC", "LiftC", "rule", "Int"
-  , "all", "conj", "disj", "impl", "some", "atomicformula", "Prop", "Bool", "Equal", "tt", "ff", "refl", "bool_elim"
+  [ "let", "in", "Type", "cfun", "cif", "else", "var", "quoteL", "spliceLStmt"
+  , "quoteC", "spliceC", "LiftC", "rule", "Int", "all", "conj", "disj", "impl"
+  , "some", "atomicformula", "Prop", "Bool", "Equal", "tt", "ff", "refl", "bool_elim"
   , "signature", "structure" ]
 
 ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
@@ -653,6 +654,11 @@ freshId = do
 
 parse :: Text -> Either String TermAst
 parse text =
-  case fst . flip runState 0 . runParserT (term >>= \e -> ws *> eof *> pure e) "<TODO>" $ text of
+  case
+      fst .
+      flip runState 0 .
+      runParserT (term >>= \e -> ws *> eof *> pure e) "<TODO>" $
+      text
+    of
     Right term -> Right term
     Left err -> Left (errorBundlePretty err)

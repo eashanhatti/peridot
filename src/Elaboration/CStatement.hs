@@ -9,7 +9,10 @@ import {-# SOURCE #-} Elaboration.Term qualified as EE
 import Data.Maybe(fromMaybe)
 import Data.Sequence
 
-infer' :: forall sig m. Elab sig m => CStatementAst -> m (CStatement C.Term, Maybe N.Term, Maybe (Name, N.Term))
+infer' ::
+  forall sig m. Elab sig m =>
+  CStatementAst ->
+  m (CStatement C.Term, Maybe N.Term, Maybe (Name, N.Term))
 infer' (CStmtAst (Block stmts)) = do
   (cStmt, retTy) <- go stmts
   pure (cStmt, retTy, Nothing)

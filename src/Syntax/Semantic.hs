@@ -56,9 +56,11 @@ data Term
   | Neutral (ReaderC NormContext Identity (Maybe Term)) Redex
 
 instance Show Term where
-  show (ObjFunType inTy outTy) = "(ObjFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
+  show (ObjFunType inTy outTy) =
+    "(ObjFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
   show (ObjFunIntro body) = "(ObjFunIntro " ++ show body ++ ")"
-  show (MetaFunType inTy outTy) = "(MetaFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
+  show (MetaFunType inTy outTy) =
+    "(MetaFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
   show (MetaFunIntro body) = "(MetaFunIntro " ++ show body ++ ")"
   show (TypeType univ) = "(TypeType " ++ show univ ++ ")"
   show (LocalVar lvl) = "(LocalVar " ++ show lvl ++ ")"

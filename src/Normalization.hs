@@ -33,7 +33,11 @@ type Norm sig m =
   ( Has (Reader NormContext) sig m )
 
 bind :: HasCallStack => Norm sig m => m a -> m a
-bind = local (\ctx -> ctx { unEnv = N.withLocal (N.LocalVar (fromIntegral (N.envSize (unEnv ctx)))) (unEnv ctx) })
+bind = local (\ctx -> ctx
+  { unEnv =
+    N.withLocal
+      (N.LocalVar (fromIntegral (N.envSize (unEnv ctx))))
+      (unEnv ctx) })
 
 bindN :: HasCallStack => Norm sig m => Int -> m a -> m a
 bindN 0 = id
@@ -55,7 +59,10 @@ appClosureN (N.Clo env body) args =
   local (\ctx -> ctx { unEnv = foldr N.withLocal env args }) (eval body)
 
 evalClosure :: HasCallStack => Norm sig m => N.Closure -> m N.Term
-evalClosure clo@(N.Clo env _) = appClosure clo (N.LocalVar (fromIntegral (N.envSize env)))
+evalClosure clo@(N.Clo env _) =
+  appClosure
+    clo
+    (N.LocalVar (fromIntegral (N.envSize env)))
 
 funIntros :: C.Term -> (C.Term -> C.Term)
 funIntros (C.MetaFunType _ outTy) = C.MetaFunIntro . funIntros outTy
@@ -217,11 +224,25 @@ entry ix = do
 
 type ShouldZonk = Bool
 
-readback' :: forall sig m. HasCallStack => Norm sig m => ShouldZonk -> N.Term -> m C.Term
-readback' opt (N.MetaFunType inTy outTy) = C.MetaFunType <$> readback' opt inTy <*> bind (evalClosure outTy >>= readback' opt)
-readback' opt (N.MetaFunIntro body) = C.MetaFunIntro <$> bind (evalClosure body >>= readback' opt)
-readback' opt (N.ObjFunType inTy outTy) = C.ObjFunType <$> readback' opt inTy <*> bind (evalClosure outTy >>= readback' opt)
-readback' opt (N.ObjFunIntro body) = C.ObjFunIntro <$> bind (evalClosure body >>= readback' opt)
+readback' ::
+  forall sig m. HasCallStack => Norm sig m =>
+  ShouldZonk ->
+  N.Term ->
+  m C.Term
+readback' opt (N.MetaFunType inTy outTy) =
+  C.MetaFunType <$>
+    readback' opt inTy <*>
+    bind (evalClosure outTy >>= readback' opt)
+readback' opt (N.MetaFunIntro body) =
+  C.MetaFunIntro <$>
+    bind (evalClosure body >>= readback' opt)
+readback' opt (N.ObjFunType inTy outTy) =
+  C.ObjFunType <$>
+    readback' opt inTy <*>
+    bind (evalClosure outTy >>= readback' opt)
+readback' opt (N.ObjFunIntro body) =
+  C.ObjFunIntro <$>
+    bind (evalClosure body >>= readback' opt)
 readback' opt (N.TypeType (N.SUniVar gl)) = undefined -- FIXME?
 readback' opt (N.TypeType (N.Low l)) = pure (C.TypeType (C.Low l))
 readback' opt (N.TypeType N.Meta) = pure (C.TypeType C.Meta)
@@ -235,7 +256,8 @@ readback' opt (N.Neutral sol redex) = do
     (True, Just vSol, N.UniVar _) -> readback' True vSol
     -- (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
     _ -> readbackRedex opt redex
-readback' opt (N.RecIntro fds) = C.RecIntro <$> traverse (\(fd, def) -> (fd ,) <$> readback' opt def) fds
+readback' opt (N.RecIntro fds) =
+  C.RecIntro <$> traverse (\(fd, def) -> (fd ,) <$> readback' opt def) fds
 readback' opt (N.RecType tys) = do
   vTys <- evalFieldTypes Empty tys
   cTys <-
@@ -245,7 +267,11 @@ readback' opt (N.RecType tys) = do
   pure (C.RecType cTys)
 readback' opt (N.Rigid rterm) = C.Rigid <$> traverse (readback' opt) rterm
 
-evalFieldTypes :: HasCallStack => Norm sig m => Seq N.Term -> Seq (Field, N.Closure) -> m (Seq (Field, N.Term))
+evalFieldTypes ::
+  HasCallStack => Norm sig m =>
+  Seq N.Term ->
+  Seq (Field, N.Closure) ->
+  m (Seq (Field, N.Term))
 evalFieldTypes _ Empty = pure Empty
 evalFieldTypes defs ((fd, ty) :<| tys) = do
   vTy <- appClosureN ty defs
@@ -254,15 +280,28 @@ evalFieldTypes defs ((fd, ty) :<| tys) = do
   pure ((fd, vTy) <| vTys)
 
 readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term
-readbackRedex opt (N.MetaFunElim lam arg) = C.MetaFunElim <$> readback' opt lam <*> readback' opt arg
-readbackRedex opt (N.ObjFunElim lam arg) = C.ObjFunElim <$> readback' opt lam <*> readback' opt arg
+readbackRedex opt (N.MetaFunElim lam arg) =
+  C.MetaFunElim <$>
+    readback' opt lam <*>
+    readback' opt arg
+readbackRedex opt (N.ObjFunElim lam arg) =
+  C.ObjFunElim <$>
+    readback' opt lam <*>
+    readback' opt arg
 readbackRedex opt (N.CodeCoreElim quote) = C.CodeCoreElim <$> readback' opt quote
 readbackRedex opt (N.CodeLowCTmElim quote) = C.CodeLowCTmElim <$> readback' opt quote
 readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)
 readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)
-readbackRedex opt (N.Let decls body) = C.Let <$> traverse (traverse (readback' opt)) decls <*> readback' opt body
+readbackRedex opt (N.Let decls body) =
+  C.Let <$>
+    traverse (traverse (readback' opt)) decls <*>
+    readback' opt body
 readbackRedex opt (N.TwoElim scr ty body1 body2) =
-  C.TwoElim <$> readback' opt scr <*> (evalClosure ty >>= readback' opt) <*> readback' opt body1 <*> readback' opt body2
+  C.TwoElim <$>
+    readback' opt scr <*>
+    (evalClosure ty >>= readback' opt) <*>
+    readback' opt body1 <*>
+    readback' opt body2
 readbackRedex opt (N.SingElim scr) = C.SingElim <$> readback' opt scr
 readbackRedex opt (N.RecElim str name) = C.RecElim <$> readback' opt str <*> pure name
 
