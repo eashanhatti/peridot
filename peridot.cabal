@@ -70,6 +70,7 @@ library
       EmptyDataDeriving
       PatternSynonyms
       MonadComprehensions
+      RankNTypes
   ghc-options: -fplugin=StackTrace.Plugin
   build-depends:
       base >=4.7 && <5
@@ -126,6 +127,7 @@ executable peridot-exe
       EmptyDataDeriving
       PatternSynonyms
       MonadComprehensions
+      RankNTypes
   ghc-options: -fplugin=StackTrace.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
@@ -184,6 +186,7 @@ test-suite peridot-test
       EmptyDataDeriving
       PatternSynonyms
       MonadComprehensions
+      RankNTypes
   ghc-options: -fplugin=StackTrace.Plugin -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5

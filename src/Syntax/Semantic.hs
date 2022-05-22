@@ -102,3 +102,6 @@ viewMetaFunElims (Neutral _ (MetaFunElim lam arg)) =
 viewMetaFunElims term = (term, mempty)
 
 pattern MetaFunElims lam args <- (viewMetaFunElims -> (lam, args))
+
+pattern ObjTypeType = TypeType Obj
+pattern MetaTypeType = TypeType Meta

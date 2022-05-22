@@ -146,9 +146,40 @@ type Elab sig m =
   , Norm sig m
   , Query sig m )
 
-unify :: Elab sig m => N.Term -> N.Term -> m ()
-unify term1 term2 = do
-  subst <- Uni.unify term1 term2
+unify :: Elab sig m => C.Term -> N.Term -> N.Term -> m C.Term
+unify e term1 term2 = do
+  r <- Uni.unify e term1 term2
+  case r of
+    Just (Uni.Subst ts ss {-vcs-} eqs, e') -> do
+      state <- get
+      let
+        dups =
+          [ (sol1, sol2)
+          | (gl1, sol1) <- Map.toList ts
+          , (gl2, sol2) <-
+              Pre.map (second fromJust) .
+              Pre.filter (\(_, e) -> isJust e) $
+              (Map.toList (unTypeUVs state))
+          , gl1 == gl2]
+      extraSubsts <- traverse (uncurry Uni.unifyR) dups
+      let r = sequence extraSubsts
+      case r of
+        Just _ ->
+          put (state
+            { unTypeUVs = fmap Just ts <> unTypeUVs state
+            , unUnivUVs = fmap Just ss <> unUnivUVs state
+            -- , unVCUVs = fmap Just vcs <> unVCUVs state
+            , unUVEqs = eqs <> unUVEqs state })
+        Nothing -> do
+          report (FailedUnify term1 term2)
+      pure e'
+    Nothing -> do
+      report (FailedUnify term1 term2)
+      pure e
+
+unifyR :: Elab sig m => N.Term -> N.Term -> m ()
+unifyR term1 term2 = do
+  subst <- Uni.unifyR term1 term2
   case subst of
     Just (Uni.Subst ts ss {-vcs-} eqs) -> do
       state <- get
@@ -161,7 +192,7 @@ unify term1 term2 = do
               Pre.filter (\(_, e) -> isJust e) $
               (Map.toList (unTypeUVs state))
           , gl1 == gl2]
-      extraSubsts <- traverse (uncurry Uni.unify) dups
+      extraSubsts <- traverse (uncurry Uni.unifyR) dups
       let r = sequence extraSubsts
       case r of
         Just _ ->
@@ -170,11 +201,12 @@ unify term1 term2 = do
             , unUnivUVs = fmap Just ss <> unUnivUVs state
             -- , unVCUVs = fmap Just vcs <> unVCUVs state
             , unUVEqs = eqs <> unUVEqs state })
-        Nothing -> report (FailedUnify term1 term2)
+        Nothing -> do
+          report (FailedUnify term1 term2)
     Nothing -> report (FailedUnify term1 term2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
-convertible term1 term2 = isJust <$> Uni.unify term1 term2
+convertible term1 term2 = isJust <$> Uni.unifyR term1 term2
 
 putTypeUVSols :: Elab sig m => Map Global N.Term -> m ()
 putTypeUVSols sols = do

@@ -87,7 +87,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
           vInTys <- traverse eval inTys
           (cStmt, retTy) <- bindLocalMany (zip names vInTys) (ES.infer stmt)
           vOutTy <- eval outTy
-          unify vOutTy retTy
+          unifyR vOutTy retTy
           pure (C.CFun did inTys outTy cStmt)
 
 withPos' ::

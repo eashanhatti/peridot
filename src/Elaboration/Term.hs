@@ -9,7 +9,7 @@ import Elaboration.Effect
 import Elaboration.Declaration qualified as ED
 import Elaboration.CStatement qualified as ES
 import Control.Monad
-import Normalization hiding(eval, readback)
+import Normalization hiding(eval, readback, zonk)
 import Data.Foldable(foldl', foldr, foldrM, find)
 import Debug.Trace
 import Data.Sequence
@@ -18,8 +18,11 @@ import Prelude hiding(zip, concatMap, head, tail, length, unzip)
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check term goal = do
   (cTerm, ty) <- infer term
-  unify goal ty
-  pure cTerm
+  -- let !_ = tracePrettyS "cTerm " cTerm
+  -- let !_ = tracePrettyS "goal " goal
+  -- let !_ = tracePrettyS "ty " ty
+  cTerm' <- unify cTerm goal ty
+  pure cTerm'
 
 infer :: Elab sig m => TermAst -> m (C.Term, N.Term)
 infer term = case term of
@@ -292,13 +295,13 @@ infer term = case term of
       go str defs ((fd, ty) :<| tys) =
         if fd == nameToField name then
           -- FIXME: `Elaboration.Effect` version of `appClosureN`
-          tracePretty <$> appClosureN ty defs
+          appClosureN ty defs
         else do
           vTy <- appClosureN ty defs >>= unfold
           def <- case vTy of
             N.Rigid (N.SingType term) -> pure term
             _ -> eval (C.RecElim str fd)
-          bind (go str (def <| defs) tys)
+          define def (go str (def <| defs) tys)
   TermAst (Patch sig defs) -> do
     cSig <- check sig (N.TypeType N.Obj)
     vSig <- eval cSig >>= unfold
