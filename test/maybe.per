@@ -14,7 +14,9 @@ let {
   'val map
     : '[A : OType] -> '[_ : '[_ : A] -> A] -> '[_ : <Maybe A>] -> <Maybe A>
     = '\A f m {
-        bool_elim (#t m) {
+        bool_elim (#t m)
+          returns b. <Maybe A>
+        {
           structure {
             t = tt,
             d = <f (#d m)>

@@ -32,6 +32,23 @@ check (TermAst (ObjLam (fmap unName -> names) body)) goal = do
     checkBody (name :<| names) (N.ObjFunType inTy outTy) = do
       vOutTy <- evalClosure outTy
       bindLocal name inTy (checkBody names vOutTy)
+check (TermAst (Struct defs)) goal = do
+  goal <- unfold goal
+  case goal of
+    N.RecType tys -> do
+      cDefs <- go defs tys
+      pure (C.RecIntro cDefs)
+    _ -> error "TODO"
+  where
+    go ::
+      Elab sig m =>
+      Seq (NameAst, TermAst) ->
+      Seq (Field, N.Term) ->
+      Seq (Field, C.Term)
+    go ((NameAst name, def) :<| defs) ((fd, ty) :<| tys) = do
+      cDef <- check def ty
+      vDef <- eval cDef
+      cDefs <- defineLocal 
 check term goal = do
   (cTerm, ty) <- infer term
   -- let !_ = tracePrettyS "cTerm " cTerm
