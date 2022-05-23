@@ -148,19 +148,21 @@ eval (C.UniVar gl) = pure (N.Neutral (uvRedex gl) (N.UniVar gl))
 eval (C.CodeCoreElim term) = do
   vTerm <- eval term
   let
-    reded =
-      case vTerm of
+    reded = do
+      vTerm <- unfold vTerm
+      pure case vTerm of
         N.Rigid (N.CodeCoreIntro code) -> Just code
         _ -> Nothing
-  pure (N.Neutral (pure reded) (N.CodeCoreElim vTerm))
+  pure (N.Neutral reded (N.CodeCoreElim vTerm))
 eval (C.CodeLowCTmElim term) = do
   vTerm <- eval term
   let
-    reded =
-      case vTerm of
+    reded = do
+      vTerm <- unfold vTerm
+      pure case vTerm of
         N.Rigid (N.CodeLowCTmIntro code) -> Just code
         _ -> Nothing
-  pure (N.Neutral (pure reded) (N.CodeLowCTmElim vTerm))
+  pure (N.Neutral reded (N.CodeLowCTmElim vTerm))
 eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
 eval (C.Let decls body) = do
   let defs = fmap (\decl -> (C.unId decl, definition decl)) decls
@@ -179,28 +181,31 @@ eval (C.TwoElim scr ty body1 body2) = do
   vBody1 <- eval body1
   vBody2 <- eval body2
   let
-    reded =
-      case vScr of
+    reded = do
+      vScr <- unfold vScr
+      pure case vScr of
         N.Rigid N.TwoIntro0 -> Just vBody1
         N.Rigid N.TwoIntro1 -> Just vBody2
         _ -> Nothing
-  pure (N.Neutral (pure reded) (N.TwoElim vScr tyClo vBody1 vBody2))
+  pure (N.Neutral reded (N.TwoElim vScr tyClo vBody1 vBody2))
 eval (C.SingElim scr) = do
-  vSrc <- eval scr
+  vScr <- eval scr
   let
-    reded =
-      case vSrc of
+    reded = do
+      vScr <- unfold vScr
+      pure case vScr of
         N.Rigid (N.SingIntro term) -> Just term
         _ -> Nothing
-  pure (N.Neutral (pure reded) (N.SingElim vSrc))
+  pure (N.Neutral reded (N.SingElim vScr))
 eval (C.RecElim str name) = do
   vStr <- eval str
   let
-    reded =
-      case vStr of
+    reded = do
+      vStr <- unfold vStr
+      pure case vStr of
         N.RecIntro defs -> snd <$> find (\(name', _) -> name == name') defs
         _ -> Nothing
-  pure (N.Neutral (pure reded) (N.RecElim vStr name))
+  pure (N.Neutral reded (N.RecElim vStr name))
 eval (C.RecIntro defs) = N.RecIntro <$> evalFields defs
 eval (C.RecType tys) =
   N.RecType <$> traverse (\(fd, ty) -> (fd ,) <$> closureOf ty) tys
