@@ -36,19 +36,24 @@ check (TermAst (Struct defs)) goal = do
   goal <- unfold goal
   case goal of
     N.RecType tys -> do
-      cDefs <- go defs tys
+      cDefs <- go Empty defs tys
       pure (C.RecIntro cDefs)
     _ -> error "TODO"
   where
     go ::
       Elab sig m =>
+      Seq N.Term ->
       Seq (NameAst, TermAst) ->
-      Seq (Field, N.Term) ->
-      Seq (Field, C.Term)
-    go ((NameAst name, def) :<| defs) ((fd, ty) :<| tys) = do
-      cDef <- check def ty
+      Seq (Field, N.Closure) ->
+      m (Seq (Field, C.Term))
+    go vDefs ((NameAst name, def) :<| defs) ((fd, ty) :<| tys) = do
+      when (nameToField name /= fd) (error "TODO")
+      vTy <- appClosureN ty vDefs
+      cDef <- check def vTy
       vDef <- eval cDef
-      cDefs <- defineLocal 
+      cDefs <- defineLocal name vTy vDef (go (vDef <| vDefs) defs tys)
+      pure ((fd, cDef) <| cDefs)
+    go _ Empty Empty = pure Empty
 check term goal = do
   (cTerm, ty) <- infer term
   -- let !_ = tracePrettyS "cTerm " cTerm
@@ -273,14 +278,14 @@ infer term = case term of
         vTy <- define vScr (eval cTy)
         vTy1 <- define (N.Rigid N.TwoIntro0) (eval cTy)
         vTy2 <- define (N.Rigid N.TwoIntro1) (eval cTy)
-        cBody1 <- check body1 vTy1
-        cBody2 <- check body2 vTy2
+        cBody1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (check body1 vTy1)
+        cBody2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (check body2 vTy2)
         pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
       Nothing -> do
         vTy <- freshTypeUV
         cTy <- readback vTy
-        cBody1 <- check body1 vTy
-        cBody2 <- check body2 vTy
+        cBody1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (check body1 vTy)
+        cBody2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (check body2 vTy)
         pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
   TermAst (Equal term1 term2) -> do
     cTerm1 <- freshTypeUV >>= check term1
