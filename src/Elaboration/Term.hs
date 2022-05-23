@@ -17,6 +17,21 @@ import Prelude hiding(zip, concatMap, head, tail, length, unzip)
 import Shower
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
+check (SourcePos term pos) goal = withPos pos (check term goal)
+check (TermAst (ObjLam (fmap unName -> names) body)) goal = do
+  cBody <- checkBody names goal
+  pure (foldr (\_ body -> C.ObjFunIntro body) cBody names)
+  where
+    checkBody :: Elab sig m => Seq Name -> N.Term -> m C.Term
+    checkBody Empty outTy = check body outTy
+    checkBody names (N.Neutral ty _) = do
+      ty <- force ty
+      case ty of
+        Just ty -> checkBody names ty
+        Nothing -> error "TODO"
+    checkBody (name :<| names) (N.ObjFunType inTy outTy) = do
+      vOutTy <- evalClosure outTy
+      bindLocal name inTy (checkBody names vOutTy)
 check term goal = do
   (cTerm, ty) <- infer term
   -- let !_ = tracePrettyS "cTerm " cTerm

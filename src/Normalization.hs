@@ -120,15 +120,18 @@ eval (C.ObjFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
   let
-    reded = case vLam of
-      N.ObjFunIntro body -> Just <$> appClosure body vArg
-      _ -> pure Nothing
+    reded = do
+      vLam <- unfold vLam
+      case vLam of
+        N.ObjFunIntro body -> Just <$> appClosure body vArg
+        _ -> pure Nothing
   pure (N.Neutral reded (N.ObjFunElim vLam vArg))
 eval (C.MetaFunElim lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
   let
-    reded =
+    reded = do
+      vLam <- unfold vLam
       case vLam of
         N.MetaFunIntro body -> Just <$> appClosure body vArg
         _ -> pure Nothing

@@ -3,3 +3,5 @@ add export lists to all modules
 separate big `Let` into `Let` for each level
 zonk should raise error on unsolved uvs. or make zonk a completely separate function?
 `elaborate` hardcodes `unNextUV` to `1000`, change that
+`maybe.per` issues: add record field constraints
+`record.per` issues: `'val record3 : #Ty [ T = Bool ] = record1`
