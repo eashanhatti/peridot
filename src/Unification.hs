@@ -324,7 +324,7 @@ unify' (RecIntro fds1) (RecIntro fds2) = do
     (zip fds1 fds2)
   pure noop
 unify' (Rigid term1) (Rigid term2) = unifyRigid term1 term2
-unify' _ _ = throwError ()
+unify' term1 term2 = {-traceShow (term1, term2) $-} throwError ()
 
 unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unifyS' term1 term2 = do

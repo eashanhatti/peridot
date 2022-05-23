@@ -344,19 +344,36 @@ infer term = case term of
     vSig <- eval cSig >>= unfold
     case vSig of
       N.RecType tys -> do
-        vTys <- evalFieldTypes Empty tys
-        cSig' <-
-          C.RecType <$>
-            traverseWithIndex
-              (\i (fd, ty) ->
-                case find (\(NameAst name, _) -> fd == nameToField name) defs of
-                  Just (_, def) -> do
-                    cDef <- check def ty
-                    pure (fd, C.Rigid (C.SingType cDef))
-                  Nothing -> (fd ,) <$> bindN i (readback ty))
-              vTys
+        cSig' <- C.RecType <$> go Empty tys
         pure (cSig', N.TypeType N.Obj)
       _ -> errorTerm (ExpectedRecordType vSig)
+    where
+      go ::
+        Elab sig m =>
+        Seq N.Term ->
+        Seq (Field, N.Closure) ->
+        m (Seq (Field, C.Term))
+      go _ Empty = pure Empty
+      go vDefs ((fd, ty) :<| tys) = do
+        vTy <- appClosureN ty vDefs
+        cTy <- readback vTy
+        let !_ = tracePretty (fd, ty, vDefs, vTy, cTy)
+        case find (\(NameAst name, _) -> fd == nameToField name) defs of
+          Just (NameAst name, def) -> do
+            cDef <- check def vTy
+            vDef <- eval cDef
+            cDef' <- readback vDef
+            cTys <-
+              defineLocal -- FIXME? Wrap `vTy` and `vDef` in singleton forms
+                name
+                vTy
+                vDef
+                (go (vDef <| vDefs) tys)
+            pure ((fd, C.Rigid (C.SingType cDef')) <| cTys)
+          Nothing -> do
+            l <- level
+            cTys <- bind (go (N.LocalVar l <| vDefs) tys)
+            pure ((fd, cTy) <| cTys)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term =

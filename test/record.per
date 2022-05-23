@@ -2,13 +2,13 @@ let {
   'val Ty : OType =
     signature {
       T : OType,
-      f : '[_ : T] -> T
+      x : T
     };
 
-  'val record : Ty =
+  'val record : #Ty [ T = OType, x = T ] =
     structure {
-      T = Bool,
-      f = '\b { b }
+      T = OType,
+      x = T
     };
 
   'val record2 : #Ty [ T = Bool ] =

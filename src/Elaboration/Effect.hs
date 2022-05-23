@@ -226,6 +226,17 @@ bindLocal name ty act =
     inc (BLocal ix ty) = BLocal (ix + 1) ty
     inc b = b
 
+defineLocal :: Elab sig m => Name -> N.Term -> N.Term -> m a -> m a
+defineLocal name ty def act =
+  local (\ctx ->
+    ctx { unBindings =
+      insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
+  define def $
+  act
+  where
+    inc (BLocal ix ty) = BLocal (ix + 1) ty
+    inc b = b
+
 bindLocalMany :: Elab sig m => Seq (Name, N.Term) -> m a -> m a
 bindLocalMany Empty = id
 bindLocalMany ((name, ty) :<| ls) = bindLocal name ty . bindLocalMany ls
