@@ -10,6 +10,12 @@ let {
       T = OType,
       x = T
     };
+
+  'val record2 : #Ty [ T = Bool ] =
+    structure {
+      T = Bool,
+      x = tt
+    }
 } in {
   OType
 }
