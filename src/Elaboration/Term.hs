@@ -14,6 +14,7 @@ import Data.Foldable(foldl', foldr, foldrM, find)
 import Debug.Trace
 import Data.Sequence
 import Prelude hiding(zip, concatMap, head, tail, length, unzip)
+import Shower
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check term goal = do
@@ -69,19 +70,23 @@ infer term = case term of
     pure (C.ObjFunType cInTy cOutTy, N.TypeType N.Obj)
   TermAst (App lam args) -> do
     (cLam, lamTy) <- infer lam
-    let
-      elim = case lamTy of
-        N.MetaFunType _ _ -> C.MetaFunElim
-        N.ObjFunType _ _ -> C.ObjFunElim
+    x <- freshTypeUV
+    y <- freshTypeUV >>= readback >>= closureOf
+    r <- convertible (N.ObjFunType x y) lamTy
+    let elim = if r then C.ObjFunElim else C.MetaFunElim
     (cArgs, outTy) <- checkArgs args lamTy
     pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
     where
       checkArgs :: Elab sig m => Seq TermAst -> N.Term -> m (Seq C.Term, N.Term)
       checkArgs Empty outTy = pure (Empty, outTy)
-      checkArgs (arg :<| args) (N.FunType inTy outTy) = do
+      checkArgs (arg :<| args) ty = do
+        inTy <- freshTypeUV
+        outTy <- freshTypeUV
+        outTyClo <- readback outTy >>= closureOf
+        unifyR (N.ObjFunType inTy outTyClo) ty
         cArg <- check arg inTy
         vArg <- eval cArg
-        (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
+        (cArgs, outTy') <- checkArgs args outTy
         pure (cArg <| cArgs, outTy')
   TermAst (Var name) -> do
     binding <- lookupBinding name

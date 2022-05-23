@@ -62,6 +62,7 @@ data Error
   | UnboundVariable Name
   | ExpectedCFunType N.Term
   | ExpectedRecordType N.Term
+  | ExpectedFunType N.Term
   | MissingField Name
   | FailedProve N.Term
   | AmbiguousProve N.Term (Seq (Map Global N.Term))

@@ -1,0 +1,30 @@
+let {
+	'val Maybe
+		: '[_ : OType] -> OType
+		= '\A {
+				signature {
+					t : Bool,
+					d :
+						bool_elim t {
+							A;
+							signature {};
+						}
+				}
+			};
+	'val map
+		: '[A : OType] -> '[_ : '[_ : A] -> A] -> '[_ : <Maybe A>] -> <Maybe A>
+		= '\A f m {
+				bool_elim (#t m) {
+					structure {
+						t = tt,
+						d = <f (#d m)>
+					};
+					structure {
+						t = ff,
+						d = structure {}
+					};
+				}
+			};
+} in {
+	OType
+}
