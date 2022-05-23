@@ -49,7 +49,7 @@ default-extensions:
 - RankNTypes
 
 dependencies:
-- base >= 4.7 && < 5
+- base
 - text
 - mtl
 - containers
@@ -66,10 +66,7 @@ dependencies:
 - bytestring
 - filepath
 - shower
-- haskell-stack-trace-plugin
-
-ghc-options:
-  -fplugin=StackTrace.Plugin
+- parser-combinators
 
 library:
   source-dirs: src

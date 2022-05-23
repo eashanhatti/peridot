@@ -656,7 +656,7 @@ parse :: Text -> Either String TermAst
 parse text =
   case
       fst .
-      flip runState 0 .
+      flip runState 0 . 
       runParserT (term >>= \e -> ws *> eof *> pure e) "<TODO>" $
       text
     of
