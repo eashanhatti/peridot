@@ -71,9 +71,8 @@ library
       PatternSynonyms
       MonadComprehensions
       RankNTypes
-  ghc-options: -fplugin=StackTrace.Plugin
   build-depends:
-      base >=4.7 && <5
+      base
     , bytestring
     , containers
     , dependent-hashmap
@@ -82,7 +81,6 @@ library
     , filepath
     , fused-effects
     , hashable
-    , haskell-stack-trace-plugin
     , megaparsec
     , mtl
     , parser-combinators
@@ -128,9 +126,9 @@ executable peridot-exe
       PatternSynonyms
       MonadComprehensions
       RankNTypes
-  ghc-options: -fplugin=StackTrace.Plugin -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      base
     , bytestring
     , containers
     , dependent-hashmap
@@ -139,7 +137,6 @@ executable peridot-exe
     , filepath
     , fused-effects
     , hashable
-    , haskell-stack-trace-plugin
     , megaparsec
     , mtl
     , parser-combinators
@@ -187,9 +184,9 @@ test-suite peridot-test
       PatternSynonyms
       MonadComprehensions
       RankNTypes
-  ghc-options: -fplugin=StackTrace.Plugin -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      base
     , bytestring
     , containers
     , dependent-hashmap
@@ -198,7 +195,6 @@ test-suite peridot-test
     , filepath
     , fused-effects
     , hashable
-    , haskell-stack-trace-plugin
     , megaparsec
     , mtl
     , parser-combinators
