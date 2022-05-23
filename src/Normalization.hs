@@ -13,6 +13,7 @@ import Data.Set qualified as Set
 import Data.Map qualified as Map
 import Data.Foldable
 import Data.Functor.Identity
+import Data.Foldable.Extra
 import Numeric.Natural
 import GHC.Stack
 import Extra
@@ -26,7 +27,8 @@ data NormContext = NormContext
   , unVisited :: Set.Set Global
   , unTypeUVs :: Map.Map Global N.Term
   -- , unVCUVs :: Map.Map Global N.ValueCategory
-  , unUVEqs :: Map.Map Global Global } -- FIXME? `Map Global (Set Global)`
+  , unUVEqs :: Map.Map Global Global -- FIXME? `Map Global (Set Global)`
+  , unDefEqs :: Seq (N.Term, N.Term) }
   deriving (Show)
 
 type Norm sig m =
@@ -124,7 +126,11 @@ eval (C.ObjFunElim lam arg) = do
       vLam <- unfold vLam
       case vLam of
         N.ObjFunIntro body -> Just <$> appClosure body vArg
-        _ -> pure Nothing
+        _ -> do
+          r <- findDefEq vLam
+          case r of
+            Just (N.ObjFunIntro body) -> Just <$> appClosure body vArg
+            _ -> pure Nothing
   pure (N.Neutral reded (N.ObjFunElim vLam vArg))
 eval (C.MetaFunElim lam arg) = do
   vLam <- eval lam
@@ -134,7 +140,11 @@ eval (C.MetaFunElim lam arg) = do
       vLam <- unfold vLam
       case vLam of
         N.MetaFunIntro body -> Just <$> appClosure body vArg
-        _ -> pure Nothing
+        _ -> do
+          r <- findDefEq vLam
+          case r of
+            Just (N.MetaFunIntro body) -> Just <$> appClosure body vArg
+            _ -> pure Nothing
   pure (N.Neutral reded (N.MetaFunElim vLam vArg))
 eval (C.TypeType (C.SUniVar gl)) = undefined -- FIXME?
 eval (C.TypeType C.Meta) = pure (N.TypeType N.Meta)
@@ -150,9 +160,13 @@ eval (C.CodeCoreElim term) = do
   let
     reded = do
       vTerm <- unfold vTerm
-      pure case vTerm of
-        N.Rigid (N.CodeCoreIntro code) -> Just code
-        _ -> Nothing
+      case vTerm of
+        N.Rigid (N.CodeCoreIntro code) -> pure (Just code)
+        _ -> do
+          r <- findDefEq vTerm
+          case r of
+            Just (N.Rigid (N.CodeCoreIntro code)) -> pure (Just code)
+            _ -> pure Nothing
   pure (N.Neutral reded (N.CodeCoreElim vTerm))
 eval (C.CodeLowCTmElim term) = do
   vTerm <- eval term
@@ -161,7 +175,11 @@ eval (C.CodeLowCTmElim term) = do
       vTerm <- unfold vTerm
       pure case vTerm of
         N.Rigid (N.CodeLowCTmIntro code) -> Just code
-        _ -> Nothing
+        _ -> do
+          r <- findDefEq vTerm
+          case r of
+            Just (N.Rigid (N.CodeLowCTmIntro code)) -> pure (Just code)
+            _ -> pure Nothing
   pure (N.Neutral reded (N.CodeLowCTmElim vTerm))
 eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
 eval (C.Let decls body) = do
@@ -183,19 +201,29 @@ eval (C.TwoElim scr ty body1 body2) = do
   let
     reded = do
       vScr <- unfold vScr
-      pure case vScr of
-        N.Rigid N.TwoIntro0 -> Just vBody1
-        N.Rigid N.TwoIntro1 -> Just vBody2
-        _ -> Nothing
+      case vScr of
+        N.Rigid N.TwoIntro0 -> pure (Just vBody1)
+        N.Rigid N.TwoIntro1 -> pure (Just vBody2)
+        _ -> do
+          r <- findDefEq vScr
+          case r of
+            Just (N.Rigid N.TwoIntro0) -> pure (Just vBody1)
+            Just (N.Rigid N.TwoIntro1) -> pure (Just vBody2)
+            _ -> pure Nothing
+
   pure (N.Neutral reded (N.TwoElim vScr tyClo vBody1 vBody2))
 eval (C.SingElim scr) = do
   vScr <- eval scr
   let
     reded = do
       vScr <- unfold vScr
-      pure case vScr of
-        N.Rigid (N.SingIntro term) -> Just term
-        _ -> Nothing
+      case vScr of
+        N.Rigid (N.SingIntro term) -> pure (Just term)
+        _ -> do
+          r <- findDefEq vScr
+          case r of
+            Just (N.Rigid (N.SingIntro term)) -> pure (Just term)
+            _ -> pure Nothing
   pure (N.Neutral reded (N.SingElim vScr))
 eval (C.RecElim str name) = do
   vStr <- eval str
@@ -204,11 +232,24 @@ eval (C.RecElim str name) = do
       vStr <- unfold vStr
       pure case vStr of
         N.RecIntro defs -> snd <$> find (\(name', _) -> name == name') defs
-        _ -> Nothing
+        _ -> do
+          r <- findDefEq vStr
+          case r of
+            Just (N.RecIntro defs) -> snd <$> find (\(name', _) -> name == name') defs
+            _ -> pure Nothing
   pure (N.Neutral reded (N.RecElim vStr name))
 eval (C.RecIntro defs) = N.RecIntro <$> evalFields defs
 eval (C.RecType tys) =
   N.RecType <$> traverse (\(fd, ty) -> (fd ,) <$> closureOf ty) tys
+
+bindDefEq :: Norm sig m => N.Term -> N.Term -> m a -> m a
+bindDefEq term1 term2 =
+  local \ctx -> ctx { unDefEqs = (term1, term2) <| unDefEqs ctx }
+
+findDefEq :: Norm sig m => N.Term -> m (Maybe N.Term)
+findDefEq term = do
+  defEqs <- unDefEqs <$> ask
+  pure (fmap snd (find (\(e1, e2) -> e1 == term) defEqs))
 
 evalFields :: Norm sig m => Seq (Field, C.Term) -> m (Seq (Field, N.Term))
 evalFields Empty = pure Empty

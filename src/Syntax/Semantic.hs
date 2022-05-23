@@ -9,11 +9,12 @@ import Syntax.Common qualified as Cm
 import Syntax.Core qualified as C
 import Data.Map(Map, insert)
 import Data.Sequence
-import Prelude hiding(length)
+import Prelude hiding(length, zip, map)
 import {-# SOURCE #-} Normalization
 import Control.Carrier.Reader
 import Data.Functor.Identity
 import Data.Text qualified as Text
+import Shower
 
 data Environment = Env
   { unLocals :: Seq Term
@@ -70,7 +71,23 @@ instance Show Term where
   show (Neutral _ redex) = "(Neutral _ (" ++ show redex ++ "))"
 
 instance Eq Term where
-  (==) = undefined -- FIXME
+  ObjFunType inTy1 outTy1 == ObjFunType inTy2 outTy2 =
+    inTy1 == inTy2 && outTy1 == outTy2
+  ObjFunIntro body1 == ObjFunIntro body2 = body1 == body2
+  RecType tys1 == RecType tys2 =
+    length tys1 == length tys2 &&
+    (and . fmap (\(ty1, ty2) -> ty1 == ty2) $ zip tys1 tys2)
+  RecIntro defs1 == RecIntro defs2 =
+    length defs1 == length defs2 &&
+    (and . fmap (\(def1, def2) -> def1 == def2) $ zip defs1 defs2)
+  MetaFunType inTy1 outTy1 == MetaFunType inTy2 outTy2 =
+    inTy1 == inTy2 && outTy1 == outTy2
+  MetaFunIntro body1 == MetaFunIntro body2 = body1 == body2
+  TypeType u1 == TypeType u2 = u1 == u2
+  LocalVar l1 == LocalVar l2 = l1 == l2
+  Rigid r1 == Rigid r2 = r1 == r2
+  Neutral _ redex1 == Neutral _ redex2 = redex1 == redex2
+  _ == _ = False
 
 data Redex
   = MetaFunElim Term Term
