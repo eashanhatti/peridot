@@ -241,7 +241,8 @@ unify' (Rigid ElabError) _ = pure noop
 unify' _ (Rigid ElabError) = pure noop
 unify' (Rigid (SingType term)) _ =
   pure (liftCoe \e -> do
-    eval e >>= unifyS' term
+    vE <- eval e
+    unifyS' term vE
     pure (C.Rigid (C.SingIntro e)))
 unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = do
   equateUVs gl1 gl2

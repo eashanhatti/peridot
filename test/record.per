@@ -2,26 +2,16 @@ let {
   'val Ty : OType =
     signature {
       T : OType,
-      x : T
+      f : '[_ : T] -> T
     };
 
-  'val record : #Ty [ T = OType, x = T ] =
-    structure {
-      T = OType,
-      x = T
-    };
-
-  'val record2 : #Ty [ T = Bool ] =
+  'val record : Ty=
     structure {
       T = Bool,
       f = '\b { b }
     };
 
   'val record3 : #Ty [ T = Bool ] = record;
-
-  'val field1 : '[_ : (#T record)] -> (#T record) = (#f record);
-
-  'val field2 : '[_ : Bool] -> Bool = (#f record2);
 } in {
   OType
 }

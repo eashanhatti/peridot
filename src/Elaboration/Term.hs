@@ -56,9 +56,11 @@ check (TermAst (Struct defs)) goal = do
     go _ Empty Empty = pure Empty
 check term goal = do
   (cTerm, ty) <- infer term
+  goal' <- unfold goal
+  ty' <- unfold ty
   -- let !_ = tracePrettyS "cTerm " cTerm
-  -- let !_ = tracePrettyS "goal " goal
-  -- let !_ = tracePrettyS "ty " ty
+  -- let !_ = tracePrettyS "goal " goal'
+  -- let !_ = tracePrettyS "ty " ty'
   cTerm' <- unify cTerm goal ty
   pure cTerm'
 
@@ -349,35 +351,36 @@ infer term = case term of
     vSig <- eval cSig >>= unfold
     case vSig of
       N.RecType tys -> do
-        cSig' <- C.RecType <$> go Empty tys
+        cSig' <- C.RecType <$> go Empty Empty tys
         pure (cSig', N.TypeType N.Obj)
       _ -> errorTerm (ExpectedRecordType vSig)
     where
       go ::
         Elab sig m =>
         Seq N.Term ->
+        Seq N.Term ->
         Seq (Field, N.Closure) ->
         m (Seq (Field, C.Term))
-      go _ Empty = pure Empty
-      go vDefs ((fd, ty) :<| tys) = do
+      go _ _ Empty = pure Empty
+      go vDefs vRDefs ((fd, ty) :<| tys) = do
         vTy <- appClosureN ty vDefs
-        cTy <- readback vTy
-        let !_ = tracePretty (fd, ty, vDefs, vTy, cTy)
         case find (\(NameAst name, _) -> fd == nameToField name) defs of
           Just (NameAst name, def) -> do
             cDef <- check def vTy
             vDef <- eval cDef
             cDef' <- readback vDef
+            l <- level
             cTys <-
               defineLocal -- FIXME? Wrap `vTy` and `vDef` in singleton forms
                 name
                 vTy
                 vDef
-                (go (vDef <| vDefs) tys)
+                (go (vDef <| vDefs) (N.LocalVar l <| vRDefs) tys)
             pure ((fd, C.Rigid (C.SingType cDef')) <| cTys)
           Nothing -> do
             l <- level
-            cTys <- bind (go (N.LocalVar l <| vDefs) tys)
+            cTy <- appClosureN ty vRDefs >>= readback
+            cTys <- bind (go (N.LocalVar l <| vDefs) (N.LocalVar l <| vRDefs) tys)
             pure ((fd, cTy) <| cTys)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)

@@ -150,7 +150,12 @@ type Elab sig m =
 
 unify :: Elab sig m => C.Term -> N.Term -> N.Term -> m C.Term
 unify e term1 term2 = do
-  r <- Uni.unify e term1 term2
+  vDefs <- allDefs
+  ctx@(unEnv -> N.Env locals globals) <- ask
+  r <-
+    local
+      (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) })
+      (Uni.unify e term1 term2)
   case r of
     Just (Uni.Subst ts ss {-vcs-} eqs, e') -> do
       state <- get
@@ -330,6 +335,12 @@ errorDecl err = do
 
 eval :: forall sig m. Elab sig m => C.Term -> m N.Term
 eval term = do
+  vDefs <- allDefs
+  ctx@(unEnv -> N.Env locals globals) <- ask
+  local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (Norm.eval term)
+
+allDefs :: Elab sig m => m (Map Id N.Term)
+allDefs = do
   memoTable <- unMemoTable <$> get
   let
     f = \case
@@ -342,14 +353,13 @@ eval term = do
       DMap.toList $
       memoTable
   ctx@(unEnv -> N.Env locals globals) <- ask
-  -- let vDefs = foldl' (\acc def -> Map.insert (C.unId def) (N.Env locals (vDefs <> globals), Norm.definition def) acc) mempty decls
   rec
     (vDefs :: Map.Map Id N.Term) <- (\f -> foldlM f mempty decls) \acc decl -> do
       vDecl <- local
         (\ctx -> ctx { unEnv = N.Env locals (vDefs <> globals) })
         (Norm.eval (Norm.definition decl))
       pure (Map.insert (C.unId decl) vDecl acc)
-  local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (Norm.eval term)
+  pure vDefs
 
 readback' :: Elab sig m => Bool -> N.Term -> m C.Term
 readback' unf term = do
