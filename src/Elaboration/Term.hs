@@ -52,7 +52,7 @@ check (TermAst (Struct defs)) goal = do
       cDef <- check def vTy
       vDef <- eval cDef
       cDefs <- defineLocal name vTy vDef (go (vDef <| vDefs) defs tys)
-      pure ((fd, cDef) <| cDefs)
+      pure ((fd, cDef) <| cDefs) 
     go _ Empty Empty = pure Empty
 check term goal = do
   (cTerm, ty) <- infer term

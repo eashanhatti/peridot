@@ -14,6 +14,7 @@ newtype Field = Field { unField :: Text }
   deriving (Eq, Show)
 
 nameToField (UserName name) = Field name
+fieldToName (Field name) = UserName name
 
 newtype Index = Index { unIndex :: Natural }
   deriving (Num, Eq, Ord, Enum, Real, Integral, Show)

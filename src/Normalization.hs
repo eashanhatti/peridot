@@ -173,8 +173,8 @@ eval (C.CodeLowCTmElim term) = do
   let
     reded = do
       vTerm <- unfold vTerm
-      pure case vTerm of
-        N.Rigid (N.CodeLowCTmIntro code) -> Just code
+      case vTerm of
+        N.Rigid (N.CodeLowCTmIntro code) -> pure (Just code)
         _ -> do
           r <- findDefEq vTerm
           case r of
@@ -230,12 +230,13 @@ eval (C.RecElim str name) = do
   let
     reded = do
       vStr <- unfold vStr
-      pure case vStr of
-        N.RecIntro defs -> snd <$> find (\(name', _) -> name == name') defs
+      case vStr of
+        N.RecIntro defs -> pure (snd <$> find (\(name', _) -> name == name') defs)
         _ -> do
           r <- findDefEq vStr
           case r of
-            Just (N.RecIntro defs) -> snd <$> find (\(name', _) -> name == name') defs
+            Just (N.RecIntro defs) ->
+              pure (snd <$> find (\(name', _) -> name == name') defs)
             _ -> pure Nothing
   pure (N.Neutral reded (N.RecElim vStr name))
 eval (C.RecIntro defs) = N.RecIntro <$> evalFields defs
