@@ -11,19 +11,30 @@ let {
             }
         }
       };
+
+  'val just : '[A : OType] -> '[_ : A] -> <Maybe A>
+    = '\_ x {
+        structure {
+          t = tt,
+          d = x
+        }
+      };
+
+  'val nothing : '[A : OType] -> <Maybe A>
+    = '\_ {
+        structure {
+          t = ff,
+          d = structure {}
+        }
+      };
+
   'val map
     : '[A : OType] -> '[_ : '[_ : A] -> A] -> '[_ : <Maybe A>] -> <Maybe A>
     = '\A f m {
         bool_elim (#t m)
         {
-          structure {
-            t = tt,
-            d = <f (#d m)>
-          };
-          structure {
-            t = ff,
-            d = structure {}
-          };
+          <just A <f (#d m)>>;
+          <nothing A>;
         }
       };
 } in {
