@@ -1,0 +1,36 @@
+let {
+  'val Nat : OType =
+    signature {
+      t : Bool,
+      d :
+        bool_elim t {
+          signature {};
+          Nat;
+        }
+    };
+
+  'val zero : Nat =
+    structure {
+      t = tt,
+      d = structure {}
+    };
+
+  'val succ : '[_ : Nat] -> Nat =
+    '\n {
+      structure {
+        t = ff,
+        d = n
+      }
+    };
+
+  'val add
+    : '[_ : Nat] -> '[_ : Nat] -> Nat
+    = '\n m {
+      bool_elim (#t n) {
+        m;
+        <succ <add (#d n) m>>;
+      }
+    };
+} in {
+  OType
+}
