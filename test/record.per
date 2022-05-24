@@ -5,13 +5,19 @@ let {
       f : '[_ : T] -> T
     };
 
-  'val record : Ty=
+  'val record : Ty =
     structure {
       T = Bool,
       f = '\b { b }
     };
 
-  'val record3 : #Ty [ T = Bool ] = record;
+  'val record2 : #Ty [ T = Bool ] =
+    structure {
+      T = Bool,
+      f = '\b { b }
+    };
+
+  'val record3 : #Ty [ T = Bool ] = record2;
 } in {
   OType
 }

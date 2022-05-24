@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 module Unification where
 
 import Control.Effect.Error
@@ -24,6 +25,10 @@ import Extra
 -- coerce term of inferred type to term of expected type
 newtype Coercion sig m =
   Coe (Unify sig m => Maybe (C.Term -> m C.Term))
+
+instance Unify sig m => Show (Coercion sig m) where
+  show (Coe Nothing) = "Noop"
+  show _ = "SomeCoe"
 
 noop :: Coercion sig m
 noop = Coe Nothing
@@ -232,18 +237,16 @@ unifyRigid (SomeType f1) (SomeType f2) = unify' f1 f2
 unifyRigid (SingType term1) (SingType term2) = do
   unifyS' term1 term2
   pure noop
+unifyRigid (SingIntro term1) (SingIntro term2) = do
+  unifyS' term1 term2
+  pure noop
 unifyRigid ElabError _ = pure noop
 unifyRigid _ ElabError = pure noop
-unifyRigid _ _ = throwError ()
+unifyRigid term1 term2 = throwError ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m (Coercion sig m)
 unify' (Rigid ElabError) _ = pure noop
 unify' _ (Rigid ElabError) = pure noop
-unify' (Rigid (SingType term)) _ =
-  pure (liftCoe \e -> do
-    vE <- eval e
-    unifyS' term vE
-    pure (C.Rigid (C.SingIntro e)))
 unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = do
   equateUVs gl1 gl2
   pure noop
@@ -325,7 +328,12 @@ unify' (RecIntro fds1) (RecIntro fds2) = do
     (zip fds1 fds2)
   pure noop
 unify' (Rigid term1) (Rigid term2) = unifyRigid term1 term2
-unify' term1 term2 = {-traceShow (term1, term2) $-} throwError ()
+unify' (Rigid (SingType term)) _ =
+  pure (liftCoe \e -> do
+    vE <- eval e
+    unifyS' term vE
+    pure (C.Rigid (C.SingIntro e)))
+unify' term1 term2 = throwError ()
 
 unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unifyS' term1 term2 = do
