@@ -17,7 +17,31 @@ keywords =
   , "some", "atomicformula", "Prop", "Bool", "Equal", "tt", "ff", "refl", "bool_elim"
   , "signature", "structure" ]
 
-ws = many (try (char ' ') <|> try (char '\n') <|> try (char '\r') <|> char '\t')
+ws :: Parser ()
+ws =
+  void (many 
+    (try (void (char ' ')) <|>
+    try (void (char '\n')) <|>
+    try (void (char '\r')) <|>
+    try (void (char '\t')) <|>
+    comment))
+
+comment :: Parser ()
+comment = void do
+  string "/*"
+  many
+    (try (void alphaNumChar) <|>
+    try (void (char ' ')) <|>
+    try (void (char '\n')) <|>
+    try (void (char '\r')) <|>
+    void (char '\t'))
+  string "*/"
+
+commaWs :: Parser ()
+commaWs = void (ws *> char ',' *> ws)
+
+semiWs :: Parser ()
+semiWs = void (ws *> char ';' *> ws)
 
 nameChar = (try alphaNumChar <|> char '_')
 
