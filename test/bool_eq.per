@@ -1,6 +1,2 @@
-let {
-	'val p : (Equal tt tt) = refl;
-	'val q : (Equal tt ff) = refl;
-} in {
-	OType
-}
+define p : Equal(true, true) = reflexive;
+define q : Equal(true, false) = reflexive;

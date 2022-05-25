@@ -224,7 +224,9 @@ bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =
   local (\ctx ->
     ctx { unBindings =
-      insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
+      case name of
+        Unbound -> fmap inc (unBindings ctx)
+        _ -> insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
   bind $
   act
   where
@@ -235,7 +237,9 @@ defineLocal :: Elab sig m => Name -> N.Term -> N.Term -> m a -> m a
 defineLocal name ty def act =
   local (\ctx ->
     ctx { unBindings =
-      insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
+      case name of
+        Unbound -> fmap inc (unBindings ctx)
+        _ -> insert name (BLocal (Index 0) ty) (fmap inc (unBindings ctx)) }) .
   define def $
   act
   where

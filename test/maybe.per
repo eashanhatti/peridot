@@ -1,31 +1,27 @@
-let {
-  'val Maybe
-    : '[_ : OType] -> OType
-    = '\A {
-        signature {
-          t : Bool,
-          d :
-            bool_elim t {
-              A;
-              signature {};
-            }
-        }
+define Maybe
+  : Function(Type) -> Type
+  = function(A) =>
+      Record(
+        tag : Bool,
+        data :
+          if(tag) {
+            A
+          } else {
+            Record()
+          }
+      );
+
+define map
+  : Function(A : Type, Function(A) -> A, Maybe(A)) -> Maybe(A)
+  = function(_, func, maybe) =>
+      if(maybe.tag) {
+        record(
+          tag = true,
+          data = func(maybe.data)
+        )
+      } else {
+        record(
+          tag = false,
+          data = record()
+        )
       };
-  'val map
-    : '[A : OType] -> '[_ : '[_ : A] -> A] -> '[_ : <Maybe A>] -> <Maybe A>
-    = '\A f m {
-        bool_elim (#t m)
-        {
-          structure {
-            t = tt,
-            d = <f (#d m)>
-          };
-          structure {
-            t = ff,
-            d = structure {}
-          };
-        }
-      };
-} in {
-  OType
-}

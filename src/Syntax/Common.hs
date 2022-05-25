@@ -35,7 +35,7 @@ unGlobal (LVGlobal n) = n
 
 instance Hashable Id
 
-data Name = UserName Text | MachineName Natural
+data Name = UserName Text | MachineName Natural | Unbound
   deriving (Eq, Ord, Show)
 
 data CStatement a

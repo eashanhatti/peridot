@@ -19,6 +19,7 @@ import Shower
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check (SourcePos term pos) goal = withPos pos (check term goal)
 check (TermAst (ObjLam (fmap unName -> names) body)) goal = do
+  let !_ = tracePretty (names, goal)
   cBody <- checkBody names goal
   pure (foldr (\_ body -> C.ObjFunIntro body) cBody names)
   where
@@ -32,6 +33,7 @@ check (TermAst (ObjLam (fmap unName -> names) body)) goal = do
     checkBody (name :<| names) (N.ObjFunType inTy outTy) = do
       vOutTy <- evalClosure outTy
       bindLocal name inTy (checkBody names vOutTy)
+    checkBody names ty = error $ shower (names, ty)
 check term@(TermAst (Struct defs)) goal = do
   goal <- unfold goal
   case goal of
