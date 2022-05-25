@@ -1,3 +1,6 @@
+/*
+The `Nat` datatype, showcasing dependent records. The type of the `data` field is dependent on the value of the `tag` field. If `tag = true`, `data : Record()` (`Record()` is essentially the unit type), and if `tag = false`, `data : Nat`
+*/
 define Nat
   : Type
   = Record(
@@ -10,6 +13,7 @@ define Nat
         }
     );
 
+/* Constructing dependent records */
 define zero
   : Nat
   = record(
@@ -17,6 +21,7 @@ define zero
       data = record()
     );
 
+/* Constructing dependent records */
 define succ
   : Function(Nat) -> Nat
   = function(n) =>
@@ -25,6 +30,7 @@ define succ
         data = n
       );
 
+/* The `add` function, showcasing dependently typed `if`. The typechecker knows that in the first branch `n.data : Record()` (because `maybe.tag = true`). In the second branch, the typechecker knows that `n.data : A` (because maybe.tag = false) */
 define add
   : Function(Nat, Nat) -> Nat
   = function(n, m) =>

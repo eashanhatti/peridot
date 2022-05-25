@@ -1,3 +1,7 @@
+/*
+The `Maybe` datatype, showcasing dependent records. The type of the `data` field is dependent on the value of the `tag` field. If `tag = true`, `data : A`, and if `tag = false`, `data : Record()` (`Record()` is essentially the unit type)
+*/
+
 define Maybe
   : Function(Type) -> Type
   = function(A) =>
@@ -11,6 +15,7 @@ define Maybe
           }
       );
 
+/* Constructing dependent records */
 define nothing
   : Function(A : Type) -> Maybe(A)
   = function(_) =>
@@ -19,6 +24,7 @@ define nothing
         data = record()
       );
 
+/* Constructing dependent records */
 define just
   : Function(A : Type, A) -> Maybe(A)
   = function(_, x) =>
@@ -27,6 +33,7 @@ define just
         data = x
       );
 
+/* The `map` function, showcasing dependently typed `if`. The typechecker knows that in the first branch `maybe.data : Record()` (because `maybe.tag = true`). In the second branch, the typechecker knows that `maybe.data : A` (because maybe.tag = false) */
 define map
   : Function(A : Type, Function(A) -> A, Maybe(A)) -> Maybe(A)
   = function(A, func, maybe) =>

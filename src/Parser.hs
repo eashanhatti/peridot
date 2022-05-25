@@ -308,7 +308,7 @@ parse text =
   case
       fst .
       flip runState 0 .
-      runParserT (toplevel >>= \e -> ws *> eof *> pure e) "<TODO>" $
+      runParserT (ws *> toplevel >>= \e -> ws *> eof *> pure e) "<TODO>" $
       text
     of
     Right term -> Right term
