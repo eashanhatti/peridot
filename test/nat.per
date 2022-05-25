@@ -1,36 +1,35 @@
-let {
-  'val Nat : OType =
-    signature {
-      t : Bool,
-      d :
-        bool_elim t {
-          signature {};
-          Nat;
+define Nat
+  : Type
+  = Record(
+      tag : Bool,
+      data :
+        if(tag) {
+          Record()
+        } else {
+          Nat
         }
-    };
+    );
 
-  'val zero : Nat =
-    structure {
-      t = tt,
-      d = structure {}
-    };
+define zero
+  : Nat
+  = record(
+      tag = true,
+      data = record()
+    );
 
-  'val succ : '[_ : Nat] -> Nat =
-    '\n {
-      structure {
-        t = ff,
-        d = n
-      }
-    };
+define succ
+  : Function(Nat) -> Nat
+  = function(n) =>
+      record(
+        tag = false,
+        data = n
+      );
 
-  'val add
-    : '[_ : Nat] -> '[_ : Nat] -> Nat
-    = '\n m {
-      bool_elim (#t n) {
-        m;
-        <succ <add (#d n) m>>;
-      }
-    };
-} in {
-  OType
-}
+define add
+  : Function(Nat, Nat) -> Nat
+  = function(n, m) =>
+      if(n.tag){
+        m
+      } else {
+        add(n.data, m)
+      };

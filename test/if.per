@@ -1,0 +1,20 @@
+define example
+	: Function(b : Bool) ->
+			if(b) {
+				Bool
+			} else {
+				Equal(true, true)
+			}
+	= function(b) =>
+			if(b)
+				returns(x) =>
+					if(x) {
+						Bool
+					} else {
+						Equal(true, true)
+					}
+			{
+				true
+			} else {
+				reflexive
+			};
