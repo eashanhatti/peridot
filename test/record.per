@@ -1,28 +1,28 @@
 /* A dependent record type. The type of `f` is dependent on the value of `T` */
 define Ty
   : Type
-  = Record(
+  = Record {
       T : Type,
       f : Function(T) -> T
-    );
+    };
 
 /* Constructing dependent records */
 define foo
   : Ty
-  = record(
+  = record {
       T = Bool,
       f = function(b) => b
-    );
+    };
 
 /* Patched records. We can 'patch' the record type `Ty` to make the `T` field a singleton type. Records of type `patch(Ty){ T = Bool }` can only have a value of `Bool` in the `T` field, anything else is a type error */
 define bar
-  : patch(Ty){ T = Bool }
-  = record(
+  : patch Ty { T = Bool }
+  = record {
       T = Bool,
       f = function(b) => b
-    );
+    };
 
 /* Subtyping between patched and non-patched records */
 define baz
-  : patch(Ty){ T = Bool }
+  : patch Ty { T = Bool }
   = bar;

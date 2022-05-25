@@ -140,9 +140,7 @@ false = do
 ifE :: Parser Term
 ifE = do
   string "if"; ws
-  char '('; ws
   cond <- prec0; ws
-  char ')'; ws
   ty <- optional do
     string "returns"; ws
     char '('; ws
@@ -178,7 +176,7 @@ refl = do
 sig :: Parser Term
 sig = do
   string "Record"; ws
-  char '('; ws
+  char '{'; ws
   tys <-
     sepBy
       (do
@@ -187,13 +185,13 @@ sig = do
         ty <- prec0; ws
         pure (n, ty))
       commaWs; ws
-  char ')'
+  char '}'
   pure (Sig (fromList tys))
 
 struct :: Parser Term
 struct = do
   string "record"; ws
-  char '('; ws
+  char '{'; ws
   defs <-
     sepBy
       (do
@@ -202,15 +200,13 @@ struct = do
         def <- prec0; ws
         pure (n, def))
       commaWs; ws
-  char ')'
+  char '}'
   pure (Struct (fromList defs))
 
 patch :: Parser Term
 patch = do
   string "patch"; ws
-  char '('; ws
   str <- prec0; ws
-  char ')'; ws
   char '{'; ws
   defs <-
     sepBy

@@ -5,39 +5,39 @@ The `Maybe` datatype, showcasing dependent records. The type of the `data` field
 define Maybe
   : Function(Type) -> Type
   = function(A) =>
-      Record(
+      Record {
         tag : Bool,
         data :
-          if(tag) {
+          if tag {
             A
           } else {
-            Record()
+            Record {}
           }
-      );
+      };
 
 /* Constructing dependent records */
 define nothing
   : Function(A : Type) -> Maybe(A)
   = function(_) =>
-      record(
+      record {
         tag = false,
-        data = record()
-      );
+        data = record {}
+      };
 
 /* Constructing dependent records */
 define just
   : Function(A : Type, A) -> Maybe(A)
   = function(_, x) =>
-      record(
+      record {
         tag = true,
         data = x
-      );
+      };
 
 /* The `map` function, showcasing dependently typed `if`. The typechecker knows that in the first branch `maybe.data : Record()` (because `maybe.tag = true`). In the second branch, the typechecker knows that `maybe.data : A` (because maybe.tag = false) */
 define map
   : Function(A : Type, Function(A) -> A, Maybe(A)) -> Maybe(A)
   = function(A, func, maybe) =>
-      if(maybe.tag) {
+      if maybe.tag {
         nothing(A)
       } else {
         just(A, maybe.data)

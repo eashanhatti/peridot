@@ -4,13 +4,13 @@ Dependent function types. The return type of `example` depends on the value of t
 
 define example
 	: Function(b : Bool) ->
-			if(b) {
+			if b {
 				Bool
 			} else {
 				Equal(true, true)
 			}
 	= function(b) =>
-			if(b)
+			if b
 				returns(x) =>
 					if(x) {
 						Bool
