@@ -29,12 +29,9 @@ ws =
 comment :: Parser ()
 comment = void do
   string "/*"
-  many
-    (try (void alphaNumChar) <|>
-    try (void (char ' ')) <|>
-    try (void (char '\n')) <|>
-    try (void (char '\r')) <|>
-    void (char '\t'))
+  many do
+    notFollowedBy (string "*/")
+    anySingle
   string "*/"
 
 commaWs :: Parser ()
