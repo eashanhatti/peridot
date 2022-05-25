@@ -1,23 +1,24 @@
-let {
-  'val Ty : OType =
-    signature {
-      T : OType,
-      f : '[_ : T] -> T
-    };
+define Ty
+  : Type
+  = Record(
+      T : Type,
+      f : Function(T) -> T
+    );
 
-  'val record : Ty =
-    structure {
+define foo
+  : Ty
+  = record(
       T = Bool,
-      f = '\b { b }
-    };
+      f = function(b) => b
+    );
 
-  'val record2 : #Ty [ T = Bool ] =
-    structure {
+define bar
+  : patch(Ty){ T = Bool }
+  = record(
       T = Bool,
-      f = '\b { b }
-    };
+      f = function(b) => b
+    );
 
-  'val record3 : #Ty [ T = Bool ] = record2;
-} in {
-  OType
-}
+define baz
+  : patch(Ty){ T = Bool }
+  = bar;
