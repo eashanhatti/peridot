@@ -11,17 +11,27 @@ define Maybe
           }
       );
 
+define nothing
+  : Function(A : Type) -> Maybe(A)
+  = function(_) =>
+      record(
+        tag = false,
+        data = record()
+      );
+
+define just
+  : Function(A : Type, A) -> Maybe(A)
+  = function(_, x) =>
+      record(
+        tag = true,
+        data = x
+      );
+
 define map
   : Function(A : Type, Function(A) -> A, Maybe(A)) -> Maybe(A)
-  = function(_, func, maybe) =>
+  = function(A, func, maybe) =>
       if(maybe.tag) {
-        record(
-          tag = true,
-          data = func(maybe.data)
-        )
+        nothing(A)
       } else {
-        record(
-          tag = false,
-          data = record()
-        )
+        just(A, maybe.data)
       };
