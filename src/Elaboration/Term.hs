@@ -380,7 +380,11 @@ infer term = case term of
           Nothing -> do
             l <- level
             cTy <- appClosureN ty vRDefs >>= readback
-            cTys <- bind (go (N.LocalVar l <| vDefs) (N.LocalVar l <| vRDefs) tys)
+            cTys <- 
+              bindLocal
+                (fieldToName fd)
+                vTy
+                (go (N.LocalVar l <| vDefs) (N.LocalVar l <| vRDefs) tys)
             pure ((fd, cTy) <| cTys)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
