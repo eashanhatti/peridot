@@ -17,8 +17,8 @@ define Maybe
 
 /* Constructing dependent records */
 define nothing
-  : Function(A : Type) -> Maybe(A)
-  = function(_) =>
+  : Function(implicit A : Type) -> Maybe(A)
+  = function() =>
       record {
         tag = false,
         data = record {}
@@ -26,8 +26,8 @@ define nothing
 
 /* Constructing dependent records */
 define just
-  : Function(A : Type, A) -> Maybe(A)
-  = function(_, x) =>
+  : Function(implicit A : Type, A) -> Maybe(A)
+  = function(x) =>
       record {
         tag = true,
         data = x
@@ -38,7 +38,7 @@ define map
   : Function(A : Type, Function(A) -> A, Maybe(A)) -> Maybe(A)
   = function(A, func, maybe) =>
       if maybe.tag {
-        just(A, maybe.data)
+        just(maybe.data)
       } else {
-        nothing(A)
+        nothing
       };

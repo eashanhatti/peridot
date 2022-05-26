@@ -1,0 +1,44 @@
+((fromList
+    [(UVGlobal 1000, Nothing),
+     (UVGlobal 1001, Nothing),
+     (UVGlobal 1002, Just (TypeType Obj)),
+     (UVGlobal 1003, Just (TypeType Obj)),
+     (UVGlobal 1004, Just (Rigid TwoType)),
+     (UVGlobal 1005, Just (Rigid TwoType)),
+     (UVGlobal 1006, Nothing),
+     (UVGlobal 1007, Nothing),
+     (UVGlobal 1008, Just (Rigid TwoType)),
+     (UVGlobal 1009,
+      Just
+        (Rigid
+           ObjIdType
+           (Neutral _ (UniVar (UVGlobal 1010)))
+           (Neutral _ (UniVar (UVGlobal 1010))))),
+     (UVGlobal 1010, Just (Rigid TwoIntro0))],
+  fromList [],
+  fromList [],
+  fromList []),
+ Let
+   (fromList
+      [ObjTerm
+         (Id {unId = 0})
+         (ObjFunType
+            Explicit
+            (Rigid TwoType)
+            (TwoElim
+               (LocalVar (Index {unIndex = 0}))
+               (UniVar (UVGlobal 1002))
+               (Rigid TwoType)
+               (Rigid
+                  (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro0)))))
+         (ObjFunIntro
+            (TwoElim
+               (LocalVar (Index {unIndex = 0}))
+               (TwoElim
+                  (LocalVar (Index {unIndex = 0}))
+                  (TypeType Obj)
+                  (UniVar (UVGlobal 1008))
+                  (UniVar (UVGlobal 1009)))
+               (Rigid TwoIntro0)
+               (Rigid (ObjIdIntro (UniVar (UVGlobal 1010))))))])
+   (TypeType Obj))

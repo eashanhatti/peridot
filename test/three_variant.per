@@ -1,0 +1,27 @@
+define Nat
+  : Type
+  = Record {
+      tag : Bool,
+      data :
+        if tag {
+          Record {}
+        } else {
+          Nat
+        }
+    };
+
+define Foo
+  : Type
+  = Record {
+      tag : Nat,
+      data :
+        if tag.tag {
+          Record { data : Nat }
+        } else {
+          if (tag.data).tag {
+            Record { a : Bool }
+          } else {
+            Record { data : Bool }
+          }
+        }
+    };

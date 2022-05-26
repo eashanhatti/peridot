@@ -1,0 +1,66 @@
+((fromList
+    [(UVGlobal 1000, Nothing),
+     (UVGlobal 1001, Nothing),
+     (UVGlobal 1002, Just (TypeType Obj)),
+     (UVGlobal 1003, Just (TypeType Obj)),
+     (UVGlobal 1004, Nothing),
+     (UVGlobal 1005, Nothing),
+     (UVGlobal 1006, Nothing),
+     (UVGlobal 1007, Nothing),
+     (UVGlobal 1008, Nothing),
+     (UVGlobal 1009, Nothing),
+     (UVGlobal 1010, Just (TypeType Obj)),
+     (UVGlobal 1011, Just (TypeType Obj)),
+     (UVGlobal 1012, Nothing),
+     (UVGlobal 1013, Nothing),
+     (UVGlobal 1014, Nothing),
+     (UVGlobal 1015, Nothing),
+     (UVGlobal 1016, Just (TypeType Obj)),
+     (UVGlobal 1017, Just (TypeType Obj))],
+  fromList [],
+  fromList [],
+  fromList []),
+ Let
+   (fromList
+      [ObjTerm
+         (Id {unId = 0})
+         (TypeType Obj)
+         (RecType
+            (fromList
+               [(Field {unField = "tag"}, Rigid TwoType),
+                (Field {unField = "data"},
+                 TwoElim
+                   (LocalVar (Index {unIndex = 0}))
+                   (UniVar (UVGlobal 1002))
+                   (RecType (fromList []))
+                   (GlobalVar (Id {unId = 0})))])),
+       ObjTerm
+         (Id {unId = 1})
+         (TypeType Obj)
+         (RecType
+            (fromList
+               [(Field {unField = "tag"},
+                 GlobalVar (Id {unId = 0})),
+                (Field {unField = "data"},
+                 TwoElim
+                   (RecElim
+                      (LocalVar (Index {unIndex = 0}))
+                      (Field {unField = "tag"}))
+                   (UniVar (UVGlobal 1010))
+                   (RecType
+                      (fromList
+                         [(Field {unField = "data"},
+                           GlobalVar (Id {unId = 0}))]))
+                   (TwoElim
+                      (RecElim
+                         (RecElim
+                            (LocalVar (Index {unIndex = 0}))
+                            (Field {unField = "data"}))
+                         (Field {unField = "tag"}))
+                      (UniVar (UVGlobal 1016))
+                      (RecType
+                         (fromList [(Field {unField = "a"}, Rigid TwoType)]))
+                      (RecType
+                         (fromList
+                            [(Field {unField = "data"}, Rigid TwoType)]))))]))])
+   (TypeType Obj))
