@@ -6,8 +6,9 @@ import Text.Megaparsec.Error
 import Syntax.Surface
 import Syntax.Common hiding(CStatement(..), RigidTerm(..), Declaration(..))
 import Data.Void
-import Data.Text hiding(singleton, empty, foldr)
+import Data.Text hiding(singleton, empty, foldr, foldl')
 import Control.Monad.Combinators
+import Data.Foldable
 import Control.Monad.State
 import Data.Sequence hiding(empty)
 import Data.Maybe
@@ -248,10 +249,9 @@ patch = do
 
 select :: Parser Term
 select = do
-  str <- prec2; ws
-  char '.'; ws
-  n <- name
-  pure (Select str n)
+  SourcePos (TermAst str) _ <- prec2
+  fds <- some (char '.' *> name)
+  pure (foldl' (\e fd -> Select (TermAst e) fd) str fds)
 
 prec2 :: Parser TermAst
 prec2 = do
