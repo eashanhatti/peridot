@@ -23,7 +23,7 @@ data Term
   = ObjFunType PassMethod Term Term
   | ObjFunIntro Term
   | ObjFunElim Term Term
-  | TwoElim Term Term Term Term
+  | TwoElim Term Term Term
   | RecType (Seq (Field, Term))
   | RecIntro (Seq (Field, Term))
   | RecElim Term Field

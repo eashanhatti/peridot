@@ -23,12 +23,12 @@ check (TermAst (ObjLam (fmap (second unName) -> names) body)) goal =
   checkBody names goal
   where
     checkBody :: Elab sig m => Seq (PassMethod, Name) -> N.Term -> m C.Term
-    checkBody Empty outTy = check body outTy
-    checkBody names (N.Neutral ty _) = do
+    checkBody Empty outTy@(N.viewFunType -> Nothing) = check body outTy
+    checkBody names (N.Neutral ty redex) = do
       ty <- force ty
       case ty of
         Just ty -> checkBody names ty
-        Nothing -> error "TODO"
+        Nothing -> error $ shower (names, redex)
     checkBody ((pm1, name) :<| names) (N.ObjFunType pm2 inTy outTy)
       | pm1 == pm2
       = do
@@ -60,6 +60,15 @@ check term@(TermAst (Struct defs)) goal = do
       cDefs <- defineLocal name vTy vDef (go (vDef <| vDefs) defs tys)
       pure ((fd, cDef) <| cDefs) 
     go _ Empty Empty = pure Empty
+check (TermAst (Case scr body1 body2)) goal = do
+  cScr <- check scr (N.Rigid N.TwoType)
+  vScr <- eval cScr
+  cGoal <- readback goal
+  goal1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (eval cGoal)
+  goal2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (eval cGoal)
+  cBody1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (check body1 goal1)
+  cBody2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (check body2 goal2)
+  pure (C.TwoElim cScr cBody1 cBody2)
 check term goal = checkBase term goal
 
 checkBase :: Elab sig m => TermAst -> N.Term -> m C.Term
@@ -133,12 +142,12 @@ infer term = case term of
         Seq (PassMethod, TermAst) ->
         N.Term ->
         m (Seq C.Term, N.Term)
-      checkArgs Empty outTy = pure (Empty, outTy)
-      checkArgs args (N.Neutral ty _) = do
+      checkArgs Empty outTy@(N.viewFunType -> Nothing) = pure (Empty, outTy)
+      checkArgs args (N.Neutral ty redex) = do
         ty <- force ty
         case ty of
           Just ty -> checkArgs args ty
-          Nothing -> error "TODO"
+          Nothing -> error $ shower redex
       checkArgs ((pm1, arg) :<| args) (N.ObjFunType pm2 inTy outTy)
         | pm1 == pm2
         = do
@@ -151,6 +160,7 @@ infer term = case term of
         cArg <- readback arg
         (cArgs, outTy') <- appClosure outTy arg >>= checkArgs args
         pure (cArg <| cArgs, outTy')
+      checkArgs args ty = error $ shower (args, ty)
   TermAst (Var name) -> do
     binding <- lookupBinding name
     case binding of
@@ -295,33 +305,6 @@ infer term = case term of
   TermAst Bool -> pure (C.Rigid C.TwoType, N.TypeType N.Obj)
   TermAst BTrue -> pure (C.Rigid C.TwoIntro0, N.Rigid N.TwoType)
   TermAst BFalse -> pure (C.Rigid C.TwoIntro1, N.Rigid N.TwoType)
-  TermAst (Case scr ty body1 body2) -> do
-    cScr <- check scr (N.Rigid N.TwoType)
-    vScr <- eval cScr
-    case ty of
-      Just ty -> do
-        cTy <- check ty (N.TypeType N.Obj)
-        vTy <- eval cTy
-        vTy1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (eval cTy)
-        vTy2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (eval cTy)
-        cBody1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (check body1 vTy1)
-        (cBody2, body2Ty) <- bindDefEq vScr (N.Rigid N.TwoIntro1) (infer body2)
-        pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
-      Nothing -> do
-        vTy1 <- freshTypeUV
-        vTy2 <- freshTypeUV
-        cBody1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (check body1 vTy1)
-        cBody2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (check body2 vTy2)
-        vTy <- do
-          r <- convertible vTy1 vTy2
-          if r then
-            pure vTy1
-          else do
-            cTy1 <- readback vTy1
-            cTy2 <- readback vTy2
-            eval (C.TwoElim cScr (C.TypeType C.Obj) cTy1 cTy2)
-        cTy <- readback vTy
-        pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
   TermAst (Equal term1 term2) -> do
     cTerm1 <- freshTypeUV >>= check term1
     cTerm2 <- freshTypeUV >>= check term2

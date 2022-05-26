@@ -1,8 +1,8 @@
 ((fromList
     [(UVGlobal 1000, Nothing),
      (UVGlobal 1001, Nothing),
-     (UVGlobal 1002, Just (TypeType Obj)),
-     (UVGlobal 1003, Just (TypeType Obj)),
+     (UVGlobal 1002, Nothing),
+     (UVGlobal 1003, Nothing),
      (UVGlobal 1004, Nothing),
      (UVGlobal 1005, Nothing),
      (UVGlobal 1006, Nothing),
@@ -39,27 +39,26 @@
      (UVGlobal 1037, Nothing),
      (UVGlobal 1038, Nothing),
      (UVGlobal 1039, Nothing),
-     (UVGlobal 1040,
-      Just
-        (Neutral
-           _
-           (ObjFunElim
-              (Neutral _ (GlobalVar (Id {unId = 0})))
-              (LocalVar Level {unLevel = 0})))),
-     (UVGlobal 1041,
-      Just
-        (Neutral
-           _
-           (ObjFunElim
-              (Neutral _ (GlobalVar (Id {unId = 0})))
-              (LocalVar Level {unLevel = 0})))),
+     (UVGlobal 1040, Nothing),
+     (UVGlobal 1041, Nothing),
      (UVGlobal 1042, Nothing),
      (UVGlobal 1043, Nothing),
      (UVGlobal 1044, Nothing),
      (UVGlobal 1045, Nothing),
      (UVGlobal 1046, Nothing),
      (UVGlobal 1047, Nothing),
-     (UVGlobal 1048, Nothing),
+     (UVGlobal 1048,
+      Just
+        (Neutral
+           _
+           (TwoElim
+              (Neutral
+                 _
+                 (RecElim
+                    (LocalVar Level {unLevel = 2})
+                    (Field {unField = "tag"})))
+              (LocalVar Level {unLevel = 0})
+              (RecType fromList [])))),
      (UVGlobal 1049, Nothing),
      (UVGlobal 1050, Nothing),
      (UVGlobal 1051, Nothing),
@@ -72,15 +71,8 @@
      (UVGlobal 1058, Nothing),
      (UVGlobal 1059, Nothing),
      (UVGlobal 1060, Nothing),
-     (UVGlobal 1061, Nothing),
-     (UVGlobal 1062, Nothing),
-     (UVGlobal 1063, Nothing),
-     (UVGlobal 1064, Nothing),
-     (UVGlobal 1065, Nothing),
-     (UVGlobal 1066, Nothing),
-     (UVGlobal 1067, Nothing),
-     (UVGlobal 1068, Nothing),
-     (UVGlobal 1069, Nothing)],
+     (UVGlobal 1061,
+      Just (LocalVar Level {unLevel = 0}))],
   fromList [],
   fromList [],
   fromList []),
@@ -96,13 +88,12 @@
                    (Field {unField = "data"},
                     TwoElim
                       (LocalVar (Index {unIndex = 0}))
-                      (UniVar (UVGlobal 1002))
                       (LocalVar (Index {unIndex = 1}))
                       (RecType (fromList [])))]))),
        ObjTerm
          (Id {unId = 1})
          (ObjFunType
-            Explicit
+            Unification
             (TypeType Obj)
             (ObjFunElim
                (GlobalVar (Id {unId = 0}))
@@ -116,7 +107,7 @@
        ObjTerm
          (Id {unId = 2})
          (ObjFunType
-            Explicit
+            Unification
             (TypeType Obj)
             (ObjFunType
                Explicit
@@ -157,15 +148,13 @@
                      (RecElim
                         (LocalVar (Index {unIndex = 0}))
                         (Field {unField = "tag"}))
-                     (UniVar (UVGlobal 1040))
                      (ObjFunElim
                         (ObjFunElim
-                           (GlobalVar (Id {unId = 2}))
-                           (LocalVar (Index {unIndex = 2})))
+                           (GlobalVar (Id {unId = 2})) (UniVar (UVGlobal 1048)))
                         (RecElim
                            (LocalVar (Index {unIndex = 0}))
                            (Field {unField = "data"})))
                      (ObjFunElim
                         (GlobalVar (Id {unId = 1}))
-                        (LocalVar (Index {unIndex = 2})))))))])
+                        (UniVar (UVGlobal 1061)))))))])
    (TypeType Obj))

@@ -97,7 +97,7 @@ data Redex
   | CodeLowCTmElim Term
   | GlobalVar Id
   | UniVar Global
-  | TwoElim Term Term Term Term
+  | TwoElim Term Term Term
   | RecElim Term Field
   | SingElim Term
   | Let (Seq Declaration) Term

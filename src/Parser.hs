@@ -104,6 +104,11 @@ objLam = do
 app :: Parser Term
 app = do
   lam <- prec1; ws
+  let
+    lam' =
+      case lam of
+        SourcePos (TermAst (App e Empty)) _ -> e
+        _ -> lam
   char '('; ws
   args <-
     sepBy1
@@ -113,7 +118,7 @@ app = do
         pure (pm, arg))
       commaWs
   char ')'
-  pure (App lam (fromList args))
+  pure (App lam' (fromList args))
 
 var :: Parser Term
 var = do
@@ -157,10 +162,6 @@ ifE :: Parser Term
 ifE = do
   string "if"; ws
   cond <- prec0; ws
-  ty <- optional do
-    string "returns"; ws
-    e <- prec0; ws
-    pure e
   char '{'; ws
   body1 <- prec0; ws
   char '}'; ws
@@ -168,7 +169,7 @@ ifE = do
   char '{'; ws
   body2 <- prec0; ws
   char '}'
-  pure (Case cond ty body1 body2)
+  pure (Case cond body1 body2)
 
 equal :: Parser Term
 equal = do
