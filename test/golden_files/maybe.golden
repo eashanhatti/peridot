@@ -37,17 +37,7 @@
      (UVGlobal 1035, Nothing),
      (UVGlobal 1036, Nothing),
      (UVGlobal 1037, Nothing),
-     (UVGlobal 1038, Nothing),
-     (UVGlobal 1039, Nothing),
-     (UVGlobal 1040, Nothing),
-     (UVGlobal 1041, Nothing),
-     (UVGlobal 1042, Nothing),
-     (UVGlobal 1043, Nothing),
-     (UVGlobal 1044, Nothing),
-     (UVGlobal 1045, Nothing),
-     (UVGlobal 1046, Nothing),
-     (UVGlobal 1047, Nothing),
-     (UVGlobal 1048,
+     (UVGlobal 1038,
       Just
         (Neutral
            _
@@ -59,19 +49,15 @@
                     (Field {unField = "tag"})))
               (LocalVar Level {unLevel = 0})
               (RecType fromList [])))),
-     (UVGlobal 1049, Nothing),
-     (UVGlobal 1050, Nothing),
-     (UVGlobal 1051, Nothing),
-     (UVGlobal 1052, Nothing),
-     (UVGlobal 1053, Nothing),
-     (UVGlobal 1054, Nothing),
-     (UVGlobal 1055, Nothing),
-     (UVGlobal 1056, Nothing),
-     (UVGlobal 1057, Nothing),
-     (UVGlobal 1058, Nothing),
-     (UVGlobal 1059, Nothing),
-     (UVGlobal 1060, Nothing),
-     (UVGlobal 1061,
+     (UVGlobal 1039, Nothing),
+     (UVGlobal 1040, Nothing),
+     (UVGlobal 1041, Nothing),
+     (UVGlobal 1042, Nothing),
+     (UVGlobal 1043, Nothing),
+     (UVGlobal 1044, Nothing),
+     (UVGlobal 1045, Nothing),
+     (UVGlobal 1046, Nothing),
+     (UVGlobal 1047,
       Just (LocalVar Level {unLevel = 0}))],
   fromList [],
   fromList [],
@@ -150,11 +136,11 @@
                         (Field {unField = "tag"}))
                      (ObjFunElim
                         (ObjFunElim
-                           (GlobalVar (Id {unId = 2})) (UniVar (UVGlobal 1048)))
+                           (GlobalVar (Id {unId = 2})) (UniVar (UVGlobal 1038)))
                         (RecElim
                            (LocalVar (Index {unIndex = 0}))
                            (Field {unField = "data"})))
                      (ObjFunElim
                         (GlobalVar (Id {unId = 1}))
-                        (UniVar (UVGlobal 1061)))))))])
+                        (UniVar (UVGlobal 1047)))))))])
    (TypeType Obj))
