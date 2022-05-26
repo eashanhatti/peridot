@@ -2,8 +2,8 @@
 define Nat
   : Type
   = Record {
-      tag : Bool,
-      data :
+      tag: Bool,
+      data:
         if tag {
           Record {}
         } else {
@@ -15,13 +15,13 @@ define Nat
 define Foo
   : Type
   = Record {
-      tag : Nat,
-      data :
+      tag: Nat,
+      data:
         if tag.tag {
-          Record { data : Nat }
+          Record { data: Nat }
         } elseif tag.data.tag {
-          Record { a : Bool }
+          Record { a: Bool }
         } else {
-          Record { data : Bool }
+          Record { data: Bool }
         }
     };

@@ -11,7 +11,7 @@
     [(SourcePos
         {sourceName = "<TODO>",
          sourceLine = Pos 5,
-         sourceColumn = Pos 33},
+         sourceColumn = Pos 32},
       FailedUnify
         (Rigid ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro1))
         (Rigid

@@ -4,8 +4,8 @@ The `Nat` datatype, showcasing dependent records. The type of the `data` field i
 define Nat
   : Type
   = Record {
-      tag : Bool,
-      data :
+      tag: Bool,
+      data:
         if tag {
           Record {}
         } else {

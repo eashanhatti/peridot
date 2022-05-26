@@ -1,0 +1,240 @@
+((fromList
+    [(UVGlobal 1000, Nothing),
+     (UVGlobal 1001, Nothing),
+     (UVGlobal 1002, Nothing),
+     (UVGlobal 1003, Nothing),
+     (UVGlobal 1004, Nothing),
+     (UVGlobal 1005, Nothing),
+     (UVGlobal 1006, Nothing),
+     (UVGlobal 1007, Nothing),
+     (UVGlobal 1008, Nothing),
+     (UVGlobal 1009, Nothing),
+     (UVGlobal 1010, Nothing),
+     (UVGlobal 1011, Nothing),
+     (UVGlobal 1012, Nothing),
+     (UVGlobal 1013, Nothing),
+     (UVGlobal 1014, Nothing),
+     (UVGlobal 1015, Nothing),
+     (UVGlobal 1016,
+      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+     (UVGlobal 1017, Nothing),
+     (UVGlobal 1018, Nothing),
+     (UVGlobal 1019,
+      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+     (UVGlobal 1020, Nothing),
+     (UVGlobal 1021, Nothing),
+     (UVGlobal 1022, Nothing),
+     (UVGlobal 1023, Nothing),
+     (UVGlobal 1024, Nothing),
+     (UVGlobal 1025, Nothing),
+     (UVGlobal 1026, Nothing),
+     (UVGlobal 1027, Nothing),
+     (UVGlobal 1028,
+      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+     (UVGlobal 1029, Nothing),
+     (UVGlobal 1030, Nothing),
+     (UVGlobal 1031,
+      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+     (UVGlobal 1032, Nothing),
+     (UVGlobal 1033, Nothing),
+     (UVGlobal 1034, Nothing),
+     (UVGlobal 1035, Nothing),
+     (UVGlobal 1036, Nothing),
+     (UVGlobal 1037, Nothing),
+     (UVGlobal 1038, Nothing),
+     (UVGlobal 1039, Nothing),
+     (UVGlobal 1040, Nothing),
+     (UVGlobal 1041, Nothing),
+     (UVGlobal 1042, Nothing),
+     (UVGlobal 1043, Nothing),
+     (UVGlobal 1044, Nothing),
+     (UVGlobal 1045, Nothing),
+     (UVGlobal 1046, Nothing),
+     (UVGlobal 1047, Nothing),
+     (UVGlobal 1048, Nothing),
+     (UVGlobal 1049, Nothing),
+     (UVGlobal 1050, Nothing),
+     (UVGlobal 1051, Nothing),
+     (UVGlobal 1052, Nothing),
+     (UVGlobal 1053, Nothing),
+     (UVGlobal 1054, Nothing),
+     (UVGlobal 1055, Nothing),
+     (UVGlobal 1056,
+      Just (Neutral _ (GlobalVar (Id {unId = 1})))),
+     (UVGlobal 1057, Nothing),
+     (UVGlobal 1058, Nothing),
+     (UVGlobal 1059, Nothing),
+     (UVGlobal 1060, Nothing),
+     (UVGlobal 1061, Nothing),
+     (UVGlobal 1062, Nothing),
+     (UVGlobal 1063, Nothing),
+     (UVGlobal 1064, Nothing),
+     (UVGlobal 1065, Nothing),
+     (UVGlobal 1066, Nothing),
+     (UVGlobal 1067, Nothing),
+     (UVGlobal 1068, Nothing),
+     (UVGlobal 1069, Nothing),
+     (UVGlobal 1070, Nothing),
+     (UVGlobal 1071, Nothing),
+     (UVGlobal 1072, Nothing),
+     (UVGlobal 1073, Nothing),
+     (UVGlobal 1074, Nothing),
+     (UVGlobal 1075, Nothing),
+     (UVGlobal 1076, Nothing),
+     (UVGlobal 1077, Nothing),
+     (UVGlobal 1078, Nothing),
+     (UVGlobal 1079, Nothing),
+     (UVGlobal 1080, Nothing),
+     (UVGlobal 1081, Nothing),
+     (UVGlobal 1082, Nothing),
+     (UVGlobal 1083, Nothing),
+     (UVGlobal 1084, Nothing),
+     (UVGlobal 1085,
+      Just
+        (Neutral
+           _
+           (ObjFunElim
+              (Neutral _ (GlobalVar (Id {unId = 2})))
+              (LocalVar Level {unLevel = 1})))),
+     (UVGlobal 1086, Nothing),
+     (UVGlobal 1087, Nothing)],
+  fromList [],
+  fromList [],
+  fromList []),
+ Let
+   (fromList
+      [ObjTerm
+         (Id {unId = 0})
+         (TypeType Obj)
+         (RecType
+            (fromList
+               [(Field {unField = "tag"}, Rigid TwoType),
+                (Field {unField = "data"},
+                 TwoElim
+                   (LocalVar (Index {unIndex = 0}))
+                   (RecType (fromList []))
+                   (GlobalVar (Id {unId = 0})))])),
+       ObjTerm
+         (Id {unId = 1})
+         (GlobalVar (Id {unId = 0}))
+         (RecIntro
+            (fromList
+               [(Field {unField = "tag"}, Rigid TwoIntro0),
+                (Field {unField = "data"},
+                 RecIntro (fromList []))])),
+       ObjTerm
+         (Id {unId = 2})
+         (ObjFunType
+            Explicit
+            (GlobalVar (Id {unId = 0}))
+            (GlobalVar (Id {unId = 0})))
+         (ObjFunIntro
+            (RecIntro
+               (fromList
+                  [(Field {unField = "tag"}, Rigid TwoIntro1),
+                   (Field {unField = "data"},
+                    LocalVar (Index {unIndex = 1}))]))),
+       ObjTerm
+         (Id {unId = 3})
+         (ObjFunType
+            Explicit
+            (GlobalVar (Id {unId = 0}))
+            (ObjFunType Explicit (TypeType Obj) (TypeType Obj)))
+         (ObjFunIntro
+            (ObjFunIntro
+               (RecType
+                  (fromList
+                     [(Field {unField = "tag"}, Rigid TwoType),
+                      (Field {unField = "data"},
+                       TwoElim
+                         (LocalVar (Index {unIndex = 0}))
+                         (RecType
+                            (fromList
+                               [(Field {unField = "index"},
+                                 Rigid
+                                   (ObjIdType
+                                      (LocalVar (Index {unIndex = 2}))
+                                      (GlobalVar (Id {unId = 1}))))]))
+                         (RecType
+                            (fromList
+                               [(Field {unField = "m"},
+                                 GlobalVar (Id {unId = 0})),
+                                (Field {unField = "item"},
+                                 LocalVar (Index {unIndex = 2})),
+                                (Field {unField = "index"},
+                                 Rigid
+                                   (ObjIdType
+                                      (LocalVar (Index {unIndex = 4}))
+                                      (ObjFunElim
+                                         (GlobalVar (Id {unId = 2}))
+                                         (LocalVar (Index {unIndex = 1}))))),
+                                (Field {unField = "next"},
+                                 ObjFunElim
+                                   (ObjFunElim
+                                      (GlobalVar (Id {unId = 3}))
+                                      (LocalVar (Index {unIndex = 2})))
+                                   (LocalVar (Index {unIndex = 4})))])))])))),
+       ObjTerm
+         (Id {unId = 4})
+         (ObjFunType
+            Unification
+            (TypeType Obj)
+            (ObjFunElim
+               (ObjFunElim
+                  (GlobalVar (Id {unId = 3}))
+                  (GlobalVar (Id {unId = 1})))
+               (LocalVar (Index {unIndex = 0}))))
+         (ObjFunIntro
+            (RecIntro
+               (fromList
+                  [(Field {unField = "tag"}, Rigid TwoIntro0),
+                   (Field {unField = "data"},
+                    RecIntro
+                      (fromList
+                         [(Field {unField = "index"},
+                           Rigid (ObjIdIntro (UniVar (UVGlobal 1056))))]))]))),
+       ObjTerm
+         (Id {unId = 5})
+         (ObjFunType
+            Unification
+            (TypeType Obj)
+            (ObjFunType
+               Unification
+               (GlobalVar (Id {unId = 0}))
+               (ObjFunType
+                  Explicit
+                  (LocalVar (Index {unIndex = 1}))
+                  (ObjFunType
+                     Explicit
+                     (ObjFunElim
+                        (ObjFunElim
+                           (GlobalVar (Id {unId = 3}))
+                           (LocalVar (Index {unIndex = 1})))
+                        (LocalVar (Index {unIndex = 2})))
+                     (ObjFunElim
+                        (ObjFunElim
+                           (GlobalVar (Id {unId = 3}))
+                           (ObjFunElim
+                              (GlobalVar (Id {unId = 2}))
+                              (LocalVar (Index {unIndex = 2}))))
+                        (LocalVar (Index {unIndex = 3})))))))
+         (ObjFunIntro
+            (ObjFunIntro
+               (ObjFunIntro
+                  (ObjFunIntro
+                     (RecIntro
+                        (fromList
+                           [(Field {unField = "tag"}, Rigid TwoIntro1),
+                            (Field {unField = "data"},
+                             RecIntro
+                               (fromList
+                                  [(Field {unField = "m"},
+                                    LocalVar (Index {unIndex = 3})),
+                                   (Field {unField = "item"},
+                                    LocalVar (Index {unIndex = 3})),
+                                   (Field {unField = "index"},
+                                    Rigid
+                                      (ObjIdIntro (UniVar (UVGlobal 1085)))),
+                                   (Field {unField = "next"},
+                                    LocalVar (Index {unIndex = 4}))]))]))))))])
+   (TypeType Obj))

@@ -6,8 +6,8 @@ define Maybe
   : Function(Type) -> Type
   = function(A) =>
       Record {
-        tag : Bool,
-        data :
+        tag: Bool,
+        data:
           if tag {
             A
           } else {
@@ -17,7 +17,7 @@ define Maybe
 
 /* Constructing dependent records */
 define nothing
-  : Function(inferred A : Type) -> Maybe(A)
+  : Function(inferred A: Type) -> Maybe(A)
   = function() =>
       record {
         tag = false,
@@ -26,7 +26,7 @@ define nothing
 
 /* Constructing dependent records */
 define just
-  : Function(inferred A : Type, A) -> Maybe(A)
+  : Function(inferred A: Type, A) -> Maybe(A)
   = function(x) =>
       record {
         tag = true,
@@ -35,7 +35,7 @@ define just
 
 /* The `map` function, showcasing dependently typed `if`. The typechecker knows that in the first branch `maybe.data : Record {}` (because `maybe.tag = true`). In the second branch, the typechecker knows that `maybe.data : A` (because maybe.tag = false) */
 define map
-  : Function(A : Type, Function(A) -> A, Maybe(A)) -> Maybe(A)
+  : Function(A: Type, Function(A) -> A, Maybe(A)) -> Maybe(A)
   = function(A, func, maybe) =>
       if maybe.tag {
         just(maybe.data)

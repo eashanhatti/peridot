@@ -1,0 +1,73 @@
+define Nat
+  : Type
+  = Record {
+      tag: Bool,
+      data:
+        if tag {
+          Record {}
+        } else {
+          Nat
+        }
+    };
+
+define zero
+  : Nat
+  = record {
+      tag = true,
+      data = record {}
+    };
+
+define succ
+  : Function(Nat) -> Nat
+  = function(n) =>
+      record {
+        tag = false,
+        data = n
+      };
+
+define Vect
+  : Function(Nat, Type) -> Type
+  = function(n, A) =>
+      Record {
+        tag: Bool,
+        data:
+          if tag {
+            Record {
+              index: Equal(n, zero)
+            }
+          } else {
+            Record {
+              m: Nat,
+              item: A,
+              index: Equal(n, succ(m)),
+              next: Vect(m, A)
+            }
+          }
+      };
+
+define nil
+  : Function(inferred A: Type) -> Vect(zero, A)
+  = function() =>
+      record {
+        tag = true,
+        data = record { index = reflexive }
+      };
+
+define cons
+  : Function(
+      inferred A: Type,
+      inferred n: Nat,
+      item: A,
+      vect: Vect(n, A))
+      -> Vect(succ(n), A)
+  = function(inferred A, inferred n, item, vect) =>
+      record {
+        tag = false,
+        data =
+          record {
+            m = n,
+            item = item,
+            index = reflexive,
+            next = vect
+          }
+      };
