@@ -234,7 +234,7 @@ unifyRigid (ObjIdIntro x1) (ObjIdIntro x2) = do
   pure noop
 unifyRigid (AllType f1) (AllType f2) = unify' f1 f2
 unifyRigid (SomeType f1) (SomeType f2) = unify' f1 f2
-unifyRigid (SingType term1) (SingType term2) = do
+unifyRigid (SingType _ term1) (SingType _ term2) = do
   unifyS' term1 term2
   pure noop
 unifyRigid (SingIntro term1) (SingIntro term2) = do
@@ -341,11 +341,15 @@ unify' (RecIntro fds1) (RecIntro fds2) = do
     (zip fds1 fds2)
   pure noop
 unify' (Rigid term1) (Rigid term2) = unifyRigid term1 term2
-unify' (Rigid (SingType term)) _ =
+unify' (Rigid (SingType _ term)) _ =
   pure (liftCoe \e -> do
     vE <- eval e
     unifyS' term vE
     pure (C.Rigid (C.SingIntro e)))
+unify' ty1 (Rigid (SingType ty2 _)) =
+  pure (liftCoe \e -> do
+    unifyS' ty1 ty2
+    pure (C.SingElim e))
 unify' term1 term2 = throwError ()
 
 unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()

@@ -63,7 +63,7 @@ data RigidTerm a
   | TwoType
   | TwoIntro0
   | TwoIntro1
-  | SingType a
+  | SingType a a
   | SingIntro a
   | ObjIdType a a
   | ObjIdIntro a

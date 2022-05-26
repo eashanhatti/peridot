@@ -22,7 +22,12 @@ define bar
       f = function(b) => b
     };
 
-/* Subtyping between patched and non-patched records */
+/* Subtyping between patched and non-patched records. Definition of non-patched needs to be available */
 define baz
   : patch Ty { T = Bool }
+  = foo;
+
+/* Subtyping between non-patched and patched records. No definitions need to be available */
+define qux
+  : Ty
   = bar;

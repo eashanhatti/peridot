@@ -361,7 +361,7 @@ infer term = case term of
         else do
           vTy <- appClosureN ty defs >>= unfold
           def <- case vTy of
-            N.Rigid (N.SingType term) -> pure term
+            N.Rigid (N.SingType _ term) -> pure term
             _ -> eval (C.RecElim str fd)
           define def (go str (def <| defs) tys)
   TermAst (Patch sig defs) -> do
@@ -385,6 +385,7 @@ infer term = case term of
         case find (\(NameAst name, _) -> fd == nameToField name) defs of
           Just (NameAst name, def) -> do
             cDef <- check def vTy
+            cTy <- appClosureN ty vRDefs >>= readback
             vDef <- eval cDef
             cDef' <- readback vDef
             l <- level
@@ -394,7 +395,7 @@ infer term = case term of
                 vTy
                 vDef
                 (go (vDef <| vDefs) (N.LocalVar l <| vRDefs) tys)
-            pure ((fd, C.Rigid (C.SingType cDef')) <| cTys)
+            pure ((fd, C.Rigid (C.SingType cTy cDef')) <| cTys)
           Nothing -> do
             l <- level
             cTy <- appClosureN ty vRDefs >>= readback
