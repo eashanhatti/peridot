@@ -55,6 +55,9 @@ freshId = do
   modify (+1)
   pure did
 
+passMethod :: Parser PassMethod
+passMethod = try (string "implicit" *> pure Unification)
+
 objPi :: Parser Term
 objPi = do
   string "Function"; ws
@@ -62,30 +65,37 @@ objPi = do
   inTys <-
     sepBy1
       (try (do
+        pm <- optional passMethod; ws
         n <- name; ws
         char ':'; ws
         ty <- prec0
-        pure (Just n, ty))
+        pure (fromMaybe Explicit pm, Just n, ty))
       <|> (do
         ty <- prec0
-        pure (Nothing, ty)))
+        pure (Explicit, Nothing, ty)))
       commaWs
   char ')'; ws
   string "->"; ws
   outTy <- prec0
   let
-    go :: [(Maybe NameAst, TermAst)] -> Term
-    go [(name, inTy)] =
-      ObjPi (fromMaybe (NameAst Unbound) name) inTy outTy
-    go ((name, inTy) : inTys) =
-      ObjPi (fromMaybe (NameAst Unbound) name) inTy (TermAst (go inTys))
+    go :: [(PassMethod, Maybe NameAst, TermAst)] -> Term
+    go [(pm, name, inTy)] =
+      ObjPi pm (fromMaybe (NameAst Unbound) name) inTy outTy
+    go ((pm, name, inTy) : inTys) =
+      ObjPi pm (fromMaybe (NameAst Unbound) name) inTy (TermAst (go inTys))
   pure (go inTys)
 
 objLam :: Parser Term
 objLam = do
   string "function"; ws
   char '('; ws
-  ns <- sepBy1 name commaWs
+  ns <-
+    sepBy
+      (do
+        pm <- fromMaybe Explicit <$> optional passMethod; ws
+        n <- name
+        pure (pm, n))
+      commaWs
   char ')'; ws
   string "=>"; ws
   body <- prec0
@@ -95,7 +105,13 @@ app :: Parser Term
 app = do
   lam <- prec1; ws
   char '('; ws
-  args <- sepBy1 prec0 commaWs
+  args <-
+    sepBy1
+      (do
+        pm <- fromMaybe Explicit <$> optional passMethod; ws
+        arg <- prec0
+        pure (pm, arg))
+      commaWs
   char ')'
   pure (App lam (fromList args))
 
@@ -103,7 +119,7 @@ var :: Parser Term
 var = do
   n <- some nameChar
   when (elem n keywords) empty
-  pure (Var . UserName . pack $ n)
+  pure (App (TermAst . Var . UserName . pack $ n) mempty)
 
 objUniv :: Parser Term
 objUniv = do

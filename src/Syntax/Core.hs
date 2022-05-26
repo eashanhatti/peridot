@@ -20,7 +20,7 @@ type Declaration = Cm.Declaration Term
 
 data Term
   -- Object level
-  = ObjFunType Term Term
+  = ObjFunType PassMethod Term Term
   | ObjFunIntro Term
   | ObjFunElim Term Term
   | TwoElim Term Term Term Term

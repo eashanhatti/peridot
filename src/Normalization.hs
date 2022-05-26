@@ -68,7 +68,7 @@ evalClosure clo@(N.Clo env _) =
 
 funIntros :: C.Term -> (C.Term -> C.Term)
 funIntros (C.MetaFunType _ outTy) = C.MetaFunIntro . funIntros outTy
-funIntros (C.ObjFunType _ outTy) = C.ObjFunIntro . funIntros outTy
+funIntros (C.ObjFunType _ _ outTy) = C.ObjFunIntro . funIntros outTy
 funIntros _ = id
 
 level :: Norm sig m => m Level
@@ -116,7 +116,7 @@ uvRedex gl = do
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
 eval (C.MetaFunType inTy outTy) = N.MetaFunType <$> eval inTy <*> closureOf outTy
 eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
-eval (C.ObjFunType inTy outTy) = N.ObjFunType <$> eval inTy <*> closureOf outTy
+eval (C.ObjFunType pm inTy outTy) = N.ObjFunType pm <$> eval inTy <*> closureOf outTy
 eval (C.ObjFunIntro body) = N.ObjFunIntro <$> closureOf body
 eval (C.ObjFunElim lam arg) = do
   vLam <- eval lam
@@ -287,8 +287,8 @@ readback' opt (N.MetaFunType inTy outTy) =
 readback' opt (N.MetaFunIntro body) =
   C.MetaFunIntro <$>
     bind (evalClosure body >>= readback' opt)
-readback' opt (N.ObjFunType inTy outTy) =
-  C.ObjFunType <$>
+readback' opt (N.ObjFunType pm inTy outTy) =
+  C.ObjFunType pm <$>
     readback' opt inTy <*>
     bind (evalClosure outTy >>= readback' opt)
 readback' opt (N.ObjFunIntro body) =

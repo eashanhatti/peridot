@@ -42,7 +42,7 @@ type Type = Term
 
 data Term
   -- Object level
-  = ObjFunType Term Closure
+  = ObjFunType PassMethod Term Closure
   | ObjFunIntro Closure
   | RecType (Seq (Field, Closure))
   | RecIntro (Seq (Field, Term))
@@ -57,8 +57,8 @@ data Term
   | Neutral (ReaderC NormContext Identity (Maybe Term)) Redex
 
 instance Show Term where
-  show (ObjFunType inTy outTy) =
-    "(ObjFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
+  show (ObjFunType pm inTy outTy) =
+    "(ObjFunType " ++ show pm ++ " " ++ show inTy ++ " " ++ show outTy ++ ")"
   show (ObjFunIntro body) = "(ObjFunIntro " ++ show body ++ ")"
   show (MetaFunType inTy outTy) =
     "(MetaFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
@@ -71,8 +71,8 @@ instance Show Term where
   show (Neutral _ redex) = "(Neutral _ (" ++ show redex ++ "))"
 
 instance Eq Term where
-  ObjFunType inTy1 outTy1 == ObjFunType inTy2 outTy2 =
-    inTy1 == inTy2 && outTy1 == outTy2
+  ObjFunType pm1 inTy1 outTy1 == ObjFunType pm2 inTy2 outTy2 =
+    pm1 == pm2 && inTy1 == inTy2 && outTy1 == outTy2
   ObjFunIntro body1 == ObjFunIntro body2 = body1 == body2
   RecType tys1 == RecType tys2 =
     length tys1 == length tys2 &&
@@ -108,7 +108,7 @@ data Universe = Meta | Obj | Low Language | SUniVar Global
 
 viewFunType :: Term -> Maybe (Term, Closure)
 viewFunType (MetaFunType inTy outTy) = Just (inTy, outTy)
-viewFunType (ObjFunType inTy outTy) = Just (inTy, outTy)
+viewFunType (ObjFunType _ inTy outTy) = Just (inTy, outTy)
 viewFunType _ = Nothing
 
 pattern FunType inTy outTy <- (viewFunType -> Just (inTy, outTy))

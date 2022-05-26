@@ -292,7 +292,7 @@ unify' (MetaFunType inTy1 outTy1) (MetaFunType inTy2 outTy2) = do
 unify' (MetaFunIntro body1) (MetaFunIntro body2) = do
   bind2 unifyS' (evalClosure body1) (evalClosure body2)
   pure noop
-unify' (ObjFunType inTy1 outTy1) (ObjFunType inTy2 outTy2) = do
+unify' (ObjFunType pm1 inTy1 outTy1) (ObjFunType pm2 inTy2 outTy2) | pm1 == pm2 = do
   coe1 <- unify' inTy1 inTy2
   coe2 <- bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
   case (isNoop coe1, isNoop coe2) of

@@ -52,9 +52,9 @@ type TermAst = Ast Term
 data Term
   = MetaPi NameAst TermAst TermAst
   | MetaLam (Seq NameAst) TermAst
-  | ObjPi NameAst TermAst TermAst
-  | ObjLam (Seq NameAst) TermAst
-  | App TermAst (Seq TermAst)
+  | ObjPi PassMethod NameAst TermAst TermAst
+  | ObjLam (Seq (PassMethod, NameAst)) TermAst
+  | App TermAst (Seq (PassMethod, TermAst))
   | Var Name
   | OUniv
   | MUniv

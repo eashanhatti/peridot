@@ -15,24 +15,29 @@ import Debug.Trace
 import Data.Sequence
 import Prelude hiding(zip, concatMap, head, tail, length, unzip)
 import Shower
+import Data.Bifunctor
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check (SourcePos term pos) goal = withPos pos (check term goal)
-check (TermAst (ObjLam (fmap unName -> names) body)) goal = do
-  cBody <- checkBody names goal
-  pure (foldr (\_ body -> C.ObjFunIntro body) cBody names)
+check (TermAst (ObjLam (fmap (second unName) -> names) body)) goal =
+  checkBody names goal
   where
-    checkBody :: Elab sig m => Seq Name -> N.Term -> m C.Term
+    checkBody :: Elab sig m => Seq (PassMethod, Name) -> N.Term -> m C.Term
     checkBody Empty outTy = check body outTy
     checkBody names (N.Neutral ty _) = do
       ty <- force ty
       case ty of
         Just ty -> checkBody names ty
         Nothing -> error "TODO"
-    checkBody (name :<| names) (N.ObjFunType inTy outTy) = do
+    checkBody ((pm1, name) :<| names) (N.ObjFunType pm2 inTy outTy)
+      | pm1 == pm2
+      = do
+        vOutTy <- evalClosure outTy
+        C.ObjFunIntro <$> bindLocal name inTy (checkBody names vOutTy)
+    checkBody names (N.ObjFunType Unification inTy outTy) = do
       vOutTy <- evalClosure outTy
-      bindLocal name inTy (checkBody names vOutTy)
-    checkBody names ty = error $ shower (names, ty)
+      C.ObjFunIntro <$> bind (checkBody names vOutTy)
+    checkBody names ty = error "TODO"
 check term@(TermAst (Struct defs)) goal = do
   goal <- unfold goal
   case goal of
@@ -81,14 +86,19 @@ infer term = case term of
       checkBody Empty outTy = check body outTy
       checkBody ((name, inTy) :<| params) outTy =
         bindLocal name inTy (checkBody params outTy)
-  TermAst (ObjLam (fmap unName -> names) body) -> do
+  TermAst (ObjLam (fmap (second unName) -> names) body) -> do
     inTys <- traverse (const freshTypeUV) names
     cInTys <- traverse readback inTys
     outTy <- freshTypeUV
     cOutTy <- readback outTy
-    let ty = foldr (\inTy outTy -> C.ObjFunType inTy outTy) cOutTy (tail cInTys)
-    vTy <- N.ObjFunType (head inTys) <$> closureOf ty
-    cBody <- checkBody (zip names inTys) outTy
+    let
+      ty =
+        foldr
+          (\(pm, inTy) outTy -> C.ObjFunType pm inTy outTy)
+          cOutTy
+          (zip (fmap fst names) (tail cInTys))
+    vTy <- N.ObjFunType (fst (head names)) (head inTys) <$> closureOf ty
+    cBody <- checkBody (zip (fmap snd names) inTys) outTy
     let lam = foldr (\_ body -> C.ObjFunIntro body) cBody inTys
     pure (lam, vTy)
     where
@@ -101,41 +111,46 @@ infer term = case term of
     vInTy <- eval cInTy
     cOutTy <- bindLocal name vInTy (check outTy (N.TypeType N.Meta))
     pure (C.MetaFunType cInTy cOutTy, N.TypeType N.Meta)
-  TermAst (ObjPi (NameAst name) inTy outTy) -> do
+  TermAst (ObjPi pm (NameAst name) inTy outTy) -> do
     cInTy <- check inTy (N.TypeType N.Obj)
     vInTy <- eval cInTy
     cOutTy <- bindLocal name vInTy (check outTy (N.TypeType N.Obj))
-    pure (C.ObjFunType cInTy cOutTy, N.TypeType N.Obj)
+    pure (C.ObjFunType pm cInTy cOutTy, N.TypeType N.Obj)
   TermAst (App lam args) -> do
     (cLam, lamTy) <- infer lam
     x <- freshTypeUV
     y <- freshTypeUV >>= readback >>= closureOf
-    r <- convertible (N.ObjFunType x y) lamTy
+    r <-
+      (||) <$> -- FIXME: Kind of a hack
+        convertible (N.ObjFunType Explicit x y) lamTy <*>
+        convertible (N.ObjFunType Unification x y) lamTy
     let elim = if r then C.ObjFunElim else C.MetaFunElim
     (cArgs, outTy) <- checkArgs args lamTy
     pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
     where
-      checkArgs :: Elab sig m => Seq TermAst -> N.Term -> m (Seq C.Term, N.Term)
+      checkArgs ::
+        Elab sig m =>
+        Seq (PassMethod, TermAst) ->
+        N.Term ->
+        m (Seq C.Term, N.Term)
       checkArgs Empty outTy = pure (Empty, outTy)
       checkArgs args (N.Neutral ty _) = do
         ty <- force ty
         case ty of
           Just ty -> checkArgs args ty
           Nothing -> error "TODO"
-      checkArgs (arg :<| args) (N.ObjFunType inTy outTy) = do
-        cArg <- check arg inTy
-        vArg <- eval cArg
-        (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
+      checkArgs ((pm1, arg) :<| args) (N.ObjFunType pm2 inTy outTy)
+        | pm1 == pm2
+        = do
+          cArg <- check arg inTy
+          vArg <- eval cArg
+          (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
+          pure (cArg <| cArgs, outTy')
+      checkArgs args (N.ObjFunType Unification inTy outTy) = do
+        arg <- freshTypeUV
+        cArg <- readback arg
+        (cArgs, outTy') <- appClosure outTy arg >>= checkArgs args
         pure (cArg <| cArgs, outTy')
-      -- checkArgs :: Elab sig m => Seq TermAst -> N.Term -> m (Seq C.Term, N.Term)
-      -- checkArgs Empty outTy = pure (Empty, outTy)
-      -- checkArgs (arg :<| args) ty = do
-      --   (cArg, argTy) <- infer arg
-      --   outTy <- freshTypeUV
-      --   outTyClo <- readback outTy >>= closureOf
-      --   unifyR (N.ObjFunType argTy outTyClo) ty
-      --   (cArgs, outTy') <- checkArgs args outTy
-      --   pure (cArg <| cArgs, outTy')
   TermAst (Var name) -> do
     binding <- lookupBinding name
     case binding of
