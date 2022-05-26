@@ -6,7 +6,7 @@ import Text.Megaparsec.Error
 import Syntax.Surface
 import Syntax.Common hiding(CStatement(..), RigidTerm(..), Declaration(..))
 import Data.Void
-import Data.Text hiding(singleton, empty)
+import Data.Text hiding(singleton, empty, foldr)
 import Control.Monad.Combinators
 import Control.Monad.State
 import Data.Sequence hiding(empty)
@@ -15,7 +15,7 @@ import Extra
 
 keywords =
   [ "Function", "function", "Type", "let", "in", "Bool", "true", "false", "Record"
-  , "record", "if", "else", "Equal", "reflexive", "patch" ]
+  , "record", "if", "else", "elseif", "Equal", "reflexive", "patch" ]
 
 ws :: Parser ()
 ws =
@@ -168,11 +168,22 @@ ifE = do
   char '{'; ws
   body1 <- prec0; ws
   char '}'; ws
+  elifs <- many do
+    string "elseif"; ws
+    cond <- prec0; ws
+    char '{'; ws
+    body <- prec0; ws
+    char '}'; ws
+    pure (cond, body)
   string "else"; ws
   char '{'; ws
   body2 <- prec0; ws
   char '}'
-  pure (Case cond body1 body2)
+  pure
+    (Case
+      cond
+      body1
+      (foldr (\(c, b1) b2 -> TermAst (Case c b1 b2)) body2 elifs))
 
 equal :: Parser Term
 equal = do

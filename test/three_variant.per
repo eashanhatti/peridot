@@ -19,11 +19,9 @@ define Foo
       data :
         if tag.tag {
           Record { data : Nat }
+        } elseif (tag.data).tag {
+          Record { a : Bool }
         } else {
-          if (tag.data).tag {
-            Record { a : Bool }
-          } else {
-            Record { data : Bool }
-          }
+          Record { data : Bool }
         }
     };
