@@ -11,7 +11,13 @@
      (UVGlobal 1009, Nothing),
      (UVGlobal 1010, Nothing),
      (UVGlobal 1011, Nothing),
-     (UVGlobal 1012, Just (Rigid TwoType))],
+     (UVGlobal 1012, Just (Rigid TwoType)),
+     (UVGlobal 1013, Nothing),
+     (UVGlobal 1014, Nothing),
+     (UVGlobal 1015, Nothing),
+     (UVGlobal 1016, Nothing),
+     (UVGlobal 1017, Nothing),
+     (UVGlobal 1018, Nothing)],
   fromList [],
   fromList [],
   fromList []),
@@ -34,5 +40,12 @@
          (ObjFunElim
             (ObjFunElim
                (GlobalVar (Id {unId = 0})) (UniVar (UVGlobal 1012)))
+            (Rigid TwoIntro0)),
+       ObjTerm
+         (Id {unId = 2})
+         (Rigid TwoType)
+         (ObjFunElim
+            (ObjFunElim
+               (GlobalVar (Id {unId = 0})) (Rigid TwoType))
             (Rigid TwoIntro0))])
    (TypeType Obj))

@@ -1,3 +1,4 @@
+/* The natural number datatype. See `nat.per` */
 define Nat
   : Type
   = Record {
@@ -10,6 +11,7 @@ define Nat
         }
     };
 
+/* A `Bool` is not sufficient to describe a datatype with more than two variants, so here we use a `Nat` */
 define Foo
   : Type
   = Record {

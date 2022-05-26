@@ -15,7 +15,7 @@ import Extra
 
 keywords =
   [ "Function", "function", "Type", "let", "in", "Bool", "true", "false", "Record"
-  , "record", "if", "else", "returns", "Equal", "reflexive", "patch" ]
+  , "record", "if", "else", "Equal", "reflexive", "patch" ]
 
 ws :: Parser ()
 ws =
@@ -56,7 +56,7 @@ freshId = do
   pure did
 
 passMethod :: Parser PassMethod
-passMethod = try (string "implicit" *> pure Unification)
+passMethod = try (string "inferred" *> pure Unification)
 
 objPi :: Parser Term
 objPi = do
@@ -113,7 +113,10 @@ app = do
   args <-
     sepBy1
       (do
-        pm <- fromMaybe Explicit <$> optional passMethod; ws
+        pm <-
+          fromMaybe
+            Explicit <$>
+            optional (string "explicit" *> pure Unification); ws
         arg <- prec0
         pure (pm, arg))
       commaWs
