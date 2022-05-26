@@ -247,11 +247,24 @@ unifyRigid term1 term2 = throwError ()
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m (Coercion sig m)
 unify' (Rigid ElabError) _ = pure noop
 unify' _ (Rigid ElabError) = pure noop
-unify' (Neutral _ (UniVar gl1)) (Neutral _ (UniVar gl2)) = do
-  equateUVs gl1 gl2
-  pure noop
-unify' (Neutral _ (UniVar gl)) term = putTypeSolInf gl term
-unify' term (Neutral _ (UniVar gl)) = putTypeSolExp gl term
+unify' (Neutral sol1 (UniVar gl1)) (Neutral sol2 (UniVar gl2)) = do
+  sol1 <- force sol1
+  sol2 <- force sol2
+  case (sol1, sol2) of
+    (Just sol1, Just sol2) -> unify' sol1 sol2
+    (Just sol1, Nothing) -> putTypeSolInf gl2 sol1
+    (Nothing, Just sol2) -> putTypeSolExp gl1 sol2
+    (Nothing, Nothing) -> equateUVs gl1 gl2 *> pure noop
+unify' (Neutral prevSol (UniVar gl)) term = do
+  prevSol <- force prevSol
+  case prevSol of
+    Just prevSol -> unify' prevSol term
+    Nothing -> putTypeSolInf gl term
+unify' term (Neutral prevSol (UniVar gl)) = do
+  prevSol <- force prevSol
+  case prevSol of
+    Just prevSol -> unify' term prevSol
+    Nothing -> putTypeSolExp gl term
 unify' (Neutral term1 redex1) (Neutral term2 redex2) =
   catchError (unifyRedexes redex1 redex2 *> pure noop) (\() -> go)
   where

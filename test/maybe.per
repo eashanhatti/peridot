@@ -38,7 +38,7 @@ define map
   : Function(A : Type, Function(A) -> A, Maybe(A)) -> Maybe(A)
   = function(A, func, maybe) =>
       if maybe.tag {
-        nothing(A)
-      } else {
         just(A, maybe.data)
+      } else {
+        nothing(A)
       };

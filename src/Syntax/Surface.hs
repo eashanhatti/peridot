@@ -92,7 +92,7 @@ data Term
   | BTrue
   | BFalse
   -- case foo returns x. ty { true => body1, false => body2 }
-  | Case TermAst (Maybe (NameAst, TermAst)) TermAst TermAst
+  | Case TermAst (Maybe TermAst) TermAst TermAst
   | Equal TermAst TermAst
   | Refl
   | Sig (Seq (NameAst, TermAst))

@@ -19,7 +19,6 @@ import Shower
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check (SourcePos term pos) goal = withPos pos (check term goal)
 check (TermAst (ObjLam (fmap unName -> names) body)) goal = do
-  let !_ = tracePretty (names, goal)
   cBody <- checkBody names goal
   pure (foldr (\_ body -> C.ObjFunIntro body) cBody names)
   where
@@ -118,15 +117,25 @@ infer term = case term of
     where
       checkArgs :: Elab sig m => Seq TermAst -> N.Term -> m (Seq C.Term, N.Term)
       checkArgs Empty outTy = pure (Empty, outTy)
-      checkArgs (arg :<| args) ty = do
-        inTy <- freshTypeUV
-        outTy <- freshTypeUV
-        outTyClo <- readback outTy >>= closureOf
-        unifyR (N.ObjFunType inTy outTyClo) ty
+      checkArgs args (N.Neutral ty _) = do
+        ty <- force ty
+        case ty of
+          Just ty -> checkArgs args ty
+          Nothing -> error "TODO"
+      checkArgs (arg :<| args) (N.ObjFunType inTy outTy) = do
         cArg <- check arg inTy
         vArg <- eval cArg
-        (cArgs, outTy') <- checkArgs args outTy
+        (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
         pure (cArg <| cArgs, outTy')
+      -- checkArgs :: Elab sig m => Seq TermAst -> N.Term -> m (Seq C.Term, N.Term)
+      -- checkArgs Empty outTy = pure (Empty, outTy)
+      -- checkArgs (arg :<| args) ty = do
+      --   (cArg, argTy) <- infer arg
+      --   outTy <- freshTypeUV
+      --   outTyClo <- readback outTy >>= closureOf
+      --   unifyR (N.ObjFunType argTy outTyClo) ty
+      --   (cArgs, outTy') <- checkArgs args outTy
+      --   pure (cArg <| cArgs, outTy')
   TermAst (Var name) -> do
     binding <- lookupBinding name
     case binding of
@@ -275,19 +284,28 @@ infer term = case term of
     cScr <- check scr (N.Rigid N.TwoType)
     vScr <- eval cScr
     case ty of
-      Just (NameAst name, ty) -> do
-        cTy <- bindLocal name (N.Rigid N.TwoType) (check ty (N.TypeType N.Obj))
-        vTy <- define vScr (eval cTy)
-        vTy1 <- define (N.Rigid N.TwoIntro0) (eval cTy)
-        vTy2 <- define (N.Rigid N.TwoIntro1) (eval cTy)
+      Just ty -> do
+        cTy <- check ty (N.TypeType N.Obj)
+        vTy <- eval cTy
+        vTy1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (eval cTy)
+        vTy2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (eval cTy)
         cBody1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (check body1 vTy1)
-        cBody2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (check body2 vTy2)
+        (cBody2, body2Ty) <- bindDefEq vScr (N.Rigid N.TwoIntro1) (infer body2)
         pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
       Nothing -> do
-        vTy <- freshTypeUV
+        vTy1 <- freshTypeUV
+        vTy2 <- freshTypeUV
+        cBody1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (check body1 vTy1)
+        cBody2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (check body2 vTy2)
+        vTy <- do
+          r <- convertible vTy1 vTy2
+          if r then
+            pure vTy1
+          else do
+            cTy1 <- readback vTy1
+            cTy2 <- readback vTy2
+            eval (C.TwoElim cScr (C.TypeType C.Obj) cTy1 cTy2)
         cTy <- readback vTy
-        cBody1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (check body1 vTy)
-        cBody2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (check body2 vTy)
         pure (C.TwoElim cScr cTy cBody1 cBody2, vTy)
   TermAst (Equal term1 term2) -> do
     cTerm1 <- freshTypeUV >>= check term1

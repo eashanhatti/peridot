@@ -7,7 +7,7 @@ define Nat
       tag : Bool,
       data :
         if tag {
-          Record()
+          Record {}
         } else {
           Nat
         }
@@ -18,7 +18,7 @@ define zero
   : Nat
   = record {
       tag = true,
-      data = record()
+      data = record {}
     };
 
 /* Constructing dependent records */

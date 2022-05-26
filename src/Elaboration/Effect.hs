@@ -151,10 +151,16 @@ type Elab sig m =
 unify :: Elab sig m => C.Term -> N.Term -> N.Term -> m C.Term
 unify e term1 term2 = do
   vDefs <- allDefs
+  typeUVs <- unTypeUVs <$> get
+  eqs <- unUVEqs <$> get
   ctx@(unEnv -> N.Env locals globals) <- ask
   r <-
     local
-      (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) })
+      (\ctx -> ctx
+        { unEnv = N.Env locals (globals <> vDefs)
+        , Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
+        , Norm.unUVEqs = eqs
+        })
       (Uni.unify e term1 term2)
   case r of
     Just (Uni.Subst ts ss {-vcs-} eqs, e') -> do
@@ -186,7 +192,18 @@ unify e term1 term2 = do
 
 unifyR :: Elab sig m => N.Term -> N.Term -> m ()
 unifyR term1 term2 = do
-  subst <- Uni.unifyR term1 term2
+  vDefs <- allDefs
+  typeUVs <- unTypeUVs <$> get
+  eqs <- unUVEqs <$> get
+  ctx@(unEnv -> N.Env locals globals) <- ask
+  subst <-
+    local
+      (\ctx -> ctx
+        { unEnv = N.Env locals (globals <> vDefs)
+        , Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
+        , Norm.unUVEqs = eqs
+        })
+      (Uni.unifyR term1 term2)
   case subst of
     Just (Uni.Subst ts ss {-vcs-} eqs) -> do
       state <- get
@@ -213,7 +230,18 @@ unifyR term1 term2 = do
     Nothing -> report (FailedUnify term1 term2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
-convertible term1 term2 = isJust <$> Uni.unifyR term1 term2
+convertible term1 term2 = do
+  vDefs <- allDefs
+  typeUVs <- unTypeUVs <$> get
+  eqs <- unUVEqs <$> get
+  ctx@(unEnv -> N.Env locals globals) <- ask
+  local
+    (\ctx -> ctx
+      { unEnv = N.Env locals (globals <> vDefs)
+      , Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
+      , Norm.unUVEqs = eqs
+      })
+    (isJust <$> Uni.unifyR term1 term2)
 
 putTypeUVSols :: Elab sig m => Map Global N.Term -> m ()
 putTypeUVSols sols = do

@@ -143,12 +143,8 @@ ifE = do
   cond <- prec0; ws
   ty <- optional do
     string "returns"; ws
-    char '('; ws
-    n <- name; ws
-    char ')'; ws
-    string "=>"; ws
     e <- prec0; ws
-    pure (n, e)
+    pure e
   char '{'; ws
   body1 <- prec0; ws
   char '}'; ws

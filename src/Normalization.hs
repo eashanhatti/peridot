@@ -195,7 +195,7 @@ eval (C.Let decls body) = do
   pure (N.Neutral (Just <$> reded) (N.Let vDecls vBody))
 eval (C.TwoElim scr ty body1 body2) = do
   vScr <- eval scr
-  tyClo <- closureOf ty
+  vTy <- eval ty
   vBody1 <- eval body1
   vBody2 <- eval body2
   let
@@ -206,12 +206,13 @@ eval (C.TwoElim scr ty body1 body2) = do
         N.Rigid N.TwoIntro1 -> pure (Just vBody2)
         _ -> do
           r <- findDefEq vScr
+          -- let !_ = tracePretty (vScr, vBody1, vBody2)
+          -- !_ <- tracePretty . unDefEqs <$> ask
           case r of
             Just (N.Rigid N.TwoIntro0) -> pure (Just vBody1)
             Just (N.Rigid N.TwoIntro1) -> pure (Just vBody2)
             _ -> pure Nothing
-
-  pure (N.Neutral reded (N.TwoElim vScr tyClo vBody1 vBody2))
+  pure (N.Neutral reded (N.TwoElim vScr vTy vBody1 vBody2))
 eval (C.SingElim scr) = do
   vScr <- eval scr
   let
@@ -349,7 +350,7 @@ readbackRedex opt (N.Let decls body) =
 readbackRedex opt (N.TwoElim scr ty body1 body2) =
   C.TwoElim <$>
     readback' opt scr <*>
-    (evalClosure ty >>= readback' opt) <*>
+    readback' opt ty <*>
     readback' opt body1 <*>
     readback' opt body2
 readbackRedex opt (N.SingElim scr) = C.SingElim <$> readback' opt scr

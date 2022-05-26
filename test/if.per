@@ -3,22 +3,15 @@ Dependent function types. The return type of `example` depends on the value of t
 */
 
 define example
-	: Function(b : Bool) ->
-			if b {
-				Bool
-			} else {
-				Equal(true, true)
-			}
-	= function(b) =>
-			if b
-				returns(x) =>
-					if(x) {
-						Bool
-					} else {
-						Equal(true, true)
-					}
-			{
-				true
-			} else {
-				reflexive
-			};
+  : Function(b : Bool) ->
+      if b {
+        Bool
+      } else {
+        Equal(true, true)
+      }
+  = function(b) =>
+      if b {
+        true
+      } else {
+        reflexive
+      };
