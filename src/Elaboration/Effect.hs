@@ -333,6 +333,16 @@ freshTypeUV = do
       (uvRedex (UVGlobal (unNextUV state)))
       (N.UniVar (UVGlobal (unNextUV state))))
 
+scopeUVState :: Elab sig m => m a -> m a
+scopeUVState act = do
+  state <- get
+  r <- act
+  modify (\st -> st
+    { unNextUV = unNextUV state
+    , unTypeUVs = unTypeUVs state
+    , unUVEqs = unUVEqs state })
+  pure r
+
 -- freshVCUV :: Elab sig m => m N.ValueCategory
 -- freshVCUV = do
 --   state <- get

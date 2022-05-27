@@ -86,8 +86,13 @@ infer term = case term of
     cInTys <- traverse readback inTys
     outTy <- freshTypeUV
     cOutTy <- readback outTy
-    let ty = foldr (\inTy outTy -> C.MetaFunType inTy outTy) cOutTy (tail cInTys)
-    vTy <- N.MetaFunType (head inTys) <$> closureOf ty
+    let
+      ty =
+        foldr
+          (\inTy outTy -> C.MetaFunType Explicit inTy outTy)
+          cOutTy
+          (tail cInTys)
+    vTy <- N.MetaFunType Explicit (head inTys) <$> closureOf ty
     cBody <- checkBody (zip names inTys) outTy
     let lam = foldr (\_ body -> C.MetaFunIntro body) cBody cInTys
     pure (lam, vTy)
@@ -116,11 +121,11 @@ infer term = case term of
       checkBody Empty outTy = check body outTy
       checkBody ((name, inTy) :<| params) outTy =
         bindLocal name inTy (checkBody params outTy)    
-  TermAst (MetaPi (NameAst name) inTy outTy) -> do
+  TermAst (MetaPi pm (NameAst name) inTy outTy) -> do
     cInTy <- check inTy (N.TypeType N.Meta)
     vInTy <- eval cInTy
     cOutTy <- bindLocal name vInTy (check outTy (N.TypeType N.Meta))
-    pure (C.MetaFunType cInTy cOutTy, N.TypeType N.Meta)
+    pure (C.MetaFunType pm cInTy cOutTy, N.TypeType N.Meta)
   TermAst (ObjPi pm (NameAst name) inTy outTy) -> do
     cInTy <- check inTy (N.TypeType N.Obj)
     vInTy <- eval cInTy
@@ -128,9 +133,9 @@ infer term = case term of
     pure (C.ObjFunType pm cInTy cOutTy, N.TypeType N.Obj)
   TermAst (App lam args) -> do
     (cLam, lamTy) <- infer lam
-    x <- freshTypeUV
-    y <- freshTypeUV >>= readback >>= closureOf
-    r <-
+    r <- scopeUVState do
+      x <- freshTypeUV
+      y <- freshTypeUV >>= readback >>= closureOf
       (||) <$> -- FIXME: Kind of a hack
         convertible (N.ObjFunType Explicit x y) lamTy <*>
         convertible (N.ObjFunType Unification x y) lamTy
@@ -149,14 +154,14 @@ infer term = case term of
         case ty of
           Just ty -> checkArgs args ty
           Nothing -> error $ shower redex
-      checkArgs ((pm1, arg) :<| args) (N.ObjFunType pm2 inTy outTy)
+      checkArgs ((pm1, arg) :<| args) (N.FunType pm2 inTy outTy)
         | pm1 == pm2
         = do
           cArg <- check arg inTy
           vArg <- eval cArg
           (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
           pure (cArg <| cArgs, outTy')
-      checkArgs args (N.ObjFunType Unification inTy outTy) = do
+      checkArgs args (N.FunType Unification inTy outTy) = do
         arg <- freshTypeUV
         cArg <- readback arg
         (cArgs, outTy') <- appClosure outTy arg >>= checkArgs args
@@ -291,12 +296,12 @@ infer term = case term of
   TermAst (ForallProp body) -> do
     inTy <- freshTypeUV
     outTy <- closureOf (C.TypeType C.Meta)
-    cBody <- check body (N.MetaFunType inTy outTy)
+    cBody <- check body (N.MetaFunType Explicit inTy outTy)
     pure (C.Rigid (C.AllType cBody), N.TypeType N.Meta)
   TermAst (ExistsProp body) -> do
     inTy <- freshTypeUV
     outTy <- closureOf (C.TypeType C.Meta)
-    cBody <- check body (N.MetaFunType inTy outTy)
+    cBody <- check body (N.MetaFunType Explicit inTy outTy)
     pure (C.Rigid (C.SomeType cBody), N.TypeType N.Meta)
   TermAst (EqualProp x y) -> do
     ty <- freshTypeUV
