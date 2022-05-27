@@ -67,7 +67,7 @@ evalClosure clo@(N.Clo env _) =
     (N.LocalVar (fromIntegral (N.envSize env)))
 
 funIntros :: C.Term -> (C.Term -> C.Term)
-funIntros (C.MetaFunType _ outTy) = C.MetaFunIntro . funIntros outTy
+funIntros (C.MetaFunType _ _ outTy) = C.MetaFunIntro . funIntros outTy
 funIntros (C.ObjFunType _ _ outTy) = C.ObjFunIntro . funIntros outTy
 funIntros _ = id
 
@@ -114,9 +114,11 @@ uvRedex gl = do
 --   pure (Map.lookup did globals)
 
 eval :: HasCallStack => Norm sig m => C.Term -> m N.Term
-eval (C.MetaFunType inTy outTy) = N.MetaFunType <$> eval inTy <*> closureOf outTy
+eval (C.MetaFunType pm inTy outTy) =
+  N.MetaFunType pm <$> eval inTy <*> closureOf outTy
 eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
-eval (C.ObjFunType pm inTy outTy) = N.ObjFunType pm <$> eval inTy <*> closureOf outTy
+eval (C.ObjFunType pm inTy outTy) =
+  N.ObjFunType pm <$> eval inTy <*> closureOf outTy
 eval (C.ObjFunIntro body) = N.ObjFunIntro <$> closureOf body
 eval (C.ObjFunElim lam arg) = do
   vLam <- eval lam
@@ -279,8 +281,8 @@ readback' ::
   ShouldZonk ->
   N.Term ->
   m C.Term
-readback' opt (N.MetaFunType inTy outTy) =
-  C.MetaFunType <$>
+readback' opt (N.MetaFunType pm inTy outTy) =
+  C.MetaFunType pm <$>
     readback' opt inTy <*>
     bind (evalClosure outTy >>= readback' opt)
 readback' opt (N.MetaFunIntro body) =

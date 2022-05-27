@@ -29,7 +29,7 @@ data Term
   | RecElim Term Field
   | SingElim Term
   -- Meta level
-  | MetaFunType Term Term
+  | MetaFunType PassMethod Term Term
   | MetaFunIntro Term
   | MetaFunElim Term Term
   | CodeCoreElim Term

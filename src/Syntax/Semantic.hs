@@ -47,7 +47,7 @@ data Term
   | RecType (Seq (Field, Closure))
   | RecIntro (Seq (Field, Term))
   -- Meta level
-  | MetaFunType Term Closure
+  | MetaFunType PassMethod Term Closure
   | MetaFunIntro Closure
   -- Other
   | TypeType Universe
@@ -60,8 +60,8 @@ instance Show Term where
   show (ObjFunType pm inTy outTy) =
     "(ObjFunType " ++ show pm ++ " " ++ show inTy ++ " " ++ show outTy ++ ")"
   show (ObjFunIntro body) = "(ObjFunIntro " ++ show body ++ ")"
-  show (MetaFunType inTy outTy) =
-    "(MetaFunType " ++ show inTy ++ " " ++ show outTy ++ ")"
+  show (MetaFunType pm inTy outTy) =
+    "(MetaFunType " ++ show pm ++ " " ++ show inTy ++ " " ++ show outTy ++ ")"
   show (MetaFunIntro body) = "(MetaFunIntro " ++ show body ++ ")"
   show (TypeType univ) = "(TypeType " ++ show univ ++ ")"
   show (LocalVar lvl) = "(LocalVar " ++ show lvl ++ ")"
@@ -80,8 +80,8 @@ instance Eq Term where
   RecIntro defs1 == RecIntro defs2 =
     length defs1 == length defs2 &&
     (and . fmap (\(def1, def2) -> def1 == def2) $ zip defs1 defs2)
-  MetaFunType inTy1 outTy1 == MetaFunType inTy2 outTy2 =
-    inTy1 == inTy2 && outTy1 == outTy2
+  MetaFunType pm1 inTy1 outTy1 == MetaFunType pm2 inTy2 outTy2 =
+    pm1 == pm2 && inTy1 == inTy2 && outTy1 == outTy2
   MetaFunIntro body1 == MetaFunIntro body2 = body1 == body2
   TypeType u1 == TypeType u2 = u1 == u2
   LocalVar l1 == LocalVar l2 = l1 == l2
@@ -106,12 +106,12 @@ data Redex
 data Universe = Meta | Obj | Low Language | SUniVar Global
   deriving (Eq, Show)
 
-viewFunType :: Term -> Maybe (Term, Closure)
-viewFunType (MetaFunType inTy outTy) = Just (inTy, outTy)
-viewFunType (ObjFunType _ inTy outTy) = Just (inTy, outTy)
+viewFunType :: Term -> Maybe (PassMethod, Term, Closure)
+viewFunType (MetaFunType pm inTy outTy) = Just (pm, inTy, outTy)
+viewFunType (ObjFunType pm inTy outTy) = Just (pm, inTy, outTy)
 viewFunType _ = Nothing
 
-pattern FunType inTy outTy <- (viewFunType -> Just (inTy, outTy))
+pattern FunType pm inTy outTy <- (viewFunType -> Just (pm, inTy, outTy))
 
 viewMetaFunElims :: Term -> (Term, Seq Term)
 viewMetaFunElims (Neutral _ (MetaFunElim lam arg)) =

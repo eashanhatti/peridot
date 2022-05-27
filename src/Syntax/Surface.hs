@@ -50,7 +50,7 @@ data Declaration
 
 type TermAst = Ast Term
 data Term
-  = MetaPi NameAst TermAst TermAst
+  = MetaPi PassMethod NameAst TermAst TermAst
   | MetaLam (Seq NameAst) TermAst
   | ObjPi PassMethod NameAst TermAst TermAst
   | ObjLam (Seq (PassMethod, NameAst)) TermAst

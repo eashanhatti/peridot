@@ -1,0 +1,24 @@
+axiom List: Function(MetaType) ~> MetaType;
+axiom nil: Function(A: MetaType) ~> List(A);
+axiom cons: Function(A: MetaType, A, List(A)) ~> List(A);
+
+axiom Append:
+  Function(
+    A: MetaType,
+    List(A),
+    List(A),
+    List(A)) ~> MetaType;
+axiom append_nil:
+  Forall A, Forall xs,
+  Append(A, xs, nil(A), nil(A));
+axiom append_cons:
+  Forall A, Forall x, Forall ys, Forall zs, Forall ws,
+  Implies(
+    Append(A, ys, zs, ws),
+    Append(A, cons(A, x, ys), zs, cons(A, x, ws)));
+
+axiom Unit: MetaType;
+axiom unit: Unit;
+
+variable xs: List(Unit);
+proof Append(Unit, xs, nil(Unit), nil(Unit));

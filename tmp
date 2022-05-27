@@ -1,24 +1,3 @@
+axiom Foo: Function(inferred A: MetaType, A) ~> MetaType;
 
-let {
-  'val Ty : OType =
-    signature {
-      T : OType,
-      f : '[_ : T] -> T
-    };
-
-  'val record : Ty =
-    structure {
-      T = Bool,
-      f = '\b { b }
-    };
-
-  'val record2 : #Ty [ T = Bool ] =
-    structure {
-      T = Bool,
-      f = '\b { b }
-    };
-
-  'val record3 : #Ty [ T = Bool ] = record2;
-} in {
-  Type
-}
+axiom foo: Forall x, Foo(x);

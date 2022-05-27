@@ -15,8 +15,9 @@ import Data.Maybe
 import Extra
 
 keywords =
-  [ "Function", "function", "Type", "let", "in", "Bool", "true", "false", "Record"
-  , "record", "if", "else", "elseif", "Equal", "reflexive", "patch" ]
+  [ "Function", "function", "Type", "let", "in", "Bool", "true", "false"
+  , "Record", "record", "if", "else", "elseif", "Equal", "reflexive", "patch"
+  , "MetaType", "Forall", "Exists", "Implies", "And", "Or"]
 
 ws :: Parser ()
 ws =
@@ -59,8 +60,11 @@ freshId = do
 passMethod :: Parser PassMethod
 passMethod = try (string "inferred" *> pure Unification)
 
-objPi :: Parser Term
-objPi = do
+piE ::
+  Text ->
+  (PassMethod -> NameAst -> TermAst -> TermAst -> Term) ->
+  Parser Term
+piE s c = do
   string "Function"; ws
   char '('; ws
   inTys <-
@@ -76,14 +80,14 @@ objPi = do
         pure (Explicit, Nothing, ty)))
       commaWs
   char ')'; ws
-  string "->"; ws
+  string s; ws
   outTy <- prec0
   let
     go :: [(PassMethod, Maybe NameAst, TermAst)] -> Term
     go [(pm, name, inTy)] =
-      ObjPi pm (fromMaybe (NameAst Unbound) name) inTy outTy
+      c pm (fromMaybe (NameAst Unbound) name) inTy outTy
     go ((pm, name, inTy) : inTys) =
-      ObjPi pm (fromMaybe (NameAst Unbound) name) inTy (TermAst (go inTys))
+      c pm (fromMaybe (NameAst Unbound) name) inTy (TermAst (go inTys))
   pure (go inTys)
 
 objLam :: Parser Term
@@ -134,6 +138,11 @@ objUniv :: Parser Term
 objUniv = do
   string "Type"
   pure OUniv
+
+metaUniv :: Parser Term
+metaUniv = do
+  string "MetaType"
+  pure MUniv
 
 letE :: Parser Term
 letE = do
@@ -253,11 +262,58 @@ select = do
   fds <- some (char '.' *> name)
   pure (foldl' (\e fd -> Select (TermAst e) fd) str fds)
 
+implProp :: Parser Term
+implProp = do
+  string "Implies"; ws
+  char '('; ws
+  p <- prec0
+  commaWs
+  q <- prec0
+  char ')'
+  pure (ImplProp p q)
+
+conjProp :: Parser Term
+conjProp = do
+  string "And"; ws
+  char '('; ws
+  p <- prec0
+  commaWs
+  q <- prec0
+  char ')'
+  pure (ConjProp p q)
+
+disjProp :: Parser Term
+disjProp = do
+  string "Or"; ws
+  char '('; ws
+  p <- prec0
+  commaWs
+  q <- prec0
+  char ')'
+  pure (DisjProp p q)
+
+forallProp :: Parser Term
+forallProp = do
+  string "Forall"; ws
+  n <- name; ws
+  char ','; ws
+  p <- prec0
+  pure (ForallProp (TermAst (MetaLam (singleton n) p)))
+
+existsProp :: Parser Term
+existsProp = do
+  string "Exists"; ws
+  n <- name; ws
+  char ','; ws
+  p <- prec0
+  pure (ExistsProp (TermAst (MetaLam (singleton n) p)))
+
 prec2 :: Parser TermAst
 prec2 = do
   pos <- getSourcePos
   e <-
     try objUniv <|>
+    try metaUniv <|>
     try bool <|>
     try true <|>
     try false <|>
@@ -294,10 +350,16 @@ prec0 =
   try (do
     pos <- getSourcePos
     e <-
-      try objPi <|>
+      try (piE "->" ObjPi) <|>
+      try (piE "~>" MetaPi) <|>
+      try forallProp <|>
+      try existsProp <|>
       try objLam <|>
       try app <|>
-      equal
+      try equal <|>
+      try implProp <|>
+      try conjProp <|>
+      disjProp
     pure (SourcePos (TermAst e) pos)) <|>
   prec1
 
@@ -305,7 +367,11 @@ decl :: Parser DeclarationAst
 decl = do
   did <- freshId
   pos <- getSourcePos
-  d <- define
+  d <-
+    try define <|>
+    try proof <|>
+    try fresh <|>
+    axiom
   pure (SourcePos (DeclAst d did) pos)
 
 define :: Parser Declaration
@@ -318,6 +384,28 @@ define = do
   def <- prec0
   pure (ObjTerm n ty def)
 
+axiom :: Parser Declaration
+axiom = do
+  string "axiom"; ws
+  n <- name; ws
+  char ':'; ws
+  ty <- prec0
+  pure (Axiom n ty)
+
+proof :: Parser Declaration
+proof = do
+  string "proof"; ws
+  ty <- prec0
+  pure (Prove ty)
+
+fresh :: Parser Declaration
+fresh = do
+  string "variable"; ws
+  n <- name; ws
+  char ':'; ws
+  ty <- prec0
+  pure (Fresh n ty)
+
 toplevel :: Parser TermAst
 toplevel = do
   ds <- many (decl <* ws <* char ';' <* ws)
@@ -328,7 +416,14 @@ parse text =
   case
       fst .
       flip runState 0 .
-      runParserT (ws *> toplevel >>= \e -> ws *> eof *> pure e) "<TODO>" $
+      runParserT
+        (do
+          ws
+          e <- toplevel
+          ws
+          eof
+          pure e)
+        "<TODO>" $
       text
     of
     Right term -> Right term
