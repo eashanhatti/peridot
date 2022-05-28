@@ -10,7 +10,6 @@ data Ast a where
   TermAst :: Term -> TermAst
   NameAst :: Name -> NameAst
   DeclAst :: Declaration -> Id -> DeclarationAst
-  CStmtAst :: CStatement -> CStatementAst
   SourcePos :: Ast a -> SourcePos -> Ast a
 deriving instance Show (Ast a)
 
@@ -27,7 +26,6 @@ unDeclName (DeclAst (ObjTerm (NameAst name) _ _) _) = name
 unDeclName (DeclAst (Axiom (NameAst name) _) _) = name
 unDeclName (DeclAst (Prove _) did) = MachineName (fromIntegral did)
 unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
-unDeclName (DeclAst (CFun (NameAst name) _ _ _) _) = name
 unDeclName (SourcePos ast _) = unDeclName ast
 
 unId :: DeclarationAst -> Id
@@ -45,7 +43,6 @@ data Declaration
   | Axiom NameAst SignatureAst
   | Prove SignatureAst
   | Fresh NameAst SignatureAst
-  | CFun NameAst (Seq (NameAst, TermAst)) TermAst CStatementAst
   deriving (Show)
 
 type TermAst = Ast Term
@@ -63,25 +60,6 @@ data Term
   | LiftCore TermAst
   | QuoteCore TermAst
   | SpliceCore TermAst
-  | LiftLowCTm TermAst
-  | QuoteLowCTm TermAst
-  | SpliceLowCTm TermAst
-   -- Carries return type
-  | LiftLowCStmt TermAst
-  | QuoteLowCStmt CStatementAst
-  | CIntType
-  | CVoidType
-  | CPtrType TermAst
-  | CRef TermAst
-  | CDeref TermAst
-  | CAdd TermAst TermAst
-  | CSub TermAst TermAst
-  | CLess TermAst TermAst
-  | CGrtr TermAst TermAst
-  | CEql TermAst TermAst
-  | CFunCall TermAst (Seq TermAst)
-  | CFunType (Seq TermAst) TermAst
-  | CInt Int
   | ImplProp TermAst TermAst
   | ConjProp TermAst TermAst
   | DisjProp TermAst TermAst
@@ -98,14 +76,4 @@ data Term
   | Struct (Seq (NameAst, TermAst))
   | Select TermAst NameAst
   | Patch TermAst (Seq (NameAst, TermAst))
-  deriving (Show)
-
-type CStatementAst = Ast CStatement
-data CStatement
-  = Block (Seq CStatementAst)
-  | If TermAst CStatementAst CStatementAst
-  | VarDecl NameAst TermAst
-  | Assign TermAst TermAst
-  | Return (Maybe TermAst)
-  | SpliceLowCStmt TermAst
   deriving (Show)

@@ -41,25 +41,6 @@ instance Hashable Id
 data Name = UserName Text | MachineName Natural | Unbound
   deriving (Eq, Ord, Show)
 
-data CStatement a
-  = VarDecl a
-  | Assign a a
-  | If a (CStatement a) (CStatement a)
-  | Block (CStatement a) (CStatement a)
-  | Return (Maybe a)
-  | CodeLowCStmtElim a
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-
-data COp a
-  = Ref a
-  | Deref a
-  | Add a a
-  | Sub a a
-  | Less a a
-  | Grtr a a
-  | Eql a a
-  deriving (Eq, Show, Functor, Foldable, Traversable)
-
 data RigidTerm a
   -- Object level
   = ObjConstIntro Id
@@ -70,22 +51,10 @@ data RigidTerm a
   | SingIntro a
   | ObjIdType a a
   | ObjIdIntro a
-  -- Low C level
-  | CIntIntro Int
-  | COp (COp a)
-  | CFunCall a (Seq a)
   -- Meta level
   | MetaConstIntro Id
   | CodeCoreType a
   | CodeCoreIntro a
-  | CodeLowCTmType a
-  | CodeLowCTmIntro a
-  | CodeLowCStmtType a -- Carries return type
-  | CodeLowCStmtIntro (CStatement a)
-  | CPtrType a
-  | CIntType
-  | CVoidType
-  | CFunType (Seq a) a
   -- Propositions
   | PropConstIntro Id
   | ImplType a a
@@ -102,6 +71,5 @@ data Declaration a
   = MetaConst Id a
   | ObjTerm Id a a -- sig, def
   | MetaTerm Id a a -- sig, def
-  | CFun Id (Seq a) a (CStatement a)
   | DElabError
   deriving (Eq, Show, Functor, Foldable, Traversable)

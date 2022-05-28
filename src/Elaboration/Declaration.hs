@@ -11,7 +11,6 @@ import Control.Carrier.NonDet.Church hiding(Empty)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import {-# SOURCE #-} Elaboration.Term qualified as EE
-import Elaboration.CStatement qualified as ES
 import Normalization hiding(eval)
 import Control.Monad
 import Control.Monad.Extra
@@ -81,14 +80,6 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             [(x, y) | (i1, x) <- substs', (i2, y) <- substs', i1 /= i2]
     PDDecl (DeclAst (Fresh name _) did@(Id n)) ->
       pure (C.MetaTerm did cSig (C.UniVar (UVGlobal n)))
-    PDDecl (DeclAst (CFun _ (fmap (unName . fst) -> names) _ stmt) did) ->
-      case cSig of
-        C.Rigid (C.CFunType inTys outTy) -> do
-          vInTys <- traverse eval inTys
-          (cStmt, retTy) <- bindLocalMany (zip names vInTys) (ES.infer stmt)
-          vOutTy <- eval outTy
-          unifyR vOutTy retTy
-          pure (C.CFun did inTys outTy cStmt)
 
 withPos' ::
   HasCallStack => Elab sig m =>
@@ -105,7 +96,3 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
     PDDecl (DeclAst (Axiom name sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Prove sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Fresh name sig) _) -> EE.checkMetaType sig
-    PDDecl (DeclAst (CFun _ (fmap snd -> inTys) outTy _) _) -> do
-      cInTys <- traverse (flip EE.check (N.TypeType (N.Low C))) inTys
-      cOutTy <- EE.check outTy (N.TypeType (N.Low C))
-      pure (C.Rigid (C.CFunType cInTys cOutTy), N.TypeType (N.Low C))

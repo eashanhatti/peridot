@@ -125,8 +125,6 @@ unifyRedexes (ObjFunElim lam1 arg1) (ObjFunElim lam2 arg2) = do
   unifyS' arg1 arg2
 unifyRedexes (CodeCoreElim quote1) (CodeCoreElim quote2) =
   unifyS' quote1 quote2
-unifyRedexes (CodeLowCTmElim quote1) (CodeLowCTmElim quote2) =
-  unifyS' quote1 quote2
 unifyRedexes (GlobalVar did1) (GlobalVar did2) | did1 == did2 = pure ()
 unifyRedexes (TwoElim scr1 body11 body21) (TwoElim scr2 body12 body22) = do
   unifyS' scr1 scr2
@@ -138,77 +136,12 @@ unifyRedexes (RecElim str1 name1) (RecElim str2 name2) | name1 == name2 =
   unifyS' str1 str2
 unifyRedexes _ _ = throwError ()
 
-unifyStmts :: Unify sig m => CStatement Term -> CStatement Term -> m ()
-unifyStmts (VarDecl ty1) (VarDecl ty2) = unifyS' ty1 ty2
-unifyStmts (Assign var1 val1) (Assign var2 val2) = do
-  unifyS' var1 var2
-  unifyS' val1 val2
-unifyStmts (If cond1 trueBody1 falseBody1) (If cond2 trueBody2 falseBody2) = do
-  unifyS' cond1 cond2
-  unifyStmts trueBody1 trueBody2
-  unifyStmts falseBody1 falseBody2
-unifyStmts (Block lstmt1 rstmt1) (Block lstmt2 rstmt2) = do
-  unifyStmts lstmt1 lstmt2
-  unifyStmts rstmt1 rstmt2
-unifyStmts (Return (Just val1)) (Return (Just val2)) = unifyS' val1 val2
-unifyStmts (Return Nothing) (Return Nothing) = pure ()
-unifyStmts (CodeLowCStmtElim quote1) (CodeLowCStmtElim quote2) = unifyS' quote1 quote2
-
--- unifyVCs :: Unify sig m => ValueCategory -> ValueCategory -> m ()
--- unifyVCs (VCUniVar gl1) (VCUniVar gl2) = equateUVs gl1 gl2
--- unifyVCs (VCUniVar gl) vc = putVCSol gl vc
--- unifyVCs vc (VCUniVar gl) = putVCSol gl vc
--- unifyVCs RVal RVal = pure ()
--- unifyVCs LVal LVal = pure ()
--- unifyVCs _ _ = throwError ()
-
-unifyOps :: Unify sig m => COp Term -> COp Term -> m ()
-unifyOps (Ref term1) (Ref term2) = unifyS' term1 term2
-unifyOps (Deref term1) (Deref term2) = unifyS' term1 term2
-unifyOps (Add x1 y1) (Add x2 y2) = do
-  unifyS' x1 x2
-  unifyS' y1 y2
-unifyOps (Sub x1 y1) (Sub x2 y2) = do
-  unifyS' x1 x2
-  unifyS' y1 y2
-unifyOps (Less x1 y1) (Less x2 y2) = do
-  unifyS' x1 x2
-  unifyS' y1 y2
-unifyOps (Grtr x1 y1) (Grtr x2 y2) = do
-  unifyS' x1 x2
-  unifyS' y1 y2
-unifyOps (Eql x1 y1) (Eql x2 y2) = do
-  unifyS' x1 x2
-  unifyS' y1 y2
-
 unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m (Coercion sig m)
 unifyRigid (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 = pure noop
 unifyRigid (ObjConstIntro did1) (ObjConstIntro did2) | did1 == did2 = pure noop
 unifyRigid (CodeCoreType ty1) (CodeCoreType ty2) = unify' ty1 ty2
-unifyRigid (CodeLowCTmType ty1) (CodeLowCTmType ty2) = unify' ty1 ty2
 unifyRigid (CodeCoreIntro term1) (CodeCoreIntro term2) = do
   unifyS' term1 term1
-  pure noop
-unifyRigid (CodeLowCTmIntro term1) (CodeLowCTmIntro term2) = do
-  unifyS' term1 term1
-  pure noop
-unifyRigid (CodeLowCStmtType ty1) (CodeLowCStmtType ty2) = unify' ty1 ty2
-unifyRigid (CodeLowCStmtIntro stmt1) (CodeLowCStmtIntro stmt2) = do
-  unifyStmts stmt1 stmt2
-  pure noop
-unifyRigid (CPtrType ty1) (CPtrType ty2) = unify' ty1 ty2
-unifyRigid CIntType CIntType = pure noop
-unifyRigid CVoidType CVoidType = pure noop
-unifyRigid (CFunType inTys1 outTy1) (CFunType inTys2 outTy2) = do
-  traverse (uncurry unify') (zip inTys1 inTys2)
-  unify' outTy1 outTy2
-unifyRigid (CIntIntro x1) (CIntIntro x2) | x1 == x2 = pure noop
-unifyRigid (COp op1) (COp op2) = do
-  unifyOps op1 op2
-  pure noop
-unifyRigid (CFunCall fn1 args1) (CFunCall fn2 args2) = do
-  unifyS' fn1 fn2
-  traverse_ (uncurry unifyS') (zip args1 args2)
   pure noop
 unifyRigid (PropConstIntro did1) (PropConstIntro did2) | did1 == did2 = pure noop
 unifyRigid (ImplType inTy1 outTy1) (ImplType inTy2 outTy2) = do

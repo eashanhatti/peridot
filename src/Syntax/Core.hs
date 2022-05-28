@@ -33,7 +33,6 @@ data Term
   | MetaFunIntro Term
   | MetaFunElim Term Term
   | CodeCoreElim Term
-  | CodeLowCTmElim Term
   -- Other
   | TypeType Universe
   | LocalVar Index

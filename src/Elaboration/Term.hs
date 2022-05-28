@@ -7,7 +7,6 @@ import Syntax.Common hiding(unId, RigidTerm(..))
 import Extra
 import Elaboration.Effect
 import Elaboration.Declaration qualified as ED
-import Elaboration.CStatement qualified as ES
 import Control.Monad
 import Normalization hiding(eval, readback, zonk)
 import Data.Foldable(foldl', foldr, foldrM, find)
@@ -194,93 +193,6 @@ infer term = case term of
     ty <- freshTypeUV
     cQuote <- check quote (N.Rigid (N.CodeCoreType ty))
     pure (C.CodeCoreElim cQuote, ty)
-  TermAst (LiftLowCTm ty) -> do
-    cTy <- checkLowCType' ty
-    pure (C.Rigid (C.CodeLowCTmType cTy), N.TypeType N.Meta)
-  TermAst (QuoteLowCTm term) -> do
-    ty <- freshTypeUV
-    cTerm <- check term ty
-    pure (C.Rigid (C.CodeLowCTmIntro cTerm), N.Rigid (N.CodeLowCTmType ty))
-  TermAst (SpliceLowCTm quote) -> do
-    ty <- freshTypeUV
-    cQuote <- check quote (N.Rigid (N.CodeLowCTmType ty))
-    pure (C.CodeLowCTmElim cQuote, ty)
-  TermAst (LiftLowCStmt ty) -> do
-    cTy <- checkLowCType' ty
-    pure (C.Rigid (C.CodeLowCStmtType cTy), N.TypeType N.Meta)
-  TermAst (QuoteLowCStmt stmt) -> do
-    (cStmt, retTy) <- ES.infer stmt
-    pure (C.Rigid (C.CodeLowCStmtIntro cStmt), N.Rigid (N.CodeLowCStmtType retTy))
-  TermAst (CPtrType ty) -> do
-    cTy <- checkLowCType' ty
-    pure (C.Rigid (C.CPtrType cTy), N.TypeType (N.Low C))
-  TermAst CIntType -> pure (C.Rigid C.CIntType, N.TypeType (N.Low C))
-  TermAst CVoidType -> pure (C.Rigid C.CVoidType, N.TypeType (N.Low C))
-  -- TermAst (CLValType ty) -> do
-  --   cTy <- checkLowCType' ty
-  --   pure (C.CLValType cTy, N.TypeType (N.Low C))
-  -- TermAst (CRValType ty) -> do
-  --   cTy <- checkLowCType' ty
-  --   pure (C.CRValType cTy, N.TypeType (N.Low C))
-  TermAst (CRef term) -> do
-    ty <- freshTypeUV
-    cTerm <- check term ty
-    pure (C.Rigid (C.COp (Ref cTerm)), N.Rigid (N.CPtrType ty))
-  TermAst (CDeref term) -> do
-    ty <- freshTypeUV
-    -- vc <- freshVCUV
-    cTerm <- check term (N.Rigid (N.CPtrType ty))
-    pure (C.Rigid (C.COp (Deref cTerm)), ty)
-  TermAst (CAdd term1 term2) -> do
-    cTerm1 <- check term1 (N.Rigid N.CIntType)
-    cTerm2 <- check term2 (N.Rigid N.CIntType)
-    pure (C.Rigid (C.COp (Add cTerm1 cTerm2)), N.Rigid N.CIntType)
-  TermAst (CSub term1 term2) -> do
-    cTerm1 <- check term1 (N.Rigid N.CIntType)
-    cTerm2 <- check term2 (N.Rigid N.CIntType)
-    pure (C.Rigid (C.COp (Sub cTerm1 cTerm2)), N.Rigid N.CIntType)
-  TermAst (CLess term1 term2) -> do
-    cTerm1 <- check term1 (N.Rigid N.CIntType)
-    cTerm2 <- check term2 (N.Rigid N.CIntType)
-    pure (C.Rigid (C.COp (Less cTerm1 cTerm2)), N.Rigid N.CIntType)
-  TermAst (CGrtr term1 term2) -> do
-    cTerm1 <- check term1 (N.Rigid N.CIntType)
-    cTerm2 <- check term2 (N.Rigid N.CIntType)
-    pure (C.Rigid (C.COp (Grtr cTerm1 cTerm2)), N.Rigid N.CIntType)
-  TermAst (CEql term1 term2) -> do
-    cTerm1 <- check term1 (N.Rigid N.CIntType)
-    cTerm2 <- check term2 (N.Rigid N.CIntType)
-    pure (C.Rigid (C.COp (Eql cTerm1 cTerm2)), N.Rigid N.CIntType)
-  TermAst (CFunCall fn args) -> do
-    (cFn, fnTy) <- infer fn
-    r <- go fnTy
-    case r of
-      Just (inTys, outTy) | length inTys == length args -> do
-        cArgs <- traverse (\(arg, inTy) -> check arg inTy) (zip args inTys)
-        pure (C.Rigid (C.CFunCall cFn cArgs), outTy)
-      Just (inTys, _) ->
-        errorTerm
-          (WrongAppArity
-            (fromIntegral (length inTys))
-            (fromIntegral (length args)))
-      Nothing -> errorTerm (ExpectedCFunType fnTy)
-    where
-      go :: Norm sig m => N.Term -> m (Maybe (Seq N.Term, N.Term))
-      go (N.Rigid (N.CFunType inTys outTy)) = pure (Just (inTys, outTy))
-      go (N.Neutral term _) = do
-        term <- force term
-        case term of
-          Just term -> go term
-          Nothing -> pure Nothing
-      go _ = pure Nothing
-  TermAst (CFunType inTys outTy) -> do
-    cTerm <-
-      C.Rigid <$> (
-        C.CFunType <$>
-          traverse (flip check (N.TypeType (N.Low C))) inTys <*>
-          check outTy (N.TypeType (N.Low C)))
-    pure (cTerm, N.TypeType (N.Low C))
-  TermAst (CInt x) -> pure (C.Rigid (C.CIntIntro x), N.Rigid N.CIntType)
   TermAst (ImplProp p q) -> do
     cP <- check p (N.TypeType N.Meta)
     cQ <- check q (N.TypeType N.Meta)
