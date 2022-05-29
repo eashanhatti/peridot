@@ -50,7 +50,6 @@ data Term
   | MetaFunType PassMethod Term Closure
   | MetaFunIntro Closure
   -- Other
-  | TypeType Universe
   | LocalVar Level
   | Rigid (RigidTerm Term)
   -- If `Nothing`, the term is stuck
@@ -63,7 +62,6 @@ instance Show Term where
   show (MetaFunType pm inTy outTy) =
     "(MetaFunType " ++ show pm ++ " " ++ show inTy ++ " " ++ show outTy ++ ")"
   show (MetaFunIntro body) = "(MetaFunIntro " ++ show body ++ ")"
-  show (TypeType univ) = "(TypeType " ++ show univ ++ ")"
   show (LocalVar lvl) = "(LocalVar " ++ show lvl ++ ")"
   show (RecType tys) = "(RecType " ++ show tys ++ ")"
   show (RecIntro tys) = "(RecIntro " ++ show tys ++ ")"
@@ -83,7 +81,6 @@ instance Eq Term where
   MetaFunType pm1 inTy1 outTy1 == MetaFunType pm2 inTy2 outTy2 =
     pm1 == pm2 && inTy1 == inTy2 && outTy1 == outTy2
   MetaFunIntro body1 == MetaFunIntro body2 = body1 == body2
-  TypeType u1 == TypeType u2 = u1 == u2
   LocalVar l1 == LocalVar l2 = l1 == l2
   Rigid r1 == Rigid r2 = r1 == r2
   Neutral _ redex1 == Neutral _ redex2 = redex1 == redex2
@@ -117,5 +114,6 @@ viewMetaFunElims term = (term, mempty)
 
 pattern MetaFunElims lam args <- (viewMetaFunElims -> (lam, args))
 
-pattern ObjTypeType = TypeType Obj
-pattern MetaTypeType = TypeType Meta
+pattern ObjTypeType = Rigid (TypeType Obj)
+pattern MetaTypeType = Rigid (TypeType Meta)
+pattern LowCTypeType = Rigid (TypeType (Low C))

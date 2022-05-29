@@ -68,6 +68,7 @@ data RigidTerm a
   | SomeType a
   | PropIdType a a
   -- Other
+  | TypeType Universe
   | ElabError
   deriving (Eq, Show, Functor, Foldable, Traversable)
 

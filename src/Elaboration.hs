@@ -26,7 +26,7 @@ elaborate' term =
       evalState ElabState $
       runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) $
       runReader (ElabContext mempty (initialPos "<TODO>")) $
-      EE.check term (N.TypeType N.Obj)
+      EE.check term N.ObjTypeType
     term'' =
       run $
       runReader (NormContext (N.Env mempty mempty) mempty (justs $ unTypeUVs qs) mempty mempty)

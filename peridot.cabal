@@ -71,7 +71,7 @@ library
       MonadComprehensions
       RankNTypes
   build-depends:
-      base
+      base >=4.0 && <5
     , bytestring
     , containers
     , dependent-hashmap
@@ -127,7 +127,7 @@ executable peridot-exe
       RankNTypes
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base
+      base >=4.0 && <5
     , bytestring
     , containers
     , dependent-hashmap
@@ -185,7 +185,7 @@ test-suite peridot-test
       RankNTypes
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base
+      base >=4.0 && <5
     , bytestring
     , containers
     , dependent-hashmap

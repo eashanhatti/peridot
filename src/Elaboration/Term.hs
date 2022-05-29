@@ -121,15 +121,15 @@ infer term = case term of
       checkBody ((name, inTy) :<| params) outTy =
         bindLocal name inTy (checkBody params outTy)    
   TermAst (MetaPi pm (NameAst name) inTy outTy) -> do
-    cInTy <- check inTy (N.TypeType N.Meta)
+    cInTy <- check inTy (N.MetaTypeType)
     vInTy <- eval cInTy
-    cOutTy <- bindLocal name vInTy (check outTy (N.TypeType N.Meta))
-    pure (C.MetaFunType pm cInTy cOutTy, N.TypeType N.Meta)
+    cOutTy <- bindLocal name vInTy (check outTy (N.MetaTypeType))
+    pure (C.MetaFunType pm cInTy cOutTy, N.MetaTypeType)
   TermAst (ObjPi pm (NameAst name) inTy outTy) -> do
-    cInTy <- check inTy (N.TypeType N.Obj)
+    cInTy <- check inTy (N.ObjTypeType)
     vInTy <- eval cInTy
-    cOutTy <- bindLocal name vInTy (check outTy (N.TypeType N.Obj))
-    pure (C.ObjFunType pm cInTy cOutTy, N.TypeType N.Obj)
+    cOutTy <- bindLocal name vInTy (check outTy (N.ObjTypeType))
+    pure (C.ObjFunType pm cInTy cOutTy, N.ObjTypeType)
   TermAst (App lam args) -> do
     (cLam, lamTy) <- infer lam
     r <- scopeUVState do
@@ -174,9 +174,9 @@ infer term = case term of
         ty <- fst <$> ED.declType did >>= eval
         pure (C.GlobalVar did, ty)
       Nothing -> errorTerm (UnboundVariable name)
-  TermAst OUniv -> pure (C.TypeType C.Obj, N.TypeType N.Obj)
-  TermAst MUniv -> pure (C.TypeType C.Meta, N.TypeType N.Meta)
-  TermAst LCUniv -> pure (C.TypeType (C.Low C), N.TypeType N.Meta)
+  TermAst OUniv -> pure (C.ObjTypeType, N.ObjTypeType)
+  TermAst MUniv -> pure (C.MetaTypeType, N.MetaTypeType)
+  TermAst LCUniv -> pure (C.LowCTypeType, N.MetaTypeType)
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
@@ -184,7 +184,7 @@ infer term = case term of
       pure (C.Let cDecls cBody, bodyTy)
   TermAst (LiftCore ty) -> do
     cTy <- checkObjType' ty
-    pure (C.Rigid (C.CodeCoreType cTy), N.TypeType N.Meta)
+    pure (C.Rigid (C.CodeCoreType cTy), N.MetaTypeType)
   TermAst (QuoteCore term) -> do
     ty <- freshTypeUV
     cTerm <- check term ty
@@ -194,51 +194,51 @@ infer term = case term of
     cQuote <- check quote (N.Rigid (N.CodeCoreType ty))
     pure (C.CodeCoreElim cQuote, ty)
   TermAst (ImplProp p q) -> do
-    cP <- check p (N.TypeType N.Meta)
-    cQ <- check q (N.TypeType N.Meta)
-    pure (C.Rigid (C.ImplType cP cQ), N.TypeType N.Meta)
+    cP <- check p (N.MetaTypeType)
+    cQ <- check q (N.MetaTypeType)
+    pure (C.Rigid (C.ImplType cP cQ), N.MetaTypeType)
   TermAst (ConjProp p q) -> do
-    cP <- check p (N.TypeType N.Meta)
-    cQ <- check q (N.TypeType N.Meta)
-    pure (C.Rigid (C.ConjType cP cQ), N.TypeType N.Meta)
+    cP <- check p (N.MetaTypeType)
+    cQ <- check q (N.MetaTypeType)
+    pure (C.Rigid (C.ConjType cP cQ), N.MetaTypeType)
   TermAst (DisjProp p q) -> do
-    cP <- check p (N.TypeType N.Meta)
-    cQ <- check q (N.TypeType N.Meta)
-    pure (C.Rigid (C.DisjType cP cQ), N.TypeType N.Meta)
+    cP <- check p (N.MetaTypeType)
+    cQ <- check q (N.MetaTypeType)
+    pure (C.Rigid (C.DisjType cP cQ), N.MetaTypeType)
   TermAst (ForallProp body) -> do
     inTy <- freshTypeUV
-    outTy <- closureOf (C.TypeType C.Meta)
+    outTy <- closureOf (C.MetaTypeType)
     cBody <- check body (N.MetaFunType Explicit inTy outTy)
-    pure (C.Rigid (C.AllType cBody), N.TypeType N.Meta)
+    pure (C.Rigid (C.AllType cBody), N.MetaTypeType)
   TermAst (ExistsProp body) -> do
     inTy <- freshTypeUV
-    outTy <- closureOf (C.TypeType C.Meta)
+    outTy <- closureOf (C.MetaTypeType)
     cBody <- check body (N.MetaFunType Explicit inTy outTy)
-    pure (C.Rigid (C.SomeType cBody), N.TypeType N.Meta)
+    pure (C.Rigid (C.SomeType cBody), N.MetaTypeType)
   TermAst (EqualProp x y) -> do
     ty <- freshTypeUV
     cX <- check x ty
     cY <- check y ty
-    pure (C.Rigid (C.PropIdType cX cY), N.TypeType N.Meta)
-  TermAst Bool -> pure (C.Rigid C.TwoType, N.TypeType N.Obj)
+    pure (C.Rigid (C.PropIdType cX cY), N.MetaTypeType)
+  TermAst Bool -> pure (C.Rigid C.TwoType, N.ObjTypeType)
   TermAst BTrue -> pure (C.Rigid C.TwoIntro0, N.Rigid N.TwoType)
   TermAst BFalse -> pure (C.Rigid C.TwoIntro1, N.Rigid N.TwoType)
   TermAst (Equal term1 term2) -> do
     cTerm1 <- freshTypeUV >>= check term1
     cTerm2 <- freshTypeUV >>= check term2
-    pure (C.Rigid (C.ObjIdType cTerm1 cTerm2), N.TypeType N.Obj)
+    pure (C.Rigid (C.ObjIdType cTerm1 cTerm2), N.ObjTypeType)
   TermAst Refl -> do
     term <- freshTypeUV
     cTerm <- readback term
     pure (C.Rigid (C.ObjIdIntro cTerm), N.Rigid (N.ObjIdType term term))
   TermAst (Sig tys) -> do
     cTys <- go tys
-    pure (C.RecType cTys, N.TypeType N.Obj)
+    pure (C.RecType cTys, N.ObjTypeType)
     where
       go :: Elab sig m => Seq (NameAst, TermAst) -> m (Seq (Field, C.Term))
       go Empty = pure Empty
       go ((NameAst name, ty) :<| tys) = do
-        cTy <- check ty (N.TypeType N.Obj)
+        cTy <- check ty (N.ObjTypeType)
         vTy <- eval cTy
         cTys <- bindLocal name vTy (go tys)
         pure ((nameToField name, cTy) <| cTys)
@@ -281,12 +281,12 @@ infer term = case term of
             _ -> eval (C.RecElim str fd)
           define def (go str (def <| defs) tys)
   TermAst (Patch sig defs) -> do
-    cSig <- check sig (N.TypeType N.Obj)
+    cSig <- check sig (N.ObjTypeType)
     vSig <- eval cSig >>= unfold
     case vSig of
       N.RecType tys -> do
         cSig' <- C.RecType <$> go Empty Empty tys
-        pure (cSig', N.TypeType N.Obj)
+        pure (cSig', N.ObjTypeType)
       _ -> errorTerm (ExpectedRecordType vSig)
     where
       go ::
@@ -324,21 +324,21 @@ infer term = case term of
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term =
-  (,) <$> check term (N.TypeType N.Meta) <*> pure (N.TypeType N.Meta)
+  (,) <$> check term (N.MetaTypeType) <*> pure (N.MetaTypeType)
 
 checkMetaType' :: Elab sig m => TermAst -> m C.Term
 checkMetaType' ty = fst <$> checkMetaType ty
 
 checkLowCType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkLowCType term =
-  (,) <$> check term (N.TypeType (N.Low C)) <*> pure (N.TypeType (N.Low C))
+  (,) <$> check term (N.LowCTypeType) <*> pure (N.LowCTypeType)
 
 checkLowCType' :: Elab sig m => TermAst -> m C.Term
 checkLowCType' ty = fst <$> checkLowCType ty
 
 checkObjType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkObjType term =
-  (,) <$> check term (N.TypeType N.Obj) <*> pure (N.TypeType N.Obj) -- FIXME
+  (,) <$> check term (N.ObjTypeType) <*> pure (N.ObjTypeType) -- FIXME
 
 checkObjType' :: Elab sig m => TermAst -> m C.Term
 checkObjType' ty = fst <$> checkObjType ty

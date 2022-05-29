@@ -90,12 +90,6 @@ bind2 f act1 act2 = do
   y <- act2
   f x y
 
-unifyUnivs :: Unify sig m => Universe -> Universe -> m ()
-unifyUnivs Meta Meta = pure ()
-unifyUnivs Obj Obj = pure ()
-unifyUnivs (Low l1) (Low l2) | l1 == l2 = pure ()
-unifyUnivs _ _ = throwError ()
-
 unifyRedexes :: Unify sig m => Redex -> Redex -> m ()
 unifyRedexes (MetaFunElim lam1 arg1) (MetaFunElim lam2 arg2) = do
   unifyS' lam1 lam2
@@ -153,6 +147,7 @@ unifyRigid (SingType _ term1) (SingType _ term2) = do
 unifyRigid (SingIntro term1) (SingIntro term2) = do
   unifyS' term1 term2
   pure noop
+unifyRigid (TypeType u1) (TypeType u2) | u1 == u2 = pure noop
 unifyRigid ElabError _ = pure noop
 unifyRigid _ ElabError = pure noop
 unifyRigid term1 term2 = throwError ()
@@ -220,9 +215,6 @@ unify' (ObjFunType pm1 inTy1 outTy1) (ObjFunType pm2 inTy2 outTy2)
       (True, True) -> pure noop
 unify' (ObjFunIntro body1) (ObjFunIntro body2) = do
   bind2 unifyS' (evalClosure body1) (evalClosure body2)
-  pure noop
-unify' (TypeType s1) (TypeType s2) = do
-  unifyUnivs s1 s2
   pure noop
 unify' (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure noop
 unify' (RecType tys1) (RecType tys2) | length tys1 == length tys2 = do

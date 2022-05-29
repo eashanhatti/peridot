@@ -49,7 +49,7 @@ default-extensions:
 - RankNTypes
 
 dependencies:
-- base
+- base >=4.0 && <5
 - text
 - mtl
 - containers

@@ -34,10 +34,13 @@ data Term
   | MetaFunElim Term Term
   | CodeCoreElim Term
   -- Other
-  | TypeType Universe
   | LocalVar Index
   | GlobalVar Id
   | Let (Seq Declaration) Term
   | UniVar Global
   | Rigid (RigidTerm Term)
   deriving (Eq, Show)
+
+pattern ObjTypeType = Rigid (TypeType Obj)
+pattern MetaTypeType = Rigid (TypeType Meta)
+pattern LowCTypeType = Rigid (TypeType (Low C))

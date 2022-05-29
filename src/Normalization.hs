@@ -147,9 +147,6 @@ eval (C.MetaFunElim lam arg) = do
             Just (N.MetaFunIntro body) -> Just <$> appClosure body vArg
             _ -> pure Nothing
   pure (N.Neutral reded (N.MetaFunElim vLam vArg))
-eval (C.TypeType C.Meta) = pure (N.TypeType N.Meta)
-eval (C.TypeType C.Obj) = pure (N.TypeType N.Obj)
-eval (C.TypeType (C.Low l)) = pure (N.TypeType (N.Low l))
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) = do
   N.Env _ ((! did) -> def) <- unEnv <$> ask
@@ -280,9 +277,6 @@ readback' opt (N.ObjFunType pm inTy outTy) =
 readback' opt (N.ObjFunIntro body) =
   C.ObjFunIntro <$>
     bind (evalClosure body >>= readback' opt)
-readback' opt (N.TypeType (N.Low l)) = pure (C.TypeType (C.Low l))
-readback' opt (N.TypeType N.Meta) = pure (C.TypeType C.Meta)
-readback' opt (N.TypeType N.Obj) = pure (C.TypeType C.Obj)
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
   pure (C.LocalVar (Index (fromIntegral (N.envSize env) - lvl - 1)))
