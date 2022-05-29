@@ -22,7 +22,7 @@ elaborate' term =
   let
     (qs, term') =
       run $
-      runState (QueryState mempty mempty 1000 mempty mempty {-mempty-} mempty mempty) $
+      runState (QueryState mempty mempty 1000 mempty mempty mempty) $
       evalState ElabState $
       runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) $
       runReader (ElabContext mempty (initialPos "<TODO>")) $

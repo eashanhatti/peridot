@@ -102,9 +102,6 @@ data Redex
   | Let (Seq Declaration) Term
   deriving (Eq, Show)
 
-data Universe = Meta | Obj | Low Language | SUniVar Global
-  deriving (Eq, Show)
-
 viewFunType :: Term -> Maybe (PassMethod, Term, Closure)
 viewFunType (MetaFunType pm inTy outTy) = Just (pm, inTy, outTy)
 viewFunType (ObjFunType pm inTy outTy) = Just (pm, inTy, outTy)

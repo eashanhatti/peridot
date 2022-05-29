@@ -26,7 +26,6 @@ data NormContext = NormContext
   { unEnv :: N.Environment
   , unVisited :: Set.Set Global
   , unTypeUVs :: Map.Map Global N.Term
-  -- , unVCUVs :: Map.Map Global N.ValueCategory
   , unUVEqs :: Map.Map Global Global -- FIXME? `Map Global (Set Global)`
   , unDefEqs :: Seq (N.Term, N.Term) }
   deriving (Show)
@@ -148,7 +147,6 @@ eval (C.MetaFunElim lam arg) = do
             Just (N.MetaFunIntro body) -> Just <$> appClosure body vArg
             _ -> pure Nothing
   pure (N.Neutral reded (N.MetaFunElim vLam vArg))
-eval (C.TypeType (C.SUniVar gl)) = undefined -- FIXME?
 eval (C.TypeType C.Meta) = pure (N.TypeType N.Meta)
 eval (C.TypeType C.Obj) = pure (N.TypeType N.Obj)
 eval (C.TypeType (C.Low l)) = pure (N.TypeType (N.Low l))
@@ -282,7 +280,6 @@ readback' opt (N.ObjFunType pm inTy outTy) =
 readback' opt (N.ObjFunIntro body) =
   C.ObjFunIntro <$>
     bind (evalClosure body >>= readback' opt)
-readback' opt (N.TypeType (N.SUniVar gl)) = undefined -- FIXME?
 readback' opt (N.TypeType (N.Low l)) = pure (C.TypeType (C.Low l))
 readback' opt (N.TypeType N.Meta) = pure (C.TypeType C.Meta)
 readback' opt (N.TypeType N.Obj) = pure (C.TypeType C.Obj)

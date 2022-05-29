@@ -46,29 +46,20 @@ isNoop _ = False
 
 data Substitution = Subst
   { unTypeSols :: Map Global Term
-  , unUnivSols :: Map Global Universe
-  -- , unVCSols :: Map Global ValueCategory
   , unUVEqs :: Map Global Global }
   deriving (Show)
 
 instance Semigroup Substitution where
-  Subst ts1 ss1 {-vcs1-} eqs1 <> Subst ts2 ss2 {-vcs2-} eqs2 =
-    Subst (ts1 <> ts2) (ss1 <> ss2) {-(vcs1 <> vcs2)-} (eqs1 <> eqs2)
+  Subst ts1 eqs1 <> Subst ts2 eqs2 =
+    Subst (ts1 <> ts2) (eqs1 <> eqs2)
 
 instance Monoid Substitution where
-  mempty = Subst mempty mempty {-mempty-} mempty
+  mempty = Subst mempty mempty
 
 type Unify sig m =
   ( Norm sig m
   , Has (Error ()) sig m
   , Has (State Substitution) sig m )
-
-putUniverseSol :: Unify sig m => Global -> Universe -> m ()
-putUniverseSol gl sol = do
-  sols <- get
-  case Map.lookup gl (unUnivSols sols) of
-    Nothing -> put (sols { unUnivSols = Map.insert gl sol (unUnivSols sols) })
-    Just sol' -> pure ()-- unifyUnivs sol sol'
 
 putTypeSolExp :: Unify sig m => Global -> Term -> m (Coercion sig m)
 putTypeSolExp gl sol = do
@@ -88,13 +79,6 @@ putTypeSolInf gl sol = do
       pure noop
     Just sol' -> unify' sol' sol
 
--- putVCSol :: Unify sig m => Global -> ValueCategory -> m ()
--- putVCSol gl sol = do
---   sols <- get
---   case Map.lookup gl (unVCSols sols) of
---     Nothing -> put (sols { unVCSols = Map.insert gl sol (unVCSols sols) })
---     Just sol' -> pure ()
-
 equateUVs :: Unify sig m => Global -> Global -> m ()
 equateUVs gl1 gl2 =
   modify (\st -> st
@@ -107,10 +91,6 @@ bind2 f act1 act2 = do
   f x y
 
 unifyUnivs :: Unify sig m => Universe -> Universe -> m ()
-unifyUnivs (SUniVar gl1) (SUniVar gl2) | gl1 == gl2 = pure ()
-unifyUnivs s1@(SUniVar gl1) s2@(SUniVar gl2) = equateUVs gl1 gl2
-unifyUnivs (SUniVar gl) s = putUniverseSol gl s
-unifyUnivs s (SUniVar gl) = putUniverseSol gl s
 unifyUnivs Meta Meta = pure ()
 unifyUnivs Obj Obj = pure ()
 unifyUnivs (Low l1) (Low l2) | l1 == l2 = pure ()

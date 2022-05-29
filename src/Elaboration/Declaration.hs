@@ -3,7 +3,7 @@ module Elaboration.Declaration where
 import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Syntax.Common hiding(Declaration(..))
+import Syntax.Common hiding(Declaration(..), Universe(..))
 import Elaboration.Effect
 import Control.Effect.Reader
 import Control.Effect.State

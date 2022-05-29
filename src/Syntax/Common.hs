@@ -13,6 +13,10 @@ data PassMethod = Explicit | Unification
 data Language = C
   deriving (Eq, Show)
 
+
+data Universe = Meta | Obj | Low Language
+  deriving (Eq, Show)
+
 newtype Field = Field { unField :: Text }
   deriving (Eq, Show)
 

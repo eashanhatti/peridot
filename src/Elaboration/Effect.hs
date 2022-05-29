@@ -15,7 +15,7 @@ import Data.Map qualified as Map
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Surface
-import Syntax.Common hiding(unId)
+import Syntax.Common hiding(unId, Universe(..))
 import Data.Some
 import Data.Maybe
 import Data.Dependent.HashMap qualified as DMap
@@ -46,14 +46,12 @@ data QueryState = QueryState
   , unPredecls :: Map Id (AllState, Predeclaration)
   , unNextUV :: Natural
   , unTypeUVs :: Map Global (Maybe N.Term)
-  , unUnivUVs :: Map Global (Maybe N.Universe)
-  -- , unVCUVs :: Map Global (Maybe N.ValueCategory)
   , unUVEqs :: Map Global Global
   , unErrors :: Seq (SourcePos, Error) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs suvs {-vcuvs-} eqs errs) =
-    show (tuvs, suvs, {-vcuvs,-} eqs, errs)
+  show (QueryState _ _ _ tuvs eqs errs) =
+    show (tuvs, eqs, errs)
 
 data Error
   = TooManyParams
@@ -163,7 +161,7 @@ unify e term1 term2 = do
         })
       (Uni.unify e term1 term2)
   case r of
-    Just (Uni.Subst ts ss {-vcs-} eqs, e') -> do
+    Just (Uni.Subst ts eqs, e') -> do
       state <- get
       let
         dups =
@@ -180,8 +178,6 @@ unify e term1 term2 = do
         Just _ ->
           put (state
             { unTypeUVs = fmap Just ts <> unTypeUVs state
-            , unUnivUVs = fmap Just ss <> unUnivUVs state
-            -- , unVCUVs = fmap Just vcs <> unVCUVs state
             , unUVEqs = eqs <> unUVEqs state })
         Nothing -> do
           report (FailedUnify term1 term2)
@@ -205,7 +201,7 @@ unifyR term1 term2 = do
         })
       (Uni.unifyR term1 term2)
   case subst of
-    Just (Uni.Subst ts ss {-vcs-} eqs) -> do
+    Just (Uni.Subst ts eqs) -> do
       state <- get
       let
         dups =
@@ -222,8 +218,6 @@ unifyR term1 term2 = do
         Just _ ->
           put (state
             { unTypeUVs = fmap Just ts <> unTypeUVs state
-            , unUnivUVs = fmap Just ss <> unUnivUVs state
-            -- , unVCUVs = fmap Just vcs <> unVCUVs state
             , unUVEqs = eqs <> unUVEqs state })
         Nothing -> do
           report (FailedUnify term1 term2)
