@@ -7,6 +7,7 @@ import Syntax.Common hiding(unId, Declaration)
 import Syntax.Common qualified as Cm
 import Data.Map
 import Data.Sequence
+import Numeric.Natural
 
 unId :: Declaration -> Id
 unId (MetaConst did _) = did
@@ -28,6 +29,9 @@ data Term
   | RecIntro (Seq (Field, Term))
   | RecElim Term Field
   | SingElim Term
+  -- C level
+  | CFunType Term
+  | CFunIntro Natural Term
   -- Meta level
   | MetaFunType PassMethod Term Term
   | MetaFunIntro Term
@@ -43,4 +47,4 @@ data Term
 
 pattern ObjTypeType = Rigid (TypeType Obj)
 pattern MetaTypeType = Rigid (TypeType Meta)
-pattern LowCTypeType = Rigid (TypeType (Low C))
+pattern LowCTypeType = Rigid (TypeType LowC)

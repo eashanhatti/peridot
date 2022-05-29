@@ -14,7 +14,3 @@ check :: Elab sig m => TermAst -> N.Term -> m C.Term
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 
 checkObjType :: Elab sig m => TermAst -> m (C.Term, N.Term)
-
-checkLowCType :: Elab sig m => TermAst -> m (C.Term, N.Term)
-
-checkLowCType' :: Elab sig m => TermAst -> m C.Term

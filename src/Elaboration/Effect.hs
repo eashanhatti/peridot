@@ -64,7 +64,7 @@ data Error
   | MissingField Name
   | FailedProve N.Term
   | AmbiguousProve N.Term (Seq (Map Global N.Term))
-  | Todo
+  | CannotInfer
   deriving (Show)
 
 type Query sig m = Has (State QueryState) sig m

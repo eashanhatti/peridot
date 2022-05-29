@@ -176,7 +176,6 @@ infer term = case term of
       Nothing -> errorTerm (UnboundVariable name)
   TermAst OUniv -> pure (C.ObjTypeType, N.ObjTypeType)
   TermAst MUniv -> pure (C.MetaTypeType, N.MetaTypeType)
-  TermAst LCUniv -> pure (C.LowCTypeType, N.MetaTypeType)
   TermAst (Let decls body) ->
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
@@ -321,6 +320,7 @@ infer term = case term of
                 vTy
                 (go (N.LocalVar l <| vDefs) (N.LocalVar l <| vRDefs) tys)
             pure ((fd, cTy) <| cTys)
+  _ -> errorTerm CannotInfer
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term =
@@ -328,13 +328,6 @@ checkMetaType term =
 
 checkMetaType' :: Elab sig m => TermAst -> m C.Term
 checkMetaType' ty = fst <$> checkMetaType ty
-
-checkLowCType :: Elab sig m => TermAst -> m (C.Term, N.Term)
-checkLowCType term =
-  (,) <$> check term (N.LowCTypeType) <*> pure (N.LowCTypeType)
-
-checkLowCType' :: Elab sig m => TermAst -> m C.Term
-checkLowCType' ty = fst <$> checkLowCType ty
 
 checkObjType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkObjType term =

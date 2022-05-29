@@ -15,6 +15,7 @@ import Control.Carrier.Reader
 import Data.Functor.Identity
 import Data.Text qualified as Text
 import Shower
+import Numeric.Natural
 
 data Environment = Env
   { unLocals :: Seq Term
@@ -46,6 +47,9 @@ data Term
   | ObjFunIntro Closure
   | RecType (Seq (Field, Closure))
   | RecIntro (Seq (Field, Term))
+  -- C level
+  | CFunType Term
+  | CFunIntro Natural Term
   -- Meta level
   | MetaFunType PassMethod Term Closure
   | MetaFunIntro Closure
@@ -116,4 +120,4 @@ pattern MetaFunElims lam args <- (viewMetaFunElims -> (lam, args))
 
 pattern ObjTypeType = Rigid (TypeType Obj)
 pattern MetaTypeType = Rigid (TypeType Meta)
-pattern LowCTypeType = Rigid (TypeType (Low C))
+pattern LowCTypeType = Rigid (TypeType LowC)

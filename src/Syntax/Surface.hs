@@ -55,7 +55,6 @@ data Term
   | Var Name
   | OUniv
   | MUniv
-  | LCUniv
   | Let (Seq DeclarationAst) TermAst
   | LiftCore TermAst
   | QuoteCore TermAst

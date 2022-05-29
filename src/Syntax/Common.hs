@@ -10,11 +10,7 @@ import Data.Sequence
 data PassMethod = Explicit | Unification
   deriving (Eq, Show)
 
-data Language = C
-  deriving (Eq, Show)
-
-
-data Universe = Meta | Obj | Low Language
+data Universe = Meta | Obj | LowC | List
   deriving (Eq, Show)
 
 newtype Field = Field { unField :: Text }
@@ -59,6 +55,29 @@ data RigidTerm a
   | MetaConstIntro Id
   | CodeCoreType a
   | CodeCoreIntro a
+  | ListTypeNil
+  | ListTypeCons a a
+  | ListIntroNil
+  | ListIntroCons a a
+  | CLValType a
+  | CIntType
+  | CPtrType a
+  | CStmtType
+  | CStmtIntroRet a
+  | CStmtIntroIf a a a
+  | CStmtIntroWhile a a
+  | CStmtIntroBrk
+  | CStructType a
+  | CFunElim a a
+  | CIntIntro Int
+  | CIntElimAdd a a
+  | CStmtElimSeq a a -- sequencing
+  | CStmtElimBind a a -- variable binding
+  | CIntElimEq a a
+  | CPtrIntro a
+  | CPtrElimDeref a
+  | CPtrElimLVal a
+  | CStructIntro a
   -- Propositions
   | PropConstIntro Id
   | ImplType a a
