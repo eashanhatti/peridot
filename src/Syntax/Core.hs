@@ -29,9 +29,6 @@ data Term
   | RecIntro (Seq (Field, Term))
   | RecElim Term Field
   | SingElim Term
-  -- C level
-  | CFunType Term
-  | CFunIntro Natural Term
   -- Meta level
   | MetaFunType PassMethod Term Term
   | MetaFunIntro Term
@@ -48,3 +45,4 @@ data Term
 pattern ObjTypeType = Rigid (TypeType Obj)
 pattern MetaTypeType = Rigid (TypeType Meta)
 pattern LowCTypeType = Rigid (TypeType LowC)
+pattern ListTypeType = Rigid (TypeType List)

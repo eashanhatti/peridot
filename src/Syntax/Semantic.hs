@@ -47,9 +47,6 @@ data Term
   | ObjFunIntro Closure
   | RecType (Seq (Field, Closure))
   | RecIntro (Seq (Field, Term))
-  -- C level
-  | CFunType Term
-  | CFunIntro Natural Term
   -- Meta level
   | MetaFunType PassMethod Term Closure
   | MetaFunIntro Closure
@@ -121,3 +118,4 @@ pattern MetaFunElims lam args <- (viewMetaFunElims -> (lam, args))
 pattern ObjTypeType = Rigid (TypeType Obj)
 pattern MetaTypeType = Rigid (TypeType Meta)
 pattern LowCTypeType = Rigid (TypeType LowC)
+pattern ListTypeType = Rigid (TypeType List)

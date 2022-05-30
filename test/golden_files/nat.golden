@@ -1,40 +1,9 @@
-((fromList
-    [(UVGlobal 1000, Nothing),
-     (UVGlobal 1001, Nothing),
-     (UVGlobal 1002, Nothing),
-     (UVGlobal 1003, Nothing),
-     (UVGlobal 1004, Nothing),
-     (UVGlobal 1005, Nothing),
-     (UVGlobal 1006, Nothing),
-     (UVGlobal 1007, Nothing),
-     (UVGlobal 1008, Nothing),
-     (UVGlobal 1009, Nothing),
-     (UVGlobal 1010, Nothing),
-     (UVGlobal 1011, Nothing),
-     (UVGlobal 1012, Nothing),
-     (UVGlobal 1013, Nothing),
-     (UVGlobal 1014, Nothing),
-     (UVGlobal 1015, Nothing),
-     (UVGlobal 1016, Nothing),
-     (UVGlobal 1017, Nothing),
-     (UVGlobal 1018, Nothing),
-     (UVGlobal 1019, Nothing),
-     (UVGlobal 1020, Nothing),
-     (UVGlobal 1021, Nothing),
-     (UVGlobal 1022, Nothing),
-     (UVGlobal 1023, Nothing),
-     (UVGlobal 1024, Nothing),
-     (UVGlobal 1025, Nothing),
-     (UVGlobal 1026, Nothing),
-     (UVGlobal 1027, Nothing)],
-  fromList [],
-  fromList [],
-  fromList []),
+((fromList [], fromList [], fromList []),
  Let
    (fromList
       [ObjTerm
          (Id {unId = 0})
-         (TypeType Obj)
+         (Rigid (TypeType Obj))
          (RecType
             (fromList
                [(Field {unField = "tag"}, Rigid TwoType),
@@ -86,4 +55,4 @@
                            (LocalVar (Index {unIndex = 1}))
                            (Field {unField = "data"})))
                      (LocalVar (Index {unIndex = 0}))))))])
-   (TypeType Obj))
+   (Rigid (TypeType Obj)))

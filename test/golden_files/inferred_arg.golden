@@ -1,24 +1,4 @@
-((fromList
-    [(UVGlobal 1000, Nothing),
-     (UVGlobal 1001, Nothing),
-     (UVGlobal 1002, Nothing),
-     (UVGlobal 1003, Nothing),
-     (UVGlobal 1004, Nothing),
-     (UVGlobal 1005, Nothing),
-     (UVGlobal 1006, Nothing),
-     (UVGlobal 1007, Nothing),
-     (UVGlobal 1008, Nothing),
-     (UVGlobal 1009, Nothing),
-     (UVGlobal 1010, Nothing),
-     (UVGlobal 1011, Nothing),
-     (UVGlobal 1012, Just (Rigid TwoType)),
-     (UVGlobal 1013, Nothing),
-     (UVGlobal 1014, Nothing),
-     (UVGlobal 1015, Nothing),
-     (UVGlobal 1016, Nothing),
-     (UVGlobal 1017, Nothing),
-     (UVGlobal 1018, Nothing)],
-  fromList [],
+((fromList [(UVGlobal 1000, Just (Rigid TwoType))],
   fromList [],
   fromList []),
  Let
@@ -27,7 +7,7 @@
          (Id {unId = 0})
          (ObjFunType
             Unification
-            (TypeType Obj)
+            (Rigid (TypeType Obj))
             (ObjFunType
                Explicit
                (LocalVar (Index {unIndex = 0}))
@@ -39,7 +19,7 @@
          (Rigid TwoType)
          (ObjFunElim
             (ObjFunElim
-               (GlobalVar (Id {unId = 0})) (UniVar (UVGlobal 1012)))
+               (GlobalVar (Id {unId = 0})) (UniVar (UVGlobal 1000)))
             (Rigid TwoIntro0)),
        ObjTerm
          (Id {unId = 2})
@@ -48,4 +28,4 @@
             (ObjFunElim
                (GlobalVar (Id {unId = 0})) (Rigid TwoType))
             (Rigid TwoIntro0))])
-   (TypeType Obj))
+   (Rigid (TypeType Obj)))

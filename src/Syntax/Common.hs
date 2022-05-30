@@ -60,24 +60,29 @@ data RigidTerm a
   | ListIntroNil
   | ListIntroCons a a
   | CLValType a
+  | CLValElim a
   | CIntType
   | CPtrType a
   | CStmtType
-  | CStmtIntroRet a
+  | CStmtIntroRet
   | CStmtIntroIf a a a
-  | CStmtIntroWhile a a
+  | CStmtIntroWhl a a
   | CStmtIntroBrk
+  | CStmtIntroCall a a
+  | CStmtIntroSeq a a -- sequencing
+  | CStmtIntroBind a a -- variable binding
+  | CStmtIntroSet a a
   | CStructType a
-  | CFunElim a a
+  | CFunType a
+  | CFunIntro a
   | CIntIntro Int
   | CIntElimAdd a a
-  | CStmtElimSeq a a -- sequencing
-  | CStmtElimBind a a -- variable binding
   | CIntElimEq a a
   | CPtrIntro a
-  | CPtrElimDeref a
+  | CPtrElimRVal a
   | CPtrElimLVal a
   | CStructIntro a
+  | CCast a a
   -- Propositions
   | PropConstIntro Id
   | ImplType a a

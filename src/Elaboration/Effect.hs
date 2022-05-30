@@ -64,6 +64,7 @@ data Error
   | MissingField Name
   | FailedProve N.Term
   | AmbiguousProve N.Term (Seq (Map Global N.Term))
+  | CLamFormCheck
   | CannotInfer
   deriving (Show)
 
@@ -254,6 +255,16 @@ bindLocal name ty act =
   where
     inc (BLocal ix ty) = BLocal (ix + 1) ty
     inc b = b
+
+noLocals :: Elab sig m => m a -> m a
+noLocals =
+  local (\ctx -> ctx
+    { unBindings =
+      flip Map.filter
+        (unBindings ctx)
+        \case
+          BGlobal _ -> True
+          BLocal _ _ -> False })
 
 defineLocal :: Elab sig m => Name -> N.Term -> N.Term -> m a -> m a
 defineLocal name ty def act =

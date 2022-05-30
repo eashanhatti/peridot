@@ -6,7 +6,6 @@
      (UVGlobal 1004, Just (Rigid TwoType)),
      (UVGlobal 1005, Nothing)],
   fromList [],
-  fromList [],
   fromList
     [(SourcePos
         {sourceName = "<TODO>",
@@ -30,4 +29,4 @@
          (Rigid
             (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro1)))
          (Rigid (ObjIdIntro (UniVar (UVGlobal 1005))))])
-   (TypeType Obj))
+   (Rigid (TypeType Obj)))

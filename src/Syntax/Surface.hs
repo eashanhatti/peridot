@@ -55,6 +55,7 @@ data Term
   | Var Name
   | OUniv
   | MUniv
+  | LCUniv
   | Let (Seq DeclarationAst) TermAst
   | LiftCore TermAst
   | QuoteCore TermAst
@@ -75,4 +76,31 @@ data Term
   | Struct (Seq (NameAst, TermAst))
   | Select TermAst NameAst
   | Patch TermAst (Seq (NameAst, TermAst))
+  | ListTypeNil
+  | ListTypeCons TermAst TermAst
+  | ListNil
+  | ListCons TermAst TermAst
+  | CIntType
+  | CInt Int
+  | CPtrType TermAst
+  | CStmtType
+  | CReturn
+  | CIf TermAst TermAst TermAst
+  | CWhile TermAst TermAst
+  | CBreak
+  | CSet TermAst TermAst
+  | CStructType TermAst
+  | CStruct TermAst
+  | CApp TermAst TermAst
+  | CAdd TermAst TermAst
+  | CSeq TermAst TermAst
+  | CVar NameAst TermAst TermAst
+  | CAssign TermAst TermAst
+  | CEq TermAst TermAst
+  | CRef TermAst
+  | CDerefLVal TermAst -- deref pointer into lval
+  | CDerefRVal TermAst -- deref pointer into rval
+  | CCast TermAst TermAst
+  | CLam TermAst
+  | CLamType TermAst
   deriving (Show)
