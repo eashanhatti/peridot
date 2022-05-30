@@ -341,6 +341,9 @@ infer term = case term of
       , N.Rigid (N.ListTypeCons ty1 ty2))
   TermAst LCUniv -> pure (C.LowCTypeType, N.MetaTypeType)
   TermAst CIntType -> pure (C.Rigid C.CIntType, N.LowCTypeType)
+  TermAst (CLValType ty) -> do
+    cTy <- check ty N.LowCTypeType
+    pure (C.Rigid (C.CLValType cTy), N.LowCTypeType)
   TermAst (CInt x) -> pure (C.Rigid (C.CIntIntro x), N.Rigid N.CIntType)
   TermAst (CPtrType ty) -> do
     cTy <- check ty N.LowCTypeType
@@ -366,7 +369,9 @@ infer term = case term of
     pure (C.Rigid (C.CStructIntro cTerms), N.Rigid (N.CStructType ty))
   TermAst (CApp lam args) -> do
     (cLam, lamTy) <- infer lam
-    argsTy <- go lamTy
+    ty <- freshTypeUV
+    unifyR (N.Rigid (N.CLValType ty)) lamTy
+    argsTy <- go ty
     cArgs <- check args argsTy
     pure (C.Rigid (C.CStmtIntroCall cLam cArgs), N.Rigid N.CStmtType)
     where
@@ -387,9 +392,9 @@ infer term = case term of
     cStmt1 <- check stmt1 (N.Rigid N.CStmtType)
     cStmt2 <- check stmt2 (N.Rigid N.CStmtType)
     pure (C.Rigid (C.CStmtIntroSeq cStmt1 cStmt2), N.Rigid N.CStmtType)
-  TermAst (CVar (NameAst name) ty cont) -> do
+  TermAst (CDeclVar ty cont) -> do
     cTy <- check ty N.LowCTypeType
-    vTy <- eval cTy
+    vTy <- N.Rigid . N.CLValType <$> eval cTy
     clo <- closureOf (C.Rigid C.CStmtType)
     cCont <- check ty (N.MetaFunType Explicit vTy clo)
     pure (C.Rigid (C.CStmtIntroBind cTy cCont), N.Rigid N.CStmtType)
@@ -441,7 +446,29 @@ infer term = case term of
             formCheck vOutTy
           N.Rigid N.CStmtType -> pure True
           _ -> pure False
-  _ -> errorTerm CannotInfer
+  TermAst (CNameType ty) -> do
+    cTy <- check ty N.LowCTypeType
+    pure (C.Rigid (C.CNameType cTy), N.MetaTypeType)
+  TermAst (CGlobal name) -> do
+    ty <- freshTypeUV
+    cName <- check name (N.Rigid (N.CNameType ty))
+    pure (C.Rigid (C.CGlobal cName), N.Rigid (N.CLValType ty))
+  TermAst CTopType -> pure (C.Rigid C.CTopType, N.MetaTypeType)
+  TermAst (CTopDeclare ty cont) -> do
+    cTy <- check ty N.LowCTypeType
+    vTy <- eval cTy
+    clo <- closureOf (C.Rigid C.CTopType)
+    cCont <-
+      check
+        cont
+        (N.MetaFunType Explicit (N.Rigid (N.CNameType vTy)) clo)
+    pure (C.Rigid (C.CTopIntroDec cTy cCont), N.Rigid N.CTopType)
+  TermAst (CTopDefine name def cont) -> do
+    ty <- freshTypeUV
+    cName <- check name (N.Rigid (N.CNameType ty))
+    cDef <- check def ty
+    cCont <- check cont (N.Rigid N.CTopType)
+    pure (C.Rigid (C.CTopIntroDef cName cDef cCont), N.Rigid N.CTopType)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term =

@@ -65,7 +65,6 @@ data Error
   | FailedProve N.Term
   | AmbiguousProve N.Term (Seq (Map Global N.Term))
   | CLamFormCheck
-  | CannotInfer
   deriving (Show)
 
 type Query sig m = Has (State QueryState) sig m

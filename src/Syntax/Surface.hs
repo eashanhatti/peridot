@@ -83,18 +83,18 @@ data Term
   | CIntType
   | CInt Int
   | CPtrType TermAst
+  | CLValType TermAst
   | CStmtType
   | CReturn
   | CIf TermAst TermAst TermAst
   | CWhile TermAst TermAst
   | CBreak
-  | CSet TermAst TermAst
   | CStructType TermAst
   | CStruct TermAst
   | CApp TermAst TermAst
   | CAdd TermAst TermAst
   | CSeq TermAst TermAst
-  | CVar NameAst TermAst TermAst
+  | CDeclVar TermAst TermAst
   | CAssign TermAst TermAst
   | CEq TermAst TermAst
   | CRef TermAst
@@ -103,4 +103,10 @@ data Term
   | CCast TermAst TermAst
   | CLam TermAst
   | CLamType TermAst
+  | CNameType TermAst
+  | CGlobal TermAst
+  | CTopType
+  | CTopDeclare TermAst TermAst
+  | CTopDefine TermAst TermAst TermAst
+  | CTopEnd
   deriving (Show)

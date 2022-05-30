@@ -90,9 +90,12 @@ piE s c = do
       c pm (fromMaybe (NameAst Unbound) name) inTy (TermAst (go inTys))
   pure (go inTys)
 
-objLam :: Parser Term
-objLam = do
-  string "function"; ws
+lam ::
+  Text ->
+  (Seq (PassMethod, NameAst) -> TermAst -> Term) ->
+  Parser Term
+lam s c = do
+  string s; ws
   char '('; ws
   ns <-
     sepBy
@@ -104,7 +107,7 @@ objLam = do
   char ')'; ws
   string "=>"; ws
   body <- prec0
-  pure (ObjLam (fromList ns) body)
+  pure (c (fromList ns) body)
 
 app :: Parser Term
 app = do
@@ -308,6 +311,218 @@ existsProp = do
   p <- prec0
   pure (ExistsProp (TermAst (MetaLam (singleton n) p)))
 
+listTyNil :: Parser Term
+listTyNil = parens do
+  string "MNil"
+  pure ListTypeNil
+
+listTyCons :: Parser Term
+listTyCons = parens do
+  string "MCons"; ws
+  x <- prec0; ws
+  l <- prec0; ws
+  pure (ListTypeCons x l)
+
+listNil :: Parser Term
+listNil = parens do
+  string "mnil"
+  pure ListNil
+
+listCons :: Parser Term
+listCons = parens do
+  string "mcons"; ws
+  e <- prec0; ws
+  l <- prec0; ws
+  pure (ListCons e l)
+
+cIntTy :: Parser Term
+cIntTy = do
+  string "C_Int"
+  pure CIntType
+
+cInt :: Parser Term
+cInt = parens do
+  string "c_int"; ws
+  x <- some digitChar
+  pure (CInt (read x))
+
+cPtrTy :: Parser Term
+cPtrTy = parens do
+  string "C_Ptr"; ws
+  ty <- prec0
+  pure (CPtrType ty)
+
+cLValTy :: Parser Term
+cLValTy = parens do
+  string "C_LVal"; ws
+  ty <- prec0
+  pure (CLValType ty)
+
+cStmtTy :: Parser Term
+cStmtTy = do
+  string "C_Stmt"
+  pure CStmtType
+
+cReturn :: Parser Term
+cReturn = do
+  string "c_return"
+  pure CReturn
+
+cIf :: Parser Term
+cIf = parens do
+  string "c_if"; ws
+  cond <- prec0; ws
+  body1 <- prec0; ws
+  body2 <- prec0
+  pure (CIf cond body1 body2)
+
+cWhile :: Parser Term
+cWhile = parens do
+  string "c_while"; ws
+  cond <- prec0; ws
+  body <- prec0
+  pure (CWhile cond body)
+
+cBreak :: Parser Term
+cBreak = do
+  string "c_break"
+  pure CBreak
+
+cAssign :: Parser Term
+cAssign = parens do
+  string "c_assign"; ws
+  var <- prec0; ws
+  val <- prec0
+  pure (CAssign var val)
+
+cStructTy :: Parser Term
+cStructTy = parens do
+  string "C_Struct"; ws
+  ty <- prec0
+  pure (CStructType ty)
+
+cStruct :: Parser Term
+cStruct = parens do
+  string "c_struct"; ws
+  e <- prec0
+  pure (CStruct e)
+
+cApp :: Parser Term
+cApp = parens do
+  string "c_apply"; ws
+  lam <- prec0; ws
+  args <- prec0
+  pure (CApp lam args)
+
+cAdd :: Parser Term
+cAdd = parens do
+  string "c_add"; ws
+  x <- prec0; ws
+  y <- prec0
+  pure (CAdd x y)
+
+cSeq :: Parser Term
+cSeq = parens do
+  string "c_seq"; ws
+  s1 <- prec0; ws
+  s2 <- prec0
+  pure (CSeq s1 s2)
+
+cDeclVar :: Parser Term
+cDeclVar = parens do
+  string "c_var"; ws
+  ty <- prec0; ws
+  cont <- prec0
+  pure (CDeclVar ty cont)
+
+cEq :: Parser Term
+cEq = parens do
+  string "c_eq"; ws
+  x <- prec0; ws
+  y <- prec0
+  pure (CEq x y)
+
+cRef :: Parser Term
+cRef = parens do
+  string "c_ref"; ws
+  e <- prec0
+  pure (CRef e)
+
+cDerefL :: Parser Term
+cDerefL = parens do
+  string "c_derefL"; ws
+  e <- prec0
+  pure (CDerefLVal e)
+
+cDerefR :: Parser Term
+cDerefR = parens do
+  string "c_derefR"; ws
+  e <- prec0
+  pure (CDerefRVal e)
+
+cCast :: Parser Term
+cCast = parens do
+  string "c_cast"; ws
+  ty <- prec0; ws
+  e <- prec0
+  pure (CCast ty e)
+
+cLam :: Parser Term
+cLam = parens do
+  string "c_fun"; ws
+  body <- prec0
+  pure (CLam body)
+
+cLamTy :: Parser Term
+cLamTy = parens do
+  string "C_Fun"; ws
+  ty <- prec0
+  pure (CLamType ty)
+
+cNameTy :: Parser Term
+cNameTy = parens do
+  string "C_Name"; ws
+  ty <- prec0
+  pure (CNameType ty)
+
+cGlobal :: Parser Term
+cGlobal = parens do
+  string "c_global"; ws
+  n <- prec0
+  pure (CGlobal n)
+
+cTopTy :: Parser Term
+cTopTy = do
+  string "C_Toplevel"
+  pure CTopType
+
+cTopDec :: Parser Term
+cTopDec = parens do
+  string "c_declare"; ws
+  ty <- prec0; ws
+  cont <- prec0
+  pure (CTopDeclare ty cont)
+
+cTopDef :: Parser Term
+cTopDef = parens do
+  string "c_define"; ws
+  n <- prec0; ws
+  def <- prec0; ws
+  cont <- prec0
+  pure (CTopDefine n def cont)
+
+cTopEnd :: Parser Term
+cTopEnd = do
+  string "c_end"; ws
+  pure CTopEnd
+
+parens :: Parser a -> Parser a
+parens p = do
+  char '['; ws
+  r <- p; ws
+  char ']'
+  pure r
+
 prec2 :: Parser TermAst
 prec2 = do
   pos <- getSourcePos
@@ -324,6 +539,39 @@ prec2 = do
     try struct <|>
     try patch <|>
     try letE <|>
+    try listTyNil <|>
+    try listTyCons <|>
+    try listNil <|>
+    try listCons <|>
+    try cIntTy <|>
+    try cInt <|>
+    try cPtrTy <|>
+    try cLValTy <|>
+    try cStmtTy <|>
+    try cReturn <|>
+    try cIf <|>
+    try cWhile <|>
+    try cBreak <|>
+    try cAssign <|>
+    try cStructTy <|>
+    try cStruct <|>
+    try cApp <|>
+    try cAdd <|>
+    try cSeq <|>
+    try cDeclVar <|>
+    try cEq <|>
+    try cRef <|>
+    try cDerefL <|>
+    try cDerefR <|>
+    try cCast <|>
+    try cLam <|>
+    try cLamTy <|>
+    try cNameTy <|>
+    try cGlobal <|>
+    try cTopTy <|>
+    try cTopDec <|>
+    try cTopDef <|>
+    try cTopEnd <|>
     (do
       char '('; ws
       SourcePos (TermAst e) pos <- try prec1 <|> prec0; ws
@@ -354,7 +602,8 @@ prec0 =
       try (piE "~>" MetaPi) <|>
       try forallProp <|>
       try existsProp <|>
-      try objLam <|>
+      try (lam "function" ObjLam) <|>
+      try (lam "metafunction" (\ps -> MetaLam (fmap snd ps))) <|>
       try app <|>
       try equal <|>
       try implProp <|>
