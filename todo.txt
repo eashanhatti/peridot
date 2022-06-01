@@ -4,4 +4,3 @@ separate big `Let` into `Let` for each level
 zonk should raise error on unsolved uvs. or make zonk a completely separate function?
 `elaborate` hardcodes `unNextUV` to `1000`, change that
 remove nary records from core language - elaborate surface records to pairs
-fix coercions

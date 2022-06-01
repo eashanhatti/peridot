@@ -70,6 +70,8 @@ library
       PatternSynonyms
       MonadComprehensions
       RankNTypes
+      TypeOperators
+      MultiParamTypeClasses
   build-depends:
       base >=4.0 && <5
     , bytestring
@@ -125,6 +127,8 @@ executable peridot-exe
       PatternSynonyms
       MonadComprehensions
       RankNTypes
+      TypeOperators
+      MultiParamTypeClasses
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.0 && <5
@@ -183,6 +187,8 @@ test-suite peridot-test
       PatternSynonyms
       MonadComprehensions
       RankNTypes
+      TypeOperators
+      MultiParamTypeClasses
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.0 && <5

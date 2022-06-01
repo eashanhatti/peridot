@@ -17,7 +17,8 @@ import Extra
 keywords =
   [ "Function", "function", "Type", "let", "in", "Bool", "true", "false"
   , "Record", "record", "if", "else", "elseif", "Equal", "reflexive", "patch"
-  , "MetaType", "Forall", "Exists", "Implies", "And", "Or"]
+  , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "CType"
+  , "MNil", "mnil", "C_Int", "C_Stmt", "c_return", "c_break", "c_end"]
 
 ws :: Parser ()
 ws =
@@ -146,6 +147,11 @@ metaUniv :: Parser Term
 metaUniv = do
   string "MetaType"
   pure MUniv
+
+cUniv :: Parser Term
+cUniv = do
+  string "CType"
+  pure LCUniv
 
 letE :: Parser Term
 letE = do
@@ -529,6 +535,7 @@ prec2 = do
   e <-
     try objUniv <|>
     try metaUniv <|>
+    try cUniv <|>
     try bool <|>
     try true <|>
     try false <|>
@@ -618,6 +625,8 @@ decl = do
   pos <- getSourcePos
   d <-
     try define <|>
+    try metadefine <|>
+    try cdefine <|>
     try proof <|>
     try fresh <|>
     axiom
@@ -632,6 +641,26 @@ define = do
   char '='; ws
   def <- prec0
   pure (ObjTerm n ty def)
+
+cdefine :: Parser Declaration
+cdefine = do
+  string "cdefine"; ws
+  n <- name; ws
+  char ':'; ws
+  ty <- prec0; ws
+  char '='; ws
+  def <- prec0
+  pure (CTerm n ty def)
+
+metadefine :: Parser Declaration
+metadefine = do
+  string "metadefine"; ws
+  n <- name; ws
+  char ':'; ws
+  ty <- prec0; ws
+  char '='; ws
+  def <- prec0
+  pure (MetaTerm n ty def)
 
 axiom :: Parser Declaration
 axiom = do

@@ -34,15 +34,14 @@ unId (SourcePos ast _) = unId ast
 
 type NameAst = Ast Name
 
-type SignatureAst = TermAst
-
 type DeclarationAst = Ast Declaration
 data Declaration
-  = MetaTerm NameAst SignatureAst TermAst
-  | ObjTerm NameAst SignatureAst TermAst
-  | Axiom NameAst SignatureAst
-  | Prove SignatureAst
-  | Fresh NameAst SignatureAst
+  = MetaTerm NameAst TermAst TermAst
+  | ObjTerm NameAst TermAst TermAst
+  | CTerm NameAst TermAst TermAst
+  | Axiom NameAst TermAst
+  | Prove TermAst
+  | Fresh NameAst TermAst
   deriving (Show)
 
 type TermAst = Ast Term

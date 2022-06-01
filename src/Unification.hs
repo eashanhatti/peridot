@@ -111,28 +111,37 @@ unifyRedexes (RecElim str1 name1) (RecElim str2 name2) | name1 == name2 =
 unifyRedexes _ _ = throwError ()
 
 unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m (Coercion sig m)
-unifyRigid (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 = pure noop
-unifyRigid (ObjConstIntro did1) (ObjConstIntro did2) | did1 == did2 = pure noop
-unifyRigid (CodeCoreType ty1) (CodeCoreType ty2) = unify' ty1 ty2
+unifyRigid (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 =
+  pure noop
+unifyRigid (ObjConstIntro did1) (ObjConstIntro did2) | did1 == did2 =
+  pure noop
+unifyRigid (CodeCoreType ty1) (CodeCoreType ty2) = do
+  unifyS' ty1 ty2
+  pure noop
 unifyRigid (CodeCoreIntro term1) (CodeCoreIntro term2) = do
   unifyS' term1 term1
   pure noop
 unifyRigid (PropConstIntro did1) (PropConstIntro did2) | did1 == did2 = pure noop
 unifyRigid (ImplType inTy1 outTy1) (ImplType inTy2 outTy2) = do
-  unify' inTy1 inTy2
-  unify' outTy1 outTy2
+  unifyS' inTy1 inTy2
+  unifyS' outTy1 outTy2
+  pure noop
 unifyRigid (ConjType lprj1 rprj1) (ConjType lprj2 rprj2) = do
-  unify' lprj1 lprj2
-  unify' rprj1 rprj2
+  unifyS' lprj1 lprj2
+  unifyS' rprj1 rprj2
+  pure noop
 unifyRigid (DisjType linj1 rinj1) (DisjType linj2 rinj2) = do
-  unify' linj1 linj2
-  unify' rinj1 rinj2
+  unifyS' linj1 linj2
+  unifyS' rinj1 rinj2
+  pure noop
 unifyRigid (ObjIdType x1 y1) (ObjIdType x2 y2) = do
-  unify' x1 x2
-  unify' y1 y2
+  unifyS' x1 x2
+  unifyS' y1 y2
+  pure noop
 unifyRigid (PropIdType x1 y1) (PropIdType x2 y2) = do
-  unify' x1 x2
-  unify' y1 y2
+  unifyS' x1 x2
+  unifyS' y1 y2
+  pure noop
 unifyRigid TwoIntro0 TwoIntro0 = pure noop
 unifyRigid TwoIntro1 TwoIntro1 = pure noop
 unifyRigid TwoType TwoType = pure noop
@@ -148,6 +157,99 @@ unifyRigid (SingIntro term1) (SingIntro term2) = do
   unifyS' term1 term2
   pure noop
 unifyRigid (TypeType u1) (TypeType u2) | u1 == u2 = pure noop
+unifyRigid ListTypeNil ListTypeNil = pure noop
+unifyRigid (ListTypeCons e1 l1) (ListTypeCons e2 l2) = do
+  unifyS' e1 e2
+  unifyS' l1 l2
+  pure noop
+unifyRigid ListIntroNil ListIntroNil = pure noop
+unifyRigid (ListIntroCons e1 l1) (ListIntroCons e2 l2) = do
+  unifyS' e1 e2
+  unifyS' l1 l2
+  pure noop
+unifyRigid (CNameType ty1) (CNameType ty2) = do
+  unifyS' ty1 ty2
+  pure noop
+unifyRigid (CLValType ty1) (CLValType ty2) = do
+  unifyS' ty1 ty2
+  pure noop
+unifyRigid CIntType CIntType = pure noop
+unifyRigid (CPtrType ty1) (CPtrType ty2) = do
+  unifyS' ty1 ty2
+  pure noop
+unifyRigid CStmtType CStmtType = pure noop
+unifyRigid CStmtIntroRet CStmtIntroRet = pure noop
+unifyRigid (CStmtIntroIf cond1 body11 body21) (CStmtIntroIf cond2 body12 body22) = do
+  unifyS' cond1 cond2
+  unifyS' body11 body12
+  unifyS' body21 body22
+  pure noop
+unifyRigid (CStmtIntroWhl cond1 body1) (CStmtIntroWhl cond2 body2) = do
+  unifyS' cond1 cond2
+  unifyS' body1 body2
+  pure noop
+unifyRigid CStmtIntroBrk CStmtIntroBrk = pure noop
+unifyRigid (CStmtIntroCall lam1 args1) (CStmtIntroCall lam2 args2) = do
+  unifyS' lam1 lam2
+  unifyS' args1 args2
+  pure noop
+unifyRigid (CStmtIntroSeq s11 s21) (CStmtIntroSeq s12 s22) = do
+  unifyS' s11 s12
+  unifyS' s21 s22
+  pure noop
+unifyRigid (CStmtIntroBind ty1 cont1) (CStmtIntroBind ty2 cont2) = do
+  unifyS' ty1 ty2
+  unifyS' cont1 cont2
+  pure noop
+unifyRigid (CStmtIntroSet var1 val1) (CStmtIntroSet var2 val2) = do
+  unifyS' var1 var2
+  unifyS' val1 val2
+  pure noop
+unifyRigid (CStructType ty1) (CStructType ty2) = do
+  unifyS' ty1 ty2
+  pure noop
+unifyRigid (CFunType ty1) (CFunType ty2) = do
+  unifyS' ty1 ty2
+  pure noop
+unifyRigid (CFunIntro lam1) (CFunIntro lam2) = do
+  unifyS' lam1 lam2
+  pure noop
+unifyRigid (CIntIntro x1) (CIntIntro x2) | x1 == x2 = pure noop
+unifyRigid (CIntElimAdd x1 y1) (CIntElimAdd x2 y2) = do
+  unifyS' x1 x2
+  unifyS' y1 y2
+  pure noop
+unifyRigid (CIntElimEq x1 y1) (CIntElimEq x2 y2) = do
+  unifyS' x1 x2
+  unifyS' y1 y2
+  pure noop
+unifyRigid (CPtrIntro e1) (CPtrIntro e2) = do
+  unifyS' e1 e2
+  pure noop
+unifyRigid (CPtrElimRVal e1) (CPtrElimRVal e2) = do
+  unifyS' e1 e2
+  pure noop
+unifyRigid (CPtrElimLVal e1) (CPtrElimLVal e2) = do
+  unifyS' e1 e2
+  pure noop
+unifyRigid (CStructIntro e1) (CStructIntro e2) = do
+  unifyS' e1 e2
+  pure noop
+unifyRigid (CCast ty1 e1) (CCast ty2 e2) = do
+  unifyS' ty1 ty2
+  unifyS' e1 e2
+  pure noop
+unifyRigid (CGlobal e1) (CGlobal e2) = do
+  unifyS' e1 e2
+  pure noop
+unifyRigid CTopType CTopType = pure noop
+unifyRigid (CTopIntroDec ty1 cont1) (CTopIntroDec ty2 cont2) = do
+  unifyS' ty1 ty2
+  unifyS' cont1 cont2
+unifyRigid (CTopIntroDef name1 def1 cont1) (CTopIntroDef name2 def2 cont2) = do
+  unifyS' name1 name2
+  unifyS' def1 def2
+  unifyS' cont1 cont2
 unifyRigid ElabError _ = pure noop
 unifyRigid _ ElabError = pure noop
 unifyRigid term1 term2 = throwError ()
@@ -265,7 +367,9 @@ unify' term1 term2 =
           unifyS' fd1 fd2)
         (zip fds1 fds2)
       pure noop
-    go (Rigid term1) (Rigid term2) = unifyRigid term1 term2
+    go (Rigid term1) (Rigid term2) = do
+      unifyRigid term1 term2
+      pure noop
     go term1 term2 = throwError ()
 
 unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()

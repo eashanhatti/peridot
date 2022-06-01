@@ -47,6 +47,8 @@ default-extensions:
 - PatternSynonyms
 - MonadComprehensions
 - RankNTypes
+- TypeOperators
+- MultiParamTypeClasses
 
 dependencies:
 - base >=4.0 && <5
