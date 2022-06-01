@@ -17,8 +17,9 @@ import Extra
 keywords =
   [ "Function", "function", "Type", "let", "in", "Bool", "true", "false"
   , "Record", "record", "if", "else", "elseif", "Equal", "reflexive", "patch"
-  , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "CType"
-  , "MNil", "mnil", "C_Int", "C_Stmt", "c_return", "c_break", "c_end"]
+  , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "CType", "MNil"
+  , "mnil", "C_Int", "C_Stmt", "c_return", "c_break", "c_end", "Code"
+  , "CCode"]
 
 ws :: Parser ()
 ws =
@@ -147,6 +148,48 @@ metaUniv :: Parser Term
 metaUniv = do
   string "MetaType"
   pure MUniv
+
+liftCore :: Parser Term
+liftCore = do
+  string "Code"; ws
+  char '('; ws
+  e <- prec0; ws
+  char ')'
+  pure (LiftCore e)
+
+quoteCore :: Parser Term
+quoteCore = do
+  char '<'; ws
+  e <- prec0; ws
+  char '>'
+  pure (QuoteCore e)
+
+spliceCore :: Parser Term
+spliceCore = do
+  char '~'; ws
+  e <- prec2; ws
+  pure (SpliceCore e)
+
+liftC :: Parser Term
+liftC = do
+  string "CCode"; ws
+  char '('; ws
+  e <- prec0; ws
+  char ')'
+  pure (LiftC e)
+
+quoteC :: Parser Term
+quoteC = do
+  string "c<"; ws
+  e <- prec0; ws
+  char '>'
+  pure (QuoteC e)
+
+spliceC :: Parser Term
+spliceC = do
+  string "c~"; ws
+  e <- prec2; ws
+  pure (SpliceC e)
 
 cUniv :: Parser Term
 cUniv = do
@@ -592,6 +635,8 @@ prec1 =
     pos <- getSourcePos
     e <-
       try select <|>
+      try spliceCore <|>
+      try spliceC <|>
       (do
         char '('; ws
         SourcePos (TermAst e) pos <- prec0; ws
@@ -609,10 +654,14 @@ prec0 =
       try (piE "~>" MetaPi) <|>
       try forallProp <|>
       try existsProp <|>
+      try quoteCore <|>
+      try quoteC <|>
       try (lam "function" ObjLam) <|>
       try (lam "metafunction" (\ps -> MetaLam (fmap snd ps))) <|>
       try app <|>
       try equal <|>
+      try liftCore <|>
+      try liftC <|>
       try implProp <|>
       try conjProp <|>
       disjProp

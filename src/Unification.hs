@@ -99,6 +99,8 @@ unifyRedexes (ObjFunElim lam1 arg1) (ObjFunElim lam2 arg2) = do
   unifyS' arg1 arg2
 unifyRedexes (CodeCoreElim quote1) (CodeCoreElim quote2) =
   unifyS' quote1 quote2
+unifyRedexes (CodeCElim quote1) (CodeCElim quote2) =
+  unifyS' quote1 quote2
 unifyRedexes (GlobalVar did1) (GlobalVar did2) | did1 == did2 = pure ()
 unifyRedexes (TwoElim scr1 body11 body21) (TwoElim scr2 body12 body22) = do
   unifyS' scr1 scr2
@@ -119,6 +121,12 @@ unifyRigid (CodeCoreType ty1) (CodeCoreType ty2) = do
   unifyS' ty1 ty2
   pure noop
 unifyRigid (CodeCoreIntro term1) (CodeCoreIntro term2) = do
+  unifyS' term1 term1
+  pure noop
+unifyRigid (CodeCType ty1) (CodeCType ty2) = do
+  unifyS' ty1 ty2
+  pure noop
+unifyRigid (CodeCIntro term1) (CodeCIntro term2) = do
   unifyS' term1 term1
   pure noop
 unifyRigid (PropConstIntro did1) (PropConstIntro did2) | did1 == did2 = pure noop
@@ -246,10 +254,12 @@ unifyRigid CTopType CTopType = pure noop
 unifyRigid (CTopIntroDec ty1 cont1) (CTopIntroDec ty2 cont2) = do
   unifyS' ty1 ty2
   unifyS' cont1 cont2
+  pure noop
 unifyRigid (CTopIntroDef name1 def1 cont1) (CTopIntroDef name2 def2 cont2) = do
   unifyS' name1 name2
   unifyS' def1 def2
   unifyS' cont1 cont2
+  pure noop
 unifyRigid ElabError _ = pure noop
 unifyRigid _ ElabError = pure noop
 unifyRigid term1 term2 = throwError ()

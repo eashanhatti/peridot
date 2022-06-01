@@ -59,6 +59,9 @@ data Term
   | LiftCore TermAst
   | QuoteCore TermAst
   | SpliceCore TermAst
+  | LiftC TermAst
+  | QuoteC TermAst
+  | SpliceC TermAst
   | ImplProp TermAst TermAst
   | ConjProp TermAst TermAst
   | DisjProp TermAst TermAst

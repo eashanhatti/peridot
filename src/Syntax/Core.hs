@@ -35,6 +35,7 @@ data Term
   | MetaFunIntro Term
   | MetaFunElim Term Term
   | CodeCoreElim Term
+  | CodeCElim Term
   -- Other
   | LocalVar Index
   | GlobalVar Id

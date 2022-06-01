@@ -92,6 +92,7 @@ data Redex
   | ObjFunElim Term Term
   | ObjConstElim (Map Id Term)
   | CodeCoreElim Term
+  | CodeCElim Term
   | GlobalVar Id
   | UniVar Global
   | TwoElim Term Term Term

@@ -166,6 +166,19 @@ eval (C.CodeCoreElim term) = do
             Just (N.Rigid (N.CodeCoreIntro code)) -> pure (Just code)
             _ -> pure Nothing
   pure (N.Neutral reded (N.CodeCoreElim vTerm))
+eval (C.CodeCElim term) = do
+  vTerm <- eval term
+  let
+    reded = do
+      vTerm <- unfold vTerm
+      case vTerm of
+        N.Rigid (N.CodeCIntro code) -> pure (Just code)
+        _ -> do
+          r <- findDefEq vTerm
+          case r of
+            Just (N.Rigid (N.CodeCIntro code)) -> pure (Just code)
+            _ -> pure Nothing
+  pure (N.Neutral reded (N.CodeCoreElim vTerm))
 eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
 eval (C.Let decls body) = do
   let defs = fmap (\decl -> (C.unId decl, definition decl)) decls
@@ -320,6 +333,7 @@ readbackRedex opt (N.ObjFunElim lam arg) =
     readback' opt lam <*>
     readback' opt arg
 readbackRedex opt (N.CodeCoreElim quote) = C.CodeCoreElim <$> readback' opt quote
+readbackRedex opt (N.CodeCElim quote) = C.CodeCElim <$> readback' opt quote
 readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)
 readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)
 readbackRedex opt (N.Let decls body) =

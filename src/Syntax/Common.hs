@@ -55,6 +55,8 @@ data RigidTerm a
   | MetaConstIntro Id
   | CodeCoreType a
   | CodeCoreIntro a
+  | CodeCType a
+  | CodeCIntro a
   | ListTypeNil
   | ListTypeCons a a
   | ListIntroNil

@@ -192,6 +192,17 @@ infer term = case term of
     ty <- freshTypeUV
     cQuote <- check quote (N.Rigid (N.CodeCoreType ty))
     pure (C.CodeCoreElim cQuote, ty)
+  TermAst (LiftC ty) -> do
+    cTy <- check ty N.LowCTypeType
+    pure (C.Rigid (C.CodeCType cTy), N.MetaTypeType)
+  TermAst (QuoteC term) -> do
+    ty <- freshTypeUV
+    cTerm <- check term ty
+    pure (C.Rigid (C.CodeCIntro cTerm), N.Rigid (N.CodeCType ty))
+  TermAst (SpliceC quote) -> do
+    ty <- freshTypeUV
+    cQuote <- check quote (N.Rigid (N.CodeCType ty))
+    pure (C.CodeCElim cQuote, ty)
   TermAst (ImplProp p q) -> do
     cP <- check p (N.MetaTypeType)
     cQ <- check q (N.MetaTypeType)
