@@ -398,7 +398,7 @@ infer term = case term of
   TermAst (CAdd term1 term2) -> do
     cTerm1 <- check term1 (N.Rigid N.CIntType)
     cTerm2 <- check term2 (N.Rigid N.CIntType)
-    pure (C.Rigid (C.CIntElimAdd cTerm1 cTerm1), N.Rigid N.CIntType)
+    pure (C.Rigid (C.CIntElimAdd cTerm1 cTerm2), N.Rigid N.CIntType)
   TermAst (CSeq stmt1 stmt2) -> do
     cStmt1 <- check stmt1 (N.Rigid N.CStmtType)
     cStmt2 <- check stmt2 (N.Rigid N.CStmtType)

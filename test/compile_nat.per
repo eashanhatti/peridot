@@ -25,13 +25,13 @@ define succ
         data = n
       };
 
-axiom CompileNat : Function(CCode(C_Int), Code(Nat)) ~> MetaType;
+axiom CompileNat: Function(CCode(C_Int), Code(Nat)) ~> MetaType;
 axiom compile_zero : CompileNat(c<[c_int 0]>, <zero>);
-axiom compile_succ :
+axiom compile_succ:
   Forall x, Forall n,
   Implies(
     CompileNat(x, n),
     CompileNat(c<[c_add c~x [c_int 1]]>, <succ(~n)>));
 
-variable n : Code(Nat);
-proof CompileNat(c<[c_int 0]>, n);
+variable n: Code(Nat);
+proof CompileNat(c<[c_add [c_int 0] [c_int 1]]>, n);

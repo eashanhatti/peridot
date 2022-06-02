@@ -87,7 +87,7 @@ unfold n@(N.Neutral term redex) = do
 unfold term = pure term
 
 definition :: C.Declaration -> C.Term
-definition (C.MetaConst did sig) = funIntros sig (C.Rigid (C.MetaConstIntro did))
+definition (C.MetaConst did sig) = C.Rigid (C.MetaConstIntro did)
 definition (C.ObjTerm _ _ def) = def
 definition (C.CTerm _ _ def) = def
 definition (C.MetaTerm _ _ def) = def
@@ -178,7 +178,7 @@ eval (C.CodeCElim term) = do
           case r of
             Just (N.Rigid (N.CodeCIntro code)) -> pure (Just code)
             _ -> pure Nothing
-  pure (N.Neutral reded (N.CodeCoreElim vTerm))
+  pure (N.Neutral reded (N.CodeCElim vTerm))
 eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
 eval (C.Let decls body) = do
   let defs = fmap (\decl -> (C.unId decl, definition decl)) decls

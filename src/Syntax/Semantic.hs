@@ -66,7 +66,7 @@ instance Show Term where
   show (LocalVar lvl) = "(LocalVar " ++ show lvl ++ ")"
   show (RecType tys) = "(RecType " ++ show tys ++ ")"
   show (RecIntro tys) = "(RecIntro " ++ show tys ++ ")"
-  show (Rigid term) = "(Rigid " ++ show term ++ ")"
+  show (Rigid term) = "(Rigid (" ++ show term ++ "))"
   show (Neutral _ redex) = "(Neutral _ (" ++ show redex ++ "))"
 
 instance Eq Term where

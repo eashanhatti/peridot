@@ -36,9 +36,12 @@ withSubst subst = local (\ctx -> ctx { unTypeUVs = subst `Map.union` (unTypeUVs 
 
 prove :: forall sig m. Search sig m => Seq Term -> Term -> m Substitution
 prove ctx goal@(Neutral p _) = do
+  -- let !_ = tracePretty goal
   p <- force p
+  -- let !_ = tracePretty p
   case p of
-    Just p -> prove ctx p
+    Just p -> do
+      prove ctx p
     Nothing ->
       if isAtomic goal then do
         def <- oneOf ctx
@@ -51,14 +54,13 @@ prove ctx (Rigid (ConjType p q)) = do
 prove ctx (Rigid (DisjType p q)) =
   prove ctx p <|> prove ctx q
 prove ctx (Rigid (SomeType (MetaFunIntro p))) = do
-  -- uv <- freshUV
-  vP <- evalClosure p {-uv-}
+  uv <- freshUV
+  vP <- appClosure p uv
   prove ctx vP
 prove ctx (Rigid (ImplType p q)) =
   prove (p <| ctx) q
 prove ctx (Rigid (AllType (MetaFunIntro p))) = do
-  uv <- freshUV
-  vP <- appClosure p uv
+  vP <- evalClosure p
   prove ctx vP
 prove ctx (Rigid (PropIdType x y)) = do
   r <- unifyR x y
@@ -68,19 +70,21 @@ prove ctx (Rigid (PropIdType x y)) = do
 prove _ goal = empty
 
 search :: Search sig m => Seq Term -> Term -> Term -> m Substitution
-search ctx (MetaFunElims gHead gArgs) (MetaFunElims dHead dArgs)
+search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    normCtx <- ask
-    let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
+    -- normCtx <- ask
+    -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
     substs <-
       traverse
         (\(dArg, gArg) -> unifyR gArg dArg)
         (zip dArgs gArgs)
-    let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-    let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
+    -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+    -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
+    -- let !_ = tracePrettyS "DEF" d
+    -- let !_ = tracePrettyS "GOAL" g
     substs <- ((<| substs) <$> unifyR gHead dHead)
-    let !_ = tracePrettyS "SUBSTS" substs
+    -- let !_ = tracePrettyS "SUBSTS" substs
     case allJustOrNothing substs of
       Just substs -> pure (concat (fmap (\(Subst ts _) -> ts) substs))
       Nothing -> empty

@@ -127,7 +127,7 @@ unifyRigid (CodeCType ty1) (CodeCType ty2) = do
   unifyS' ty1 ty2
   pure noop
 unifyRigid (CodeCIntro term1) (CodeCIntro term2) = do
-  unifyS' term1 term1
+  unifyS' term1 term2
   pure noop
 unifyRigid (PropConstIntro did1) (PropConstIntro did2) | did1 == did2 = pure noop
 unifyRigid (ImplType inTy1 outTy1) (ImplType inTy2 outTy2) = do
@@ -301,7 +301,15 @@ unify' term1 term2 =
       case prevSol of
         Just prevSol -> unify' term prevSol
         Nothing -> putTypeSolExp gl term
-    go (Neutral term1 redex1) (Neutral term2 redex2) =
+    go (Neutral _ (CodeCoreElim term1)) term2 =
+      unify' term1 (Rigid (CodeCoreIntro term2))
+    go term1 (Neutral _ (CodeCoreElim term2)) =
+      unify' (Rigid (CodeCoreIntro term1)) term2
+    go (Neutral _ (CodeCElim term1)) term2 =
+      unify' term1 (Rigid (CodeCIntro term2))
+    go term1 (Neutral _ (CodeCElim term2)) =
+      unify' (Rigid (CodeCIntro term1)) term2
+    go nterm1@(Neutral term1 redex1) nterm2@(Neutral term2 redex2) =
       catchError (unifyRedexes redex1 redex2 *> pure noop) (\() -> go)
       where
         go :: Unify sig m => m (Coercion sig m)
@@ -310,6 +318,8 @@ unify' term1 term2 =
           term2 <- force term2
           case (term1, term2) of
             (Just term1, Just term2) -> unify' term1 term2
+            -- (Nothing, Just term2) -> unify' nterm1 term2
+            -- (Just term1, Nothing) -> unify' term1 nterm2
             _ -> throwError ()
     go (Neutral term1 _) term2 = do
       term1 <- force term1
