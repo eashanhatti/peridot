@@ -294,19 +294,12 @@ occurs gl term = case term of
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m (Coercion sig m)
 unify' term1 term2 =
-  coerce term1 term2 `catchError` (\() -> go term1 term2)
+  simple term1 term2 `catchError` (\() -> complex term1 term2)
   where
     simple :: Unify sig m => Term -> Term -> m (Coercion sig m)
-    simple (Rigid (SingType _ term)) _ =
-      pure (liftCoe \e -> do
-        vE <- eval e
-        unifyS' term vE
-        pure (C.Rigid (C.SingIntro e)))
-    coerce ty1 (Rigid (SingType ty2 _)) =
-      pure (liftCoe \e -> do
-        unifyS' ty1 ty2
-        pure (C.SingElim e))
-    coerce nterm1@(Neutral term1 redex1) nterm2@(Neutral term2 redex2) =
+    simple (Rigid ElabError) _ = pure noop
+    simple _ (Rigid ElabError) = pure noop
+    simple nterm1@(Neutral term1 redex1) nterm2@(Neutral term2 redex2) =
       catchError (unifyRedexes redex1 redex2 *> pure noop) (\() -> go)
       where
         go :: Unify sig m => m (Coercion sig m)
@@ -316,49 +309,16 @@ unify' term1 term2 =
           case (term1, term2) of
             (Just term1, Just term2) -> unify' term1 term2
             _ -> throwError ()
-    coerce _ _ = throwError ()
-
-    go :: Unify sig m => Term -> Term -> m (Coercion sig m)
-    go (Rigid ElabError) _ = pure noop
-    go _ (Rigid ElabError) = pure noop
-    go (Neutral prevSol (UniVar gl)) term = do
-      prevSol <- force prevSol
-      case prevSol of
-        Just prevSol -> unify' prevSol term
-        Nothing -> putTypeSolInf gl term
-    go term (Neutral prevSol (UniVar gl)) = do
-      prevSol <- force prevSol
-      case prevSol of
-        Just prevSol -> unify' term prevSol
-        Nothing -> putTypeSolExp gl term
-    go (Neutral _ (CodeCoreElim term1)) term2 =
-      unify' term1 (Rigid (CodeCoreIntro term2))
-    go term1 (Neutral _ (CodeCoreElim term2)) =
-      unify' (Rigid (CodeCoreIntro term1)) term2
-    go (Neutral _ (CodeCElim term1)) term2 =
-      unify' term1 (Rigid (CodeCIntro term2))
-    go term1 (Neutral _ (CodeCElim term2)) =
-      unify' (Rigid (CodeCIntro term1)) term2
-    go (Neutral term1 _) term2 = do
-      term1 <- force term1
-      case term1 of
-        Just term1 -> unify' term1 term2
-        Nothing -> throwError ()
-    go term1 (Neutral term2 _) = do
-      term2 <- force term2
-      case term2 of
-        Just term2 -> unify' term1 term2
-        Nothing -> throwError ()
-    go (MetaFunType pm1 inTy1 outTy1) (MetaFunType pm2 inTy2 outTy2)
+    simple (MetaFunType pm1 inTy1 outTy1) (MetaFunType pm2 inTy2 outTy2)
       | pm1 == pm2
       = do
         unifyS' inTy1 inTy2
         bind2 unifyS' (evalClosure outTy1) (evalClosure outTy2)
         pure noop
-    go (MetaFunIntro body1) (MetaFunIntro body2) = do
+    simple (MetaFunIntro body1) (MetaFunIntro body2) = do
       bind2 unifyS' (evalClosure body1) (evalClosure body2)
       pure noop
-    go (ObjFunType pm1 inTy1 outTy1) (ObjFunType pm2 inTy2 outTy2)
+    simple (ObjFunType pm1 inTy1 outTy1) (ObjFunType pm2 inTy2 outTy2)
       | pm1 == pm2
       = do
         coe1 <- unify' inTy1 inTy2
@@ -369,11 +329,11 @@ unify' term1 term2 =
               arg <- applyCoe coe1 (C.LocalVar 0)
               C.ObjFunIntro <$> applyCoe coe2 (C.ObjFunElim e arg))
           (True, True) -> pure noop
-    go (ObjFunIntro body1) (ObjFunIntro body2) = do
+    simple (ObjFunIntro body1) (ObjFunIntro body2) = do
       bind2 unifyS' (evalClosure body1) (evalClosure body2)
       pure noop
-    go (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure noop
-    go (RecType tys1) (RecType tys2) | length tys1 == length tys2 = do
+    simple (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure noop
+    simple (RecType tys1) (RecType tys2) | length tys1 == length tys2 = do
       coes <- go Empty (zip tys1 tys2)
       if all isNoop coes then
         pure noop
@@ -398,17 +358,65 @@ unify' term1 term2 =
           coe <- unify' vTy1 vTy2
           l <- level
           (coe <|) <$> bind (go (LocalVar l <| defs) tys)
-    go (RecIntro fds1) (RecIntro fds2) = do
+    simple (RecIntro fds1) (RecIntro fds2) = do
       traverse_
         (\((name1, fd1), (name2, fd2)) -> do
           when (name1 /= name2) (throwError ())
           unifyS' fd1 fd2)
         (zip fds1 fds2)
       pure noop
-    go (Rigid term1) (Rigid term2) = do
+    simple (Rigid term1) (Rigid term2) = do
       unifyRigid term1 term2
       pure noop
-    go term1 term2 = throwError ()
+    simple _ _ = throwError ()
+
+    complex :: Unify sig m => Term -> Term -> m (Coercion sig m)
+    complex (Neutral prevSol (UniVar gl)) term = do
+      prevSol <- force prevSol
+      case prevSol of
+        Just prevSol -> unify' prevSol term
+        Nothing -> putTypeSolInf gl term
+    complex term (Neutral prevSol (UniVar gl)) = do
+      prevSol <- force prevSol
+      case prevSol of
+        Just prevSol -> unify' term prevSol
+        Nothing -> putTypeSolExp gl term
+    complex (Rigid (SingType _ term)) _ =
+      pure (liftCoe \e -> do
+        vE <- eval e
+        unifyS' term vE
+        pure (C.Rigid (C.SingIntro e)))
+    complex ty1 (Rigid (SingType ty2 _)) =
+      pure (liftCoe \e -> do
+        unifyS' ty1 ty2
+        pure (C.SingElim e))
+    complex (Rigid (CodeCoreType ty1)) ty2 =
+      pure (liftCoe \e -> pure (C.Rigid (C.CodeCoreIntro e)))
+    complex ty1 (Rigid (CodeCoreType ty2)) =
+      pure (liftCoe \e -> pure (C.CodeCoreElim e))
+    complex (Rigid (CodeCType ty1)) ty2 =
+      pure (liftCoe \e -> pure (C.Rigid (C.CodeCIntro e)))
+    complex ty1 (Rigid (CodeCType ty2)) =
+      pure (liftCoe \e -> pure (C.CodeCElim e))
+    complex (Neutral _ (CodeCoreElim term1)) term2 =
+      unify' term1 (Rigid (CodeCoreIntro term2))
+    complex term1 (Neutral _ (CodeCoreElim term2)) =
+      unify' (Rigid (CodeCoreIntro term1)) term2
+    complex (Neutral _ (CodeCElim term1)) term2 =
+      unify' term1 (Rigid (CodeCIntro term2))
+    complex term1 (Neutral _ (CodeCElim term2)) =
+      unify' (Rigid (CodeCIntro term1)) term2
+    complex (Neutral term1 _) term2 = do
+      term1 <- force term1
+      case term1 of
+        Just term1 -> unify' term1 term2
+        Nothing -> throwError ()
+    complex term1 (Neutral term2 _) = do
+      term2 <- force term2
+      case term2 of
+        Just term2 -> unify' term1 term2
+        Nothing -> throwError ()
+    complex term1 term2 = throwError ()
 
 unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unifyS' term1 term2 = do
