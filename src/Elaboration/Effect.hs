@@ -63,7 +63,7 @@ data Error
   | ExpectedFunType N.Term
   | MissingField Name
   | FailedProve N.Term
-  | AmbiguousProve N.Term (Seq (Map Global N.Term))
+  | AmbiguousProve N.Term (Seq (Map.Map Global N.Term, Map.Map Global Global))
   | CLamFormCheck
   deriving (Show)
 
@@ -238,9 +238,12 @@ convertible term1 term2 = do
     (isJust <$> Uni.unifyR term1 term2)
 
 putTypeUVSols :: Elab sig m => Map Global N.Term -> m ()
-putTypeUVSols sols = do
-  state <- get
-  put (state { unTypeUVs = fmap Just sols <> unTypeUVs state })
+putTypeUVSols sols =
+  modify (\st -> st { unTypeUVs = fmap Just sols <> unTypeUVs st })
+
+putUVEqs :: Elab sig m => Map Global Global -> m ()
+putUVEqs eqs =
+  modify (\st -> st { unUVEqs = eqs <> unUVEqs st })
 
 bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =

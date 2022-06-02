@@ -3,13 +3,13 @@ module Search where
 import Syntax.Semantic
 import Control.Effect.NonDet(NonDet, Alternative, empty, (<|>), oneOf)
 import Control.Effect.State(State, get, put, modify)
-import Control.Carrier.NonDet.Church
+import Control.Carrier.NonDet.Church hiding(Empty)
 import Control.Carrier.State.Strict
 import Control.Carrier.Reader
 import Control.Effect.Throw
 import Control.Algebra(Has, run)
 import Normalization
-import Unification hiding(Substitution)
+import Unification hiding(Substitution, unUVEqs)
 import Data.Map qualified as Map
 import Syntax.Common(Global(..))
 import Numeric.Natural
@@ -19,6 +19,8 @@ import Debug.Trace
 import Control.Applicative
 import Shower
 import Prelude hiding(length, zip, concatMap, concat, filter, null)
+import Data.Bifunctor
+import Data.Foldable(foldl')
 
 data SearchState = SearchState
   { unNextUV :: Natural }
@@ -29,10 +31,20 @@ type Search sig m =
   , Norm sig m
   , Has (State SearchState) sig m )
 
-type Substitution = Map.Map Global Term
+type Substitution = (Map.Map Global Term, Map.Map Global Global)
 
 withSubst :: Search sig m => Substitution -> m Substitution -> m Substitution
-withSubst subst = local (\ctx -> ctx { unTypeUVs = subst `Map.union` (unTypeUVs ctx) })
+withSubst (subst, eqs) =
+  local
+    (\ctx -> ctx
+      { unTypeUVs = subst <> unTypeUVs ctx
+      , unUVEqs = eqs <> unUVEqs ctx})
+
+concatSubsts Empty = mempty
+concatSubsts ((ts, eqs) :<| substs) =
+  let (ts', eqs') = concatSubsts substs
+  in (ts <> ts', eqs <> eqs')
+unionSubsts (ts1, eqs1) (ts2, eqs2) = (ts1 <> ts2, eqs1 <> eqs2)
 
 prove :: forall sig m. Search sig m => Seq Term -> Term -> m Substitution
 prove ctx goal@(Neutral p _) = do
@@ -65,7 +77,7 @@ prove ctx (Rigid (AllType (MetaFunIntro p))) = do
 prove ctx (Rigid (PropIdType x y)) = do
   r <- unifyR x y
   case r of
-    Just (Subst ts _) -> pure ts
+    Just (Subst ts eqs) -> pure (ts, eqs)
     Nothing -> empty
 prove _ goal = empty
 
@@ -86,7 +98,8 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     substs <- ((<| substs) <$> unifyR gHead dHead)
     -- let !_ = tracePrettyS "SUBSTS" substs
     case allJustOrNothing substs of
-      Just substs -> pure (concat (fmap (\(Subst ts _) -> ts) substs))
+      Just substs ->
+        pure (concatSubsts (fmap (\(Subst ts eqs) -> (ts, eqs)) substs))
       Nothing -> empty
 search ctx goal (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
@@ -95,7 +108,7 @@ search ctx goal (Rigid (AllType (MetaFunIntro p))) = do
 search ctx goal (Rigid (ImplType p q)) = do
   qSubst <- search ctx goal q
   pSubst <- withSubst qSubst (prove ctx p)
-  pure (qSubst `Map.union` pSubst)
+  pure (qSubst `unionSubsts` pSubst)
 search ctx goal (Neutral p _) = do
   p <- force p
   case p of

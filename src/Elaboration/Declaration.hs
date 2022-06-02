@@ -63,7 +63,9 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
           if isAmbiguous substs then
             errorDecl (AmbiguousProve vSig substs)
           else do
-            putTypeUVSols (concat substs)
+            let (ts, eqs) = concatSubsts substs
+            putTypeUVSols ts
+            putUVEqs eqs
             pure (C.MetaConst did cSig)
       where
         isAmbiguous :: Seq Substitution -> Bool
@@ -76,7 +78,8 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
                 (Set.filter \case
                   LVGlobal _ -> False
                   UVGlobal _ -> True) .
-              fmap Map.keysSet $
+              fmap Map.keysSet .
+              fmap fst $
               substs
           in
             not .
