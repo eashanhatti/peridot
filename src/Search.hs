@@ -87,12 +87,12 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   = do
     -- normCtx <- ask
     -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
+    -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+    -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
     substs <-
       traverse
         (\(dArg, gArg) -> unifyR gArg dArg)
         (zip dArgs gArgs)
-    -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-    -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
     -- let !_ = tracePrettyS "DEF" d
     -- let !_ = tracePrettyS "GOAL" g
     substs <- ((<| substs) <$> unifyR gHead dHead)

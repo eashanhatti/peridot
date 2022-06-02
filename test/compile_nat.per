@@ -34,4 +34,4 @@ axiom compile_succ:
     CompileNat(c<[c_add c~x [c_int 1]]>, <succ(~n)>));
 
 variable n: Code(Nat);
-proof CompileNat(c<[c_add [c_add [c_int 0] [c_int 1]] [c_int 1]]>, <succ(~n)>);
+proof CompileNat(c<[c_add [c_int 0] [c_int 1]]>, n);

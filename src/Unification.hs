@@ -66,6 +66,7 @@ putTypeSolExp gl sol = do
   sols <- get
   case Map.lookup gl (unTypeSols sols) of
     Nothing -> do
+      occurs gl sol
       put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
       pure noop
     Just sol' -> unify' sol sol'
@@ -75,6 +76,7 @@ putTypeSolInf gl sol = do
   sols <- get
   case Map.lookup gl (unTypeSols sols) of
     Nothing -> do
+      occurs gl sol
       put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
       pure noop
     Just sol' -> unify' sol' sol
@@ -110,6 +112,7 @@ unifyRedexes (SingElim term1) (SingElim term2) =
   unifyS' term1 term2
 unifyRedexes (RecElim str1 name1) (RecElim str2 name2) | name1 == name2 =
   unifyS' str1 str2
+unifyRedexes (UniVar gl1) (UniVar gl2) = equateUVs gl1 gl2
 unifyRedexes _ _ = throwError ()
 
 unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m (Coercion sig m)
@@ -121,7 +124,7 @@ unifyRigid (CodeCoreType ty1) (CodeCoreType ty2) = do
   unifyS' ty1 ty2
   pure noop
 unifyRigid (CodeCoreIntro term1) (CodeCoreIntro term2) = do
-  unifyS' term1 term1
+  unifyS' term1 term2
   pure noop
 unifyRigid (CodeCType ty1) (CodeCType ty2) = do
   unifyS' ty1 ty2
@@ -264,12 +267,37 @@ unifyRigid ElabError _ = pure noop
 unifyRigid _ ElabError = pure noop
 unifyRigid term1 term2 = throwError ()
 
+occurs :: Unify sig m => Global -> Term -> m ()
+occurs gl term = case term of
+  ObjFunType _ inTy outTy -> do
+    occurs gl inTy
+    evalClosure outTy >>= occurs gl
+  ObjFunIntro body -> evalClosure body >>= occurs gl
+  MetaFunType _ inTy outTy -> do
+    occurs gl inTy
+    evalClosure outTy >>= occurs gl
+  MetaFunIntro body -> evalClosure body >>= occurs gl
+  RecType tys ->
+    void (traverse (\ty -> evalClosure ty >>= occurs gl) (fmap snd tys))
+  RecIntro defs ->
+    void (traverse (occurs gl) (fmap snd defs))
+  LocalVar _ -> pure ()
+  Rigid rterm -> void (traverse (occurs gl) rterm)
+  Neutral _ (UniVar gl') | gl == gl' -> do
+    -- let !_ = tracePretty (gl, gl')
+    throwError ()
+  Neutral term _ -> do
+    term <- force term
+    case term of
+      Just term -> occurs gl term
+      Nothing -> pure ()
+
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m (Coercion sig m)
 unify' term1 term2 =
   coerce term1 term2 `catchError` (\() -> go term1 term2)
   where
-    coerce :: Unify sig m => Term -> Term -> m (Coercion sig m)
-    coerce (Rigid (SingType _ term)) _ =
+    simple :: Unify sig m => Term -> Term -> m (Coercion sig m)
+    simple (Rigid (SingType _ term)) _ =
       pure (liftCoe \e -> do
         vE <- eval e
         unifyS' term vE
@@ -278,19 +306,21 @@ unify' term1 term2 =
       pure (liftCoe \e -> do
         unifyS' ty1 ty2
         pure (C.SingElim e))
+    coerce nterm1@(Neutral term1 redex1) nterm2@(Neutral term2 redex2) =
+      catchError (unifyRedexes redex1 redex2 *> pure noop) (\() -> go)
+      where
+        go :: Unify sig m => m (Coercion sig m)
+        go = do
+          term1 <- force term1
+          term2 <- force term2
+          case (term1, term2) of
+            (Just term1, Just term2) -> unify' term1 term2
+            _ -> throwError ()
     coerce _ _ = throwError ()
 
     go :: Unify sig m => Term -> Term -> m (Coercion sig m)
     go (Rigid ElabError) _ = pure noop
     go _ (Rigid ElabError) = pure noop
-    go (Neutral sol1 (UniVar gl1)) (Neutral sol2 (UniVar gl2)) = do
-      sol1 <- force sol1
-      sol2 <- force sol2
-      case (sol1, sol2) of
-        (Just sol1, Just sol2) -> unify' sol1 sol2
-        (Just sol1, Nothing) -> putTypeSolInf gl2 sol1
-        (Nothing, Just sol2) -> putTypeSolExp gl1 sol2
-        (Nothing, Nothing) -> equateUVs gl1 gl2 *> pure noop
     go (Neutral prevSol (UniVar gl)) term = do
       prevSol <- force prevSol
       case prevSol of
@@ -309,18 +339,6 @@ unify' term1 term2 =
       unify' term1 (Rigid (CodeCIntro term2))
     go term1 (Neutral _ (CodeCElim term2)) =
       unify' (Rigid (CodeCIntro term1)) term2
-    go nterm1@(Neutral term1 redex1) nterm2@(Neutral term2 redex2) =
-      catchError (unifyRedexes redex1 redex2 *> pure noop) (\() -> go)
-      where
-        go :: Unify sig m => m (Coercion sig m)
-        go = do
-          term1 <- force term1
-          term2 <- force term2
-          case (term1, term2) of
-            (Just term1, Just term2) -> unify' term1 term2
-            -- (Nothing, Just term2) -> unify' nterm1 term2
-            -- (Just term1, Nothing) -> unify' term1 nterm2
-            _ -> throwError ()
     go (Neutral term1 _) term2 = do
       term1 <- force term1
       case term1 of
