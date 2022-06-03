@@ -14,7 +14,7 @@ unId (MetaConst did _) = did
 unId (MetaTerm did _ _) = did
 unId (ObjTerm did _ _) = did
 unId (CTerm did _ _) = did
-unId DElabError = error "FIXME"
+unId DElabError = 99999
 
 type Type = Term
 

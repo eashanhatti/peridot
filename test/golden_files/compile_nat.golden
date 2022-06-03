@@ -1,0 +1,255 @@
+((fromList
+    [(UVGlobal 6,
+      Just
+        (Rigid
+           (CodeCoreIntro
+              (Neutral
+                 _
+                 (ObjFunElim
+                    (Neutral _ (GlobalVar (Id {unId = 2})))
+                    (Neutral
+                       _
+                       (CodeCoreElim
+                          (Neutral _ (UniVar (LVGlobal 2001)))))))))),
+     (UVGlobal 7,
+      Just
+        (Rigid
+           (CodeCoreIntro
+              (Neutral _ (GlobalVar (Id {unId = 1})))))),
+     (UVGlobal 1000, Just (Rigid (CIntType))),
+     (UVGlobal 1001,
+      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+     (UVGlobal 1002, Nothing),
+     (UVGlobal 1003,
+      Just (Rigid (CodeCType (Rigid (CIntType))))),
+     (UVGlobal 1004, Just (Rigid (TypeType Meta))),
+     (UVGlobal 1005, Nothing),
+     (UVGlobal 1006,
+      Just
+        (Rigid
+           (CodeCoreType
+              (Neutral _ (GlobalVar (Id {unId = 0})))))),
+     (UVGlobal 1007, Just (Rigid (TypeType Meta))),
+     (UVGlobal 1008, Nothing),
+     (UVGlobal 1009,
+      Just (Rigid (CodeCType (Rigid (CIntType))))),
+     (UVGlobal 1010, Just (Rigid (TypeType Meta))),
+     (UVGlobal 1011, Nothing),
+     (UVGlobal 1012,
+      Just
+        (Rigid
+           (CodeCoreType
+              (Neutral _ (GlobalVar (Id {unId = 0})))))),
+     (UVGlobal 1013, Just (Rigid (TypeType Meta))),
+     (UVGlobal 1014, Just (Rigid (CIntType))),
+     (UVGlobal 1015,
+      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+     (UVGlobal 1016, Nothing),
+     (UVGlobal 1017,
+      Just (Rigid (CodeCType (Rigid (CIntType))))),
+     (UVGlobal 1018, Just (Rigid (TypeType Meta))),
+     (UVGlobal 1019, Nothing),
+     (UVGlobal 1020,
+      Just
+        (Rigid
+           (CodeCoreType
+              (Neutral _ (GlobalVar (Id {unId = 0})))))),
+     (UVGlobal 1021, Just (Rigid (TypeType Meta))),
+     (UVGlobal 1022, Just (Rigid (CIntType))),
+     (UVGlobal 1023,
+      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+     (UVGlobal 1024, Nothing),
+     (UVGlobal 1025,
+      Just (Rigid (CodeCType (Rigid (CIntType))))),
+     (UVGlobal 1026, Just (Rigid (TypeType Meta))),
+     (UVGlobal 1027, Nothing),
+     (UVGlobal 1028,
+      Just
+        (Rigid
+           (CodeCoreType
+              (Neutral _ (GlobalVar (Id {unId = 0})))))),
+     (UVGlobal 1029, Just (Rigid (TypeType Meta))),
+     (UVGlobal 1030, Just (Rigid (CIntType))),
+     (UVGlobal 1031,
+      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+     (LVGlobal 2000,
+      Just (Rigid (CodeCIntro (Rigid (CIntIntro 0))))),
+     (LVGlobal 2001,
+      Just (Neutral _ (GlobalVar (Id {unId = 7}))))],
+  fromList
+    [(UVGlobal 1002, UVGlobal 1003),
+     (UVGlobal 1003, UVGlobal 1002),
+     (UVGlobal 1005, UVGlobal 1006),
+     (UVGlobal 1006, UVGlobal 1005),
+     (UVGlobal 1008, UVGlobal 1009),
+     (UVGlobal 1009, UVGlobal 1008),
+     (UVGlobal 1011, UVGlobal 1012),
+     (UVGlobal 1012, UVGlobal 1011),
+     (UVGlobal 1016, UVGlobal 1017),
+     (UVGlobal 1017, UVGlobal 1016),
+     (UVGlobal 1019, UVGlobal 1020),
+     (UVGlobal 1020, UVGlobal 1019),
+     (UVGlobal 1024, UVGlobal 1025),
+     (UVGlobal 1025, UVGlobal 1024),
+     (UVGlobal 1027, UVGlobal 1028),
+     (UVGlobal 1028, UVGlobal 1027)],
+  fromList
+    [(SourcePos
+        {sourceName = "<TODO>",
+         sourceLine = Pos 42,
+         sourceColumn = Pos 1},
+      FailedProve
+        (Neutral
+           _
+           (MetaFunElim
+              (Neutral
+                 _
+                 (MetaFunElim
+                    (Neutral _ (GlobalVar (Id {unId = 3})))
+                    (Rigid
+                       (CodeCIntro
+                          (Rigid
+                             (CIntElimAdd
+                                (Rigid (CIntIntro 0))
+                                (Rigid (CIntIntro 1))))))))
+              (Rigid
+                 (CodeCoreIntro
+                    (Neutral
+                       _
+                       (ObjFunElim
+                          (Neutral _ (GlobalVar (Id {unId = 2})))
+                          (Neutral
+                             _
+                             (ObjFunElim
+                                (Neutral _ (GlobalVar (Id {unId = 2})))
+                                (Neutral
+                                   _
+                                   (CodeCoreElim
+                                      (Neutral
+                                         _
+                                         (GlobalVar
+                                            (Id {unId = 8}))))))))))))))]),
+ Let
+   (fromList
+      [ObjTerm
+         (Id {unId = 0})
+         (Rigid (TypeType Obj))
+         (RecType
+            (fromList
+               [(Field {unField = "tag"}, Rigid TwoType),
+                (Field {unField = "data"},
+                 TwoElim
+                   (LocalVar (Index {unIndex = 0}))
+                   (RecType (fromList []))
+                   (GlobalVar (Id {unId = 0})))])),
+       ObjTerm
+         (Id {unId = 1})
+         (GlobalVar (Id {unId = 0}))
+         (RecIntro
+            (fromList
+               [(Field {unField = "tag"}, Rigid TwoIntro0),
+                (Field {unField = "data"},
+                 RecIntro (fromList []))])),
+       ObjTerm
+         (Id {unId = 2})
+         (ObjFunType
+            Explicit
+            (GlobalVar (Id {unId = 0}))
+            (GlobalVar (Id {unId = 0})))
+         (ObjFunIntro
+            (RecIntro
+               (fromList
+                  [(Field {unField = "tag"}, Rigid TwoIntro1),
+                   (Field {unField = "data"},
+                    LocalVar (Index {unIndex = 1}))]))),
+       MetaConst
+         (Id {unId = 3})
+         (MetaFunType
+            Explicit
+            (Rigid (CodeCType (Rigid CIntType)))
+            (MetaFunType
+               Explicit
+               (Rigid (CodeCoreType (GlobalVar (Id {unId = 0}))))
+               (Rigid (TypeType Meta)))),
+       MetaConst
+         (Id {unId = 4})
+         (MetaFunElim
+            (MetaFunElim
+               (GlobalVar (Id {unId = 3}))
+               (Rigid (CodeCIntro (Rigid (CIntIntro 0)))))
+            (Rigid (CodeCoreIntro (GlobalVar (Id {unId = 1}))))),
+       MetaConst
+         (Id {unId = 5})
+         (Rigid
+            (AllType
+               (MetaFunIntro
+                  (Rigid
+                     (AllType
+                        (MetaFunIntro
+                           (Rigid
+                              (ImplType
+                                 (MetaFunElim
+                                    (MetaFunElim
+                                       (GlobalVar (Id {unId = 3}))
+                                       (LocalVar (Index {unIndex = 1})))
+                                    (LocalVar (Index {unIndex = 0})))
+                                 (MetaFunElim
+                                    (MetaFunElim
+                                       (GlobalVar (Id {unId = 3}))
+                                       (Rigid
+                                          (CodeCIntro
+                                             (Rigid
+                                                (CIntElimAdd
+                                                   (CodeCElim
+                                                      (LocalVar
+                                                         (Index {unIndex = 1})))
+                                                   (Rigid (CIntIntro 1)))))))
+                                    (Rigid
+                                       (CodeCoreIntro
+                                          (ObjFunElim
+                                             (GlobalVar (Id {unId = 2}))
+                                             (CodeCoreElim
+                                                (LocalVar
+                                                   (Index
+                                                      {unIndex =
+                                                         0}))))))))))))))),
+       MetaTerm
+         (Id {unId = 6})
+         (Rigid (CodeCoreType (GlobalVar (Id {unId = 0}))))
+         (UniVar (UVGlobal 6)),
+       MetaTerm
+         (Id {unId = 7})
+         (Rigid (CodeCoreType (GlobalVar (Id {unId = 0}))))
+         (UniVar (UVGlobal 7)),
+       MetaTerm
+         (Id {unId = 8})
+         (Rigid (CodeCoreType (GlobalVar (Id {unId = 0}))))
+         (UniVar (UVGlobal 8)),
+       MetaConst
+         (Id {unId = 9})
+         (MetaFunElim
+            (MetaFunElim
+               (GlobalVar (Id {unId = 3}))
+               (Rigid
+                  (CodeCIntro
+                     (Rigid
+                        (CIntElimAdd
+                           (Rigid (CIntIntro 0)) (Rigid (CIntIntro 1)))))))
+            (GlobalVar (Id {unId = 6}))),
+       MetaConst
+         (Id {unId = 10})
+         (MetaFunElim
+            (MetaFunElim
+               (GlobalVar (Id {unId = 3}))
+               (Rigid
+                  (CodeCIntro
+                     (Rigid
+                        (CIntElimAdd
+                           (Rigid (CIntIntro 0)) (Rigid (CIntIntro 1)))))))
+            (Rigid
+               (CodeCoreIntro
+                  (ObjFunElim
+                     (GlobalVar (Id {unId = 2}))
+                     (CodeCoreElim (GlobalVar (Id {unId = 7}))))))),
+       DElabError])
+   (Rigid (TypeType Obj)))

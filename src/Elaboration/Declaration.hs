@@ -44,10 +44,11 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
     PDDecl (DeclAst (Prove _) did) -> do
       vSig <- eval cSig
       bs <- unBindings <$> ask
+      axioms <- unAxioms <$> ask
       let
         gDids =
           flip filterMap (fromList . toList $ bs) \case
-            BGlobal gDid -> Just gDid
+            BGlobal gDid | Set.member gDid axioms -> Just gDid
             _ -> Nothing
       gTys <-
         traverse

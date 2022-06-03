@@ -1,7 +1,7 @@
 ((fromList
-    [(UVGlobal 1000, Just (Rigid TwoType)),
-     (UVGlobal 1001, Just (Rigid TwoType)),
-     (UVGlobal 1002, Just (Rigid TwoIntro0))],
+    [(UVGlobal 1000, Just (Rigid (TwoType))),
+     (UVGlobal 1001, Just (Rigid (TwoType))),
+     (UVGlobal 1002, Just (Rigid (TwoIntro0)))],
   fromList [],
   fromList []),
  Let

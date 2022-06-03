@@ -120,7 +120,8 @@ instance Ord Binding where
 
 data ElabContext = ElabContext
   { unBindings :: Map Name Binding
-  , unSourcePos :: SourcePos }
+  , unSourcePos :: SourcePos
+  , unAxioms :: Set Id }
   deriving (Show)
 
 data Predeclaration = PDDecl DeclarationAst
@@ -134,7 +135,7 @@ convertUniv :: Universe -> N.Universe
 convertUniv Obj = N.Obj
 convertUniv Meta = N.Meta
 
--- Move unification stuff to `QueryState`, but I'll leave this around just in case
+-- Moved unification stuff to `QueryState`, but I'll leave this around just in case
 data ElabState = ElabState
   {  }
   deriving (Show)
@@ -294,8 +295,20 @@ withDecls decls act = do
   elabContext <- ask
   normContext <- ask
   let
-    bindings' = toBindings decls `union` unBindings elabContext
-    allState = AllState elabState (elabContext { unBindings = bindings' }) normContext
+    bindings' = toBindings decls <> unBindings elabContext
+    axioms' = toAxioms decls <> unAxioms elabContext
+    allState =
+      AllState
+        elabState
+        (elabContext { unBindings = bindings', unAxioms = axioms' })
+        normContext
+
+    toAxioms :: Seq DeclarationAst -> Set Id
+    toAxioms Empty = mempty
+    toAxioms (decl :<| decls) =
+      case stripSourcePos decl of
+        Axiom _ _ -> Set.insert (unId decl) (toAxioms decls)
+        _ -> toAxioms decls
 
     toBindings :: Seq DeclarationAst -> Map Name Binding
     toBindings Empty = mempty
@@ -309,7 +322,7 @@ withDecls decls act = do
       put (state
         { unPredecls = insert (unId decl) (allState, PDDecl decl) (unPredecls state) })
       go decls
-  local (\ctx -> ctx { unBindings = bindings' }) (go decls)
+  local (\ctx -> ctx { unBindings = bindings', unAxioms = axioms' }) (go decls)
 
 lookupBinding :: Elab sig m => Name -> m (Maybe Binding)
 lookupBinding name = do

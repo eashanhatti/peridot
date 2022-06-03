@@ -1,0 +1,16 @@
+((fromList
+    [(UVGlobal 1000, Just (Rigid (TypeType Obj)))],
+  fromList [],
+  fromList []),
+ Let
+   (fromList
+      [MetaTerm
+         (Id {unId = 0})
+         (Rigid (CodeCoreType (Rigid (TypeType Obj))))
+         (Rigid (CodeCoreIntro (Rigid (TypeType Obj)))),
+       ObjTerm
+         (Id {unId = 1})
+         (Rigid (TypeType Obj))
+         (CodeCoreElim
+            (Rigid (CodeCoreIntro (Rigid (TypeType Obj)))))])
+   (Rigid (TypeType Obj)))

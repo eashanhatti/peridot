@@ -28,6 +28,10 @@ unDeclName (DeclAst (Prove _) did) = MachineName (fromIntegral did)
 unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
 unDeclName (SourcePos ast _) = unDeclName ast
 
+stripSourcePos :: DeclarationAst -> Declaration
+stripSourcePos (SourcePos ast _) = stripSourcePos ast
+stripSourcePos (DeclAst decl _) = decl
+
 unId :: DeclarationAst -> Id
 unId (DeclAst _ did) = did
 unId (SourcePos ast _) = unId ast

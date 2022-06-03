@@ -1,9 +1,9 @@
 ((fromList
-    [(UVGlobal 1000, Just (Rigid TwoType)),
-     (UVGlobal 1001, Just (Rigid TwoType)),
-     (UVGlobal 1002, Just (Rigid TwoIntro0)),
-     (UVGlobal 1003, Just (Rigid TwoType)),
-     (UVGlobal 1004, Just (Rigid TwoType)),
+    [(UVGlobal 1000, Just (Rigid (TwoType))),
+     (UVGlobal 1001, Just (Rigid (TwoType))),
+     (UVGlobal 1002, Just (Rigid (TwoIntro0))),
+     (UVGlobal 1003, Just (Rigid (TwoType))),
+     (UVGlobal 1004, Just (Rigid (TwoType))),
      (UVGlobal 1005, Nothing)],
   fromList [],
   fromList
@@ -12,11 +12,12 @@
          sourceLine = Pos 5,
          sourceColumn = Pos 32},
       FailedUnify
-        (Rigid ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro1))
         (Rigid
-           ObjIdType
-           (Neutral _ (UniVar (UVGlobal 1005)))
-           (Neutral _ (UniVar (UVGlobal 1005)))))]),
+           (ObjIdType (Rigid (TwoIntro0)) (Rigid (TwoIntro1))))
+        (Rigid
+           (ObjIdType
+              (Neutral _ (UniVar (UVGlobal 1005)))
+              (Neutral _ (UniVar (UVGlobal 1005))))))]),
  Let
    (fromList
       [ObjTerm

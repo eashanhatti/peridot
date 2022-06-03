@@ -33,5 +33,10 @@ axiom compile_succ:
     CompileNat(x, n),
     CompileNat([c_add x [c_int 1]], succ(n)));
 
-variable n: Code(Nat);
-proof CompileNat([c_add [c_int 0] [c_int 1]], n);
+variable n1: Code(Nat);
+variable n2: Code(Nat);
+variable n3: Code(Nat);
+
+proof CompileNat([c_add [c_int 0] [c_int 1]], n1);
+proof CompileNat([c_add [c_int 0] [c_int 1]], succ(n2));
+proof CompileNat([c_add [c_int 0] [c_int 1]], succ(succ(n3)));

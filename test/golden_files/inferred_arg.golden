@@ -1,4 +1,4 @@
-((fromList [(UVGlobal 1000, Just (Rigid TwoType))],
+((fromList [(UVGlobal 1000, Just (Rigid (TwoType)))],
   fromList [],
   fromList []),
  Let
