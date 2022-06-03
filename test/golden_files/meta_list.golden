@@ -1,5 +1,12 @@
 ((fromList
-    [(UVGlobal 1000, Nothing),
+    [(UVGlobal 8,
+      Just
+        (Neutral
+           _
+           (MetaFunElim
+              (Neutral _ (GlobalVar (Id {unId = 1})))
+              (Neutral _ (UniVar (LVGlobal 2000)))))),
+     (UVGlobal 1000, Nothing),
      (UVGlobal 1001, Just (Rigid (TypeType Meta))),
      (UVGlobal 1002, Just (Rigid (TypeType Meta))),
      (UVGlobal 1003, Nothing),
@@ -92,7 +99,12 @@
      (LVGlobal 2000,
       Just (Neutral _ (GlobalVar (Id {unId = 6})))),
      (LVGlobal 2001,
-      Just (Neutral _ (GlobalVar (Id {unId = 8}))))],
+      Just
+        (Neutral
+           _
+           (MetaFunElim
+              (Neutral _ (GlobalVar (Id {unId = 1})))
+              (Neutral _ (GlobalVar (Id {unId = 6}))))))],
   fromList
     [(UVGlobal 1000, UVGlobal 1001),
      (UVGlobal 1001, UVGlobal 1000),
@@ -311,11 +323,11 @@
                   (MetaFunElim
                      (GlobalVar (Id {unId = 3}))
                      (GlobalVar (Id {unId = 6})))
-                  (GlobalVar (Id {unId = 8})))
+                  (MetaFunElim
+                     (GlobalVar (Id {unId = 1}))
+                     (GlobalVar (Id {unId = 6}))))
                (MetaFunElim
                   (GlobalVar (Id {unId = 1}))
                   (GlobalVar (Id {unId = 6}))))
-            (MetaFunElim
-               (GlobalVar (Id {unId = 1}))
-               (GlobalVar (Id {unId = 6}))))])
+            (GlobalVar (Id {unId = 8})))])
    (Rigid (TypeType Obj)))

@@ -21,4 +21,4 @@ axiom Unit: MetaType;
 axiom unit: Unit;
 
 variable xs: List(Unit);
-proof Append(Unit, xs, nil(Unit), nil(Unit));
+proof Append(Unit, nil(Unit), nil(Unit), xs);
