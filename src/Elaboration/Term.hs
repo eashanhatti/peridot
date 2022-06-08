@@ -457,29 +457,6 @@ infer term = case term of
             formCheck vOutTy
           N.Rigid N.CStmtType -> pure True
           _ -> pure False
-  TermAst (CNameType ty) -> do
-    cTy <- check ty N.LowCTypeType
-    pure (C.Rigid (C.CNameType cTy), N.MetaTypeType)
-  TermAst (CGlobal name) -> do
-    ty <- freshTypeUV
-    cName <- check name (N.Rigid (N.CNameType ty))
-    pure (C.Rigid (C.CGlobal cName), N.Rigid (N.CLValType ty))
-  TermAst CTopType -> pure (C.Rigid C.CTopType, N.MetaTypeType)
-  TermAst (CTopDeclare ty cont) -> do
-    cTy <- check ty N.LowCTypeType
-    vTy <- eval cTy
-    clo <- closureOf (C.Rigid C.CTopType)
-    cCont <-
-      check
-        cont
-        (N.MetaFunType Explicit (N.Rigid (N.CNameType vTy)) clo)
-    pure (C.Rigid (C.CTopIntroDec cTy cCont), N.Rigid N.CTopType)
-  TermAst (CTopDefine name def cont) -> do
-    ty <- freshTypeUV
-    cName <- check name (N.Rigid (N.CNameType ty))
-    cDef <- check def ty
-    cCont <- check cont (N.Rigid N.CTopType)
-    pure (C.Rigid (C.CTopIntroDef cName cDef cCont), N.Rigid N.CTopType)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
 checkMetaType term =

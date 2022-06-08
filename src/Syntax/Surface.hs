@@ -109,10 +109,4 @@ data Term
   | CCast TermAst TermAst
   | CLam TermAst
   | CLamType TermAst
-  | CNameType TermAst
-  | CGlobal TermAst
-  | CTopType
-  | CTopDeclare TermAst TermAst
-  | CTopDefine TermAst TermAst TermAst
-  | CTopEnd
   deriving (Show)

@@ -528,43 +528,6 @@ cLamTy = parens do
   ty <- prec0
   pure (CLamType ty)
 
-cNameTy :: Parser Term
-cNameTy = parens do
-  string "C_Name"; ws
-  ty <- prec0
-  pure (CNameType ty)
-
-cGlobal :: Parser Term
-cGlobal = parens do
-  string "c_global"; ws
-  n <- prec0
-  pure (CGlobal n)
-
-cTopTy :: Parser Term
-cTopTy = do
-  string "C_Toplevel"
-  pure CTopType
-
-cTopDec :: Parser Term
-cTopDec = parens do
-  string "c_declare"; ws
-  ty <- prec0; ws
-  cont <- prec0
-  pure (CTopDeclare ty cont)
-
-cTopDef :: Parser Term
-cTopDef = parens do
-  string "c_define"; ws
-  n <- prec0; ws
-  def <- prec0; ws
-  cont <- prec0
-  pure (CTopDefine n def cont)
-
-cTopEnd :: Parser Term
-cTopEnd = do
-  string "c_end"; ws
-  pure CTopEnd
-
 parens :: Parser a -> Parser a
 parens p = do
   char '['; ws
@@ -616,12 +579,6 @@ prec2 = do
     try cCast <|>
     try cLam <|>
     try cLamTy <|>
-    try cNameTy <|>
-    try cGlobal <|>
-    try cTopTy <|>
-    try cTopDec <|>
-    try cTopDef <|>
-    try cTopEnd <|>
     (do
       char '('; ws
       SourcePos (TermAst e) pos <- try prec1 <|> prec0; ws

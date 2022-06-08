@@ -61,7 +61,6 @@ data RigidTerm a
   | ListTypeCons a a
   | ListIntroNil
   | ListIntroCons a a
-  | CNameType a
   | CLValType a
   | CIntType
   | CPtrType a
@@ -85,11 +84,6 @@ data RigidTerm a
   | CPtrElimLVal a
   | CStructIntro a
   | CCast a a
-  | CGlobal a -- name
-  | CTopType
-  | CTopIntroDec a a -- type, cont
-  | CTopIntroDef a a a -- name, def, cont
-  | CTopIntroEnd
   -- Propositions
   | PropConstIntro Id
   | ImplType a a

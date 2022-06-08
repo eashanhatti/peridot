@@ -178,9 +178,6 @@ unifyRigid (ListIntroCons e1 l1) (ListIntroCons e2 l2) = do
   unifyS' e1 e2
   unifyS' l1 l2
   pure noop
-unifyRigid (CNameType ty1) (CNameType ty2) = do
-  unifyS' ty1 ty2
-  pure noop
 unifyRigid (CLValType ty1) (CLValType ty2) = do
   unifyS' ty1 ty2
   pure noop
@@ -249,19 +246,6 @@ unifyRigid (CStructIntro e1) (CStructIntro e2) = do
 unifyRigid (CCast ty1 e1) (CCast ty2 e2) = do
   unifyS' ty1 ty2
   unifyS' e1 e2
-  pure noop
-unifyRigid (CGlobal e1) (CGlobal e2) = do
-  unifyS' e1 e2
-  pure noop
-unifyRigid CTopType CTopType = pure noop
-unifyRigid (CTopIntroDec ty1 cont1) (CTopIntroDec ty2 cont2) = do
-  unifyS' ty1 ty2
-  unifyS' cont1 cont2
-  pure noop
-unifyRigid (CTopIntroDef name1 def1 cont1) (CTopIntroDef name2 def2 cont2) = do
-  unifyS' name1 name2
-  unifyS' def1 def2
-  unifyS' cont1 cont2
   pure noop
 unifyRigid ElabError _ = pure noop
 unifyRigid _ ElabError = pure noop

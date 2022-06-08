@@ -13,6 +13,12 @@ This is a list of prior art that have influenced Peridot's design and implementa
 [MetaML: Multi-Stage Programming with Explicit Annotations](https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.53.422&rep=rep1&type=pdf)
 > We introduce MetaML, a practically-motivated, statically typed multi-stage programming language. MetaML allows the programmer to construct, combine, and execute code fragments in a type-safe manner.
 
+[Generating Mutually Recursive Definitions](https://www.cl.cam.ac.uk/~jdy22/papers/generating-mutually-recursive-definitions.pdf)
+> Currently MetaOCaml can only build recursive groups whose size is hard-coded in the generating program. The general case requires something other than quotation, and seemingly weakens static guarantees on the resulting code. We describe the challenges and propose a new language construct for assuredly generating binding groups of arbitrary size – illustrating with a collection of examples for mutual, n-ary, heterogeneous, value and polymorphic recursion.
+
+[Let(rec) Insertion Without Effects, Lights or Magic](https://arxiv.org/pdf/2201.00495.pdf)
+> We show how one can understand let insertion, and hence implement it in plain OCaml. We give the first denotational semantics of let(rec)-insertion, which does not rely on any effects at all. The formalization has guided the implementation of let(rec) insertion in the current version of MetaOCaml.
+
 ### Contextual Type Theory
 
 [Moebius: Metaprogramming using Contextual Types](https://arxiv.org/abs/2111.08099)
