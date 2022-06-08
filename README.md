@@ -15,24 +15,4 @@ Discussion takes place on the [r/ProgrammingLanguages Discord server](https://di
 
 ### Introduction
 
-Peridot is a functional/logic language based on 2LTT (two level type theory). It uses a logic language for the meta level, which allows for domain specific, declarative optimizers to be written entirely in userspace - writers of optimizers can focus on purely on the optimizations themselves. Meanwhile, the object language is high-level, dependently typed, and functional. Here's a very simple example of optimizing arithmetic:
-```haskell
--- optimize `x * 2` to `x << 1`
-optimize {~x * 2} {~y << 1} :- optimize x y.
-
--- optimize `x * y / y` to `x`
-optimize {(~x * ~y) / ~y} {~z} :- optimize x z.
-
--- optimize both sides of a division
-optimize {~x / ~y} {~z / ~w} :-
-  optimize x z,
-  optimize y w.
-
-optimize {~x} {~x} :- int_literal x.
-
-main =
-    -- c = {3}, c = {(3 << 1) / 2}
-    let optimize {(3 * 2) / 2} c
-    -- 3
-    in print ~(select smallest c)
-```
+Peridot is a language that allows the compiler backend to be written entirely in userspace. Peridot is split into two languages: one for metaprogramming (the metalanguage) and one for "regular" programming (the object language). The metalanguage is a logic language akin to λProlog, while the object language is a dependently typed functional language akin to Idris and Haskell. Metaprograms deal with compiling and optimizing the second language into a chosen target language - importantly, logic programming allows these programs to be extremely declarative, making compilers and optimizers easy to write. Unlike languages where the backend is built-in to the compiler, optimizations to the object language can be easily added, since those optimizations are expressed purely in user space. Programmers cannot only write high-level programs, but also describe how to compile those programs to performance, low-level code.
