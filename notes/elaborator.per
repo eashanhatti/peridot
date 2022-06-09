@@ -1,0 +1,29 @@
+proposition Order Items Items
+
+proposition TypecheckTerm Context Term (ty : Code Type) (Code ~ty)
+
+proposition Extend
+	Name
+	(ty : <Type>)
+	(Context → A → Prop)
+	(Id → Code ~ty → A)
+
+proposition ExtendDef (A → Prop) Equality (Equality → A)
+
+proposition TypecheckItems Context Items (Code Type)
+axiom TypecheckItems _ nil <Type>
+axiom TypecheckItems
+		ctx
+		cons (sig name ty) items
+		<declare id var : ~cTy in ~(cont id <var>)>
+	:-
+		TypecheckTerm ctx ty <Type> cTy
+		Extend name cTy (λctx. TypecheckItems ctx items) cont
+axiom TypecheckItems
+		ctx
+		cons (def name tm) items
+		<define id ~cTm eq ~(cont eq)>
+	:-
+		Declaration name id cTy
+		TypecheckTerm ctx tm cTy cTm
+		ExtendDef (TypecheckItems ctx items) cont
