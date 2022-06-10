@@ -138,12 +138,12 @@ memo key act = do
         , unDepGraph =
             case cq of
               Just cq ->
-                case Map.lookup cq (unDepGraph state') of
-                  Just deps ->
-                    Map.insert
-                      cq
-                      (Set.insert (Some key) deps)
-                      (unDepGraph state')
+                let
+                  set =
+                    case Map.lookup cq (unDepGraph state') of
+                      Just deps -> Set.insert (Some key) deps
+                      Nothing -> mempty
+                in Map.insert cq set (unDepGraph state')
               Nothing -> unDepGraph state' })
       pure result
 
@@ -159,7 +159,8 @@ instance Ord Binding where
 data ElabContext = ElabContext
   { unBindings :: Map Name Binding
   , unSourcePos :: SourcePos
-  , unAxioms :: Set Id }
+  , unAxioms :: Set Id
+  {-, unIsType :: Bool-} }
   deriving (Show)
 
 data Predeclaration = PDDecl DeclarationAst
@@ -184,6 +185,8 @@ type Elab sig m =
   , Has (State ElabState) sig m
   , Norm sig m
   , Query sig m )
+
+{-asType :: Elab sig m => m a -> m a-}
 
 unify :: Elab sig m => C.Term -> N.Term -> N.Term -> m C.Term
 unify e term1 term2 = do

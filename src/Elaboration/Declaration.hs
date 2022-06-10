@@ -23,7 +23,7 @@ import Prelude hiding(traverse, map, zip, concat, filter, mapWithIndex)
 import Debug.Trace
 import Extra
 
-check :: HasCallStack => Elab sig m => Id -> m C.Term
+check :: HasCallStack => Query sig m => Id -> m C.Term
 check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
   (cSig, univ) <- declType (unPDDeclId decl)
   case decl of

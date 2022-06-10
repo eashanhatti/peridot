@@ -180,7 +180,7 @@ infer term = case term of
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
       (cBody, bodyTy) <- infer body
-      undefined
+      pure (C.Rigid C.ElabError, N.Rigid N.ElabError)
   TermAst (LiftObj ty) -> do
     cTy <- checkObjType' ty
     pure (C.Rigid (C.CodeObjType cTy), N.MetaTypeType)
