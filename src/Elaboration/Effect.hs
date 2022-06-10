@@ -22,6 +22,7 @@ import Data.Dependent.HashMap qualified as DMap
 import Data.Dependent.HashMap(DHashMap)
 import Data.Functor.Identity
 import Data.GADT.Compare
+import Data.GADT.Show
 import Data.Type.Equality qualified as Equal
 import Data.Hashable
 import GHC.Generics hiding (Constructor, C)
@@ -40,6 +41,9 @@ import Data.Sequence
 import Control.Monad.Fix
 import Data.Bifunctor
 
+data QueryContext = QueryContext
+  { unCurQuery :: Maybe (Some Key) }
+
 -- Contains query state *and* general global state
 data QueryState = QueryState
   { unMemoTable :: DHashMap Key Identity
@@ -47,11 +51,12 @@ data QueryState = QueryState
   , unNextUV :: Natural
   , unTypeUVs :: Map Global (Maybe N.Term)
   , unUVEqs :: Map Global Global
-  , unErrors :: Seq (SourcePos, Error) }
+  , unErrors :: Seq (SourcePos, Error)
+  , unDepGraph :: Map (Some Key) (Set (Some Key)) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs eqs errs) =
-    show (tuvs, eqs, errs)
+  show (QueryState _ _ _ tuvs eqs errs deps) =
+    show (tuvs, eqs, errs, deps)
 
 data Error
   = TooManyParams
@@ -67,7 +72,9 @@ data Error
   | CLamFormCheck
   deriving (Show)
 
-type Query sig m = Has (State QueryState) sig m
+type Query sig m = 
+  ( Has (State QueryState) sig m
+  , Has (Reader QueryContext) sig m )
 
 data AllState = AllState ElabState ElabContext NormContext
   deriving (Show)
@@ -89,6 +96,19 @@ data Key a where
   CheckDecl :: Id -> Key C.Term
   DeclType :: Id -> Key (C.Term, N.Universe) -- sig, univ
 
+instance Show (Key a) where
+  show (CheckDecl did) = "(CheckDecl " ++ show did ++ ")"
+  show (DeclType did) = "(DeclType " ++ show did ++ ")"
+
+instance GShow Key where
+  gshowsPrec = showsPrec
+
+instance GCompare Key where
+  gcompare (CheckDecl _) (CheckDecl _) = GEQ
+  gcompare (CheckDecl _) (DeclType _) = GLT
+  gcompare (DeclType _) (CheckDecl _) = GGT
+  gcompare (DeclType _) (DeclType _) = GEQ
+
 instance GEq Key where
   geq (CheckDecl _) (CheckDecl _) = Just Equal.Refl
   geq (DeclType _) (DeclType _) = Just Equal.Refl
@@ -98,14 +118,33 @@ instance Hashable (Some Key) where
   hashWithSalt salt (Some (CheckDecl did)) = salt `hashWithSalt` did
   hashWithSalt salt (Some (DeclType did)) = salt `hashWithSalt` (did + 1000000)
 
-memo :: Query sig m => Key a -> StateC QueryState Identity a -> m a
+type QC a = ReaderC QueryContext (StateC QueryState Identity) a
+
+memo :: Query sig m => Key a -> QC a -> m a
 memo key act = do
   state <- get
+  cq <- unCurQuery <$> ask
   case DMap.lookup key (unMemoTable state) of
     Just (Identity result) -> pure result
     Nothing -> do
-      let (state', result) = run . runState state $ act
-      put (state' { unMemoTable = DMap.insert key (Identity result) (unMemoTable state) })
+      let
+        (state', result) =
+          run .
+          runState state .
+          runReader (QueryContext (Just (Some key))) $
+          act
+      put (state'
+        { unMemoTable = DMap.insert key (Identity result) (unMemoTable state)
+        , unDepGraph =
+            case cq of
+              Just cq ->
+                case Map.lookup cq (unDepGraph state') of
+                  Just deps ->
+                    Map.insert
+                      cq
+                      (Set.insert (Some key) deps)
+                      (unDepGraph state')
+              Nothing -> unDepGraph state' })
       pure result
 
 data Binding = BLocal Index N.Term | BGlobal Id

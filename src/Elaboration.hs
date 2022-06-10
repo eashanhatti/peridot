@@ -21,15 +21,22 @@ elaborate' :: S.TermAst -> (QueryState, C.Term)
 elaborate' term =
   let
     (qs, term') =
-      run $
-      runState (QueryState mempty mempty 1000 mempty mempty mempty) $
-      evalState ElabState $
-      runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) $
+      run .
+      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty) .
+      runReader (QueryContext Nothing) .
+      evalState ElabState .
+      runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .
       runReader (ElabContext mempty (initialPos "<TODO>") mempty) $
       EE.check term N.ObjTypeType
     term'' =
       run $
-      runReader (NormContext (N.Env mempty mempty) mempty (justs $ unTypeUVs qs) mempty mempty)
+      runReader
+        (NormContext
+          (N.Env mempty mempty)
+          mempty
+          (justs $ unTypeUVs qs)
+          mempty
+          mempty)
       (eval term' >>= zonk)
   in
     (qs, term')
