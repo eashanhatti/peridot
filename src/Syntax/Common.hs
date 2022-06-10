@@ -101,11 +101,3 @@ data RigidTerm a
   | TypeType Universe
   | ElabError
   deriving (Eq, Show, Functor, Foldable, Traversable, Generic)
-
-data Declaration a
-  = MetaConst Id a
-  | ObjTerm Id a a -- sig, def
-  | MetaTerm Id a a -- sig, def
-  | CTerm Id a a -- sig, def
-  | DElabError
-  deriving (Eq, Show, Functor, Foldable, Traversable)

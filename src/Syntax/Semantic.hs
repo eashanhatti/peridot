@@ -37,8 +37,6 @@ instance Show Environment where
 data Closure = Clo Environment C.Term
   deriving (Eq, Show)
 
-type Declaration = Cm.Declaration Term
-
 type Type = Term
 
 data Term
@@ -98,7 +96,6 @@ data Redex
   | TwoElim Term Term Term
   | RecElim Term Field
   | SingElim Term
-  | Let (Seq Declaration) Term
   deriving (Eq, Show)
 
 viewFunType :: Term -> Maybe (PassMethod, Term, Closure)

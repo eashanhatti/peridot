@@ -180,7 +180,7 @@ infer term = case term of
     withDecls decls do
       cDecls <- traverse ED.check (declsIds decls)
       (cBody, bodyTy) <- infer body
-      pure (C.Let cDecls cBody, bodyTy)
+      undefined
   TermAst (LiftObj ty) -> do
     cTy <- checkObjType' ty
     pure (C.Rigid (C.CodeObjType cTy), N.MetaTypeType)
@@ -458,16 +458,16 @@ infer term = case term of
           N.Rigid N.CStmtType -> pure True
           _ -> pure False
 
-checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Term)
+checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Universe)
 checkMetaType term =
-  (,) <$> check term (N.MetaTypeType) <*> pure (N.MetaTypeType)
+  (,) <$> check term (N.MetaTypeType) <*> pure N.Meta
 
 checkMetaType' :: Elab sig m => TermAst -> m C.Term
 checkMetaType' ty = fst <$> checkMetaType ty
 
-checkObjType :: Elab sig m => TermAst -> m (C.Term, N.Term)
+checkObjType :: Elab sig m => TermAst -> m (C.Term, N.Universe)
 checkObjType term =
-  (,) <$> check term (N.ObjTypeType) <*> pure (N.ObjTypeType) -- FIXME
+  (,) <$> check term (N.ObjTypeType) <*> pure N.Obj
 
 checkObjType' :: Elab sig m => TermAst -> m C.Term
 checkObjType' ty = fst <$> checkObjType ty

@@ -9,16 +9,7 @@ import Data.Map
 import Data.Sequence
 import Numeric.Natural
 
-unId :: Declaration -> Id
-unId (MetaConst did _) = did
-unId (MetaTerm did _ _) = did
-unId (ObjTerm did _ _) = did
-unId (CTerm did _ _) = did
-unId DElabError = 99999
-
 type Type = Term
-
-type Declaration = Cm.Declaration Term
 
 data Term
   -- Object level
@@ -30,8 +21,6 @@ data Term
   | RecIntro (Seq (Field, Term))
   | RecElim Term Field
   | SingElim Term
-  | ObjDeclare Term Term Term -- ty, name, cont
-  | ObjDefine Term Term Term -- name, def, cont
   -- Meta level
   | MetaFunType PassMethod Term Term
   | MetaFunIntro Term
@@ -41,9 +30,10 @@ data Term
   -- Other
   | LocalVar Index
   | GlobalVar Id
-  | Let (Seq Declaration) Term
   | UniVar Global
   | Rigid (RigidTerm Term)
+  | Declare Universe Term Term Term -- ty, name, cont
+  | Define Universe Term Term Term -- name, def, cont
   deriving (Eq, Show)
 
 pattern ObjTypeType = Rigid (TypeType Obj)

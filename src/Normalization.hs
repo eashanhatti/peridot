@@ -86,13 +86,6 @@ unfold n@(N.Neutral term redex) = do
     Nothing -> pure n
 unfold term = pure term
 
-definition :: C.Declaration -> C.Term
-definition (C.MetaConst did sig) = C.Rigid (C.MetaConstIntro did)
-definition (C.ObjTerm _ _ def) = def
-definition (C.CTerm _ _ def) = def
-definition (C.MetaTerm _ _ def) = def
-definition (C.DElabError) = C.Rigid C.ElabError
-
 uvRedex :: Norm sig m => Global -> m (Maybe N.Term)
 uvRedex gl = do
   visited <- unVisited <$> ask
@@ -180,17 +173,6 @@ eval (C.CodeCElim term) = do
             _ -> pure Nothing
   pure (N.Neutral reded (N.CodeCElim vTerm))
 eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
-eval (C.Let decls body) = do
-  let defs = fmap (\decl -> (C.unId decl, definition decl)) decls
-  vDefs <- traverse (\(did, def) -> eval def >>= pure . (did,)) defs
-  let
-    reded =
-      local
-        (\ctx -> ctx { unEnv = withGlobals vDefs (unEnv ctx) })
-        (eval body)
-  vDecls <- traverse (traverse eval) decls
-  vBody <- eval body
-  pure (N.Neutral (Just <$> reded) (N.Let vDecls vBody))
 eval (C.TwoElim scr body1 body2) = do
   vScr <- eval scr
   vBody1 <- eval body1
@@ -336,10 +318,6 @@ readbackRedex opt (N.CodeObjElim quote) = C.CodeObjElim <$> readback' opt quote
 readbackRedex opt (N.CodeCElim quote) = C.CodeCElim <$> readback' opt quote
 readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)
 readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)
-readbackRedex opt (N.Let decls body) =
-  C.Let <$>
-    traverse (traverse (readback' opt)) decls <*>
-    readback' opt body
 readbackRedex opt (N.TwoElim scr body1 body2) =
   C.TwoElim <$>
     readback' opt scr <*>

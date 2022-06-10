@@ -23,24 +23,21 @@ import Prelude hiding(traverse, map, zip, concat, filter, mapWithIndex)
 import Debug.Trace
 import Extra
 
-constDecl :: Universe -> (Id -> C.Term -> C.Declaration)
-constDecl Meta = C.MetaConst
-
-check :: HasCallStack => Elab sig m => Id -> m C.Declaration
+check :: HasCallStack => Elab sig m => Id -> m C.Term
 check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
   (cSig, univ) <- declType (unPDDeclId decl)
   case decl of
     PDDecl (DeclAst (ObjTerm name _ def) did) -> do
       cDef <- eval cSig >>= EE.check def
-      pure (C.ObjTerm did cSig cDef)
+      pure cDef
     PDDecl (DeclAst (MetaTerm name _ def) did) -> do
       cDef <- eval cSig >>= EE.check def
-      pure (C.MetaTerm did cSig cDef)
+      pure cDef
     PDDecl (DeclAst (CTerm name _ def) did) -> do
       cDef <- eval cSig >>= EE.check def
-      pure (C.CTerm did cSig cDef)
+      pure cDef
     PDDecl (DeclAst (Axiom name _) did) ->
-      pure (C.MetaConst did cSig)
+      pure (C.Rigid (C.MetaConstIntro did))
     PDDecl (DeclAst (Prove _) did) -> do
       vSig <- eval cSig
       bs <- unBindings <$> ask
@@ -59,15 +56,18 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
       -- let !_ = tracePretty gTys
       substs <- proveDet gTys vSig
       case substs of
-        Nothing -> errorDecl (FailedProve vSig)
+        Nothing -> do
+          report (FailedProve vSig)
+          pure (C.Rigid C.ElabError)
         Just substs ->
-          if isAmbiguous substs then
-            errorDecl (AmbiguousProve vSig substs)
+          if isAmbiguous substs then do
+            report (AmbiguousProve vSig substs)
+            pure (C.Rigid C.ElabError)
           else do
             let (ts, eqs) = concatSubsts substs
             putTypeUVSols ts
             putUVEqs eqs
-            pure (C.MetaConst did cSig)
+            pure (C.Rigid (C.MetaConstIntro did))
       where
         isAmbiguous :: Seq Substitution -> Bool
         isAmbiguous substs =
@@ -87,7 +87,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             all (uncurry Set.disjoint) $
             [(x, y) | (i1, x) <- substs', (i2, y) <- substs', i1 /= i2]
     PDDecl (DeclAst (Fresh name _) did@(Id n)) ->
-      pure (C.MetaTerm did cSig (C.UniVar (UVGlobal n)))
+      pure (C.UniVar (UVGlobal n))
 
 withPos' ::
   HasCallStack => Elab sig m =>
@@ -96,13 +96,13 @@ withPos' ::
 withPos' act (PDDecl (SourcePos ast pos)) = withPos pos (act (PDDecl ast))
 withPos' act pd = act pd
 
-declType :: HasCallStack => Query sig m => Id -> m (C.Term, N.Term)
+declType :: HasCallStack => Query sig m => Id -> m (C.Term, N.Universe)
 declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
   case decl of
     PDDecl (DeclAst (ObjTerm name sig def) _) -> EE.checkObjType sig
     PDDecl (DeclAst (MetaTerm name sig def) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (CTerm name sig def) _) ->
-      (, N.LowCTypeType) <$> EE.check sig N.LowCTypeType
+      (, N.LowC) <$> EE.check sig N.LowCTypeType
     PDDecl (DeclAst (Axiom name sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Prove sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Fresh name sig) _) -> EE.checkMetaType sig

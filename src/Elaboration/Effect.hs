@@ -86,9 +86,8 @@ restore (AllState es ec nc) act =
   act
 
 data Key a where
-  CheckDecl :: Id -> Key C.Declaration
-  DeclType :: Id -> Key (C.Term, N.Term)
-
+  CheckDecl :: Id -> Key C.Term
+  DeclType :: Id -> Key (C.Term, N.Universe) -- sig, univ
 
 instance GEq Key where
   geq (CheckDecl _) (CheckDecl _) = Just Equal.Refl
@@ -390,11 +389,6 @@ errorTerm err = do
   report err
   pure (C.Rigid C.ElabError, N.Rigid N.ElabError)
 
-errorDecl :: Elab sig m => Error -> m C.Declaration
-errorDecl err = do
-  report err
-  pure C.DElabError
-
 eval :: forall sig m. Elab sig m => C.Term -> m N.Term
 eval term = do
   vDefs <- allDefs
@@ -408,19 +402,19 @@ allDefs = do
     f = \case
       CheckDecl _ DMap.:=> _ -> True
       _ -> False
-    decls :: [C.Declaration]
+    decls :: [(Id, C.Term)]
     decls =
-      map (\case CheckDecl _ DMap.:=> Identity gl -> gl) .
+      map (\case CheckDecl did DMap.:=> Identity def -> (did, def)) .
       Pre.filter f .
       DMap.toList $
       memoTable
   ctx@(unEnv -> N.Env locals globals) <- ask
   rec
-    (vDefs :: Map.Map Id N.Term) <- (\f -> foldlM f mempty decls) \acc decl -> do
+    (vDefs :: Map.Map Id N.Term) <- (\f -> foldlM f mempty decls) \acc (did, decl) -> do
       vDecl <- local
         (\ctx -> ctx { unEnv = N.Env locals (vDefs <> globals) })
-        (Norm.eval (Norm.definition decl))
-      pure (Map.insert (C.unId decl) vDecl acc)
+        (Norm.eval decl)
+      pure (Map.insert did vDecl acc)
   pure vDefs
 
 readback' :: Elab sig m => Bool -> N.Term -> m C.Term
