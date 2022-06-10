@@ -26,7 +26,7 @@ elaborate' term =
       runReader (QueryContext Nothing) .
       evalState ElabState .
       runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .
-      runReader (ElabContext mempty (initialPos "<TODO>") mempty) $
+      runReader (ElabContext mempty (initialPos "<TODO>") mempty False) $
       EE.check term N.ObjTypeType
     term'' =
       run $

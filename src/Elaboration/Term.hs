@@ -1,5 +1,6 @@
 module Elaboration.Term where
 
+import Control.Effect.Reader
 import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
@@ -171,7 +172,9 @@ infer term = case term of
     case binding of
       Just (BLocal ix ty) -> pure (C.LocalVar ix, ty)
       Just (BGlobal did) -> do
+        isType <- unIsType <$> ask
         ty <- fst <$> ED.declType did >>= eval
+        when isType (void (ED.check did))
         pure (C.GlobalVar did, ty)
       Nothing -> errorTerm (UnboundVariable name)
   TermAst OUniv -> pure (C.ObjTypeType, N.ObjTypeType)

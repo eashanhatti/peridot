@@ -104,14 +104,30 @@ instance GShow Key where
   gshowsPrec = showsPrec
 
 instance GCompare Key where
-  gcompare (CheckDecl _) (CheckDecl _) = GEQ
+  gcompare (CheckDecl did1) (CheckDecl did2) =
+    case compare did1 did2 of
+      LT -> GLT
+      GT -> GGT
+      EQ -> GEQ
   gcompare (CheckDecl _) (DeclType _) = GLT
   gcompare (DeclType _) (CheckDecl _) = GGT
-  gcompare (DeclType _) (DeclType _) = GEQ
+  gcompare (DeclType did1) (DeclType did2) =
+    case compare did1 did2 of
+      LT -> GLT
+      GT -> GGT
+      EQ -> GEQ
 
 instance GEq Key where
-  geq (CheckDecl _) (CheckDecl _) = Just Equal.Refl
-  geq (DeclType _) (DeclType _) = Just Equal.Refl
+  geq (CheckDecl did1) (CheckDecl did2) =
+    if did1 == did2 then
+      Just Equal.Refl
+    else
+      Nothing
+  geq (DeclType did1) (DeclType did2) =
+    if did1 == did2 then
+      Just Equal.Refl
+    else
+      Nothing
   geq _ _ = Nothing
 
 instance Hashable (Some Key) where
@@ -122,9 +138,13 @@ type QC a = ReaderC QueryContext (StateC QueryState Identity) a
 
 memo :: Query sig m => Key a -> QC a -> m a
 memo key act = do
+  modify (\st -> st
+    { unDepGraph =
+        case Map.lookup (Some key) (unDepGraph st) of
+          Just _ -> unDepGraph st
+          Nothing -> Map.insert (Some key) mempty (unDepGraph st) })
   state <- get
-  cq <- unCurQuery <$> ask
-  case DMap.lookup key (unMemoTable state) of
+  r <- case DMap.lookup key (unMemoTable state) of
     Just (Identity result) -> pure result
     Nothing -> do
       let
@@ -134,18 +154,17 @@ memo key act = do
           runReader (QueryContext (Just (Some key))) $
           act
       put (state'
-        { unMemoTable = DMap.insert key (Identity result) (unMemoTable state)
-        , unDepGraph =
-            case cq of
-              Just cq ->
-                let
-                  set =
-                    case Map.lookup cq (unDepGraph state') of
-                      Just deps -> Set.insert (Some key) deps
-                      Nothing -> mempty
-                in Map.insert cq set (unDepGraph state')
-              Nothing -> unDepGraph state' })
+        { unMemoTable = DMap.insert key (Identity result) (unMemoTable state) })
       pure result
+  cq <- unCurQuery <$> ask
+  modify (\st -> st
+    { unDepGraph =
+        case cq of
+          Just cq ->
+            let set = Set.insert (Some key) (fromJust (Map.lookup cq (unDepGraph st)))
+            in Map.insert cq set (unDepGraph st)
+          Nothing -> unDepGraph st })
+  pure r
 
 data Binding = BLocal Index N.Term | BGlobal Id
   deriving (Eq, Show)
@@ -160,7 +179,7 @@ data ElabContext = ElabContext
   { unBindings :: Map Name Binding
   , unSourcePos :: SourcePos
   , unAxioms :: Set Id
-  {-, unIsType :: Bool-} }
+  , unIsType :: Bool }
   deriving (Show)
 
 data Predeclaration = PDDecl DeclarationAst
@@ -186,7 +205,8 @@ type Elab sig m =
   , Norm sig m
   , Query sig m )
 
-{-asType :: Elab sig m => m a -> m a-}
+asType :: Elab sig m => m a -> m a
+asType = local (\ctx -> ctx { unIsType = True })
 
 unify :: Elab sig m => C.Term -> N.Term -> N.Term -> m C.Term
 unify e term1 term2 = do

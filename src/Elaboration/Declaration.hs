@@ -97,7 +97,7 @@ withPos' act (PDDecl (SourcePos ast pos)) = withPos pos (act (PDDecl ast))
 withPos' act pd = act pd
 
 declType :: HasCallStack => Query sig m => Id -> m (C.Term, N.Universe)
-declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
+declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl -> asType
   case decl of
     PDDecl (DeclAst (ObjTerm name sig def) _) -> EE.checkObjType sig
     PDDecl (DeclAst (MetaTerm name sig def) _) -> EE.checkMetaType sig
@@ -106,3 +106,4 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl ->
     PDDecl (DeclAst (Axiom name sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Prove sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Fresh name sig) _) -> EE.checkMetaType sig
+ 
