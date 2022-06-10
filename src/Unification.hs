@@ -99,7 +99,7 @@ unifyRedexes (MetaFunElim lam1 arg1) (MetaFunElim lam2 arg2) = do
 unifyRedexes (ObjFunElim lam1 arg1) (ObjFunElim lam2 arg2) = do
   unifyS' lam1 lam2
   unifyS' arg1 arg2
-unifyRedexes (CodeCoreElim quote1) (CodeCoreElim quote2) =
+unifyRedexes (CodeObjElim quote1) (CodeObjElim quote2) =
   unifyS' quote1 quote2
 unifyRedexes (CodeCElim quote1) (CodeCElim quote2) =
   unifyS' quote1 quote2
@@ -118,12 +118,10 @@ unifyRedexes _ _ = throwError ()
 unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m (Coercion sig m)
 unifyRigid (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 =
   pure noop
-unifyRigid (ObjConstIntro did1) (ObjConstIntro did2) | did1 == did2 =
-  pure noop
-unifyRigid (CodeCoreType ty1) (CodeCoreType ty2) = do
+unifyRigid (CodeObjType ty1) (CodeObjType ty2) = do
   unifyS' ty1 ty2
   pure noop
-unifyRigid (CodeCoreIntro term1) (CodeCoreIntro term2) = do
+unifyRigid (CodeObjIntro term1) (CodeObjIntro term2) = do
   unifyS' term1 term2
   pure noop
 unifyRigid (CodeCType ty1) (CodeCType ty2) = do
@@ -374,18 +372,18 @@ unify' term1 term2 =
       pure (liftCoe \e -> do
         unifyS' ty1 ty2
         pure (C.SingElim e))
-    complex (Rigid (CodeCoreType ty1)) ty2 =
-      pure (liftCoe \e -> pure (C.Rigid (C.CodeCoreIntro e)))
-    complex ty1 (Rigid (CodeCoreType ty2)) =
-      pure (liftCoe \e -> pure (C.CodeCoreElim e))
+    complex (Rigid (CodeObjType ty1)) ty2 =
+      pure (liftCoe \e -> pure (C.Rigid (C.CodeObjIntro e)))
+    complex ty1 (Rigid (CodeObjType ty2)) =
+      pure (liftCoe \e -> pure (C.CodeObjElim e))
     complex (Rigid (CodeCType ty1)) ty2 =
       pure (liftCoe \e -> pure (C.Rigid (C.CodeCIntro e)))
     complex ty1 (Rigid (CodeCType ty2)) =
       pure (liftCoe \e -> pure (C.CodeCElim e))
-    complex (Neutral _ (CodeCoreElim term1)) term2 =
-      unify' term1 (Rigid (CodeCoreIntro term2))
-    complex term1 (Neutral _ (CodeCoreElim term2)) =
-      unify' (Rigid (CodeCoreIntro term1)) term2
+    complex (Neutral _ (CodeObjElim term1)) term2 =
+      unify' term1 (Rigid (CodeObjIntro term2))
+    complex term1 (Neutral _ (CodeObjElim term2)) =
+      unify' (Rigid (CodeObjIntro term1)) term2
     complex (Neutral _ (CodeCElim term1)) term2 =
       unify' term1 (Rigid (CodeCIntro term2))
     complex term1 (Neutral _ (CodeCElim term2)) =

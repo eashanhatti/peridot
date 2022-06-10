@@ -91,7 +91,7 @@ data Redex
   = MetaFunElim Term Term
   | ObjFunElim Term Term
   | ObjConstElim (Map Id Term)
-  | CodeCoreElim Term
+  | CodeObjElim Term
   | CodeCElim Term
   | GlobalVar Id
   | UniVar Global

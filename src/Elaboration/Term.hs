@@ -181,17 +181,17 @@ infer term = case term of
       cDecls <- traverse ED.check (declsIds decls)
       (cBody, bodyTy) <- infer body
       pure (C.Let cDecls cBody, bodyTy)
-  TermAst (LiftCore ty) -> do
+  TermAst (LiftObj ty) -> do
     cTy <- checkObjType' ty
-    pure (C.Rigid (C.CodeCoreType cTy), N.MetaTypeType)
-  TermAst (QuoteCore term) -> do
+    pure (C.Rigid (C.CodeObjType cTy), N.MetaTypeType)
+  TermAst (QuoteObj term) -> do
     ty <- freshTypeUV
     cTerm <- check term ty
-    pure (C.Rigid (C.CodeCoreIntro cTerm), N.Rigid (N.CodeCoreType ty))
-  TermAst (SpliceCore quote) -> do
+    pure (C.Rigid (C.CodeObjIntro cTerm), N.Rigid (N.CodeObjType ty))
+  TermAst (SpliceObj quote) -> do
     ty <- freshTypeUV
-    cQuote <- check quote (N.Rigid (N.CodeCoreType ty))
-    pure (C.CodeCoreElim cQuote, ty)
+    cQuote <- check quote (N.Rigid (N.CodeObjType ty))
+    pure (C.CodeObjElim cQuote, ty)
   TermAst (LiftC ty) -> do
     cTy <- check ty N.LowCTypeType
     pure (C.Rigid (C.CodeCType cTy), N.MetaTypeType)

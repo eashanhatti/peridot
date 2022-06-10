@@ -153,19 +153,19 @@ eval (C.GlobalVar did) = do
   N.Env _ ((! did) -> def) <- unEnv <$> ask
   pure (N.Neutral (pure (Just def)) (N.GlobalVar did))
 eval (C.UniVar gl) = pure (N.Neutral (uvRedex gl) (N.UniVar gl))
-eval (C.CodeCoreElim term) = do
+eval (C.CodeObjElim term) = do
   vTerm <- eval term
   let
     reded = do
       vTerm <- unfold vTerm
       case vTerm of
-        N.Rigid (N.CodeCoreIntro code) -> pure (Just code)
+        N.Rigid (N.CodeObjIntro code) -> pure (Just code)
         _ -> do
           r <- findDefEq vTerm
           case r of
-            Just (N.Rigid (N.CodeCoreIntro code)) -> pure (Just code)
+            Just (N.Rigid (N.CodeObjIntro code)) -> pure (Just code)
             _ -> pure Nothing
-  pure (N.Neutral reded (N.CodeCoreElim vTerm))
+  pure (N.Neutral reded (N.CodeObjElim vTerm))
 eval (C.CodeCElim term) = do
   vTerm <- eval term
   let
@@ -332,7 +332,7 @@ readbackRedex opt (N.ObjFunElim lam arg) =
   C.ObjFunElim <$>
     readback' opt lam <*>
     readback' opt arg
-readbackRedex opt (N.CodeCoreElim quote) = C.CodeCoreElim <$> readback' opt quote
+readbackRedex opt (N.CodeObjElim quote) = C.CodeObjElim <$> readback' opt quote
 readbackRedex opt (N.CodeCElim quote) = C.CodeCElim <$> readback' opt quote
 readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)
 readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)

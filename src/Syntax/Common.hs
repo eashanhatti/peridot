@@ -43,8 +43,7 @@ data Name = UserName Text | MachineName Natural | Unbound
 
 data RigidTerm a
   -- Object level
-  = ObjConstIntro Id
-  | TwoType
+  = TwoType
   | TwoIntro0
   | TwoIntro1
   | SingType a a
@@ -52,9 +51,13 @@ data RigidTerm a
   | ObjIdType a a
   | ObjIdIntro a
   -- Meta level
+  | NameCType a
+  | NameCIntro Id
+  | NameObjType a
+  | NameObjIntro Id
   | MetaConstIntro Id
-  | CodeCoreType a
-  | CodeCoreIntro a
+  | CodeObjType a
+  | CodeObjIntro a
   | CodeCType a
   | CodeCIntro a
   | ListTypeNil
@@ -84,6 +87,8 @@ data RigidTerm a
   | CPtrElimLVal a
   | CStructIntro a
   | CCast a a
+  | CDeclare a a a -- ty, name, cont
+  | CDefine a a a -- name, def, cont
   -- Propositions
   | PropConstIntro Id
   | ImplType a a

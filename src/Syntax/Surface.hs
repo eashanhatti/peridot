@@ -60,9 +60,9 @@ data Term
   | MUniv
   | LCUniv
   | Let (Seq DeclarationAst) TermAst
-  | LiftCore TermAst
-  | QuoteCore TermAst
-  | SpliceCore TermAst
+  | LiftObj TermAst
+  | QuoteObj TermAst
+  | SpliceObj TermAst
   | LiftC TermAst
   | QuoteC TermAst
   | SpliceC TermAst

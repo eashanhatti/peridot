@@ -30,11 +30,13 @@ data Term
   | RecIntro (Seq (Field, Term))
   | RecElim Term Field
   | SingElim Term
+  | ObjDeclare Term Term Term -- ty, name, cont
+  | ObjDefine Term Term Term -- name, def, cont
   -- Meta level
   | MetaFunType PassMethod Term Term
   | MetaFunIntro Term
   | MetaFunElim Term Term
-  | CodeCoreElim Term
+  | CodeObjElim Term
   | CodeCElim Term
   -- Other
   | LocalVar Index

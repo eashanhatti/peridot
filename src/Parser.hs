@@ -149,26 +149,26 @@ metaUniv = do
   string "MetaType"
   pure MUniv
 
-liftCore :: Parser Term
-liftCore = do
+liftObj :: Parser Term
+liftObj = do
   string "Code"; ws
   char '('; ws
   e <- prec0; ws
   char ')'
-  pure (LiftCore e)
+  pure (LiftObj e)
 
-quoteCore :: Parser Term
-quoteCore = do
+quoteObj :: Parser Term
+quoteObj = do
   char '<'; ws
   e <- prec0; ws
   char '>'
-  pure (QuoteCore e)
+  pure (QuoteObj e)
 
-spliceCore :: Parser Term
-spliceCore = do
+spliceObj :: Parser Term
+spliceObj = do
   char '~'; ws
   e <- prec2; ws
-  pure (SpliceCore e)
+  pure (SpliceObj e)
 
 liftC :: Parser Term
 liftC = do
@@ -592,7 +592,7 @@ prec1 =
     pos <- getSourcePos
     e <-
       try select <|>
-      try spliceCore <|>
+      try spliceObj <|>
       try spliceC <|>
       (do
         char '('; ws
@@ -611,13 +611,13 @@ prec0 =
       try (piE "~>" MetaPi) <|>
       try forallProp <|>
       try existsProp <|>
-      try quoteCore <|>
+      try quoteObj <|>
       try quoteC <|>
       try (lam "function" ObjLam) <|>
       try (lam "metafunction" (\ps -> MetaLam (fmap snd ps))) <|>
       try app <|>
       try equal <|>
-      try liftCore <|>
+      try liftObj <|>
       try liftC <|>
       try implProp <|>
       try conjProp <|>
