@@ -32,8 +32,8 @@ data Term
   | GlobalVar Id
   | UniVar Global
   | Rigid (RigidTerm Term)
-  | Declare Universe Term Term Term -- ty, name, cont
-  | Define Universe Term Term Term -- name, def, cont
+  | Declare Universe Term Term Term -- univ, name, ty, cont
+  | Define Term Term Term -- name, def, cont
   deriving (Eq, Show)
 
 pattern ObjTypeType = Rigid (TypeType Obj)

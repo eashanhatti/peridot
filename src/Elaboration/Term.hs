@@ -1,16 +1,22 @@
 module Elaboration.Term where
 
 import Control.Effect.Reader
+import Control.Effect.State
 import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Common hiding(unId, RigidTerm(..))
+import Data.Set(Set)
+import Data.Set qualified as Set
+import Data.Map(Map)
+import Data.Map qualified as Map
+import Data.Some
 import Extra
 import Elaboration.Effect
 import Elaboration.Declaration qualified as ED
 import Control.Monad
 import Normalization hiding(eval, readback, zonk)
-import Data.Foldable(foldl', foldr, foldrM, find)
+import Data.Foldable(foldl', foldr, foldrM, find, toList)
 import Debug.Trace
 import Data.Sequence
 import Prelude hiding(zip, concatMap, head, tail, length, unzip)
@@ -181,9 +187,65 @@ infer term = case term of
   TermAst MUniv -> pure (C.MetaTypeType, N.MetaTypeType)
   TermAst (Let decls body) ->
     withDecls decls do
-      cDecls <- traverse ED.check (declsIds decls)
+      cDecls <-
+        Map.fromList . toList <$> traverse
+          (\did -> (did ,) <$> ED.check did)
+          (declsIds decls)
+      cDeclTys <-
+        Map.fromList . toList <$> traverse
+          (\did -> (did ,) <$> ED.declType did)
+          (declsIds decls)
+      graph <- unDepGraph <$> get
       (cBody, bodyTy) <- infer body
-      pure (C.Rigid C.ElabError, N.Rigid N.ElabError)
+      let
+        ordering ::
+          Set (Some Key) ->
+          Seq (Set (Some Key))
+        ordering available =
+          if available == Map.keysSet graph then
+            mempty
+          else
+            let
+              nowAvailable =
+                Map.keysSet .
+                Map.filter (\ds -> ds `Set.isSubsetOf` available) $
+                graph
+            in
+              (<|)
+                (nowAvailable `Set.difference` available)
+                (ordering (nowAvailable <> available))
+        construct :: Seq (Set (Some Key)) -> C.Term
+        construct Empty = cBody
+        construct (keys :<| order) =
+          let cont = construct order
+          in
+            foldr
+              (\key acc -> case key of
+                Some (CheckDecl did) ->
+                  let
+                    name = case snd (cDeclTys Map.! did) of
+                      N.Obj -> C.Rigid . C.NameObjIntro
+                      N.Meta -> C.Rigid . C.NameMetaIntro
+                  in
+                    C.Define
+                      (name did)
+                      (cDecls Map.! did)
+                      acc
+                Some (DeclType did) ->
+                  let
+                    name = case snd (cDeclTys Map.! did) of
+                      N.Obj -> C.Rigid . C.NameObjIntro
+                      N.Meta -> C.Rigid . C.NameMetaIntro
+                  in
+                    C.Declare
+                      (snd (cDeclTys Map.! did))
+                      (name did)
+                      (fst (cDeclTys Map.! did))
+                      acc)
+              cont
+              keys
+      let order = ordering mempty
+      pure (construct order, bodyTy)
   TermAst (LiftObj ty) -> do
     cTy <- checkObjType' ty
     pure (C.Rigid (C.CodeObjType cTy), N.MetaTypeType)

@@ -55,8 +55,8 @@ data QueryState = QueryState
   , unDepGraph :: Map (Some Key) (Set (Some Key)) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs eqs errs deps) =
-    show (tuvs, eqs, errs, deps)
+  show (QueryState _ _ _ tuvs eqs errs _) =
+    show (tuvs, eqs, errs)
 
 data Error
   = TooManyParams

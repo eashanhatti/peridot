@@ -51,6 +51,8 @@ data RigidTerm a
   | ObjIdType a a
   | ObjIdIntro a
   -- Meta level
+  | NameMetaType a
+  | NameMetaIntro Id
   | NameCType a
   | NameCIntro Id
   | NameObjType a
