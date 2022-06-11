@@ -143,8 +143,18 @@ eval (C.MetaFunElim lam arg) = do
   pure (N.Neutral reded (N.MetaFunElim vLam vArg))
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did) = do
-  N.Env _ ((! did) -> def) <- unEnv <$> ask
-  pure (N.Neutral (pure (Just def)) (N.GlobalVar did))
+  vDid <- eval did
+  let
+    reded = do
+      vDid <- unfold vDid
+      let k did = Map.lookup did . N.unGlobals . unEnv <$> ask
+      case vDid of
+        N.Rigid (N.NameObjIntro did) ->
+          k did
+        N.Rigid (N.NameMetaIntro did) ->
+          k did
+        _ -> pure Nothing
+  pure (N.Neutral reded (N.GlobalVar vDid))
 eval (C.UniVar gl) = pure (N.Neutral (uvRedex gl) (N.UniVar gl))
 eval (C.CodeObjElim term) = do
   vTerm <- eval term
@@ -316,7 +326,7 @@ readbackRedex opt (N.ObjFunElim lam arg) =
     readback' opt arg
 readbackRedex opt (N.CodeObjElim quote) = C.CodeObjElim <$> readback' opt quote
 readbackRedex opt (N.CodeCElim quote) = C.CodeCElim <$> readback' opt quote
-readbackRedex opt (N.GlobalVar did) = pure (C.GlobalVar did)
+readbackRedex opt (N.GlobalVar did) = C.GlobalVar <$> readback' opt did
 readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)
 readbackRedex opt (N.TwoElim scr body1 body2) =
   C.TwoElim <$>

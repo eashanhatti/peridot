@@ -179,9 +179,13 @@ infer term = case term of
       Just (BLocal ix ty) -> pure (C.LocalVar ix, ty)
       Just (BGlobal did) -> do
         isType <- unIsType <$> ask
-        ty <- fst <$> ED.declType did >>= eval
+        (ty, univ) <- ED.declType did
+        vTy <- eval ty
         when isType (void (ED.check did))
-        pure (C.GlobalVar did, ty)
+        case univ of
+          N.Obj -> pure (C.GlobalVar (C.Rigid (C.NameObjIntro did)), vTy)
+          N.Meta -> pure (C.GlobalVar (C.Rigid (C.NameMetaIntro did)), vTy)
+          N.LowC -> pure (C.GlobalVar (C.Rigid (C.NameCIntro did)), vTy)
       Nothing -> errorTerm (UnboundVariable name)
   TermAst OUniv -> pure (C.ObjTypeType, N.ObjTypeType)
   TermAst MUniv -> pure (C.MetaTypeType, N.MetaTypeType)

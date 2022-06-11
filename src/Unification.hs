@@ -103,7 +103,8 @@ unifyRedexes (CodeObjElim quote1) (CodeObjElim quote2) =
   unifyS' quote1 quote2
 unifyRedexes (CodeCElim quote1) (CodeCElim quote2) =
   unifyS' quote1 quote2
-unifyRedexes (GlobalVar did1) (GlobalVar did2) | did1 == did2 = pure ()
+unifyRedexes (GlobalVar did1) (GlobalVar did2) =
+  unifyS' did1 did2
 unifyRedexes (TwoElim scr1 body11 body21) (TwoElim scr2 body12 body22) = do
   unifyS' scr1 scr2
   unifyS' body11 body12
