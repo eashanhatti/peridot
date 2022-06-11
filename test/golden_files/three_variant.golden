@@ -1,9 +1,14 @@
 ((fromList [], fromList [], fromList []),
- Let
-   (fromList
-      [ObjTerm
-         (Id {unId = 0})
-         (Rigid (TypeType Obj))
+ Declare
+   Obj
+   (Rigid (NameObjIntro (Id {unId = 0})))
+   (Rigid (TypeType Obj))
+   (Declare
+      Obj
+      (Rigid (NameObjIntro (Id {unId = 1})))
+      (Rigid (TypeType Obj))
+      (Define
+         (Rigid (NameObjIntro (Id {unId = 0})))
          (RecType
             (fromList
                [(Field {unField = "tag"}, Rigid TwoType),
@@ -11,32 +16,32 @@
                  TwoElim
                    (LocalVar (Index {unIndex = 0}))
                    (RecType (fromList []))
-                   (GlobalVar (Id {unId = 0})))])),
-       ObjTerm
-         (Id {unId = 1})
-         (Rigid (TypeType Obj))
-         (RecType
-            (fromList
-               [(Field {unField = "tag"},
-                 GlobalVar (Id {unId = 0})),
-                (Field {unField = "data"},
-                 TwoElim
-                   (RecElim
-                      (LocalVar (Index {unIndex = 0}))
-                      (Field {unField = "tag"}))
-                   (RecType
-                      (fromList
-                         [(Field {unField = "data"},
-                           GlobalVar (Id {unId = 0}))]))
-                   (TwoElim
+                   (GlobalVar (Id {unId = 0})))]))
+         (Define
+            (Rigid (NameObjIntro (Id {unId = 1})))
+            (RecType
+               (fromList
+                  [(Field {unField = "tag"},
+                    GlobalVar (Id {unId = 0})),
+                   (Field {unField = "data"},
+                    TwoElim
                       (RecElim
-                         (RecElim
-                            (LocalVar (Index {unIndex = 0}))
-                            (Field {unField = "data"}))
+                         (LocalVar (Index {unIndex = 0}))
                          (Field {unField = "tag"}))
                       (RecType
-                         (fromList [(Field {unField = "a"}, Rigid TwoType)]))
-                      (RecType
                          (fromList
-                            [(Field {unField = "data"}, Rigid TwoType)]))))]))])
-   (Rigid (TypeType Obj)))
+                            [(Field {unField = "data"},
+                              GlobalVar (Id {unId = 0}))]))
+                      (TwoElim
+                         (RecElim
+                            (RecElim
+                               (LocalVar (Index {unIndex = 0}))
+                               (Field {unField = "data"}))
+                            (Field {unField = "tag"}))
+                         (RecType
+                            (fromList [(Field {unField = "a"}, Rigid TwoType)]))
+                         (RecType
+                            (fromList
+                               [(Field {unField = "data"},
+                                 Rigid TwoType)]))))]))
+            (Rigid (TypeType Obj))))))

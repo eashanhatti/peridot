@@ -2,15 +2,19 @@
     [(UVGlobal 1000, Just (Rigid (TypeType Obj)))],
   fromList [],
   fromList []),
- Let
-   (fromList
-      [MetaTerm
-         (Id {unId = 0})
-         (Rigid (CodeCoreType (Rigid (TypeType Obj))))
-         (Rigid (CodeCoreIntro (Rigid (TypeType Obj)))),
-       ObjTerm
-         (Id {unId = 1})
-         (Rigid (TypeType Obj))
-         (CodeCoreElim
-            (Rigid (CodeCoreIntro (Rigid (TypeType Obj)))))])
-   (Rigid (TypeType Obj)))
+ Declare
+   Meta
+   (Rigid (NameMetaIntro (Id {unId = 0})))
+   (Rigid (CodeObjType (Rigid (TypeType Obj))))
+   (Declare
+      Obj
+      (Rigid (NameObjIntro (Id {unId = 1})))
+      (Rigid (TypeType Obj))
+      (Define
+         (Rigid (NameMetaIntro (Id {unId = 0})))
+         (Rigid (CodeObjIntro (Rigid (TypeType Obj))))
+         (Define
+            (Rigid (NameObjIntro (Id {unId = 1})))
+            (CodeObjElim
+               (Rigid (CodeObjIntro (Rigid (TypeType Obj)))))
+            (Rigid (TypeType Obj))))))

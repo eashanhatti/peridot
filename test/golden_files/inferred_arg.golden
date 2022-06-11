@@ -1,31 +1,38 @@
 ((fromList [(UVGlobal 1000, Just (Rigid (TwoType)))],
   fromList [],
   fromList []),
- Let
-   (fromList
-      [ObjTerm
-         (Id {unId = 0})
-         (ObjFunType
-            Unification
-            (Rigid (TypeType Obj))
-            (ObjFunType
-               Explicit
-               (LocalVar (Index {unIndex = 0}))
-               (LocalVar (Index {unIndex = 1}))))
-         (ObjFunIntro
-            (ObjFunIntro (LocalVar (Index {unIndex = 0})))),
-       ObjTerm
-         (Id {unId = 1})
+ Declare
+   Obj
+   (Rigid (NameObjIntro (Id {unId = 0})))
+   (ObjFunType
+      Unification
+      (Rigid (TypeType Obj))
+      (ObjFunType
+         Explicit
+         (LocalVar (Index {unIndex = 0}))
+         (LocalVar (Index {unIndex = 1}))))
+   (Declare
+      Obj
+      (Rigid (NameObjIntro (Id {unId = 1})))
+      (Rigid TwoType)
+      (Declare
+         Obj
+         (Rigid (NameObjIntro (Id {unId = 2})))
          (Rigid TwoType)
-         (ObjFunElim
-            (ObjFunElim
-               (GlobalVar (Id {unId = 0})) (UniVar (UVGlobal 1000)))
-            (Rigid TwoIntro0)),
-       ObjTerm
-         (Id {unId = 2})
-         (Rigid TwoType)
-         (ObjFunElim
-            (ObjFunElim
-               (GlobalVar (Id {unId = 0})) (Rigid TwoType))
-            (Rigid TwoIntro0))])
-   (Rigid (TypeType Obj)))
+         (Define
+            (Rigid (NameObjIntro (Id {unId = 0})))
+            (ObjFunIntro
+               (ObjFunIntro (LocalVar (Index {unIndex = 0}))))
+            (Define
+               (Rigid (NameObjIntro (Id {unId = 1})))
+               (ObjFunElim
+                  (ObjFunElim
+                     (GlobalVar (Id {unId = 0})) (UniVar (UVGlobal 1000)))
+                  (Rigid TwoIntro0))
+               (Define
+                  (Rigid (NameObjIntro (Id {unId = 2})))
+                  (ObjFunElim
+                     (ObjFunElim
+                        (GlobalVar (Id {unId = 0})) (Rigid TwoType))
+                     (Rigid TwoIntro0))
+                  (Rigid (TypeType Obj))))))))

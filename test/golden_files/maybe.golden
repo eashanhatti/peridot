@@ -15,88 +15,99 @@
       Just (LocalVar Level {unLevel = 0}))],
   fromList [],
   fromList []),
- Let
-   (fromList
-      [ObjTerm
-         (Id {unId = 0})
-         (ObjFunType
-            Explicit
-            (Rigid (TypeType Obj))
-            (Rigid (TypeType Obj)))
-         (ObjFunIntro
-            (RecType
-               (fromList
-                  [(Field {unField = "tag"}, Rigid TwoType),
-                   (Field {unField = "data"},
-                    TwoElim
-                      (LocalVar (Index {unIndex = 0}))
-                      (LocalVar (Index {unIndex = 1}))
-                      (RecType (fromList [])))]))),
-       ObjTerm
-         (Id {unId = 1})
+ Declare
+   Obj
+   (Rigid (NameObjIntro (Id {unId = 0})))
+   (ObjFunType
+      Explicit
+      (Rigid (TypeType Obj))
+      (Rigid (TypeType Obj)))
+   (Define
+      (Rigid (NameObjIntro (Id {unId = 0})))
+      (ObjFunIntro
+         (RecType
+            (fromList
+               [(Field {unField = "tag"}, Rigid TwoType),
+                (Field {unField = "data"},
+                 TwoElim
+                   (LocalVar (Index {unIndex = 0}))
+                   (LocalVar (Index {unIndex = 1}))
+                   (RecType (fromList [])))])))
+      (Declare
+         Obj
+         (Rigid (NameObjIntro (Id {unId = 1})))
          (ObjFunType
             Unification
             (Rigid (TypeType Obj))
             (ObjFunElim
                (GlobalVar (Id {unId = 0}))
                (LocalVar (Index {unIndex = 0}))))
-         (ObjFunIntro
-            (RecIntro
-               (fromList
-                  [(Field {unField = "tag"}, Rigid TwoIntro1),
-                   (Field {unField = "data"},
-                    RecIntro (fromList []))]))),
-       ObjTerm
-         (Id {unId = 2})
-         (ObjFunType
-            Unification
-            (Rigid (TypeType Obj))
+         (Declare
+            Obj
+            (Rigid (NameObjIntro (Id {unId = 2})))
             (ObjFunType
-               Explicit
-               (LocalVar (Index {unIndex = 0}))
-               (ObjFunElim
-                  (GlobalVar (Id {unId = 0}))
-                  (LocalVar (Index {unIndex = 1})))))
-         (ObjFunIntro
-            (ObjFunIntro
-               (RecIntro
-                  (fromList
-                     [(Field {unField = "tag"}, Rigid TwoIntro0),
-                      (Field {unField = "data"},
-                       LocalVar (Index {unIndex = 1}))])))),
-       ObjTerm
-         (Id {unId = 3})
-         (ObjFunType
-            Explicit
-            (Rigid (TypeType Obj))
-            (ObjFunType
-               Explicit
+               Unification
+               (Rigid (TypeType Obj))
                (ObjFunType
                   Explicit
                   (LocalVar (Index {unIndex = 0}))
-                  (LocalVar (Index {unIndex = 1})))
+                  (ObjFunElim
+                     (GlobalVar (Id {unId = 0}))
+                     (LocalVar (Index {unIndex = 1})))))
+            (Declare
+               Obj
+               (Rigid (NameObjIntro (Id {unId = 3})))
                (ObjFunType
                   Explicit
-                  (ObjFunElim
-                     (GlobalVar (Id {unId = 0}))
-                     (LocalVar (Index {unIndex = 1})))
-                  (ObjFunElim
-                     (GlobalVar (Id {unId = 0}))
-                     (LocalVar (Index {unIndex = 2}))))))
-         (ObjFunIntro
-            (ObjFunIntro
-               (ObjFunIntro
-                  (TwoElim
-                     (RecElim
+                  (Rigid (TypeType Obj))
+                  (ObjFunType
+                     Explicit
+                     (ObjFunType
+                        Explicit
                         (LocalVar (Index {unIndex = 0}))
-                        (Field {unField = "tag"}))
-                     (ObjFunElim
+                        (LocalVar (Index {unIndex = 1})))
+                     (ObjFunType
+                        Explicit
                         (ObjFunElim
-                           (GlobalVar (Id {unId = 2})) (UniVar (UVGlobal 1000)))
-                        (RecElim
-                           (LocalVar (Index {unIndex = 0}))
-                           (Field {unField = "data"})))
-                     (ObjFunElim
-                        (GlobalVar (Id {unId = 1}))
-                        (UniVar (UVGlobal 1001)))))))])
-   (Rigid (TypeType Obj)))
+                           (GlobalVar (Id {unId = 0}))
+                           (LocalVar (Index {unIndex = 1})))
+                        (ObjFunElim
+                           (GlobalVar (Id {unId = 0}))
+                           (LocalVar (Index {unIndex = 2}))))))
+               (Define
+                  (Rigid (NameObjIntro (Id {unId = 1})))
+                  (ObjFunIntro
+                     (RecIntro
+                        (fromList
+                           [(Field {unField = "tag"}, Rigid TwoIntro1),
+                            (Field {unField = "data"},
+                             RecIntro (fromList []))])))
+                  (Define
+                     (Rigid (NameObjIntro (Id {unId = 2})))
+                     (ObjFunIntro
+                        (ObjFunIntro
+                           (RecIntro
+                              (fromList
+                                 [(Field {unField = "tag"}, Rigid TwoIntro0),
+                                  (Field {unField = "data"},
+                                   LocalVar (Index {unIndex = 1}))]))))
+                     (Define
+                        (Rigid (NameObjIntro (Id {unId = 3})))
+                        (ObjFunIntro
+                           (ObjFunIntro
+                              (ObjFunIntro
+                                 (TwoElim
+                                    (RecElim
+                                       (LocalVar (Index {unIndex = 0}))
+                                       (Field {unField = "tag"}))
+                                    (ObjFunElim
+                                       (ObjFunElim
+                                          (GlobalVar (Id {unId = 2}))
+                                          (UniVar (UVGlobal 1000)))
+                                       (RecElim
+                                          (LocalVar (Index {unIndex = 0}))
+                                          (Field {unField = "data"})))
+                                    (ObjFunElim
+                                       (GlobalVar (Id {unId = 1}))
+                                       (UniVar (UVGlobal 1001)))))))
+                        (Rigid (TypeType Obj))))))))))
