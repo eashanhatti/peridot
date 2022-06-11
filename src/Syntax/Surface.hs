@@ -63,25 +63,9 @@ data Term
   | LiftObj TermAst
   | QuoteObj TermAst
   | SpliceObj TermAst
-  --
-  | ObjFunType NameAst PassMethod TermAst TermAst
-  | ObjFunIntro NameAst TermAst
-  | ObjFunElim TermAst TermAst
-  | TwoType
-  | TwoElim TermAst TermAst TermAst
-  | TwoIntro0
-  | TwoIntro1
-  | RecType (Seq (NameAst, TermAst))
-  | RecIntro (Seq (NameAst, TermAst))
-  | RecElim TermAst NameAst
-  | SingType TermAst TermAst
-  | SingIntro TermAst
-  | SingElim TermAst
-  | ObjIdType TermAst TermAst
-  | ObjIdIntro TermAst
   | Declare TermAst TermAst TermAst
   | Define TermAst TermAst TermAst
-  --
+  | ObjNameType TermAst
   | LiftC TermAst
   | QuoteC TermAst
   | SpliceC TermAst

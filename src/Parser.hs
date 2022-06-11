@@ -528,6 +528,28 @@ cLamTy = parens do
   ty <- prec0
   pure (CLamType ty)
 
+declare :: Parser Term
+declare = parens do
+  string "p_declare"; ws
+  n <- prec0; ws
+  ty <- prec0; ws
+  cont <- prec0
+  pure (Declare n ty cont)
+
+defineE :: Parser Term
+defineE = parens do
+  string "p_define"; ws
+  n <- prec0; ws
+  def <- prec0; ws
+  cont <- prec0
+  pure (Define n def cont)
+
+objNameTy :: Parser Term
+objNameTy = parens do
+  string "P_Name"; ws
+  ty <- prec0
+  pure (ObjNameType ty)
+
 parens :: Parser a -> Parser a
 parens p = do
   char '['; ws
@@ -579,6 +601,9 @@ prec2 = do
     try cCast <|>
     try cLam <|>
     try cLamTy <|>
+    try defineE <|>
+    try declare <|>
+    try objNameTy <|>
     (do
       char '('; ws
       SourcePos (TermAst e) pos <- try prec1 <|> prec0; ws
