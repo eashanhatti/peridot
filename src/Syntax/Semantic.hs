@@ -96,6 +96,8 @@ data Redex
   | TwoElim Term Term Term
   | RecElim Term Field
   | SingElim Term
+  | Declare Universe Term Term Term
+  | Define Term Term Term
   deriving (Eq, Show)
 
 viewFunType :: Term -> Maybe (PassMethod, Term, Closure)

@@ -513,20 +513,34 @@ infer term = case term of
             formCheck vOutTy
           N.Rigid N.CStmtType -> pure True
           _ -> pure False
-  TermAst (Declare univ name ty cont) -> do
-    cTy <- check ty (N.Rigid (N.TypeType univ))
+  TermAst (Declare name ty cont) -> do
+    cTy <- check ty N.ObjTypeType
     vTy <- eval cTy
-    cName <- check name (N.Rigid (N.NameType univ vTy))
+    cName <- check name (N.Rigid (N.NameType N.Obj vTy))
     contTy <- freshTypeUV
     cCont <- check cont contTy
-    pure (C.Declare univ cName cTy cCont, contTy)
-  TermAst (Define univ name def cont) -> do
+    pure (C.Declare N.Obj cName cTy cCont, contTy)
+  TermAst (Define name def cont) -> do
     ty <- freshTypeUV
-    cName <- check name (N.Rigid (N.NameType univ ty))
+    cName <- check name (N.Rigid (N.NameType N.Obj ty))
     cDef <- check def ty
     contTy <- freshTypeUV
     cCont <- check cont contTy
     pure (C.Define cName cDef cCont, contTy)
+  TermAst (CDeclare name ty cont) -> do
+    cTy <- check ty N.LowCTypeType
+    vTy <- eval cTy
+    cName <- check name (N.Rigid (N.NameType N.LowC vTy))
+    contTy <- freshTypeUV
+    cCont <- check cont contTy
+    pure (C.Rigid (C.CDeclare cName cTy cCont), contTy)
+  TermAst (CDefine name def cont) -> do
+    ty <- freshTypeUV
+    cName <- check name (N.Rigid (N.NameType N.LowC ty))
+    cDef <- check def ty
+    contTy <- freshTypeUV
+    cCont <- check cont contTy
+    pure (C.Rigid (C.CDefine cName cDef cCont), contTy)
   TermAst (NameType univ ty) -> do
     cTy <- check ty (N.Rigid (N.TypeType univ))
     pure (C.Rigid (C.NameType univ cTy), N.MetaTypeType)

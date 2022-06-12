@@ -542,7 +542,7 @@ defineE = parens do
   n <- prec0; ws
   def <- prec0; ws
   cont <- prec0
-  pure (Define Cm.Obj n def cont)
+  pure (Define n def cont)
 
 declare :: Parser Term
 declare = parens do
@@ -550,7 +550,23 @@ declare = parens do
   n <- prec0; ws
   ty <- prec0; ws
   cont <- prec0
-  pure (Declare Cm.Obj n ty cont)
+  pure (Declare n ty cont)
+
+cDefine :: Parser Term
+cDefine = parens do
+  string "c_define"; ws
+  n <- prec0; ws
+  def <- prec0; ws
+  cont <- prec0
+  pure (CDefine n def cont)
+
+cDeclare :: Parser Term
+cDeclare = parens do
+  string "c_declare"; ws
+  n <- prec0; ws
+  ty <- prec0; ws
+  cont <- prec0
+  pure (CDeclare n ty cont)
 
 objNameTy :: Parser Term
 objNameTy = do
@@ -616,6 +632,8 @@ prec2 = do
     try objNameTy <|>
     try defineE <|>
     try declare <|>
+    try cDefine <|>
+    try cDeclare <|>
     (do
       char '('; ws
       SourcePos (TermAst e) pos <- try prec1 <|> prec0; ws

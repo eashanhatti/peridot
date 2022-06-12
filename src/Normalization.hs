@@ -226,6 +226,21 @@ eval (C.RecElim str name) = do
 eval (C.RecIntro defs) = N.RecIntro <$> evalFields defs
 eval (C.RecType tys) =
   N.RecType <$> traverse (\(fd, ty) -> (fd ,) <$> closureOf ty) tys
+eval (C.Declare univ name ty cont) = do
+  vName <- eval name
+  vTy <- eval ty
+  vCont <- eval cont
+  pure (N.Neutral (pure (Just vCont)) (N.Declare univ vName vTy vCont))
+eval (C.Define name def cont) = do
+  vName <- eval name
+  vDef <- eval def
+  let
+    reded = unfold vDef >>= \case
+      N.Rigid (N.NameIntro _ did) ->
+        Just <$> local (\ctx -> ctx { unEnv = N.withGlobal did vDef (unEnv ctx) }) (eval cont)
+      _ -> pure Nothing
+  vCont <- eval cont
+  pure (N.Neutral reded (N.Define vName vDef vCont))
 
 bindDefEq :: Norm sig m => N.Term -> N.Term -> m a -> m a
 bindDefEq term1 term2 =
@@ -329,6 +344,16 @@ readbackRedex opt (N.TwoElim scr body1 body2) =
     readback' opt body2
 readbackRedex opt (N.SingElim scr) = C.SingElim <$> readback' opt scr
 readbackRedex opt (N.RecElim str name) = C.RecElim <$> readback' opt str <*> pure name
+readbackRedex opt (N.Declare univ name ty cont) =
+  C.Declare univ <$>
+    readback' opt name <*>
+    readback' opt ty <*>
+    readback' opt cont
+readbackRedex opt (N.Define name def cont) =
+  C.Define <$>
+    readback' opt name <*>
+    readback' opt def <*>
+    readback' opt cont
 
 readback :: HasCallStack => Norm sig m => N.Term -> m C.Term
 readback = readback' False

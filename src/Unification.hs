@@ -114,6 +114,14 @@ unifyRedexes (SingElim term1) (SingElim term2) =
 unifyRedexes (RecElim str1 name1) (RecElim str2 name2) | name1 == name2 =
   unifyS' str1 str2
 unifyRedexes (UniVar gl1) (UniVar gl2) = equateUVs gl1 gl2
+unifyRedexes (Declare univ1 name1 ty1 cont1) (Declare univ2 name2 ty2 cont2) | univ1 == univ2 = do
+  unifyS' name1 name2
+  unifyS' ty1 ty2
+  unifyS' cont1 cont2
+unifyRedexes (Define name1 def1 cont1) (Define name2 def2 cont2) = do
+  unifyS' name1 name2
+  unifyS' def1 def2
+  unifyS' cont1 cont2
 unifyRedexes _ _ = throwError ()
 
 unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m (Coercion sig m)
@@ -179,6 +187,16 @@ unifyRigid (ListIntroCons e1 l1) (ListIntroCons e2 l2) = do
   pure noop
 unifyRigid (CLValType ty1) (CLValType ty2) = do
   unifyS' ty1 ty2
+  pure noop
+unifyRigid (CDeclare name1 ty1 cont1) (CDeclare name2 ty2 cont2) = do
+  unifyS' name1 name2
+  unifyS' ty1 ty2
+  unifyS' cont1 cont2
+  pure noop
+unifyRigid (CDefine name1 def1 cont1) (CDefine name2 def2 cont2) = do
+  unifyS' name1 name2
+  unifyS' def1 def2
+  unifyS' cont1 cont2
   pure noop
 unifyRigid CIntType CIntType = pure noop
 unifyRigid (CPtrType ty1) (CPtrType ty2) = do

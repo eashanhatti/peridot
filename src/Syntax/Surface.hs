@@ -110,7 +110,9 @@ data Term
   | CCast TermAst TermAst
   | CLam TermAst
   | CLamType TermAst
-  | Declare Cm.Universe TermAst TermAst TermAst
-  | Define Cm.Universe TermAst TermAst TermAst
+  | Declare TermAst TermAst TermAst
+  | Define TermAst TermAst TermAst
+  | CDeclare TermAst TermAst TermAst
+  | CDefine TermAst TermAst TermAst
   | NameType Cm.Universe TermAst
   deriving (Show)
