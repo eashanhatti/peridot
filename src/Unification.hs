@@ -328,7 +328,7 @@ unify' term1 term2 =
       bind2 unifyS' (evalClosure body1) (evalClosure body2)
       pure noop
     simple (ObjFunType pm1 inTy1 outTy1) (ObjFunType pm2 inTy2 outTy2)
-      | pm1 == pm2
+      | pm1 == pm2 || pm1 == DontCare || pm2 == DontCare
       = do
         coe1 <- unify' inTy1 inTy2
         coe2 <- bind2 unify' (evalClosure outTy1) (evalClosure outTy2)
