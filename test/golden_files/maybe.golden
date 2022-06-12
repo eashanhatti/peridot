@@ -17,13 +17,13 @@
   fromList []),
  Declare
    Obj
-   (Rigid (NameObjIntro (Id {unId = 0})))
+   (Rigid (NameIntro Obj (Id {unId = 0})))
    (ObjFunType
       Explicit
       (Rigid (TypeType Obj))
       (Rigid (TypeType Obj)))
    (Define
-      (Rigid (NameObjIntro (Id {unId = 0})))
+      (Rigid (NameIntro Obj (Id {unId = 0})))
       (ObjFunIntro
          (RecType
             (fromList
@@ -35,16 +35,16 @@
                    (RecType (fromList [])))])))
       (Declare
          Obj
-         (Rigid (NameObjIntro (Id {unId = 1})))
+         (Rigid (NameIntro Obj (Id {unId = 1})))
          (ObjFunType
             Unification
             (Rigid (TypeType Obj))
             (ObjFunElim
-               (GlobalVar (Id {unId = 0}))
+               (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
                (LocalVar (Index {unIndex = 0}))))
          (Declare
             Obj
-            (Rigid (NameObjIntro (Id {unId = 2})))
+            (Rigid (NameIntro Obj (Id {unId = 2})))
             (ObjFunType
                Unification
                (Rigid (TypeType Obj))
@@ -52,11 +52,11 @@
                   Explicit
                   (LocalVar (Index {unIndex = 0}))
                   (ObjFunElim
-                     (GlobalVar (Id {unId = 0}))
+                     (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
                      (LocalVar (Index {unIndex = 1})))))
             (Declare
                Obj
-               (Rigid (NameObjIntro (Id {unId = 3})))
+               (Rigid (NameIntro Obj (Id {unId = 3})))
                (ObjFunType
                   Explicit
                   (Rigid (TypeType Obj))
@@ -69,13 +69,13 @@
                      (ObjFunType
                         Explicit
                         (ObjFunElim
-                           (GlobalVar (Id {unId = 0}))
+                           (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
                            (LocalVar (Index {unIndex = 1})))
                         (ObjFunElim
-                           (GlobalVar (Id {unId = 0}))
+                           (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
                            (LocalVar (Index {unIndex = 2}))))))
                (Define
-                  (Rigid (NameObjIntro (Id {unId = 1})))
+                  (Rigid (NameIntro Obj (Id {unId = 1})))
                   (ObjFunIntro
                      (RecIntro
                         (fromList
@@ -83,7 +83,7 @@
                             (Field {unField = "data"},
                              RecIntro (fromList []))])))
                   (Define
-                     (Rigid (NameObjIntro (Id {unId = 2})))
+                     (Rigid (NameIntro Obj (Id {unId = 2})))
                      (ObjFunIntro
                         (ObjFunIntro
                            (RecIntro
@@ -92,7 +92,7 @@
                                   (Field {unField = "data"},
                                    LocalVar (Index {unIndex = 1}))]))))
                      (Define
-                        (Rigid (NameObjIntro (Id {unId = 3})))
+                        (Rigid (NameIntro Obj (Id {unId = 3})))
                         (ObjFunIntro
                            (ObjFunIntro
                               (ObjFunIntro
@@ -102,12 +102,17 @@
                                        (Field {unField = "tag"}))
                                     (ObjFunElim
                                        (ObjFunElim
-                                          (GlobalVar (Id {unId = 2}))
+                                          (GlobalVar
+                                             (Rigid
+                                                (NameIntro
+                                                   Obj (Id {unId = 2}))))
                                           (UniVar (UVGlobal 1000)))
                                        (RecElim
                                           (LocalVar (Index {unIndex = 0}))
                                           (Field {unField = "data"})))
                                     (ObjFunElim
-                                       (GlobalVar (Id {unId = 1}))
+                                       (GlobalVar
+                                          (Rigid
+                                             (NameIntro Obj (Id {unId = 1}))))
                                        (UniVar (UVGlobal 1001)))))))
                         (Rigid (TypeType Obj))))))))))

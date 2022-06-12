@@ -6,7 +6,9 @@
               (Neutral
                  _
                  (ObjFunElim
-                    (Neutral _ (GlobalVar (Id {unId = 2})))
+                    (Neutral
+                       _
+                       (GlobalVar (Rigid (NameIntro Obj (Id {unId = 2})))))
                     (Neutral
                        _
                        (CodeObjElim
@@ -15,10 +17,17 @@
       Just
         (Rigid
            (CodeObjIntro
-              (Neutral _ (GlobalVar (Id {unId = 1})))))),
+              (Neutral
+                 _
+                 (GlobalVar
+                    (Rigid (NameIntro Obj (Id {unId = 1})))))))),
      (UVGlobal 1000, Just (Rigid (CIntType))),
      (UVGlobal 1001,
-      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid (NameIntro Obj (Id {unId = 0})))))),
      (UVGlobal 1002, Nothing),
      (UVGlobal 1003,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
@@ -28,7 +37,10 @@
       Just
         (Rigid
            (CodeObjType
-              (Neutral _ (GlobalVar (Id {unId = 0})))))),
+              (Neutral
+                 _
+                 (GlobalVar
+                    (Rigid (NameIntro Obj (Id {unId = 0})))))))),
      (UVGlobal 1007, Just (Rigid (TypeType Meta))),
      (UVGlobal 1008, Nothing),
      (UVGlobal 1009,
@@ -39,11 +51,18 @@
       Just
         (Rigid
            (CodeObjType
-              (Neutral _ (GlobalVar (Id {unId = 0})))))),
+              (Neutral
+                 _
+                 (GlobalVar
+                    (Rigid (NameIntro Obj (Id {unId = 0})))))))),
      (UVGlobal 1013, Just (Rigid (TypeType Meta))),
      (UVGlobal 1014, Just (Rigid (CIntType))),
      (UVGlobal 1015,
-      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid (NameIntro Obj (Id {unId = 0})))))),
      (UVGlobal 1016, Nothing),
      (UVGlobal 1017,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
@@ -53,11 +72,18 @@
       Just
         (Rigid
            (CodeObjType
-              (Neutral _ (GlobalVar (Id {unId = 0})))))),
+              (Neutral
+                 _
+                 (GlobalVar
+                    (Rigid (NameIntro Obj (Id {unId = 0})))))))),
      (UVGlobal 1021, Just (Rigid (TypeType Meta))),
      (UVGlobal 1022, Just (Rigid (CIntType))),
      (UVGlobal 1023,
-      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid (NameIntro Obj (Id {unId = 0})))))),
      (UVGlobal 1024, Nothing),
      (UVGlobal 1025,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
@@ -67,14 +93,25 @@
       Just
         (Rigid
            (CodeObjType
-              (Neutral _ (GlobalVar (Id {unId = 0})))))),
+              (Neutral
+                 _
+                 (GlobalVar
+                    (Rigid (NameIntro Obj (Id {unId = 0})))))))),
      (UVGlobal 1029, Just (Rigid (TypeType Meta))),
      (UVGlobal 1030, Just (Rigid (CIntType))),
      (UVGlobal 1031,
-      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid (NameIntro Obj (Id {unId = 0})))))),
      (UVGlobal 1032, Just (Rigid (CIntType))),
      (UVGlobal 1033,
-      Just (Neutral _ (GlobalVar (Id {unId = 0})))),
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid (NameIntro Obj (Id {unId = 0})))))),
      (UVGlobal 1034, Nothing),
      (UVGlobal 1035,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
@@ -84,12 +121,19 @@
       Just
         (Rigid
            (CodeObjType
-              (Neutral _ (GlobalVar (Id {unId = 0})))))),
+              (Neutral
+                 _
+                 (GlobalVar
+                    (Rigid (NameIntro Obj (Id {unId = 0})))))))),
      (UVGlobal 1039, Just (Rigid (TypeType Meta))),
      (LVGlobal 2000,
       Just (Rigid (CodeCIntro (Rigid (CIntIntro 0))))),
      (LVGlobal 2001,
-      Just (Neutral _ (GlobalVar (Id {unId = 7}))))],
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid (NameIntro Meta (Id {unId = 7}))))))],
   fromList
     [(UVGlobal 1002, UVGlobal 1003),
      (UVGlobal 1003, UVGlobal 1002),
@@ -123,7 +167,9 @@
               (Neutral
                  _
                  (MetaFunElim
-                    (Neutral _ (GlobalVar (Id {unId = 3})))
+                    (Neutral
+                       _
+                       (GlobalVar (Rigid (NameIntro Meta (Id {unId = 3})))))
                     (Rigid
                        (CodeCIntro
                           (Rigid
@@ -135,24 +181,35 @@
                     (Neutral
                        _
                        (ObjFunElim
-                          (Neutral _ (GlobalVar (Id {unId = 2})))
+                          (Neutral
+                             _
+                             (GlobalVar
+                                (Rigid (NameIntro Obj (Id {unId = 2})))))
                           (Neutral
                              _
                              (ObjFunElim
-                                (Neutral _ (GlobalVar (Id {unId = 2})))
+                                (Neutral
+                                   _
+                                   (GlobalVar
+                                      (Rigid (NameIntro Obj (Id {unId = 2})))))
                                 (Neutral
                                    _
                                    (CodeObjElim
                                       (Neutral
                                          _
                                          (GlobalVar
-                                            (Id {unId = 8}))))))))))))))]),
+                                            (Rigid
+                                               (NameIntro
+                                                  Meta
+                                                  (Id
+                                                     {unId =
+                                                        8}))))))))))))))))]),
  Declare
    Obj
-   (Rigid (NameObjIntro (Id {unId = 0})))
+   (Rigid (NameIntro Obj (Id {unId = 0})))
    (Rigid (TypeType Obj))
    (Define
-      (Rigid (NameObjIntro (Id {unId = 0})))
+      (Rigid (NameIntro Obj (Id {unId = 0})))
       (RecType
          (fromList
             [(Field {unField = "tag"}, Rigid TwoType),
@@ -160,49 +217,59 @@
               TwoElim
                 (LocalVar (Index {unIndex = 0}))
                 (RecType (fromList []))
-                (GlobalVar (Id {unId = 0})))]))
+                (GlobalVar
+                   (Rigid (NameIntro Obj (Id {unId = 0})))))]))
       (Declare
          Obj
-         (Rigid (NameObjIntro (Id {unId = 1})))
-         (GlobalVar (Id {unId = 0}))
+         (Rigid (NameIntro Obj (Id {unId = 1})))
+         (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
          (Declare
             Obj
-            (Rigid (NameObjIntro (Id {unId = 2})))
+            (Rigid (NameIntro Obj (Id {unId = 2})))
             (ObjFunType
                Explicit
-               (GlobalVar (Id {unId = 0}))
-               (GlobalVar (Id {unId = 0})))
+               (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
+               (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0})))))
             (Declare
                Meta
-               (Rigid (NameMetaIntro (Id {unId = 3})))
+               (Rigid (NameIntro Meta (Id {unId = 3})))
                (MetaFunType
                   Explicit
                   (Rigid (CodeCType (Rigid CIntType)))
                   (MetaFunType
                      Explicit
-                     (Rigid (CodeObjType (GlobalVar (Id {unId = 0}))))
+                     (Rigid
+                        (CodeObjType
+                           (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))))
                      (Rigid (TypeType Meta))))
                (Declare
                   Meta
-                  (Rigid (NameMetaIntro (Id {unId = 6})))
-                  (Rigid (CodeObjType (GlobalVar (Id {unId = 0}))))
+                  (Rigid (NameIntro Meta (Id {unId = 6})))
+                  (Rigid
+                     (CodeObjType
+                        (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))))
                   (Declare
                      Meta
-                     (Rigid (NameMetaIntro (Id {unId = 7})))
-                     (Rigid (CodeObjType (GlobalVar (Id {unId = 0}))))
+                     (Rigid (NameIntro Meta (Id {unId = 7})))
+                     (Rigid
+                        (CodeObjType
+                           (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))))
                      (Declare
                         Meta
-                        (Rigid (NameMetaIntro (Id {unId = 8})))
-                        (Rigid (CodeObjType (GlobalVar (Id {unId = 0}))))
+                        (Rigid (NameIntro Meta (Id {unId = 8})))
+                        (Rigid
+                           (CodeObjType
+                              (GlobalVar
+                                 (Rigid (NameIntro Obj (Id {unId = 0}))))))
                         (Define
-                           (Rigid (NameObjIntro (Id {unId = 1})))
+                           (Rigid (NameIntro Obj (Id {unId = 1})))
                            (RecIntro
                               (fromList
                                  [(Field {unField = "tag"}, Rigid TwoIntro0),
                                   (Field {unField = "data"},
                                    RecIntro (fromList []))]))
                            (Define
-                              (Rigid (NameObjIntro (Id {unId = 2})))
+                              (Rigid (NameIntro Obj (Id {unId = 2})))
                               (ObjFunIntro
                                  (RecIntro
                                     (fromList
@@ -211,25 +278,30 @@
                                         (Field {unField = "data"},
                                          LocalVar (Index {unIndex = 1}))])))
                               (Define
-                                 (Rigid (NameMetaIntro (Id {unId = 3})))
+                                 (Rigid (NameIntro Meta (Id {unId = 3})))
                                  (Rigid (MetaConstIntro (Id {unId = 3})))
                                  (Define
-                                    (Rigid (NameMetaIntro (Id {unId = 6})))
+                                    (Rigid (NameIntro Meta (Id {unId = 6})))
                                     (UniVar (UVGlobal 6))
                                     (Define
-                                       (Rigid (NameMetaIntro (Id {unId = 7})))
+                                       (Rigid (NameIntro Meta (Id {unId = 7})))
                                        (UniVar (UVGlobal 7))
                                        (Define
                                           (Rigid
-                                             (NameMetaIntro (Id {unId = 8})))
+                                             (NameIntro Meta (Id {unId = 8})))
                                           (UniVar (UVGlobal 8))
                                           (Declare
                                              Meta
                                              (Rigid
-                                                (NameMetaIntro (Id {unId = 4})))
+                                                (NameIntro
+                                                   Meta (Id {unId = 4})))
                                              (MetaFunElim
                                                 (MetaFunElim
-                                                   (GlobalVar (Id {unId = 3}))
+                                                   (GlobalVar
+                                                      (Rigid
+                                                         (NameIntro
+                                                            Meta
+                                                            (Id {unId = 3}))))
                                                    (Rigid
                                                       (CodeCIntro
                                                          (Rigid
@@ -237,12 +309,17 @@
                                                 (Rigid
                                                    (CodeObjIntro
                                                       (GlobalVar
-                                                         (Id {unId = 1})))))
+                                                         (Rigid
+                                                            (NameIntro
+                                                               Obj
+                                                               (Id
+                                                                  {unId =
+                                                                     1})))))))
                                              (Declare
                                                 Meta
                                                 (Rigid
-                                                   (NameMetaIntro
-                                                      (Id {unId = 5})))
+                                                   (NameIntro
+                                                      Meta (Id {unId = 5})))
                                                 (Rigid
                                                    (AllType
                                                       (MetaFunIntro
@@ -254,9 +331,12 @@
                                                                         (MetaFunElim
                                                                            (MetaFunElim
                                                                               (GlobalVar
-                                                                                 (Id
-                                                                                    {unId =
-                                                                                       3}))
+                                                                                 (Rigid
+                                                                                    (NameIntro
+                                                                                       Meta
+                                                                                       (Id
+                                                                                          {unId =
+                                                                                             3}))))
                                                                               (LocalVar
                                                                                  (Index
                                                                                     {unIndex =
@@ -268,9 +348,12 @@
                                                                         (MetaFunElim
                                                                            (MetaFunElim
                                                                               (GlobalVar
-                                                                                 (Id
-                                                                                    {unId =
-                                                                                       3}))
+                                                                                 (Rigid
+                                                                                    (NameIntro
+                                                                                       Meta
+                                                                                       (Id
+                                                                                          {unId =
+                                                                                             3}))))
                                                                               (Rigid
                                                                                  (CodeCIntro
                                                                                     (Rigid
@@ -287,9 +370,12 @@
                                                                               (CodeObjIntro
                                                                                  (ObjFunElim
                                                                                     (GlobalVar
-                                                                                       (Id
-                                                                                          {unId =
-                                                                                             2}))
+                                                                                       (Rigid
+                                                                                          (NameIntro
+                                                                                             Obj
+                                                                                             (Id
+                                                                                                {unId =
+                                                                                                   2}))))
                                                                                     (CodeObjElim
                                                                                        (LocalVar
                                                                                           (Index
@@ -298,12 +384,17 @@
                                                 (Declare
                                                    Meta
                                                    (Rigid
-                                                      (NameMetaIntro
-                                                         (Id {unId = 9})))
+                                                      (NameIntro
+                                                         Meta (Id {unId = 9})))
                                                    (MetaFunElim
                                                       (MetaFunElim
                                                          (GlobalVar
-                                                            (Id {unId = 3}))
+                                                            (Rigid
+                                                               (NameIntro
+                                                                  Meta
+                                                                  (Id
+                                                                     {unId =
+                                                                        3}))))
                                                          (Rigid
                                                             (CodeCIntro
                                                                (Rigid
@@ -315,16 +406,27 @@
                                                                         (CIntIntro
                                                                            1)))))))
                                                       (GlobalVar
-                                                         (Id {unId = 6})))
+                                                         (Rigid
+                                                            (NameIntro
+                                                               Meta
+                                                               (Id
+                                                                  {unId =
+                                                                     6})))))
                                                    (Declare
                                                       Meta
                                                       (Rigid
-                                                         (NameMetaIntro
+                                                         (NameIntro
+                                                            Meta
                                                             (Id {unId = 10})))
                                                       (MetaFunElim
                                                          (MetaFunElim
                                                             (GlobalVar
-                                                               (Id {unId = 3}))
+                                                               (Rigid
+                                                                  (NameIntro
+                                                                     Meta
+                                                                     (Id
+                                                                        {unId =
+                                                                           3}))))
                                                             (Rigid
                                                                (CodeCIntro
                                                                   (Rigid
@@ -339,26 +441,36 @@
                                                             (CodeObjIntro
                                                                (ObjFunElim
                                                                   (GlobalVar
-                                                                     (Id
-                                                                        {unId =
-                                                                           2}))
+                                                                     (Rigid
+                                                                        (NameIntro
+                                                                           Obj
+                                                                           (Id
+                                                                              {unId =
+                                                                                 2}))))
                                                                   (CodeObjElim
                                                                      (GlobalVar
-                                                                        (Id
-                                                                           {unId =
-                                                                              7})))))))
+                                                                        (Rigid
+                                                                           (NameIntro
+                                                                              Meta
+                                                                              (Id
+                                                                                 {unId =
+                                                                                    7})))))))))
                                                       (Declare
                                                          Meta
                                                          (Rigid
-                                                            (NameMetaIntro
+                                                            (NameIntro
+                                                               Meta
                                                                (Id
                                                                   {unId = 11})))
                                                          (MetaFunElim
                                                             (MetaFunElim
                                                                (GlobalVar
-                                                                  (Id
-                                                                     {unId =
-                                                                        3}))
+                                                                  (Rigid
+                                                                     (NameIntro
+                                                                        Meta
+                                                                        (Id
+                                                                           {unId =
+                                                                              3}))))
                                                                (Rigid
                                                                   (CodeCIntro
                                                                      (Rigid
@@ -373,22 +485,32 @@
                                                                (CodeObjIntro
                                                                   (ObjFunElim
                                                                      (GlobalVar
-                                                                        (Id
-                                                                           {unId =
-                                                                              2}))
-                                                                     (ObjFunElim
-                                                                        (GlobalVar
-                                                                           (Id
-                                                                              {unId =
-                                                                                 2}))
-                                                                        (CodeObjElim
-                                                                           (GlobalVar
+                                                                        (Rigid
+                                                                           (NameIntro
+                                                                              Obj
                                                                               (Id
                                                                                  {unId =
-                                                                                    8}))))))))
+                                                                                    2}))))
+                                                                     (ObjFunElim
+                                                                        (GlobalVar
+                                                                           (Rigid
+                                                                              (NameIntro
+                                                                                 Obj
+                                                                                 (Id
+                                                                                    {unId =
+                                                                                       2}))))
+                                                                        (CodeObjElim
+                                                                           (GlobalVar
+                                                                              (Rigid
+                                                                                 (NameIntro
+                                                                                    Meta
+                                                                                    (Id
+                                                                                       {unId =
+                                                                                          8}))))))))))
                                                          (Define
                                                             (Rigid
-                                                               (NameMetaIntro
+                                                               (NameIntro
+                                                                  Meta
                                                                   (Id
                                                                      {unId =
                                                                         4})))
@@ -399,7 +521,8 @@
                                                                         4})))
                                                             (Define
                                                                (Rigid
-                                                                  (NameMetaIntro
+                                                                  (NameIntro
+                                                                     Meta
                                                                      (Id
                                                                         {unId =
                                                                            5})))
@@ -410,7 +533,8 @@
                                                                            5})))
                                                                (Define
                                                                   (Rigid
-                                                                     (NameMetaIntro
+                                                                     (NameIntro
+                                                                        Meta
                                                                         (Id
                                                                            {unId =
                                                                               9})))
@@ -421,7 +545,8 @@
                                                                               9})))
                                                                   (Define
                                                                      (Rigid
-                                                                        (NameMetaIntro
+                                                                        (NameIntro
+                                                                           Meta
                                                                            (Id
                                                                               {unId =
                                                                                  10})))
@@ -432,7 +557,8 @@
                                                                                  10})))
                                                                      (Define
                                                                         (Rigid
-                                                                           (NameMetaIntro
+                                                                           (NameIntro
+                                                                              Meta
                                                                               (Id
                                                                                  {unId =
                                                                                     11})))

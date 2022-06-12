@@ -91,7 +91,7 @@ data Redex
   | ObjConstElim (Map Id Term)
   | CodeObjElim Term
   | CodeCElim Term
-  | GlobalVar Id
+  | GlobalVar Term
   | UniVar Global
   | TwoElim Term Term Term
   | RecElim Term Field
@@ -110,6 +110,10 @@ viewMetaFunElims (Neutral _ (MetaFunElim lam arg)) =
   let (lam', args) = viewMetaFunElims lam
   in (lam', args |> arg)
 viewMetaFunElims term = (term, mempty)
+
+viewName :: Term -> Maybe Id
+viewName (Rigid (NameIntro _ did)) = Just did
+viewName _ = Nothing
 
 pattern MetaFunElims lam args <- (viewMetaFunElims -> (lam, args))
 

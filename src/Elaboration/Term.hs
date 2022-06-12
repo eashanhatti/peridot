@@ -179,9 +179,10 @@ infer term = case term of
       Just (BLocal ix ty) -> pure (C.LocalVar ix, ty)
       Just (BGlobal did) -> do
         isType <- unIsType <$> ask
-        ty <- fst <$> ED.declType did >>= eval
+        (ty, univ) <- ED.declType did
+        vTy <- eval ty
         when isType (void (ED.check did))
-        pure (C.GlobalVar did, ty)
+        pure (C.GlobalVar (C.Rigid (C.NameIntro univ did)), vTy)
       Nothing -> errorTerm (UnboundVariable name)
   TermAst OUniv -> pure (C.ObjTypeType, N.ObjTypeType)
   TermAst MUniv -> pure (C.MetaTypeType, N.MetaTypeType)
@@ -222,26 +223,16 @@ infer term = case term of
             foldr
               (\key acc -> case key of
                 Some (CheckDecl did) ->
-                  let
-                    name = case snd (cDeclTys Map.! did) of
-                      N.Obj -> C.Rigid . C.NameObjIntro
-                      N.Meta -> C.Rigid . C.NameMetaIntro
-                  in
-                    C.Define
-                      (name did)
-                      (cDecls Map.! did)
-                      acc
+                  C.Define
+                    (C.Rigid (C.NameIntro (snd (cDeclTys Map.! did)) did))
+                    (cDecls Map.! did)
+                    acc
                 Some (DeclType did) ->
-                  let
-                    name = case snd (cDeclTys Map.! did) of
-                      N.Obj -> C.Rigid . C.NameObjIntro
-                      N.Meta -> C.Rigid . C.NameMetaIntro
-                  in
-                    C.Declare
-                      (snd (cDeclTys Map.! did))
-                      (name did)
-                      (fst (cDeclTys Map.! did))
-                      acc)
+                  C.Declare
+                    (snd (cDeclTys Map.! did))
+                    (C.Rigid (C.NameIntro (snd (cDeclTys Map.! did)) did))
+                    (fst (cDeclTys Map.! did))
+                    acc)
               cont
               keys
       let order = ordering mempty

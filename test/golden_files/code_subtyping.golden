@@ -4,17 +4,17 @@
   fromList []),
  Declare
    Meta
-   (Rigid (NameMetaIntro (Id {unId = 0})))
+   (Rigid (NameIntro Meta (Id {unId = 0})))
    (Rigid (CodeObjType (Rigid (TypeType Obj))))
    (Declare
       Obj
-      (Rigid (NameObjIntro (Id {unId = 1})))
+      (Rigid (NameIntro Obj (Id {unId = 1})))
       (Rigid (TypeType Obj))
       (Define
-         (Rigid (NameMetaIntro (Id {unId = 0})))
+         (Rigid (NameIntro Meta (Id {unId = 0})))
          (Rigid (CodeObjIntro (Rigid (TypeType Obj))))
          (Define
-            (Rigid (NameObjIntro (Id {unId = 1})))
+            (Rigid (NameIntro Obj (Id {unId = 1})))
             (CodeObjElim
                (Rigid (CodeObjIntro (Rigid (TypeType Obj)))))
             (Rigid (TypeType Obj))))))

@@ -1,3 +1,26 @@
-axiom Foo: Function(inferred A: MetaType, A) ~> MetaType;
+define Nat
+  : Type
+  = Record {
+      tag: Bool,
+      data:
+        if tag {
+          Record {}
+        } else {
+          Nat
+        }
+    };
 
-axiom foo: Forall x, Foo(x);
+define zero
+  : Nat
+  = record {
+      tag = true,
+      data = record {}
+    };
+
+define succ
+  : Function(Nat) -> Nat
+  = function(n) =>
+      record {
+        tag = false,
+        data = n
+      };

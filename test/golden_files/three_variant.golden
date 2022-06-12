@@ -1,14 +1,14 @@
 ((fromList [], fromList [], fromList []),
  Declare
    Obj
-   (Rigid (NameObjIntro (Id {unId = 0})))
+   (Rigid (NameIntro Obj (Id {unId = 0})))
    (Rigid (TypeType Obj))
    (Declare
       Obj
-      (Rigid (NameObjIntro (Id {unId = 1})))
+      (Rigid (NameIntro Obj (Id {unId = 1})))
       (Rigid (TypeType Obj))
       (Define
-         (Rigid (NameObjIntro (Id {unId = 0})))
+         (Rigid (NameIntro Obj (Id {unId = 0})))
          (RecType
             (fromList
                [(Field {unField = "tag"}, Rigid TwoType),
@@ -16,13 +16,14 @@
                  TwoElim
                    (LocalVar (Index {unIndex = 0}))
                    (RecType (fromList []))
-                   (GlobalVar (Id {unId = 0})))]))
+                   (GlobalVar
+                      (Rigid (NameIntro Obj (Id {unId = 0})))))]))
          (Define
-            (Rigid (NameObjIntro (Id {unId = 1})))
+            (Rigid (NameIntro Obj (Id {unId = 1})))
             (RecType
                (fromList
                   [(Field {unField = "tag"},
-                    GlobalVar (Id {unId = 0})),
+                    GlobalVar (Rigid (NameIntro Obj (Id {unId = 0})))),
                    (Field {unField = "data"},
                     TwoElim
                       (RecElim
@@ -31,7 +32,8 @@
                       (RecType
                          (fromList
                             [(Field {unField = "data"},
-                              GlobalVar (Id {unId = 0}))]))
+                              GlobalVar
+                                (Rigid (NameIntro Obj (Id {unId = 0}))))]))
                       (TwoElim
                          (RecElim
                             (RecElim
