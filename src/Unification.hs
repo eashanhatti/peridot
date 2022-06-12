@@ -103,7 +103,8 @@ unifyRedexes (CodeObjElim quote1) (CodeObjElim quote2) =
   unifyS' quote1 quote2
 unifyRedexes (CodeCElim quote1) (CodeCElim quote2) =
   unifyS' quote1 quote2
-unifyRedexes (GlobalVar did1) (GlobalVar did2) | did1 == did2 = pure ()
+unifyRedexes (GlobalVar did1) (GlobalVar did2) =
+  unifyS' did1 did2
 unifyRedexes (TwoElim scr1 body11 body21) (TwoElim scr2 body12 body22) = do
   unifyS' scr1 scr2
   unifyS' body11 body12
@@ -245,6 +246,14 @@ unifyRigid (CCast ty1 e1) (CCast ty2 e2) = do
   unifyS' ty1 ty2
   unifyS' e1 e2
   pure noop
+unifyRigid (NameType univ1 ty1) (NameType univ2 ty2)
+  | univ1 == univ2
+  = do
+    unifyS' ty1 ty2
+    pure noop
+unifyRigid (NameIntro univ1 did1) (NameIntro univ2 did2)
+  | univ1 == univ2 && did1 == did2
+  = pure noop
 unifyRigid ElabError _ = pure noop
 unifyRigid _ ElabError = pure noop
 unifyRigid term1 term2 = throwError ()
