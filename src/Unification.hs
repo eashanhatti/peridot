@@ -103,8 +103,7 @@ unifyRedexes (CodeObjElim quote1) (CodeObjElim quote2) =
   unifyS' quote1 quote2
 unifyRedexes (CodeCElim quote1) (CodeCElim quote2) =
   unifyS' quote1 quote2
-unifyRedexes (GlobalVar did1) (GlobalVar did2) =
-  unifyS' did1 did2
+unifyRedexes (GlobalVar did1) (GlobalVar did2) | did1 == did2 = pure ()
 unifyRedexes (TwoElim scr1 body11 body21) (TwoElim scr2 body12 body22) = do
   unifyS' scr1 scr2
   unifyS' body11 body12
@@ -302,7 +301,7 @@ unify' term1 term2 =
       bind2 unifyS' (evalClosure body1) (evalClosure body2)
       pure noop
     simple (ObjFunType pm1 inTy1 outTy1) (ObjFunType pm2 inTy2 outTy2)
-      | pm1 == pm2 || pm1 == DontCare || pm2 == DontCare
+      | pm1 == pm2
       = do
         coe1 <- unify' inTy1 inTy2
         coe2 <- bind2 unify' (evalClosure outTy1) (evalClosure outTy2)

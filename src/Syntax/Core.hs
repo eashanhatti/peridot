@@ -29,7 +29,7 @@ data Term
   | CodeCElim Term
   -- Other
   | LocalVar Index
-  | GlobalVar Term
+  | GlobalVar Id
   | UniVar Global
   | Rigid (RigidTerm Term)
   | Declare Universe Term Term Term -- univ, name, ty, cont

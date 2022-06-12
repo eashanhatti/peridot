@@ -179,13 +179,9 @@ infer term = case term of
       Just (BLocal ix ty) -> pure (C.LocalVar ix, ty)
       Just (BGlobal did) -> do
         isType <- unIsType <$> ask
-        (ty, univ) <- ED.declType did
-        vTy <- eval ty
+        ty <- fst <$> ED.declType did >>= eval
         when isType (void (ED.check did))
-        case univ of
-          N.Obj -> pure (C.GlobalVar (C.Rigid (C.NameObjIntro did)), vTy)
-          N.Meta -> pure (C.GlobalVar (C.Rigid (C.NameMetaIntro did)), vTy)
-          N.LowC -> pure (C.GlobalVar (C.Rigid (C.NameCIntro did)), vTy)
+        pure (C.GlobalVar did, ty)
       Nothing -> errorTerm (UnboundVariable name)
   TermAst OUniv -> pure (C.ObjTypeType, N.ObjTypeType)
   TermAst MUniv -> pure (C.MetaTypeType, N.MetaTypeType)
@@ -526,23 +522,6 @@ infer term = case term of
             formCheck vOutTy
           N.Rigid N.CStmtType -> pure True
           _ -> pure False
-  TermAst (Declare name ty cont) -> do
-    cTy <- check ty N.ObjTypeType
-    vTy <- eval cTy
-    cName <- check name (N.Rigid (N.NameObjType vTy))
-    contTy <- freshTypeUV
-    cCont <- check cont contTy
-    pure (C.Declare N.Obj cName cTy cCont, contTy)
-  TermAst (Define name def cont) -> do
-    ty <- freshTypeUV
-    cName <- check name (N.Rigid (N.NameObjType ty))
-    cDef <- check def ty
-    contTy <- freshTypeUV
-    cCont <- check cont contTy
-    pure (C.Define cName cDef cCont, contTy)
-  TermAst (ObjNameType ty) -> do
-    cTy <- check ty N.ObjTypeType
-    pure (C.Rigid (C.NameObjType cTy), N.MetaTypeType)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Universe)
 checkMetaType term =

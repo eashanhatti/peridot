@@ -63,9 +63,6 @@ data Term
   | LiftObj TermAst
   | QuoteObj TermAst
   | SpliceObj TermAst
-  | Declare TermAst TermAst TermAst
-  | Define TermAst TermAst TermAst
-  | ObjNameType TermAst
   | LiftC TermAst
   | QuoteC TermAst
   | SpliceC TermAst
