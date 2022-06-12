@@ -5,6 +5,7 @@ import Text.Megaparsec.Char
 import Text.Megaparsec.Error
 import Syntax.Surface
 import Syntax.Common hiding(CStatement(..), RigidTerm(..), Declaration(..))
+import Syntax.Common qualified as Cm
 import Data.Void
 import Data.Text hiding(singleton, empty, foldr, foldl')
 import Control.Monad.Combinators
@@ -535,6 +536,38 @@ parens p = do
   char ']'
   pure r
 
+defineE :: Parser Term
+defineE = parens do
+  string "p_define"; ws
+  n <- prec0; ws
+  def <- prec0; ws
+  cont <- prec0
+  pure (Define Cm.Obj n def cont)
+
+declare :: Parser Term
+declare = parens do
+  string "p_declare"; ws
+  n <- prec0; ws
+  ty <- prec0; ws
+  cont <- prec0
+  pure (Declare Cm.Obj n ty cont)
+
+objNameTy :: Parser Term
+objNameTy = do
+  string "Name"; ws
+  char '('; ws
+  ty <- prec0; ws
+  char ')'
+  pure (NameType Cm.Obj ty)
+
+cNameTy :: Parser Term
+cNameTy = do
+  string "CName"; ws
+  char '('; ws
+  ty <- prec0; ws
+  char ')'
+  pure (NameType Cm.Obj ty)
+
 prec2 :: Parser TermAst
 prec2 = do
   pos <- getSourcePos
@@ -579,6 +612,10 @@ prec2 = do
     try cCast <|>
     try cLam <|>
     try cLamTy <|>
+    try cNameTy <|>
+    try objNameTy <|>
+    try defineE <|>
+    try declare <|>
     (do
       char '('; ws
       SourcePos (TermAst e) pos <- try prec1 <|> prec0; ws

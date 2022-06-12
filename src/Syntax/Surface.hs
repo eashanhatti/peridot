@@ -3,6 +3,7 @@ module Syntax.Surface where
 import Data.Text(Text)
 import Numeric.Natural
 import Syntax.Common hiding(unId, CStatement(..), Declaration(..))
+import Syntax.Common qualified as Cm
 import Text.Megaparsec(SourcePos)
 import Data.Sequence
 
@@ -109,4 +110,7 @@ data Term
   | CCast TermAst TermAst
   | CLam TermAst
   | CLamType TermAst
+  | Declare Cm.Universe TermAst TermAst TermAst
+  | Define Cm.Universe TermAst TermAst TermAst
+  | NameType Cm.Universe TermAst
   deriving (Show)
