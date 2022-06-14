@@ -1,6 +1,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Unification where
 
+import Control.Effect.Reader
+import Control.Carrier.Reader(runReader)
 import Control.Effect.Error
 import Control.Carrier.Error.Either(runError)
 import Control.Effect.State
@@ -9,6 +11,7 @@ import Syntax.Semantic
 import Syntax.Core qualified as C
 import Syntax.Common
 import Normalization hiding(unUVEqs)
+import Data.Set(Set)
 import Data.Set qualified as Set
 import Data.Map(Map)
 import Data.Map qualified as Map
@@ -59,7 +62,8 @@ instance Monoid Substitution where
 type Unify sig m =
   ( Norm sig m
   , Has (Error ()) sig m
-  , Has (State Substitution) sig m )
+  , Has (State Substitution) sig m
+  , Has (Reader (Set Global)) sig m )
 
 putTypeSolExp :: Unify sig m => Global -> Term -> m (Coercion sig m)
 putTypeSolExp gl sol = do
@@ -91,6 +95,14 @@ bind2 f act1 act2 = do
   x <- act1
   y <- act2
   f x y
+
+withVisited :: Unify sig m => Global -> m a -> m a
+withVisited gl act = do
+  visited <- ask
+  if Set.member gl visited then
+    throwError ()
+  else
+    local (Set.insert gl) act
 
 unifyRedexes :: Unify sig m => Redex -> Redex -> m ()
 unifyRedexes (MetaFunElim lam1 arg1) (MetaFunElim lam2 arg2) = do
@@ -380,12 +392,12 @@ unify' term1 term2 =
     simple _ _ = throwError ()
 
     complex :: Unify sig m => Term -> Term -> m (Coercion sig m)
-    complex (Neutral prevSol (UniVar gl)) term = do
+    complex (Neutral prevSol (UniVar gl)) term = withVisited gl do
       prevSol <- force prevSol
       case prevSol of
         Just prevSol -> unify' prevSol term
         Nothing -> putTypeSolInf gl term
-    complex term (Neutral prevSol (UniVar gl)) = do
+    complex term (Neutral prevSol (UniVar gl)) = withVisited gl do
       prevSol <- force prevSol
       case prevSol of
         Just prevSol -> unify' term prevSol
@@ -441,11 +453,11 @@ unify ::
   Term ->
   m (Maybe (Substitution, C.Term))
 unify e term1 term2 = do
-  r <- runError @() . runState mempty $ unify' term1 term2
+  r <- runError @() . runReader (mempty :: Set Global) . runState mempty $ unify' term1 term2
   case r of
     Right (subst, Coe Nothing) -> pure (Just (subst, e))
     Right (subst1, Coe (Just coe)) -> do
-      e' <- runError @() . runState subst1 $ coe e
+      e' <- runError @() . runReader (mempty :: Set Global) . runState subst1 $ coe e
       case e' of
         Right (subst2, e') -> pure (Just (subst2 <> subst1, e'))
         Left _ -> pure Nothing
@@ -453,7 +465,7 @@ unify e term1 term2 = do
 
 unifyR :: HasCallStack => Norm sig m => Term -> Term -> m (Maybe Substitution)
 unifyR term1 term2 = do
-  r <- runError @() . runState mempty $ unify' term1 term2
+  r <- runError @() . runReader (mempty :: Set Global) . runState mempty $ unify' term1 term2
   case r of
     Right (subst, Coe Nothing) -> pure (Just subst)
     Right (_, Coe (Just _)) -> pure Nothing
