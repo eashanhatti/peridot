@@ -26,7 +26,7 @@ import Data.GADT.Show
 import Data.Type.Equality qualified as Equal
 import Data.Hashable
 import GHC.Generics hiding (Constructor, C)
-import Normalization hiding(eval, unTypeUVs, unRepUVs, unUVEqs, unVCUVs, readback', readback', zonk)
+import Normalization hiding(eval, unTypeUVs, unRepUVs, unUVEqs, unVCUVs, readback', readback, zonk)
 import Normalization qualified as Norm
 import Unification qualified as Uni
 import Numeric.Natural
@@ -61,7 +61,7 @@ instance Show QueryState where
 data Error
   = TooManyParams
   | WrongAppArity Natural Natural
-  | FailedUnify N.Term N.Term
+  | FailedUnify C.Term C.Term
   | UnboundVariable Name
   | ExpectedCFunType N.Term
   | ExpectedRecordType N.Term
@@ -242,10 +242,14 @@ unify e term1 term2 = do
             { unTypeUVs = fmap Just ts <> unTypeUVs state
             , unUVEqs = eqs <> unUVEqs state })
         Nothing -> do
-          report (FailedUnify term1 term2)
+          cTerm1 <- readback term1
+          cTerm2 <- readback term2
+          report (FailedUnify cTerm1 cTerm2)
       pure e'
     Nothing -> do
-      report (FailedUnify term1 term2)
+      cTerm1 <- readback term1
+      cTerm2 <- readback term2
+      report (FailedUnify cTerm1 cTerm2)
       pure e
 
 unifyR :: Elab sig m => N.Term -> N.Term -> m ()
@@ -282,8 +286,13 @@ unifyR term1 term2 = do
             { unTypeUVs = fmap Just ts <> unTypeUVs state
             , unUVEqs = eqs <> unUVEqs state })
         Nothing -> do
-          report (FailedUnify term1 term2)
-    Nothing -> report (FailedUnify term1 term2)
+          cTerm1 <- readback term1
+          cTerm2 <- readback term2
+          report (FailedUnify cTerm1 cTerm2)
+    Nothing -> do
+      cTerm1 <- readback term1
+      cTerm2 <- readback term2
+      report (FailedUnify cTerm1 cTerm2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
 convertible term1 term2 = do

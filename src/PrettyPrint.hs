@@ -2,7 +2,9 @@ module PrettyPrint where
 
 import Control.Algebra
 import Control.Effect.Reader(Reader, ask, local)
+import Control.Carrier.Reader
 import Control.Effect.State(State, get, put, modify)
+import Control.Carrier.State.Strict
 import Syntax.Core
 import Data.Text hiding(zip, foldl')
 import Data.Map qualified as Map
@@ -116,3 +118,10 @@ freshName = do
   x <- unNextName <$> get
   modify (\st -> st { unNextName = unNextName st + 1 })
   pure (singleton (chr x))
+
+prettyPure :: Term -> Text
+prettyPure term =
+  run .
+  runReader (PrintContext mempty mempty) .
+  evalState (PrintState 0) $
+  pretty term
