@@ -1,2 +1,4 @@
-axiom a:
-  Forall x, x;
+axiom Compile: Function(Code(Type), CCode(C_Int)) ~> MetaType;
+
+axiom compile_declare:
+  Forall;

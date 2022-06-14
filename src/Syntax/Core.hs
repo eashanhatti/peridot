@@ -40,3 +40,30 @@ pattern ObjTypeType = Rigid (TypeType Obj)
 pattern MetaTypeType = Rigid (TypeType Meta)
 pattern LowCTypeType = Rigid (TypeType LowC)
 pattern ListTypeType = Rigid (TypeType List)
+
+viewObjFunTys :: Term -> (Seq (PassMethod, Term), Term)
+viewObjFunTys (ObjFunType pm inTy outTy) =
+  let (inTys, outTy') = viewObjFunTys outTy
+  in ((pm, inTy) <| inTys, outTy')
+viewObjFunTys e = (mempty, e)
+
+viewMetaFunTys :: Term -> (Seq (PassMethod, Term), Term)
+viewMetaFunTys (MetaFunType pm inTy outTy) =
+  let (inTys, outTy') = viewObjFunTys outTy
+  in ((pm, inTy) <| inTys, outTy')
+viewMetaFunTys e = (mempty, e)
+
+viewObjFunIntros :: Term -> (Natural, Term)
+viewObjFunIntros (ObjFunIntro body) =
+  let (n, body') = viewObjFunIntros body
+  in (n + 1, body')
+viewObjFunIntros e = (0, e)
+
+viewFunElims :: Term -> (Term, Seq Term)
+viewFunElims (ObjFunElim lam arg) =
+  let (lam', args) = viewFunElims lam
+  in (lam', arg <| args)
+viewFunElims (MetaFunElim lam arg) =
+  let (lam', args) = viewFunElims lam
+  in (lam', arg <| args)
+viewFunElims e = (e, mempty)
