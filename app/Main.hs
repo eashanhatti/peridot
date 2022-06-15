@@ -70,9 +70,8 @@ loop = do
         Right (qs, _, ty) -> do
           let tErrs = prettyErrors (unErrors qs)
           if null tErrs then do
-            let cTy = readback ty
             TIO.putStr "\ESC[32mInferred type\ESC[0m.\n  "
-            TIO.putStrLn (prettyPure cTy)
+            TIO.putStrLn (prettyPure ty)
           else do
             TIO.putStrLn "\ESC[33mErrors\ESC[0m."
             traverse TIO.putStrLn tErrs

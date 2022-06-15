@@ -10,15 +10,17 @@ import Normalization qualified as Norm
 import Control.Carrier.Reader
 import Control.Carrier.State.Strict
 import Control.Carrier.Throw.Either
+import Data.Map qualified as Map
 import Extra
 import Syntax.Common
 import Text.Megaparsec.Pos
 import Data.Text(pack, Text)
 import Parser
+import Data.Maybe
 
 elaborate = snd . elaborate'
 
-infer' :: S.TermAst -> (QueryState, C.Term, N.Term)
+infer' :: S.TermAst -> (QueryState, C.Term, C.Term)
 infer' term =
   let
     (qs, (term', ty)) =
@@ -29,7 +31,17 @@ infer' term =
       runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .
       runReader (ElabContext mempty (initialPos "<TODO>") mempty False) $
       EE.infer term
-  in (qs, term', ty)
+    ty' =
+      run .
+      runReader
+        (NormContext
+          (N.Env mempty mempty)
+          mempty
+          (fmap fromJust . Map.filter isJust $ unTypeUVs qs)
+          mempty
+          mempty) $
+      Norm.zonk ty
+  in (qs, term', ty')
 
 readback :: N.Term -> C.Term
 readback term =
@@ -37,7 +49,7 @@ readback term =
   runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) $
   Norm.readback term
 
-infer :: Text -> Either String (QueryState, C.Term, N.Term)
+infer :: Text -> Either String (QueryState, C.Term, C.Term)
 infer s = fmap infer' (parse prec0 s)
 
 elaborate' :: S.TermAst -> (QueryState, C.Term)
