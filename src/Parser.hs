@@ -752,15 +752,15 @@ toplevel = do
   ds <- many (decl <* ws <* char ';' <* ws)
   pure (TermAst (Let (fromList ds) (TermAst OUniv)))
 
-parse :: Text -> Either String TermAst
-parse text =
+parse :: Parser a -> Text -> Either String a
+parse p text =
   case
       fst .
       flip runState 0 .
       runParserT
         (do
           ws
-          e <- toplevel
+          e <- p
           ws
           eof
           pure e)

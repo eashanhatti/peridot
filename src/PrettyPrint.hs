@@ -98,6 +98,7 @@ pretty term =
     MetaTypeType -> pure "MetaType"
     ObjTypeType -> pure "Type"
     LowCTypeType -> pure "CType"
+    Rigid ElabError -> pure "\ESC[31mERROR\ESC[0m"
 
 con :: Print sig m => Text -> [m Text] -> m Text
 con name args = combine [pure name, pure "(", intercalate ", " <$> sequence args, pure ")"]
@@ -123,5 +124,5 @@ prettyPure :: Term -> Text
 prettyPure term =
   run .
   runReader (PrintContext mempty mempty) .
-  evalState (PrintState 0) $
+  evalState (PrintState 97) $
   pretty term

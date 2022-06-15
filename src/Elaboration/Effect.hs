@@ -65,11 +65,12 @@ data Error
   | UnboundVariable Name
   | ExpectedCFunType N.Term
   | ExpectedRecordType N.Term
-  | ExpectedFunType N.Term
   | MissingField Name
   | FailedProve N.Term
   | AmbiguousProve N.Term (Seq (Map.Map Global N.Term, Map.Map Global Global))
   | CLamFormCheck
+  | ExpectedFunType C.Term
+  | CannotInfer
   deriving (Show)
 
 type Query sig m = 
