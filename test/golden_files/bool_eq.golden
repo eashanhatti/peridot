@@ -17,11 +17,11 @@
          sourceColumn = Pos 32},
       FailedUnify
         (Rigid
-           (ObjIdType (Rigid (TwoIntro0)) (Rigid (TwoIntro1))))
+           (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro1)))
         (Rigid
            (ObjIdType
-              (Neutral _ (UniVar (UVGlobal 1005)))
-              (Neutral _ (UniVar (UVGlobal 1005))))))]),
+              (UniVar (UVGlobal 1005))
+              (UniVar (UVGlobal 1005)))))]),
  Declare
    Obj
    (Rigid (NameIntro Obj (Id {unId = 0})))

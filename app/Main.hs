@@ -13,15 +13,15 @@ import Prelude hiding(words)
 import Data.Sequence(Seq)
 
 prettyError :: Error -> Text
-prettyError (UnboundVariable (UserName name)) = "\ESC[33mUnbound variable\ESC[0m `" <> name <> "`"
+prettyError (UnboundVariable (UserName name)) = "\ESC[33mUnbound variable\ESC[0m `" <> name <> "`."
 prettyError (FailedUnify expTy infTy) =
-  "\ESC[33mMismatched types\nExpected type\ESC[0m:\n  " <>
+  "\ESC[33mMismatched types.\nExpected type\ESC[0m:\n  " <>
   prettyPure expTy <>
   "\n\ESC[33mActual type\ESC[0m:\n  " <>
   prettyPure infTy
-prettyError (ExpectedFunType infTy) =
-  "\ESC[33mExpected function type\ESC[0m\n" <>
-  "\ESC[33mActual type\ESC[0m:\n  " <>
+prettyError (InferredFunType infTy) =
+  "\ESC[33mActual type was a function type\ESC[0m.\n" <>
+  "\ESC[33mExpected type\ESC[0m:\n  " <>
   prettyPure infTy
 
 prettyErrors :: Seq (SourcePos, Error) -> Seq Text

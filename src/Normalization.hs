@@ -19,7 +19,7 @@ import GHC.Stack
 import Extra
 import Shower
 import Debug.Trace
-import Data.Sequence hiding(length)
+import Data.Sequence hiding(length, take)
 import Prelude hiding(length)
 
 data NormContext = NormContext
@@ -89,17 +89,26 @@ unfold term = pure term
 uvRedex :: Norm sig m => Global -> m (Maybe N.Term)
 uvRedex gl = do
   visited <- unVisited <$> ask
+  let !_ = ()--tracePrettyS "VIS" visited
   if Set.member gl visited then
     pure Nothing
   else do
+    let !_ = ()--tracePretty "AAAAAAAAa"
     uvs <- unTypeUVs <$> ask
     case Map.lookup gl uvs of
       Just sol -> pure (Just sol)
-      Nothing -> do
-        eqs <- unUVEqs <$> ask
-        case Map.lookup gl eqs of
-          Just gl' -> Just <$> eval (C.UniVar gl')
-          Nothing -> pure Nothing
+      Nothing -> pure Nothing -- do
+        -- let !_ = ()--tracePretty "BBBBBBBBBBBBBBB"
+        -- eqs <- unUVEqs <$> ask
+        -- let !_ = ()--tracePrettyS "EQS" eqs
+        -- case Map.lookup gl eqs of
+        --   Just gl' -> do
+        --     -- a <- ask
+        --     let !_ = ()--tracePretty ("CCCCCCCCCCCCCC", unVisited a, gl, gl')
+        --     Just <$> local
+        --       (\ctx -> ctx { unVisited = Set.insert gl' (unVisited ctx) })
+        --       (eval (C.UniVar gl'))
+        --   Nothing -> pure Nothing
 
 -- gvRedex :: Norm sig m => Id -> m (Maybe N.Term)
 -- gvRedex did = do
@@ -189,8 +198,8 @@ eval (C.TwoElim scr body1 body2) = do
         N.Rigid N.TwoIntro1 -> pure (Just vBody2)
         _ -> do
           r <- findDefEq vScr
-          -- let !_ = tracePretty (vScr, vBody1, vBody2)
-          -- !_ <- tracePretty . unDefEqs <$> ask
+          -- let !_ = ()--tracePretty (vScr, vBody1, vBody2)
+          -- !_ <- ()--tracePretty . unDefEqs <$> ask
           case r of
             Just (N.Rigid N.TwoIntro0) -> pure (Just vBody1)
             Just (N.Rigid N.TwoIntro1) -> pure (Just vBody2)

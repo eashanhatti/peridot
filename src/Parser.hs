@@ -126,10 +126,7 @@ app = do
   args <-
     sepBy1
       (do
-        pm <-
-          try (string "explicit" *> pure Unification) <|>
-          try (string "dontcare" *> pure DontCare) <|>
-          pure Explicit
+        pm <- fromMaybe Explicit <$> optional (string "explicit" *> pure Unification); ws
         arg <- prec0
         pure (pm, arg))
       commaWs

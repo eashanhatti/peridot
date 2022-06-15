@@ -36,7 +36,7 @@ goldenTests = do
 
 testSurfaceToCore :: BL.ByteString -> BL.ByteString
 testSurfaceToCore bs =
-  case P.parse . T.decodeUtf8 . B.concat . BL.toChunks $ bs of
+  case P.parse P.toplevel . T.decodeUtf8 . B.concat . BL.toChunks $ bs of
     Right term -> fromString . shower $ elaborate' term
     Left err -> fromString err
 

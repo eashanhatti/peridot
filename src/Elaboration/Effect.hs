@@ -69,7 +69,7 @@ data Error
   | FailedProve N.Term
   | AmbiguousProve N.Term (Seq (Map.Map Global N.Term, Map.Map Global Global))
   | CLamFormCheck
-  | ExpectedFunType C.Term
+  | InferredFunType C.Term
   | CannotInfer
   deriving (Show)
 
@@ -243,13 +243,13 @@ unify e term1 term2 = do
             { unTypeUVs = fmap Just ts <> unTypeUVs state
             , unUVEqs = eqs <> unUVEqs state })
         Nothing -> do
-          cTerm1 <- readback term1
-          cTerm2 <- readback term2
+          cTerm1 <- zonk term1
+          cTerm2 <- zonk term2
           report (FailedUnify cTerm1 cTerm2)
       pure e'
     Nothing -> do
-      cTerm1 <- readback term1
-      cTerm2 <- readback term2
+      cTerm1 <- zonk term1
+      cTerm2 <- zonk term2
       report (FailedUnify cTerm1 cTerm2)
       pure e
 
@@ -287,12 +287,12 @@ unifyR term1 term2 = do
             { unTypeUVs = fmap Just ts <> unTypeUVs state
             , unUVEqs = eqs <> unUVEqs state })
         Nothing -> do
-          cTerm1 <- readback term1
-          cTerm2 <- readback term2
+          cTerm1 <- zonk term1
+          cTerm2 <- zonk term2
           report (FailedUnify cTerm1 cTerm2)
     Nothing -> do
-      cTerm1 <- readback term1
-      cTerm2 <- readback term2
+      cTerm1 <- zonk term1
+      cTerm2 <- zonk term2
       report (FailedUnify cTerm1 cTerm2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
