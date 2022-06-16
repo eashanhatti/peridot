@@ -10,10 +10,12 @@
                     (Rigid
                        (RNameIntro (UserName "nil") Meta (Id {unId = 1})))))
               (Neutral _ (UniVar (LVGlobal 2000)))))),
-     (UVGlobal 1000, Nothing),
+     (UVGlobal 1000,
+      Just (Neutral _ (UniVar (UVGlobal 1001)))),
      (UVGlobal 1001, Just (Rigid (TypeType Meta))),
      (UVGlobal 1002, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1003, Nothing),
+     (UVGlobal 1003,
+      Just (Neutral _ (UniVar (UVGlobal 1004)))),
      (UVGlobal 1004,
       Just
         (Neutral
@@ -27,13 +29,16 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1005, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1006, Nothing),
+     (UVGlobal 1006,
+      Just (Neutral _ (UniVar (UVGlobal 1007)))),
      (UVGlobal 1007, Just (Rigid (TypeType Meta))),
      (UVGlobal 1008, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1009, Nothing),
+     (UVGlobal 1009,
+      Just (Neutral _ (UniVar (UVGlobal 1010)))),
      (UVGlobal 1010, Just (LocalVar Level {unLevel = 0})),
      (UVGlobal 1011, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1012, Nothing),
+     (UVGlobal 1012,
+      Just (Neutral _ (UniVar (UVGlobal 1013)))),
      (UVGlobal 1013,
       Just
         (Neutral
@@ -47,7 +52,8 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1014, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1015, Nothing),
+     (UVGlobal 1015,
+      Just (Neutral _ (UniVar (UVGlobal 1016)))),
      (UVGlobal 1016,
       Just
         (Neutral
@@ -61,7 +67,8 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1017, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1018, Nothing),
+     (UVGlobal 1018,
+      Just (Neutral _ (UniVar (UVGlobal 1019)))),
      (UVGlobal 1019,
       Just
         (Neutral
@@ -75,13 +82,16 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1020, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1021, Nothing),
+     (UVGlobal 1021,
+      Just (Neutral _ (UniVar (UVGlobal 1022)))),
      (UVGlobal 1022, Just (Rigid (TypeType Meta))),
      (UVGlobal 1023, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1024, Nothing),
+     (UVGlobal 1024,
+      Just (Neutral _ (UniVar (UVGlobal 1025)))),
      (UVGlobal 1025, Just (LocalVar Level {unLevel = 0})),
      (UVGlobal 1026, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1027, Nothing),
+     (UVGlobal 1027,
+      Just (Neutral _ (UniVar (UVGlobal 1028)))),
      (UVGlobal 1028,
       Just
         (Neutral
@@ -95,7 +105,8 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1029, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1030, Nothing),
+     (UVGlobal 1030,
+      Just (Neutral _ (UniVar (UVGlobal 1031)))),
      (UVGlobal 1031,
       Just
         (Neutral
@@ -109,7 +120,8 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1032, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1033, Nothing),
+     (UVGlobal 1033,
+      Just (Neutral _ (UniVar (UVGlobal 1034)))),
      (UVGlobal 1034,
       Just
         (Neutral
@@ -123,10 +135,12 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1035, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1036, Nothing),
+     (UVGlobal 1036,
+      Just (Neutral _ (UniVar (UVGlobal 1037)))),
      (UVGlobal 1037, Just (Rigid (TypeType Meta))),
      (UVGlobal 1038, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1039, Nothing),
+     (UVGlobal 1039,
+      Just (Neutral _ (UniVar (UVGlobal 1040)))),
      (UVGlobal 1040,
       Just
         (Neutral
@@ -140,13 +154,16 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1041, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1042, Nothing),
+     (UVGlobal 1042,
+      Just (Neutral _ (UniVar (UVGlobal 1043)))),
      (UVGlobal 1043, Just (Rigid (TypeType Meta))),
      (UVGlobal 1044, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1045, Nothing),
+     (UVGlobal 1045,
+      Just (Neutral _ (UniVar (UVGlobal 1046)))),
      (UVGlobal 1046, Just (LocalVar Level {unLevel = 0})),
      (UVGlobal 1047, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1048, Nothing),
+     (UVGlobal 1048,
+      Just (Neutral _ (UniVar (UVGlobal 1049)))),
      (UVGlobal 1049,
       Just
         (Neutral
@@ -160,7 +177,8 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1050, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1051, Nothing),
+     (UVGlobal 1051,
+      Just (Neutral _ (UniVar (UVGlobal 1052)))),
      (UVGlobal 1052,
       Just
         (Neutral
@@ -174,7 +192,8 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1053, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1054, Nothing),
+     (UVGlobal 1054,
+      Just (Neutral _ (UniVar (UVGlobal 1055)))),
      (UVGlobal 1055,
       Just
         (Neutral
@@ -188,10 +207,12 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1056, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1057, Nothing),
+     (UVGlobal 1057,
+      Just (Neutral _ (UniVar (UVGlobal 1058)))),
      (UVGlobal 1058, Just (Rigid (TypeType Meta))),
      (UVGlobal 1059, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1060, Nothing),
+     (UVGlobal 1060,
+      Just (Neutral _ (UniVar (UVGlobal 1061)))),
      (UVGlobal 1061,
       Just
         (Neutral
@@ -205,10 +226,12 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1062, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1063, Nothing),
+     (UVGlobal 1063,
+      Just (Neutral _ (UniVar (UVGlobal 1064)))),
      (UVGlobal 1064, Just (Rigid (TypeType Meta))),
      (UVGlobal 1065, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1066, Nothing),
+     (UVGlobal 1066,
+      Just (Neutral _ (UniVar (UVGlobal 1067)))),
      (UVGlobal 1067,
       Just
         (Neutral
@@ -222,13 +245,16 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1068, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1069, Nothing),
+     (UVGlobal 1069,
+      Just (Neutral _ (UniVar (UVGlobal 1070)))),
      (UVGlobal 1070, Just (Rigid (TypeType Meta))),
      (UVGlobal 1071, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1072, Nothing),
+     (UVGlobal 1072,
+      Just (Neutral _ (UniVar (UVGlobal 1073)))),
      (UVGlobal 1073, Just (LocalVar Level {unLevel = 0})),
      (UVGlobal 1074, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1075, Nothing),
+     (UVGlobal 1075,
+      Just (Neutral _ (UniVar (UVGlobal 1076)))),
      (UVGlobal 1076,
       Just
         (Neutral
@@ -242,7 +268,8 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1077, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1078, Nothing),
+     (UVGlobal 1078,
+      Just (Neutral _ (UniVar (UVGlobal 1079)))),
      (UVGlobal 1079,
       Just
         (Neutral
@@ -256,7 +283,8 @@
                           (UserName "List") Meta (Id {unId = 0})))))
               (LocalVar Level {unLevel = 0})))),
      (UVGlobal 1080, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1081, Nothing),
+     (UVGlobal 1081,
+      Just (Neutral _ (UniVar (UVGlobal 1082)))),
      (UVGlobal 1082,
       Just
         (Neutral
@@ -294,63 +322,7 @@
                     (Rigid
                        (RNameIntro
                           (UserName "Unit") Meta (Id {unId = 6}))))))))],
-  fromList
-    [(UVGlobal 1000, UVGlobal 1001),
-     (UVGlobal 1001, UVGlobal 1000),
-     (UVGlobal 1003, UVGlobal 1004),
-     (UVGlobal 1004, UVGlobal 1003),
-     (UVGlobal 1006, UVGlobal 1007),
-     (UVGlobal 1007, UVGlobal 1006),
-     (UVGlobal 1009, UVGlobal 1010),
-     (UVGlobal 1010, UVGlobal 1009),
-     (UVGlobal 1012, UVGlobal 1013),
-     (UVGlobal 1013, UVGlobal 1012),
-     (UVGlobal 1015, UVGlobal 1016),
-     (UVGlobal 1016, UVGlobal 1015),
-     (UVGlobal 1018, UVGlobal 1019),
-     (UVGlobal 1019, UVGlobal 1018),
-     (UVGlobal 1021, UVGlobal 1022),
-     (UVGlobal 1022, UVGlobal 1021),
-     (UVGlobal 1024, UVGlobal 1025),
-     (UVGlobal 1025, UVGlobal 1024),
-     (UVGlobal 1027, UVGlobal 1028),
-     (UVGlobal 1028, UVGlobal 1027),
-     (UVGlobal 1030, UVGlobal 1031),
-     (UVGlobal 1031, UVGlobal 1030),
-     (UVGlobal 1033, UVGlobal 1034),
-     (UVGlobal 1034, UVGlobal 1033),
-     (UVGlobal 1036, UVGlobal 1037),
-     (UVGlobal 1037, UVGlobal 1036),
-     (UVGlobal 1039, UVGlobal 1040),
-     (UVGlobal 1040, UVGlobal 1039),
-     (UVGlobal 1042, UVGlobal 1043),
-     (UVGlobal 1043, UVGlobal 1042),
-     (UVGlobal 1045, UVGlobal 1046),
-     (UVGlobal 1046, UVGlobal 1045),
-     (UVGlobal 1048, UVGlobal 1049),
-     (UVGlobal 1049, UVGlobal 1048),
-     (UVGlobal 1051, UVGlobal 1052),
-     (UVGlobal 1052, UVGlobal 1051),
-     (UVGlobal 1054, UVGlobal 1055),
-     (UVGlobal 1055, UVGlobal 1054),
-     (UVGlobal 1057, UVGlobal 1058),
-     (UVGlobal 1058, UVGlobal 1057),
-     (UVGlobal 1060, UVGlobal 1061),
-     (UVGlobal 1061, UVGlobal 1060),
-     (UVGlobal 1063, UVGlobal 1064),
-     (UVGlobal 1064, UVGlobal 1063),
-     (UVGlobal 1066, UVGlobal 1067),
-     (UVGlobal 1067, UVGlobal 1066),
-     (UVGlobal 1069, UVGlobal 1070),
-     (UVGlobal 1070, UVGlobal 1069),
-     (UVGlobal 1072, UVGlobal 1073),
-     (UVGlobal 1073, UVGlobal 1072),
-     (UVGlobal 1075, UVGlobal 1076),
-     (UVGlobal 1076, UVGlobal 1075),
-     (UVGlobal 1078, UVGlobal 1079),
-     (UVGlobal 1079, UVGlobal 1078),
-     (UVGlobal 1081, UVGlobal 1082),
-     (UVGlobal 1082, UVGlobal 1081)],
+  fromList [],
   fromList
     [(SourcePos
         {sourceName = "<TODO>",

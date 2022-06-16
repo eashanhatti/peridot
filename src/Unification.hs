@@ -125,7 +125,7 @@ unifyRedexes (SingElim term1) (SingElim term2) =
   unifyS' term1 term2
 unifyRedexes (RecElim str1 name1) (RecElim str2 name2) | name1 == name2 =
   unifyS' str1 str2
-unifyRedexes (UniVar gl1) (UniVar gl2) = equateUVs gl1 gl2
+unifyRedexes (UniVar gl1) (UniVar gl2) | gl1 == gl2 = pure ()--equateUVs gl1 gl2
 unifyRedexes (Declare univ1 name1 ty1 cont1) (Declare univ2 name2 ty2 cont2) | univ1 == univ2 = do
   unifyS' name1 name2
   unifyS' ty1 ty2

@@ -1,1 +1,1 @@
-define x: Record {} = function(x, y) => record { foo = x };
+define x:  = function(x) => record { foo = x };

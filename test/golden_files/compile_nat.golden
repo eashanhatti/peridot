@@ -35,11 +35,13 @@
               (Rigid
                  (RNameIntro
                     (UserName "Nat") Obj (Id {unId = 0})))))),
-     (UVGlobal 1002, Nothing),
+     (UVGlobal 1002,
+      Just (Neutral _ (UniVar (UVGlobal 1003)))),
      (UVGlobal 1003,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
      (UVGlobal 1004, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1005, Nothing),
+     (UVGlobal 1005,
+      Just (Neutral _ (UniVar (UVGlobal 1006)))),
      (UVGlobal 1006,
       Just
         (Rigid
@@ -51,11 +53,13 @@
                        (RNameIntro
                           (UserName "Nat") Obj (Id {unId = 0})))))))),
      (UVGlobal 1007, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1008, Nothing),
+     (UVGlobal 1008,
+      Just (Neutral _ (UniVar (UVGlobal 1009)))),
      (UVGlobal 1009,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
      (UVGlobal 1010, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1011, Nothing),
+     (UVGlobal 1011,
+      Just (Neutral _ (UniVar (UVGlobal 1012)))),
      (UVGlobal 1012,
       Just
         (Rigid
@@ -76,11 +80,13 @@
               (Rigid
                  (RNameIntro
                     (UserName "Nat") Obj (Id {unId = 0})))))),
-     (UVGlobal 1016, Nothing),
+     (UVGlobal 1016,
+      Just (Neutral _ (UniVar (UVGlobal 1017)))),
      (UVGlobal 1017,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
      (UVGlobal 1018, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1019, Nothing),
+     (UVGlobal 1019,
+      Just (Neutral _ (UniVar (UVGlobal 1020)))),
      (UVGlobal 1020,
       Just
         (Rigid
@@ -101,11 +107,13 @@
               (Rigid
                  (RNameIntro
                     (UserName "Nat") Obj (Id {unId = 0})))))),
-     (UVGlobal 1024, Nothing),
+     (UVGlobal 1024,
+      Just (Neutral _ (UniVar (UVGlobal 1025)))),
      (UVGlobal 1025,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
      (UVGlobal 1026, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1027, Nothing),
+     (UVGlobal 1027,
+      Just (Neutral _ (UniVar (UVGlobal 1028)))),
      (UVGlobal 1028,
       Just
         (Rigid
@@ -135,11 +143,13 @@
               (Rigid
                  (RNameIntro
                     (UserName "Nat") Obj (Id {unId = 0})))))),
-     (UVGlobal 1034, Nothing),
+     (UVGlobal 1034,
+      Just (Neutral _ (UniVar (UVGlobal 1035)))),
      (UVGlobal 1035,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
      (UVGlobal 1036, Just (Rigid (TypeType Meta))),
-     (UVGlobal 1037, Nothing),
+     (UVGlobal 1037,
+      Just (Neutral _ (UniVar (UVGlobal 1038)))),
      (UVGlobal 1038,
       Just
         (Rigid
@@ -161,27 +171,7 @@
               (Rigid
                  (RNameIntro
                     (UserName "n2") Meta (Id {unId = 7}))))))],
-  fromList
-    [(UVGlobal 1002, UVGlobal 1003),
-     (UVGlobal 1003, UVGlobal 1002),
-     (UVGlobal 1005, UVGlobal 1006),
-     (UVGlobal 1006, UVGlobal 1005),
-     (UVGlobal 1008, UVGlobal 1009),
-     (UVGlobal 1009, UVGlobal 1008),
-     (UVGlobal 1011, UVGlobal 1012),
-     (UVGlobal 1012, UVGlobal 1011),
-     (UVGlobal 1016, UVGlobal 1017),
-     (UVGlobal 1017, UVGlobal 1016),
-     (UVGlobal 1019, UVGlobal 1020),
-     (UVGlobal 1020, UVGlobal 1019),
-     (UVGlobal 1024, UVGlobal 1025),
-     (UVGlobal 1025, UVGlobal 1024),
-     (UVGlobal 1027, UVGlobal 1028),
-     (UVGlobal 1028, UVGlobal 1027),
-     (UVGlobal 1034, UVGlobal 1035),
-     (UVGlobal 1035, UVGlobal 1034),
-     (UVGlobal 1037, UVGlobal 1038),
-     (UVGlobal 1038, UVGlobal 1037)],
+  fromList [],
   fromList
     [(SourcePos
         {sourceName = "<TODO>",
