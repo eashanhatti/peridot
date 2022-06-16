@@ -17,6 +17,7 @@ import Text.Megaparsec.Pos
 import Data.Text(pack, Text)
 import Parser
 import Data.Maybe
+import Control.Monad
 
 elaborate = snd . elaborate'
 
@@ -41,7 +42,17 @@ infer' term =
           mempty
           mempty) $
       Norm.zonk ty
-  in (qs, term', ty')
+    term'' =
+      run .
+      runReader
+        (NormContext
+          (N.Env mempty mempty)
+          mempty
+          (fmap fromJust . Map.filter isJust $ unTypeUVs qs)
+          mempty
+          mempty) $
+      (Norm.eval >=> Norm.normalize) term'
+  in (qs, term'', ty')
 
 readback :: N.Term -> C.Term
 readback term =

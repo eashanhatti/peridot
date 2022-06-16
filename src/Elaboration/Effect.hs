@@ -489,7 +489,7 @@ allDefs = do
       pure (Map.insert did vDecl acc)
   pure vDefs
 
-readback' :: Elab sig m => Bool -> N.Term -> m C.Term
+readback' :: Elab sig m => ReadbackDepth -> N.Term -> m C.Term
 readback' unf term = do
   typeUVs <- unTypeUVs <$> get
   eqs <- unUVEqs <$> get
@@ -499,7 +499,7 @@ readback' unf term = do
     (Norm.readback' unf term)
 
 zonk :: Elab sig m => N.Term -> m C.Term
-zonk = readback' True
+zonk = readback' Zonk
 
 readback :: Elab sig m => N.Term -> m C.Term
-readback = readback' False
+readback = readback' None

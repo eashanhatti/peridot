@@ -275,11 +275,11 @@ entry ix = do
   else
     pure (locals `index` fromIntegral ix)
 
-type ShouldZonk = Bool
+data ReadbackDepth = None | Zonk | Full
 
 readback' ::
   forall sig m. HasCallStack => Norm sig m =>
-  ShouldZonk ->
+  ReadbackDepth ->
   N.Term ->
   m C.Term
 readback' opt (N.MetaFunType pm inTy outTy) =
@@ -302,7 +302,8 @@ readback' opt (N.LocalVar (Level lvl)) = do
 readback' opt (N.Neutral sol redex) = do
   vSol <- force sol
   case (opt, vSol, redex) of
-    (True, Just vSol, N.UniVar _) -> readback' True vSol
+    (Full, Just vSol, _) -> readback' Full vSol
+    (Zonk, Just vSol, N.UniVar _) -> readback' Zonk vSol
     -- (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
     _ -> readbackRedex opt redex
 readback' opt (N.RecIntro fds) =
@@ -328,7 +329,7 @@ evalFieldTypes defs ((fd, ty) :<| tys) = do
   vTys <- bind (evalFieldTypes (N.LocalVar l <| defs) tys)
   pure ((fd, vTy) <| vTys)
 
-readbackRedex :: HasCallStack => Norm sig m => ShouldZonk -> N.Redex -> m C.Term
+readbackRedex :: HasCallStack => Norm sig m => ReadbackDepth -> N.Redex -> m C.Term
 readbackRedex opt (N.MetaFunElim lam arg) =
   C.MetaFunElim <$>
     readback' opt lam <*>
@@ -360,10 +361,13 @@ readbackRedex opt (N.Define name def cont) =
     readback' opt cont
 
 readback :: HasCallStack => Norm sig m => N.Term -> m C.Term
-readback = readback' False
+readback = readback' None
 
 zonk :: HasCallStack => Norm sig m => N.Term -> m C.Term
-zonk = readback' True
+zonk = readback' Zonk
+
+normalize :: Norm sig m => N.Term -> m C.Term
+normalize = readback' Full
 
 -- normalize :: HasCallStack => Norm sig m => N.Term -> m N.Term
 -- normalize = readbackFull >=> eval

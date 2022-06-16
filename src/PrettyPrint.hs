@@ -6,14 +6,14 @@ import Control.Carrier.Reader
 import Control.Effect.State(State, get, put, modify)
 import Control.Carrier.State.Strict
 import Syntax.Core
-import Data.Text hiding(zip, foldl')
+import Data.Text hiding(zip, foldl', null)
 import Data.Map qualified as Map
 import Syntax.Common(Id(..), Index(..))
 import Data.Char
 import Control.Monad
 import Prelude hiding(zip, foldl', intercalate, words)
 import Data.Foldable
-import Data.Sequence hiding(singleton, foldl', replicateM)
+import Data.Sequence hiding(singleton, foldl', replicateM, null)
 import Extra
 
 data PrintContext = PrintContext
@@ -56,10 +56,16 @@ pretty term =
       combine [pure "if ", pretty scr, pure " { ", pretty body1, pure " } else { ", pretty body2]
     RecType tys -> do
       tTys <- traverse (\(fd, ty) -> ((unField fd <> " : ") <>) <$> pretty ty) tys
-      pure ("Record { " <> intercalate ", " (toList tTys) <> " }")
+      if null tTys then
+        pure ("Record { }")
+      else
+        pure ("Record { " <> intercalate ", " (toList tTys) <> " }")
     RecIntro defs -> do
       tDefs <- traverse (\(fd, def) -> ((unField fd <> " = ") <>) <$> pretty def) defs
-      pure ("record { " <> intercalate ", " (toList tDefs) <> " }")
+      if null tDefs then
+        pure ("record { }")
+      else
+        pure ("record { " <> intercalate ", " (toList tDefs) <> " }")
     RecElim str fd -> combine [pretty str, pure ("." <> unField fd)]
     SingElim sing -> pretty sing
     (viewFunElims -> (lam, args@(_:<|_))) -> do
