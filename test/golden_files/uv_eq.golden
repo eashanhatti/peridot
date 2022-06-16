@@ -1,0 +1,16 @@
+((fromList [],
+  fromList [],
+  fromList
+    [(SourcePos
+        {sourceName = "<TODO>",
+         sourceLine = Pos 1,
+         sourceColumn = Pos 23},
+      InferredFunType (RecType (fromList [])))]),
+ Declare
+   Obj
+   (Rigid (NameIntro Obj (Id {unId = 0})))
+   (RecType (fromList []))
+   (Define
+      (Rigid (NameIntro Obj (Id {unId = 0})))
+      (Rigid ElabError)
+      (Rigid (TypeType Obj))))
