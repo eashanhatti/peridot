@@ -8,7 +8,10 @@
                  (ObjFunElim
                     (Neutral
                        _
-                       (GlobalVar (Rigid (NameIntro Obj (Id {unId = 2})))))
+                       (GlobalVar
+                          (Rigid
+                             (RNameIntro
+                                (UserName "succ") Obj (Id {unId = 2})))))
                     (Neutral
                        _
                        (CodeObjElim
@@ -20,14 +23,18 @@
               (Neutral
                  _
                  (GlobalVar
-                    (Rigid (NameIntro Obj (Id {unId = 1})))))))),
+                    (Rigid
+                       (RNameIntro
+                          (UserName "zero") Obj (Id {unId = 1})))))))),
      (UVGlobal 1000, Just (Rigid (CIntType))),
      (UVGlobal 1001,
       Just
         (Neutral
            _
            (GlobalVar
-              (Rigid (NameIntro Obj (Id {unId = 0})))))),
+              (Rigid
+                 (RNameIntro
+                    (UserName "Nat") Obj (Id {unId = 0})))))),
      (UVGlobal 1002, Nothing),
      (UVGlobal 1003,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
@@ -40,7 +47,9 @@
               (Neutral
                  _
                  (GlobalVar
-                    (Rigid (NameIntro Obj (Id {unId = 0})))))))),
+                    (Rigid
+                       (RNameIntro
+                          (UserName "Nat") Obj (Id {unId = 0})))))))),
      (UVGlobal 1007, Just (Rigid (TypeType Meta))),
      (UVGlobal 1008, Nothing),
      (UVGlobal 1009,
@@ -54,7 +63,9 @@
               (Neutral
                  _
                  (GlobalVar
-                    (Rigid (NameIntro Obj (Id {unId = 0})))))))),
+                    (Rigid
+                       (RNameIntro
+                          (UserName "Nat") Obj (Id {unId = 0})))))))),
      (UVGlobal 1013, Just (Rigid (TypeType Meta))),
      (UVGlobal 1014, Just (Rigid (CIntType))),
      (UVGlobal 1015,
@@ -62,7 +73,9 @@
         (Neutral
            _
            (GlobalVar
-              (Rigid (NameIntro Obj (Id {unId = 0})))))),
+              (Rigid
+                 (RNameIntro
+                    (UserName "Nat") Obj (Id {unId = 0})))))),
      (UVGlobal 1016, Nothing),
      (UVGlobal 1017,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
@@ -75,7 +88,9 @@
               (Neutral
                  _
                  (GlobalVar
-                    (Rigid (NameIntro Obj (Id {unId = 0})))))))),
+                    (Rigid
+                       (RNameIntro
+                          (UserName "Nat") Obj (Id {unId = 0})))))))),
      (UVGlobal 1021, Just (Rigid (TypeType Meta))),
      (UVGlobal 1022, Just (Rigid (CIntType))),
      (UVGlobal 1023,
@@ -83,7 +98,9 @@
         (Neutral
            _
            (GlobalVar
-              (Rigid (NameIntro Obj (Id {unId = 0})))))),
+              (Rigid
+                 (RNameIntro
+                    (UserName "Nat") Obj (Id {unId = 0})))))),
      (UVGlobal 1024, Nothing),
      (UVGlobal 1025,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
@@ -96,7 +113,9 @@
               (Neutral
                  _
                  (GlobalVar
-                    (Rigid (NameIntro Obj (Id {unId = 0})))))))),
+                    (Rigid
+                       (RNameIntro
+                          (UserName "Nat") Obj (Id {unId = 0})))))))),
      (UVGlobal 1029, Just (Rigid (TypeType Meta))),
      (UVGlobal 1030, Just (Rigid (CIntType))),
      (UVGlobal 1031,
@@ -104,14 +123,18 @@
         (Neutral
            _
            (GlobalVar
-              (Rigid (NameIntro Obj (Id {unId = 0})))))),
+              (Rigid
+                 (RNameIntro
+                    (UserName "Nat") Obj (Id {unId = 0})))))),
      (UVGlobal 1032, Just (Rigid (CIntType))),
      (UVGlobal 1033,
       Just
         (Neutral
            _
            (GlobalVar
-              (Rigid (NameIntro Obj (Id {unId = 0})))))),
+              (Rigid
+                 (RNameIntro
+                    (UserName "Nat") Obj (Id {unId = 0})))))),
      (UVGlobal 1034, Nothing),
      (UVGlobal 1035,
       Just (Rigid (CodeCType (Rigid (CIntType))))),
@@ -124,7 +147,9 @@
               (Neutral
                  _
                  (GlobalVar
-                    (Rigid (NameIntro Obj (Id {unId = 0})))))))),
+                    (Rigid
+                       (RNameIntro
+                          (UserName "Nat") Obj (Id {unId = 0})))))))),
      (UVGlobal 1039, Just (Rigid (TypeType Meta))),
      (LVGlobal 2000,
       Just (Rigid (CodeCIntro (Rigid (CIntIntro 0))))),
@@ -133,7 +158,9 @@
         (Neutral
            _
            (GlobalVar
-              (Rigid (NameIntro Meta (Id {unId = 7}))))))],
+              (Rigid
+                 (RNameIntro
+                    (UserName "n2") Meta (Id {unId = 7}))))))],
   fromList
     [(UVGlobal 1002, UVGlobal 1003),
      (UVGlobal 1003, UVGlobal 1002),
@@ -161,6 +188,33 @@
          sourceLine = Pos 42,
          sourceColumn = Pos 1},
       FailedProve
+        (MetaFunElim
+           (MetaFunElim
+              (GlobalVar
+                 (Rigid
+                    (RNameIntro
+                       (UserName "CompileNat") Meta (Id {unId = 3}))))
+              (Rigid
+                 (CodeCIntro
+                    (Rigid
+                       (CIntElimAdd
+                          (Rigid (CIntIntro 0)) (Rigid (CIntIntro 1)))))))
+           (Rigid
+              (CodeObjIntro
+                 (ObjFunElim
+                    (GlobalVar
+                       (Rigid
+                          (RNameIntro (UserName "succ") Obj (Id {unId = 2}))))
+                    (ObjFunElim
+                       (GlobalVar
+                          (Rigid
+                             (RNameIntro
+                                (UserName "succ") Obj (Id {unId = 2}))))
+                       (CodeObjElim
+                          (GlobalVar
+                             (Rigid
+                                (RNameIntro
+                                   (UserName "n3") Meta (Id {unId = 8}))))))))))
         (Neutral
            _
            (MetaFunElim
@@ -169,7 +223,10 @@
                  (MetaFunElim
                     (Neutral
                        _
-                       (GlobalVar (Rigid (NameIntro Meta (Id {unId = 3})))))
+                       (GlobalVar
+                          (Rigid
+                             (RNameIntro
+                                (UserName "CompileNat") Meta (Id {unId = 3})))))
                     (Rigid
                        (CodeCIntro
                           (Rigid
@@ -184,14 +241,20 @@
                           (Neutral
                              _
                              (GlobalVar
-                                (Rigid (NameIntro Obj (Id {unId = 2})))))
+                                (Rigid
+                                   (RNameIntro
+                                      (UserName "succ") Obj (Id {unId = 2})))))
                           (Neutral
                              _
                              (ObjFunElim
                                 (Neutral
                                    _
                                    (GlobalVar
-                                      (Rigid (NameIntro Obj (Id {unId = 2})))))
+                                      (Rigid
+                                         (RNameIntro
+                                            (UserName "succ")
+                                            Obj
+                                            (Id {unId = 2})))))
                                 (Neutral
                                    _
                                    (CodeObjElim
@@ -199,17 +262,113 @@
                                          _
                                          (GlobalVar
                                             (Rigid
-                                               (NameIntro
+                                               (RNameIntro
+                                                  (UserName "n3")
                                                   Meta
-                                                  (Id
-                                                     {unId =
-                                                        8}))))))))))))))))]),
+                                                  (Id {unId = 8})))))))))))))))
+        (fromList
+           [(MetaFunType
+               Explicit
+               (Rigid (CodeCType (Rigid (CIntType))))
+               Clo
+               fromList
+               []
+               (MetaFunType
+                  Explicit
+                  (Rigid
+                     (CodeObjType
+                        (GlobalVar
+                           (Rigid
+                              (RNameIntro
+                                 (UserName "Nat") Obj (Id {unId = 0}))))))
+                  (Rigid (TypeType Meta)))),
+            (Rigid
+               (AllType
+                  (MetaFunIntro
+                     Clo
+                     fromList
+                     []
+                     (Rigid
+                        (AllType
+                           (MetaFunIntro
+                              (Rigid
+                                 (ImplType
+                                    (MetaFunElim
+                                       (MetaFunElim
+                                          (GlobalVar
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "CompileNat")
+                                                   Meta
+                                                   (Id {unId = 3}))))
+                                          (LocalVar (Index {unIndex = 1})))
+                                       (LocalVar (Index {unIndex = 0})))
+                                    (MetaFunElim
+                                       (MetaFunElim
+                                          (GlobalVar
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "CompileNat")
+                                                   Meta
+                                                   (Id {unId = 3}))))
+                                          (Rigid
+                                             (CodeCIntro
+                                                (Rigid
+                                                   (CIntElimAdd
+                                                      (CodeCElim
+                                                         (LocalVar
+                                                            (Index
+                                                               {unIndex = 1})))
+                                                      (Rigid (CIntIntro 1)))))))
+                                       (Rigid
+                                          (CodeObjIntro
+                                             (ObjFunElim
+                                                (GlobalVar
+                                                   (Rigid
+                                                      (RNameIntro
+                                                         (UserName "succ")
+                                                         Obj
+                                                         (Id {unId = 2}))))
+                                                (CodeObjElim
+                                                   (LocalVar
+                                                      (Index
+                                                         {unIndex =
+                                                            0}))))))))))))))),
+            (Neutral
+               _
+               (MetaFunElim
+                  (Neutral
+                     _
+                     (MetaFunElim
+                        (Neutral
+                           _
+                           (GlobalVar
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "CompileNat")
+                                    Meta
+                                    (Id {unId = 3})))))
+                        (Rigid (CodeCIntro (Rigid (CIntIntro 0))))))
+                  (Rigid
+                     (CodeObjIntro
+                        (Neutral
+                           _
+                           (GlobalVar
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "zero")
+                                    Obj
+                                    (Id {unId = 1})))))))))]))]),
  Declare
    Obj
-   (Rigid (NameIntro Obj (Id {unId = 0})))
+   (Rigid
+      (RNameIntro
+         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
    (Rigid (TypeType Obj))
    (Define
-      (Rigid (NameIntro Obj (Id {unId = 0})))
+      (Rigid
+         (RNameIntro
+            (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
       (RecType
          (fromList
             [(Field {unField = "tag"}, Rigid TwoType),
@@ -218,21 +377,35 @@
                 (LocalVar (Index {unIndex = 0}))
                 (RecType (fromList []))
                 (GlobalVar
-                   (Rigid (NameIntro Obj (Id {unId = 0})))))]))
+                   (Rigid
+                      (RNameIntro
+                         (UserName "Nat") Obj (Id {unId = 0})))))]))
       (Declare
          Obj
-         (Rigid (NameIntro Obj (Id {unId = 1})))
-         (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
+         (Rigid
+            (RNameIntro
+               (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+         (GlobalVar
+            (Rigid
+               (RNameIntro (UserName "Nat") Obj (Id {unId = 0}))))
          (Declare
             Obj
-            (Rigid (NameIntro Obj (Id {unId = 2})))
+            (Rigid
+               (RNameIntro
+                  (UserName "<PLACEHOLDER>") Obj (Id {unId = 2})))
             (ObjFunType
                Explicit
-               (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
-               (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0})))))
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0}))))
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))))
             (Declare
                Meta
-               (Rigid (NameIntro Meta (Id {unId = 3})))
+               (Rigid
+                  (RNameIntro
+                     (UserName "<PLACEHOLDER>") Meta (Id {unId = 3})))
                (MetaFunType
                   Explicit
                   (Rigid (CodeCType (Rigid CIntType)))
@@ -240,36 +413,61 @@
                      Explicit
                      (Rigid
                         (CodeObjType
-                           (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))))
+                           (GlobalVar
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "Nat") Obj (Id {unId = 0}))))))
                      (Rigid (TypeType Meta))))
                (Declare
                   Meta
-                  (Rigid (NameIntro Meta (Id {unId = 6})))
+                  (Rigid
+                     (RNameIntro
+                        (UserName "<PLACEHOLDER>") Meta (Id {unId = 6})))
                   (Rigid
                      (CodeObjType
-                        (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))))
+                        (GlobalVar
+                           (Rigid
+                              (RNameIntro
+                                 (UserName "Nat") Obj (Id {unId = 0}))))))
                   (Declare
                      Meta
-                     (Rigid (NameIntro Meta (Id {unId = 7})))
+                     (Rigid
+                        (RNameIntro
+                           (UserName "<PLACEHOLDER>") Meta (Id {unId = 7})))
                      (Rigid
                         (CodeObjType
-                           (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))))
+                           (GlobalVar
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "Nat") Obj (Id {unId = 0}))))))
                      (Declare
                         Meta
-                        (Rigid (NameIntro Meta (Id {unId = 8})))
+                        (Rigid
+                           (RNameIntro
+                              (UserName "<PLACEHOLDER>") Meta (Id {unId = 8})))
                         (Rigid
                            (CodeObjType
                               (GlobalVar
-                                 (Rigid (NameIntro Obj (Id {unId = 0}))))))
+                                 (Rigid
+                                    (RNameIntro
+                                       (UserName "Nat") Obj (Id {unId = 0}))))))
                         (Define
-                           (Rigid (NameIntro Obj (Id {unId = 1})))
+                           (Rigid
+                              (RNameIntro
+                                 (UserName "<PLACEHOLDER>")
+                                 Obj
+                                 (Id {unId = 1})))
                            (RecIntro
                               (fromList
                                  [(Field {unField = "tag"}, Rigid TwoIntro0),
                                   (Field {unField = "data"},
                                    RecIntro (fromList []))]))
                            (Define
-                              (Rigid (NameIntro Obj (Id {unId = 2})))
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "<PLACEHOLDER>")
+                                    Obj
+                                    (Id {unId = 2})))
                               (ObjFunIntro
                                  (RecIntro
                                     (fromList
@@ -278,28 +476,47 @@
                                         (Field {unField = "data"},
                                          LocalVar (Index {unIndex = 1}))])))
                               (Define
-                                 (Rigid (NameIntro Meta (Id {unId = 3})))
+                                 (Rigid
+                                    (RNameIntro
+                                       (UserName "<PLACEHOLDER>")
+                                       Meta
+                                       (Id {unId = 3})))
                                  (Rigid (MetaConstIntro (Id {unId = 3})))
                                  (Define
-                                    (Rigid (NameIntro Meta (Id {unId = 6})))
+                                    (Rigid
+                                       (RNameIntro
+                                          (UserName "<PLACEHOLDER>")
+                                          Meta
+                                          (Id {unId = 6})))
                                     (UniVar (UVGlobal 6))
                                     (Define
-                                       (Rigid (NameIntro Meta (Id {unId = 7})))
+                                       (Rigid
+                                          (RNameIntro
+                                             (UserName "<PLACEHOLDER>")
+                                             Meta
+                                             (Id {unId = 7})))
                                        (UniVar (UVGlobal 7))
                                        (Define
                                           (Rigid
-                                             (NameIntro Meta (Id {unId = 8})))
+                                             (RNameIntro
+                                                (UserName "<PLACEHOLDER>")
+                                                Meta
+                                                (Id {unId = 8})))
                                           (UniVar (UVGlobal 8))
                                           (Declare
                                              Meta
                                              (Rigid
-                                                (NameIntro
-                                                   Meta (Id {unId = 4})))
+                                                (RNameIntro
+                                                   (UserName "<PLACEHOLDER>")
+                                                   Meta
+                                                   (Id {unId = 4})))
                                              (MetaFunElim
                                                 (MetaFunElim
                                                    (GlobalVar
                                                       (Rigid
-                                                         (NameIntro
+                                                         (RNameIntro
+                                                            (UserName
+                                                               "CompileNat")
                                                             Meta
                                                             (Id {unId = 3}))))
                                                    (Rigid
@@ -310,7 +527,8 @@
                                                    (CodeObjIntro
                                                       (GlobalVar
                                                          (Rigid
-                                                            (NameIntro
+                                                            (RNameIntro
+                                                               (UserName "zero")
                                                                Obj
                                                                (Id
                                                                   {unId =
@@ -318,8 +536,10 @@
                                              (Declare
                                                 Meta
                                                 (Rigid
-                                                   (NameIntro
-                                                      Meta (Id {unId = 5})))
+                                                   (RNameIntro
+                                                      (UserName "<PLACEHOLDER>")
+                                                      Meta
+                                                      (Id {unId = 5})))
                                                 (Rigid
                                                    (AllType
                                                       (MetaFunIntro
@@ -332,7 +552,9 @@
                                                                            (MetaFunElim
                                                                               (GlobalVar
                                                                                  (Rigid
-                                                                                    (NameIntro
+                                                                                    (RNameIntro
+                                                                                       (UserName
+                                                                                          "CompileNat")
                                                                                        Meta
                                                                                        (Id
                                                                                           {unId =
@@ -349,7 +571,9 @@
                                                                            (MetaFunElim
                                                                               (GlobalVar
                                                                                  (Rigid
-                                                                                    (NameIntro
+                                                                                    (RNameIntro
+                                                                                       (UserName
+                                                                                          "CompileNat")
                                                                                        Meta
                                                                                        (Id
                                                                                           {unId =
@@ -371,7 +595,9 @@
                                                                                  (ObjFunElim
                                                                                     (GlobalVar
                                                                                        (Rigid
-                                                                                          (NameIntro
+                                                                                          (RNameIntro
+                                                                                             (UserName
+                                                                                                "succ")
                                                                                              Obj
                                                                                              (Id
                                                                                                 {unId =
@@ -384,13 +610,18 @@
                                                 (Declare
                                                    Meta
                                                    (Rigid
-                                                      (NameIntro
-                                                         Meta (Id {unId = 9})))
+                                                      (RNameIntro
+                                                         (UserName
+                                                            "<PLACEHOLDER>")
+                                                         Meta
+                                                         (Id {unId = 9})))
                                                    (MetaFunElim
                                                       (MetaFunElim
                                                          (GlobalVar
                                                             (Rigid
-                                                               (NameIntro
+                                                               (RNameIntro
+                                                                  (UserName
+                                                                     "CompileNat")
                                                                   Meta
                                                                   (Id
                                                                      {unId =
@@ -407,7 +638,8 @@
                                                                            1)))))))
                                                       (GlobalVar
                                                          (Rigid
-                                                            (NameIntro
+                                                            (RNameIntro
+                                                               (UserName "n1")
                                                                Meta
                                                                (Id
                                                                   {unId =
@@ -415,14 +647,18 @@
                                                    (Declare
                                                       Meta
                                                       (Rigid
-                                                         (NameIntro
+                                                         (RNameIntro
+                                                            (UserName
+                                                               "<PLACEHOLDER>")
                                                             Meta
                                                             (Id {unId = 10})))
                                                       (MetaFunElim
                                                          (MetaFunElim
                                                             (GlobalVar
                                                                (Rigid
-                                                                  (NameIntro
+                                                                  (RNameIntro
+                                                                     (UserName
+                                                                        "CompileNat")
                                                                      Meta
                                                                      (Id
                                                                         {unId =
@@ -442,7 +678,9 @@
                                                                (ObjFunElim
                                                                   (GlobalVar
                                                                      (Rigid
-                                                                        (NameIntro
+                                                                        (RNameIntro
+                                                                           (UserName
+                                                                              "succ")
                                                                            Obj
                                                                            (Id
                                                                               {unId =
@@ -450,7 +688,9 @@
                                                                   (CodeObjElim
                                                                      (GlobalVar
                                                                         (Rigid
-                                                                           (NameIntro
+                                                                           (RNameIntro
+                                                                              (UserName
+                                                                                 "n2")
                                                                               Meta
                                                                               (Id
                                                                                  {unId =
@@ -458,7 +698,9 @@
                                                       (Declare
                                                          Meta
                                                          (Rigid
-                                                            (NameIntro
+                                                            (RNameIntro
+                                                               (UserName
+                                                                  "<PLACEHOLDER>")
                                                                Meta
                                                                (Id
                                                                   {unId = 11})))
@@ -466,7 +708,9 @@
                                                             (MetaFunElim
                                                                (GlobalVar
                                                                   (Rigid
-                                                                     (NameIntro
+                                                                     (RNameIntro
+                                                                        (UserName
+                                                                           "CompileNat")
                                                                         Meta
                                                                         (Id
                                                                            {unId =
@@ -486,7 +730,9 @@
                                                                   (ObjFunElim
                                                                      (GlobalVar
                                                                         (Rigid
-                                                                           (NameIntro
+                                                                           (RNameIntro
+                                                                              (UserName
+                                                                                 "succ")
                                                                               Obj
                                                                               (Id
                                                                                  {unId =
@@ -494,7 +740,9 @@
                                                                      (ObjFunElim
                                                                         (GlobalVar
                                                                            (Rigid
-                                                                              (NameIntro
+                                                                              (RNameIntro
+                                                                                 (UserName
+                                                                                    "succ")
                                                                                  Obj
                                                                                  (Id
                                                                                     {unId =
@@ -502,14 +750,18 @@
                                                                         (CodeObjElim
                                                                            (GlobalVar
                                                                               (Rigid
-                                                                                 (NameIntro
+                                                                                 (RNameIntro
+                                                                                    (UserName
+                                                                                       "n3")
                                                                                     Meta
                                                                                     (Id
                                                                                        {unId =
                                                                                           8}))))))))))
                                                          (Define
                                                             (Rigid
-                                                               (NameIntro
+                                                               (RNameIntro
+                                                                  (UserName
+                                                                     "<PLACEHOLDER>")
                                                                   Meta
                                                                   (Id
                                                                      {unId =
@@ -521,7 +773,9 @@
                                                                         4})))
                                                             (Define
                                                                (Rigid
-                                                                  (NameIntro
+                                                                  (RNameIntro
+                                                                     (UserName
+                                                                        "<PLACEHOLDER>")
                                                                      Meta
                                                                      (Id
                                                                         {unId =
@@ -533,7 +787,9 @@
                                                                            5})))
                                                                (Define
                                                                   (Rigid
-                                                                     (NameIntro
+                                                                     (RNameIntro
+                                                                        (UserName
+                                                                           "<PLACEHOLDER>")
                                                                         Meta
                                                                         (Id
                                                                            {unId =
@@ -545,7 +801,9 @@
                                                                               9})))
                                                                   (Define
                                                                      (Rigid
-                                                                        (NameIntro
+                                                                        (RNameIntro
+                                                                           (UserName
+                                                                              "<PLACEHOLDER>")
                                                                            Meta
                                                                            (Id
                                                                               {unId =
@@ -557,7 +815,9 @@
                                                                                  10})))
                                                                      (Define
                                                                         (Rigid
-                                                                           (NameIntro
+                                                                           (RNameIntro
+                                                                              (UserName
+                                                                                 "<PLACEHOLDER>")
                                                                               Meta
                                                                               (Id
                                                                                  {unId =

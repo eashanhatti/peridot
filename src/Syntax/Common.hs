@@ -41,6 +41,8 @@ instance Hashable Id
 data Name = UserName Text | MachineName Natural | Unbound
   deriving (Eq, Ord, Show)
 
+pattern NameIntro univ did <- RNameIntro _ univ did
+
 data RigidTerm a
   -- Object level
   = TwoType
@@ -52,7 +54,7 @@ data RigidTerm a
   | ObjIdIntro a
   -- Meta level
   | NameType Universe a
-  | NameIntro Universe Id
+  | RNameIntro Name Universe Id
   | MetaConstIntro Id
   | CodeObjType a
   | CodeObjIntro a

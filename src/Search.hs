@@ -48,18 +48,12 @@ unionSubsts (ts1, eqs1) (ts2, eqs2) = (ts1 <> ts2, eqs1 <> eqs2)
 
 prove :: forall sig m. Search sig m => Seq Term -> Term -> m Substitution
 prove ctx goal@(Neutral p _) = do
-  -- let !_ = tracePretty goal
-  p <- force p
-  -- let !_ = tracePretty p
-  case p of
-    Just p -> do
-      prove ctx p
-    Nothing ->
-      if isAtomic goal then do
-        def <- oneOf ctx
-        search ctx goal def
-      else
-        empty
+  def <- oneOf ctx
+  search ctx goal def <|> do
+    p <- force p
+    case p of
+      Just p -> prove ctx p
+      Nothing -> empty
 prove ctx (Rigid (ConjType p q)) = do
   subst <- prove ctx p
   withSubst subst (prove ctx q)

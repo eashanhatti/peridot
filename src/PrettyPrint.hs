@@ -17,8 +17,7 @@ import Data.Sequence hiding(singleton, foldl', replicateM)
 import Extra
 
 data PrintContext = PrintContext
-  { unLocals :: Map.Map Index Text
-  , unGlobals :: Map.Map Id Text }
+  { unLocals :: Map.Map Index Text }
 
 data PrintState = PrintState
   { unNextName :: Int }
@@ -68,13 +67,13 @@ pretty term =
       let
         tLam' =
           case words tLam of
+            _:[] -> tLam
             _:_ -> "(" <> tLam <> ")"
-            _ -> tLam
       combine [pure tLam', pure "(", intercalate ", " . toList <$> traverse pretty args, pure ")"]
     CodeObjElim quote -> combine [pure "~", pretty quote]
     CodeCElim quote -> combine [pure "c~", pretty quote]
     LocalVar ix -> (Map.! ix) . unLocals <$> ask
-    GlobalVar (Rigid (NameIntro _ did)) -> (Map.! did) . unGlobals <$> ask
+    GlobalVar (Rigid (RNameIntro (UserName name) _ did)) -> pure name
     GlobalVar name -> combine [pure "GLOBAL(", pretty name, pure ")"]
     UniVar (LVGlobal n) -> pure ("?" <> pack (show n))
     UniVar (UVGlobal n) -> pure ("?" <> pack (show n))
@@ -129,6 +128,6 @@ freshName = do
 prettyPure :: Term -> Text
 prettyPure term =
   run .
-  runReader (PrintContext mempty mempty) .
+  runReader (PrintContext mempty) .
   evalState (PrintState 97) $
   pretty term

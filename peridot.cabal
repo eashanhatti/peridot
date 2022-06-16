@@ -79,10 +79,12 @@ library
     , containers
     , dependent-hashmap
     , dependent-sum
+    , directory
     , extra
     , filepath
     , fused-effects
     , hashable
+    , haskell-stack-trace-plugin
     , megaparsec
     , mtl
     , parser-combinators
@@ -130,17 +132,19 @@ executable peridot-exe
       RankNTypes
       TypeOperators
       MultiParamTypeClasses
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -fplugin=StackTrace.Plugin
   build-depends:
       base >=4.0 && <5
     , bytestring
     , containers
     , dependent-hashmap
     , dependent-sum
+    , directory
     , extra
     , filepath
     , fused-effects
     , hashable
+    , haskell-stack-trace-plugin
     , megaparsec
     , mtl
     , parser-combinators
@@ -190,17 +194,19 @@ test-suite peridot-test
       RankNTypes
       TypeOperators
       MultiParamTypeClasses
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N -fplugin=StackTrace.Plugin
   build-depends:
       base >=4.0 && <5
     , bytestring
     , containers
     , dependent-hashmap
     , dependent-sum
+    , directory
     , extra
     , filepath
     , fused-effects
     , hashable
+    , haskell-stack-trace-plugin
     , megaparsec
     , mtl
     , parser-combinators

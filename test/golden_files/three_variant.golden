@@ -1,14 +1,20 @@
 ((fromList [], fromList [], fromList []),
  Declare
    Obj
-   (Rigid (NameIntro Obj (Id {unId = 0})))
+   (Rigid
+      (RNameIntro
+         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
    (Rigid (TypeType Obj))
    (Declare
       Obj
-      (Rigid (NameIntro Obj (Id {unId = 1})))
+      (Rigid
+         (RNameIntro
+            (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
       (Rigid (TypeType Obj))
       (Define
-         (Rigid (NameIntro Obj (Id {unId = 0})))
+         (Rigid
+            (RNameIntro
+               (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
          (RecType
             (fromList
                [(Field {unField = "tag"}, Rigid TwoType),
@@ -17,13 +23,19 @@
                    (LocalVar (Index {unIndex = 0}))
                    (RecType (fromList []))
                    (GlobalVar
-                      (Rigid (NameIntro Obj (Id {unId = 0})))))]))
+                      (Rigid
+                         (RNameIntro
+                            (UserName "Nat") Obj (Id {unId = 0})))))]))
          (Define
-            (Rigid (NameIntro Obj (Id {unId = 1})))
+            (Rigid
+               (RNameIntro
+                  (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
             (RecType
                (fromList
                   [(Field {unField = "tag"},
-                    GlobalVar (Rigid (NameIntro Obj (Id {unId = 0})))),
+                    GlobalVar
+                      (Rigid
+                         (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))),
                    (Field {unField = "data"},
                     TwoElim
                       (RecElim
@@ -33,7 +45,9 @@
                          (fromList
                             [(Field {unField = "data"},
                               GlobalVar
-                                (Rigid (NameIntro Obj (Id {unId = 0}))))]))
+                                (Rigid
+                                   (RNameIntro
+                                      (UserName "Nat") Obj (Id {unId = 0}))))]))
                       (TwoElim
                          (RecElim
                             (RecElim

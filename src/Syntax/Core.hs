@@ -62,8 +62,8 @@ viewObjFunIntros e = (0, e)
 viewFunElims :: Term -> (Term, Seq Term)
 viewFunElims (ObjFunElim lam arg) =
   let (lam', args) = viewFunElims lam
-  in (lam', arg <| args)
+  in (lam', args |> arg)
 viewFunElims (MetaFunElim lam arg) =
   let (lam', args) = viewFunElims lam
-  in (lam', arg <| args)
+  in (lam', args |> arg)
 viewFunElims e = (e, mempty)

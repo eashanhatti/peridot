@@ -24,18 +24,26 @@
               (UniVar (UVGlobal 1005)))))]),
  Declare
    Obj
-   (Rigid (NameIntro Obj (Id {unId = 0})))
+   (Rigid
+      (RNameIntro
+         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
    (Rigid
       (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro0)))
    (Declare
       Obj
-      (Rigid (NameIntro Obj (Id {unId = 1})))
+      (Rigid
+         (RNameIntro
+            (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
       (Rigid
          (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro1)))
       (Define
-         (Rigid (NameIntro Obj (Id {unId = 0})))
+         (Rigid
+            (RNameIntro
+               (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
          (Rigid (ObjIdIntro (UniVar (UVGlobal 1002))))
          (Define
-            (Rigid (NameIntro Obj (Id {unId = 1})))
+            (Rigid
+               (RNameIntro
+                  (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
             (Rigid (ObjIdIntro (UniVar (UVGlobal 1005))))
             (Rigid (TypeType Obj))))))

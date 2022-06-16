@@ -185,7 +185,7 @@ infer term = case term of
         (ty, univ) <- ED.declType did
         vTy <- eval ty
         when isType (void (ED.check did))
-        pure (C.GlobalVar (C.Rigid (C.NameIntro univ did)), vTy)
+        pure (C.GlobalVar (C.Rigid (C.RNameIntro name univ did)), vTy)
       Nothing -> errorTerm (UnboundVariable name)
   TermAst OUniv -> pure (C.ObjTypeType, N.ObjTypeType)
   TermAst MUniv -> pure (C.MetaTypeType, N.MetaTypeType)
@@ -227,13 +227,13 @@ infer term = case term of
               (\key acc -> case key of
                 Some (CheckDecl did) ->
                   C.Define
-                    (C.Rigid (C.NameIntro (snd (cDeclTys Map.! did)) did))
+                    (C.Rigid (C.RNameIntro (UserName "<PLACEHOLDER>") (snd (cDeclTys Map.! did)) did))
                     (cDecls Map.! did)
                     acc
                 Some (DeclType did) ->
                   C.Declare
                     (snd (cDeclTys Map.! did))
-                    (C.Rigid (C.NameIntro (snd (cDeclTys Map.! did)) did))
+                    (C.Rigid (C.RNameIntro (UserName "<PLACEHOLDER>") (snd (cDeclTys Map.! did)) did))
                     (fst (cDeclTys Map.! did))
                     acc)
               cont
@@ -328,12 +328,14 @@ infer term = case term of
         pure (((nameToField name, cFd), (nameToField name, tyClo)) <| cFds)
   TermAst (Select str (NameAst name)) -> do
     (cStr, strTy) <- infer str
-    strTy <- unfold strTy
-    case strTy of
+    strTy' <- unfold strTy
+    case strTy' of
       N.RecType fdTys -> do
         fdTy <- go cStr Empty fdTys
         pure (C.RecElim cStr (nameToField name), fdTy)
-      _ -> errorTerm (ExpectedRecordType strTy)
+      _ -> do
+        cStrTy <- readback strTy
+        errorTerm (ExpectedRecordType cStrTy)
     where
       go ::
         Elab sig m =>
@@ -361,7 +363,7 @@ infer term = case term of
       N.RecType tys -> do
         cSig' <- C.RecType <$> go Empty Empty tys
         pure (cSig', N.ObjTypeType)
-      _ -> errorTerm (ExpectedRecordType vSig)
+      _ -> errorTerm (ExpectedRecordType cSig)
     where
       go ::
         Elab sig m =>

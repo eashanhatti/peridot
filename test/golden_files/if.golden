@@ -8,7 +8,9 @@
   fromList []),
  Declare
    Obj
-   (Rigid (NameIntro Obj (Id {unId = 0})))
+   (Rigid
+      (RNameIntro
+         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
    (ObjFunType
       Explicit
       (Rigid TwoType)
@@ -18,7 +20,9 @@
          (Rigid
             (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro0)))))
    (Define
-      (Rigid (NameIntro Obj (Id {unId = 0})))
+      (Rigid
+         (RNameIntro
+            (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
       (ObjFunIntro
          (TwoElim
             (LocalVar (Index {unIndex = 0}))

@@ -69,6 +69,8 @@ dependencies:
 - filepath
 - shower
 - parser-combinators
+- haskell-stack-trace-plugin
+- directory
 
 library:
   source-dirs: src
@@ -81,6 +83,7 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -fplugin=StackTrace.Plugin
     dependencies:
     - peridot
 
@@ -92,5 +95,6 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -fplugin=StackTrace.Plugin
     dependencies:
     - peridot

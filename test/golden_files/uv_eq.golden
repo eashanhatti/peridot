@@ -8,9 +8,13 @@
       InferredFunType (RecType (fromList [])))]),
  Declare
    Obj
-   (Rigid (NameIntro Obj (Id {unId = 0})))
+   (Rigid
+      (RNameIntro
+         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
    (RecType (fromList []))
    (Define
-      (Rigid (NameIntro Obj (Id {unId = 0})))
+      (Rigid
+         (RNameIntro
+            (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
       (Rigid ElabError)
       (Rigid (TypeType Obj))))

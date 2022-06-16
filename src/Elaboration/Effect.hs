@@ -64,10 +64,10 @@ data Error
   | FailedUnify C.Term C.Term
   | UnboundVariable Name
   | ExpectedCFunType N.Term
-  | ExpectedRecordType N.Term
+  | ExpectedRecordType C.Term
   | MissingField Name
-  | FailedProve N.Term
-  | AmbiguousProve N.Term (Seq (Map.Map Global N.Term, Map.Map Global Global))
+  | FailedProve C.Term N.Term (Seq N.Term)
+  | AmbiguousProve C.Term (Seq (Map.Map Global N.Term, Map.Map Global Global))
   | CLamFormCheck
   | InferredFunType C.Term
   | CannotInfer

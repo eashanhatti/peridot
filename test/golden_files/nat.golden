@@ -1,10 +1,14 @@
 ((fromList [], fromList [], fromList []),
  Declare
    Obj
-   (Rigid (NameIntro Obj (Id {unId = 0})))
+   (Rigid
+      (RNameIntro
+         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
    (Rigid (TypeType Obj))
    (Define
-      (Rigid (NameIntro Obj (Id {unId = 0})))
+      (Rigid
+         (RNameIntro
+            (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
       (RecType
          (fromList
             [(Field {unField = "tag"}, Rigid TwoType),
@@ -13,36 +17,60 @@
                 (LocalVar (Index {unIndex = 0}))
                 (RecType (fromList []))
                 (GlobalVar
-                   (Rigid (NameIntro Obj (Id {unId = 0})))))]))
+                   (Rigid
+                      (RNameIntro
+                         (UserName "Nat") Obj (Id {unId = 0})))))]))
       (Declare
          Obj
-         (Rigid (NameIntro Obj (Id {unId = 1})))
-         (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
+         (Rigid
+            (RNameIntro
+               (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+         (GlobalVar
+            (Rigid
+               (RNameIntro (UserName "Nat") Obj (Id {unId = 0}))))
          (Declare
             Obj
-            (Rigid (NameIntro Obj (Id {unId = 2})))
+            (Rigid
+               (RNameIntro
+                  (UserName "<PLACEHOLDER>") Obj (Id {unId = 2})))
             (ObjFunType
                Explicit
-               (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
-               (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0})))))
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0}))))
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))))
             (Declare
                Obj
-               (Rigid (NameIntro Obj (Id {unId = 3})))
+               (Rigid
+                  (RNameIntro
+                     (UserName "<PLACEHOLDER>") Obj (Id {unId = 3})))
                (ObjFunType
                   Explicit
-                  (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
+                  (GlobalVar
+                     (Rigid
+                        (RNameIntro (UserName "Nat") Obj (Id {unId = 0}))))
                   (ObjFunType
                      Explicit
-                     (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))
-                     (GlobalVar (Rigid (NameIntro Obj (Id {unId = 0}))))))
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "Nat") Obj (Id {unId = 0}))))
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "Nat") Obj (Id {unId = 0}))))))
                (Define
-                  (Rigid (NameIntro Obj (Id {unId = 1})))
+                  (Rigid
+                     (RNameIntro
+                        (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
                   (RecIntro
                      (fromList
                         [(Field {unField = "tag"}, Rigid TwoIntro0),
                          (Field {unField = "data"}, RecIntro (fromList []))]))
                   (Define
-                     (Rigid (NameIntro Obj (Id {unId = 2})))
+                     (Rigid
+                        (RNameIntro
+                           (UserName "<PLACEHOLDER>") Obj (Id {unId = 2})))
                      (ObjFunIntro
                         (RecIntro
                            (fromList
@@ -50,7 +78,9 @@
                                (Field {unField = "data"},
                                 LocalVar (Index {unIndex = 1}))])))
                      (Define
-                        (Rigid (NameIntro Obj (Id {unId = 3})))
+                        (Rigid
+                           (RNameIntro
+                              (UserName "<PLACEHOLDER>") Obj (Id {unId = 3})))
                         (ObjFunIntro
                            (ObjFunIntro
                               (TwoElim
@@ -62,7 +92,10 @@
                                     (ObjFunElim
                                        (GlobalVar
                                           (Rigid
-                                             (NameIntro Obj (Id {unId = 3}))))
+                                             (RNameIntro
+                                                (UserName "add")
+                                                Obj
+                                                (Id {unId = 3}))))
                                        (RecElim
                                           (LocalVar (Index {unIndex = 1}))
                                           (Field {unField = "data"})))

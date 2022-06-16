@@ -57,11 +57,11 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
       substs <- proveDet gTys vSig
       case substs of
         Nothing -> do
-          report (FailedProve vSig)
+          report (FailedProve cSig vSig gTys)
           pure (C.Rigid C.ElabError)
         Just substs ->
           if isAmbiguous substs then do
-            report (AmbiguousProve vSig substs)
+            report (AmbiguousProve cSig substs)
             pure (C.Rigid C.ElabError)
           else do
             let (ts, eqs) = concatSubsts substs

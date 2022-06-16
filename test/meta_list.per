@@ -22,3 +22,10 @@ axiom unit: Unit;
 
 variable xs: List(Unit);
 proof Append(Unit, nil(Unit), nil(Unit), xs);
+
+variable ys: List(Unit);
+proof Append(
+  Unit,
+  cons(Unit, unit, nil(Unit)),
+  cons(Unit, unit, nil(Unit)),
+  ys);
