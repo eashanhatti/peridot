@@ -11,7 +11,7 @@ import Data.Map qualified as Map
 import Syntax.Common(Id(..), Index(..))
 import Data.Char
 import Control.Monad
-import Prelude hiding(zip, foldl', intercalate)
+import Prelude hiding(zip, foldl', intercalate, words)
 import Data.Foldable
 import Data.Sequence hiding(singleton, foldl', replicateM)
 import Extra
@@ -63,8 +63,14 @@ pretty term =
       pure ("record { " <> intercalate ", " (toList tDefs) <> " }")
     RecElim str fd -> combine [pretty str, pure ("." <> unField fd)]
     SingElim sing -> pretty sing
-    (viewFunElims -> (lam, args@(_:<|_))) ->
-      combine [pretty lam, pure "(", intercalate ", " . toList <$> traverse pretty args, pure ")"]
+    (viewFunElims -> (lam, args@(_:<|_))) -> do
+      tLam <- pretty lam
+      let
+        tLam' =
+          case words tLam of
+            _:_ -> "(" <> tLam <> ")"
+            _ -> tLam
+      combine [pure tLam', pure "(", intercalate ", " . toList <$> traverse pretty args, pure ")"]
     CodeObjElim quote -> combine [pure "~", pretty quote]
     CodeCElim quote -> combine [pure "c~", pretty quote]
     LocalVar ix -> (Map.! ix) . unLocals <$> ask

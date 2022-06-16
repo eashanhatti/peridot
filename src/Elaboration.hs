@@ -5,7 +5,7 @@ import Elaboration.Term qualified as EE
 import Syntax.Surface qualified as S
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Normalization hiding(unTypeUVs)
+import Normalization hiding(unTypeUVs, eval)
 import Normalization qualified as Norm
 import Control.Carrier.Reader
 import Control.Carrier.State.Strict
@@ -49,6 +49,12 @@ readback term =
   runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) $
   Norm.readback term
 
+eval :: C.Term -> N.Term
+eval term =
+  run .
+  runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) $
+  Norm.eval term
+
 infer :: Text -> Either String (QueryState, C.Term, C.Term)
 infer s = fmap infer' (parse prec0 s)
 
@@ -72,7 +78,7 @@ elaborate' term =
           (justs $ unTypeUVs qs)
           mempty
           mempty)
-      (eval term' >>= zonk)
+      (Norm.eval term' >>= Norm.zonk)
   in
     (qs, term')
 

@@ -1,7 +1,7 @@
 module Main where
 
 import Elaboration
-import Elaboration.Effect hiding(readback)
+import Elaboration.Effect hiding(readback, eval)
 import PrettyPrint
 import Control.Monad
 import Data.Text(Text, pack, words, unpack)
@@ -49,11 +49,11 @@ loop = do
           if null tErrs then
             TIO.putStrLn "\ESC[32mOk\ESC[0m."
           else do
-            TIO.putStrLn "\ESC[33mErrors\ESC[0m."
+            TIO.putStrLn "\ESC[33mErrors\ESC[0m:"
             traverse TIO.putStrLn tErrs
             pure ()
         Left err -> do
-          TIO.putStrLn "\ESC[31mParse error\ESC[0m."
+          TIO.putStrLn "\ESC[31mParse error\ESC[0m:"
           putStrLn err
       loop
     [":help"] -> do
@@ -67,17 +67,20 @@ loop = do
     _ -> do
       let r = infer input
       case r of
-        Right (qs, _, ty) -> do
+        Right (qs, term, ty) -> do
           let tErrs = prettyErrors (unErrors qs)
           if null tErrs then do
-            TIO.putStr "\ESC[32mInferred type\ESC[0m.\n  "
+            TIO.putStr "\ESC[32mInferred type\ESC[0m:\n  "
             TIO.putStrLn (prettyPure ty)
+            let term' = readback . eval $ term
+            TIO.putStr "\ESC[32mEvaluated term\ESC[0m:\n  "
+            TIO.putStrLn (prettyPure term')
           else do
-            TIO.putStrLn "\ESC[33mErrors\ESC[0m."
+            TIO.putStrLn "\ESC[33mErrors\ESC[0m:"
             traverse TIO.putStrLn tErrs
             pure ()
         Left err -> do
-          TIO.putStrLn "\ESC[31mParse error\ESC[0m."
+          TIO.putStrLn "\ESC[31mParse error\ESC[0m:"
           putStrLn err
       loop
 

@@ -92,23 +92,24 @@ uvRedex gl = do
   let !_ = ()--tracePrettyS "VIS" visited
   if Set.member gl visited then
     pure Nothing
-  else do
-    let !_ = ()--tracePretty "AAAAAAAAa"
-    uvs <- unTypeUVs <$> ask
-    case Map.lookup gl uvs of
-      Just sol -> pure (Just sol)
-      Nothing -> pure Nothing -- do
-        -- let !_ = ()--tracePretty "BBBBBBBBBBBBBBB"
-        -- eqs <- unUVEqs <$> ask
-        -- let !_ = ()--tracePrettyS "EQS" eqs
-        -- case Map.lookup gl eqs of
-        --   Just gl' -> do
-        --     -- a <- ask
-        --     let !_ = ()--tracePretty ("CCCCCCCCCCCCCC", unVisited a, gl, gl')
-        --     Just <$> local
-        --       (\ctx -> ctx { unVisited = Set.insert gl' (unVisited ctx) })
-        --       (eval (C.UniVar gl'))
-        --   Nothing -> pure Nothing
+  else 
+    local
+      (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) })
+      do
+        let !_ = ()--tracePretty "AAAAAAAAa"
+        uvs <- unTypeUVs <$> ask
+        case Map.lookup gl uvs of
+          Just sol -> pure (Just sol)
+          Nothing -> do
+            let !_ = ()--tracePretty "BBBBBBBBBBBBBBB"
+            eqs <- unUVEqs <$> ask
+            let !_ = ()--tracePrettyS "EQS" eqs
+            case Map.lookup gl eqs of
+              Just gl' -> do
+                -- a <- ask
+                let !_ = ()--tracePretty ("CCCCCCCCCCCCCC", unVisited a, gl, gl')
+                Just <$> eval (C.UniVar gl')
+              Nothing -> pure Nothing
 
 -- gvRedex :: Norm sig m => Id -> m (Maybe N.Term)
 -- gvRedex did = do
