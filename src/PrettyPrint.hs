@@ -97,15 +97,19 @@ pretty term =
     Rigid (CodeObjIntro code) -> combine [pure "<", pretty code, pure ">"]
     Rigid (CodeCType ty) -> con "CCode" [pretty ty]
     Rigid (CodeCIntro code) -> combine [pure "c<", pretty code, pure ">"]
-    Rigid (ImplType p q) -> combine [pretty p, pure "⊃", pretty q]
-    Rigid (ConjType p q) -> combine [pretty p, pure "∧", pretty q]
-    Rigid (DisjType p q) -> combine [pretty p, pure "∨", pretty q]
+    Rigid (CLValType ty) -> con "LVal" [pretty ty]
+    Rigid CIntType -> pure "C_Int"
+    Rigid (CIntElimAdd x y) -> combine [pure "[c_add ", pretty x, pure " ", pretty y, pure "]"]
+    Rigid (CIntIntro x) -> combine [pure "[c_int ", pure . pack . show $ x, pure "]"]
+    Rigid (ImplType p q) -> con "Implies" [pretty p, pretty q]
+    Rigid (ConjType p q) -> con "And" [pretty p, pretty q]
+    Rigid (DisjType p q) -> con "Or" [pretty p, pretty q]
     Rigid (AllType (MetaFunIntro body)) -> do
       name <- freshName
-      combine [pure ("∀" <> name <> ", "), bindLocal name (pretty body)]
+      combine [pure ("Forall " <> name <> ", "), bindLocal name (pretty body)]
     Rigid (SomeType (MetaFunIntro body)) -> do
       name <- freshName
-      combine [pure ("∃" <> name <> ", "), bindLocal name (pretty body)]
+      combine [pure ("Exists "  <> name <> ", "), bindLocal name (pretty body)]
     MetaTypeType -> pure "MetaType"
     ObjTypeType -> pure "Type"
     LowCTypeType -> pure "CType"

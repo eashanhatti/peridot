@@ -10,7 +10,7 @@ axiom Append:
     List(A)) ~> MetaType;
 axiom append_nil:
   Forall A, Forall xs,
-  Append(A, xs, nil(A), nil(A));
+  Append(A, nil(A), xs, nil(A));
 axiom append_cons:
   Forall A, Forall x, Forall ys, Forall zs, Forall ws,
   Implies(

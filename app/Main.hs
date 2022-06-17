@@ -12,6 +12,7 @@ import Text.Megaparsec.Pos
 import Prelude hiding(words)
 import Data.Sequence(Seq)
 import System.Directory
+import System.IO
 
 prettyError :: Error -> Text
 prettyError TooManyParams = "Too many parameters."
@@ -102,7 +103,8 @@ loop = do
       loop
 
 main = do
-  TIO.putStrLn "\ESC[32mCommands\ESC[0m."
+  hSetEncoding stdout utf8
+  TIO.putStrLn "\ESC[32mCommands\ESC[0m:"
   TIO.putStrLn ":typecheck    Typechecks a file"
   TIO.putStrLn ":quit         Quit the REPL"
   TIO.putStrLn ":help         Display this menu"
