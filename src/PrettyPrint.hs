@@ -8,6 +8,7 @@ import Control.Carrier.State.Strict
 import Syntax.Core
 import Data.Text hiding(zip, foldl', null)
 import Data.Map qualified as Map
+import Data.Set qualified as Set
 import Syntax.Common(Id(..), Index(..))
 import Data.Char
 import Control.Monad
@@ -15,12 +16,14 @@ import Prelude hiding(zip, foldl', intercalate, words)
 import Data.Foldable
 import Data.Sequence hiding(singleton, foldl', replicateM, null)
 import Extra
+import Numeric.Natural
 
 data PrintContext = PrintContext
   { unLocals :: Map.Map Index Text }
 
 data PrintState = PrintState
-  { unNextName :: Int }
+  { unNextName :: Int
+  , unUVNames :: Map.Map Natural Text }
 
 type Print sig m =
   ( Has (Reader PrintContext) sig m
@@ -81,8 +84,14 @@ pretty term =
     LocalVar ix -> (Map.! ix) . unLocals <$> ask
     GlobalVar (Rigid (RNameIntro (UserName name) _ did)) -> pure name
     GlobalVar name -> combine [pure "GLOBAL(", pretty name, pure ")"]
-    UniVar (LVGlobal n) -> pure ("?" <> pack (show n))
-    UniVar (UVGlobal n) -> pure ("?" <> pack (show n))
+    UniVar (unGlobal -> n) -> do
+      st <- get
+      case Map.lookup n (unUVNames st) of
+        Just name -> pure name
+        Nothing -> do
+          name <- freshName
+          modify(\st -> st { unUVNames = Map.insert n name (unUVNames st) })
+          pure name
     Rigid TwoType -> pure "Bool"
     Rigid TwoIntro0 -> pure "true"
     Rigid TwoIntro1 -> pure "false"
@@ -113,7 +122,7 @@ pretty term =
     MetaTypeType -> pure "MetaType"
     ObjTypeType -> pure "Type"
     LowCTypeType -> pure "CType"
-    Rigid ElabError -> pure "\ESC[31mERROR\ESC[0m"
+    Rigid ElabError -> pure "<error>"
 
 con :: Print sig m => Text -> [m Text] -> m Text
 con name args = combine [pure name, pure "(", intercalate ", " <$> sequence args, pure ")"]
@@ -137,7 +146,14 @@ freshName = do
 
 prettyPure :: Term -> Text
 prettyPure term =
-  run .
-  runReader (PrintContext mempty) .
-  evalState (PrintState 97) $
-  pretty term
+  let
+    (st, t) =
+      run .
+      runState (PrintState 97 mempty) .
+      runReader (PrintContext mempty) $
+      pretty term
+  in
+    if null (unUVNames st) then
+      t
+    else
+      "forall " <> intercalate " " (fmap snd . Map.toList $  unUVNames st) <> ",\n  " <> t

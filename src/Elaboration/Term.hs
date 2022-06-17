@@ -175,7 +175,7 @@ infer term = case term of
         cArg <- readback arg
         (cArgs, outTy') <- appClosure outTy arg >>= checkArgs args
         pure (cArg <| cArgs, outTy')
-      checkArgs args ty = error $ shower (args, ty)
+      checkArgs args ty = error "TODO: Error reporting"
   TermAst (Var name) -> do
     binding <- lookupBinding name
     case binding of

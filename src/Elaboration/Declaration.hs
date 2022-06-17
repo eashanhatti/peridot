@@ -86,7 +86,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             not .
             all (uncurry Set.disjoint) $
             [(x, y) | (i1, x) <- substs', (i2, y) <- substs', i1 /= i2]
-    PDDecl (DeclAst (Fresh name _) did@(Id n)) ->
+    PDDecl (DeclAst (Fresh name _) did@(Id n)) -> do
       pure (C.UniVar (UVGlobal n))
 
 withPos' ::
@@ -105,5 +105,7 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl -> asType
       (, N.LowC) <$> EE.check sig N.LowCTypeType
     PDDecl (DeclAst (Axiom name sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Prove sig) _) -> EE.checkMetaType sig
-    PDDecl (DeclAst (Fresh name sig) _) -> EE.checkMetaType sig
+    PDDecl (DeclAst (Fresh name sig) (Id n)) -> do
+      modify (\st -> st { unLogvarNames = Map.insert (UVGlobal n) (unName name) (unLogvarNames st) })
+      EE.checkMetaType sig
  
