@@ -157,7 +157,7 @@ infer term = case term of
         Seq (PassMethod, TermAst) ->
         N.Term ->
         m (Seq C.Term, N.Term)
-      checkArgs Empty outTy@(N.viewFunType -> Nothing) = pure (Empty, outTy)
+      checkArgs Empty outTy = pure (Empty, outTy)
       checkArgs args (N.Neutral ty redex) = do
         ty <- force ty
         case ty of
