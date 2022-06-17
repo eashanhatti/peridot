@@ -10,6 +10,26 @@
                     (Rigid
                        (RNameIntro (UserName "nil") Meta (Id {unId = 1})))))
               (Neutral _ (UniVar (LVGlobal 2000)))))),
+     (UVGlobal 10,
+      Just
+        (Neutral
+           _
+           (MetaFunElim
+              (Neutral
+                 _
+                 (MetaFunElim
+                    (Neutral
+                       _
+                       (MetaFunElim
+                          (Neutral
+                             _
+                             (GlobalVar
+                                (Rigid
+                                   (RNameIntro
+                                      (UserName "cons") Meta (Id {unId = 2})))))
+                          (Neutral _ (UniVar (LVGlobal 2000)))))
+                    (Neutral _ (UniVar (LVGlobal 2001)))))
+              (Neutral _ (UniVar (LVGlobal 2004)))))),
      (UVGlobal 1000,
       Just (Neutral _ (UniVar (UVGlobal 1001)))),
      (UVGlobal 1001, Just (Rigid (TypeType Meta))),
@@ -310,6 +330,14 @@
       Just
         (Neutral
            _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro
+                    (UserName "unit") Meta (Id {unId = 7})))))),
+     (LVGlobal 2002,
+      Just
+        (Neutral
+           _
            (MetaFunElim
               (Neutral
                  _
@@ -321,76 +349,9 @@
                  (GlobalVar
                     (Rigid
                        (RNameIntro
-                          (UserName "Unit") Meta (Id {unId = 6}))))))))],
-  fromList [],
-  fromList
-    [(SourcePos
-        {sourceName = "<TODO>",
-         sourceLine = Pos 27,
-         sourceColumn = Pos 1},
-      FailedProve
-        (MetaFunElim
-           (MetaFunElim
-              (MetaFunElim
-                 (MetaFunElim
-                    (GlobalVar
-                       (Rigid
-                          (RNameIntro
-                             (UserName "Append") Meta (Id {unId = 3}))))
-                    (GlobalVar
-                       (Rigid
-                          (RNameIntro
-                             (UserName "Unit") Meta (Id {unId = 6})))))
-                 (MetaFunElim
-                    (MetaFunElim
-                       (MetaFunElim
-                          (GlobalVar
-                             (Rigid
-                                (RNameIntro
-                                   (UserName "cons") Meta (Id {unId = 2}))))
-                          (GlobalVar
-                             (Rigid
-                                (RNameIntro
-                                   (UserName "Unit") Meta (Id {unId = 6})))))
-                       (GlobalVar
-                          (Rigid
-                             (RNameIntro
-                                (UserName "unit") Meta (Id {unId = 7})))))
-                    (MetaFunElim
-                       (GlobalVar
-                          (Rigid
-                             (RNameIntro
-                                (UserName "nil") Meta (Id {unId = 1}))))
-                       (GlobalVar
-                          (Rigid
-                             (RNameIntro
-                                (UserName "Unit") Meta (Id {unId = 6})))))))
-              (MetaFunElim
-                 (MetaFunElim
-                    (MetaFunElim
-                       (GlobalVar
-                          (Rigid
-                             (RNameIntro
-                                (UserName "cons") Meta (Id {unId = 2}))))
-                       (GlobalVar
-                          (Rigid
-                             (RNameIntro
-                                (UserName "Unit") Meta (Id {unId = 6})))))
-                    (GlobalVar
-                       (Rigid
-                          (RNameIntro
-                             (UserName "unit") Meta (Id {unId = 7})))))
-                 (MetaFunElim
-                    (GlobalVar
-                       (Rigid
-                          (RNameIntro (UserName "nil") Meta (Id {unId = 1}))))
-                    (GlobalVar
-                       (Rigid
-                          (RNameIntro
-                             (UserName "Unit") Meta (Id {unId = 6})))))))
-           (GlobalVar
-              (Rigid
-                 (RNameIntro (UserName "ys") Meta (Id {unId = 10})))))
+                          (UserName "Unit") Meta (Id {unId = 6})))))))),
+     (LVGlobal 2003,
+      Just
         (Neutral
            _
            (MetaFunElim
@@ -402,367 +363,108 @@
                        (MetaFunElim
                           (Neutral
                              _
-                             (MetaFunElim
-                                (Neutral
-                                   _
-                                   (GlobalVar
-                                      (Rigid
-                                         (RNameIntro
-                                            (UserName "Append")
-                                            Meta
-                                            (Id {unId = 3})))))
-                                (Neutral
-                                   _
-                                   (GlobalVar
-                                      (Rigid
-                                         (RNameIntro
-                                            (UserName "Unit")
-                                            Meta
-                                            (Id {unId = 6})))))))
+                             (GlobalVar
+                                (Rigid
+                                   (RNameIntro
+                                      (UserName "cons") Meta (Id {unId = 2})))))
                           (Neutral
                              _
-                             (MetaFunElim
-                                (Neutral
-                                   _
-                                   (MetaFunElim
-                                      (Neutral
-                                         _
-                                         (MetaFunElim
-                                            (Neutral
-                                               _
-                                               (GlobalVar
-                                                  (Rigid
-                                                     (RNameIntro
-                                                        (UserName "cons")
-                                                        Meta
-                                                        (Id {unId = 2})))))
-                                            (Neutral
-                                               _
-                                               (GlobalVar
-                                                  (Rigid
-                                                     (RNameIntro
-                                                        (UserName "Unit")
-                                                        Meta
-                                                        (Id {unId = 6})))))))
-                                      (Neutral
-                                         _
-                                         (GlobalVar
-                                            (Rigid
-                                               (RNameIntro
-                                                  (UserName "unit")
-                                                  Meta
-                                                  (Id {unId = 7})))))))
-                                (Neutral
-                                   _
-                                   (MetaFunElim
-                                      (Neutral
-                                         _
-                                         (GlobalVar
-                                            (Rigid
-                                               (RNameIntro
-                                                  (UserName "nil")
-                                                  Meta
-                                                  (Id {unId = 1})))))
-                                      (Neutral
-                                         _
-                                         (GlobalVar
-                                            (Rigid
-                                               (RNameIntro
-                                                  (UserName "Unit")
-                                                  Meta
-                                                  (Id {unId = 6})))))))))))
+                             (GlobalVar
+                                (Rigid
+                                   (RNameIntro
+                                      (UserName "Unit")
+                                      Meta
+                                      (Id {unId = 6})))))))
+                    (Neutral
+                       _
+                       (GlobalVar
+                          (Rigid
+                             (RNameIntro
+                                (UserName "unit") Meta (Id {unId = 7})))))))
+              (Neutral
+                 _
+                 (MetaFunElim
+                    (Neutral
+                       _
+                       (GlobalVar
+                          (Rigid
+                             (RNameIntro
+                                (UserName "nil") Meta (Id {unId = 1})))))
+                    (Neutral
+                       _
+                       (GlobalVar
+                          (Rigid
+                             (RNameIntro
+                                (UserName "Unit") Meta (Id {unId = 6})))))))))),
+     (LVGlobal 2004,
+      Just
+        (Neutral
+           _
+           (MetaFunElim
+              (Neutral
+                 _
+                 (GlobalVar
+                    (Rigid
+                       (RNameIntro (UserName "nil") Meta (Id {unId = 1})))))
+              (Neutral _ (UniVar (LVGlobal 2005)))))),
+     (LVGlobal 2005,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro
+                    (UserName "Unit") Meta (Id {unId = 6})))))),
+     (LVGlobal 2006,
+      Just
+        (Neutral
+           _
+           (MetaFunElim
+              (Neutral
+                 _
+                 (MetaFunElim
                     (Neutral
                        _
                        (MetaFunElim
                           (Neutral
                              _
-                             (MetaFunElim
-                                (Neutral
-                                   _
-                                   (MetaFunElim
-                                      (Neutral
-                                         _
-                                         (GlobalVar
-                                            (Rigid
-                                               (RNameIntro
-                                                  (UserName "cons")
-                                                  Meta
-                                                  (Id {unId = 2})))))
-                                      (Neutral
-                                         _
-                                         (GlobalVar
-                                            (Rigid
-                                               (RNameIntro
-                                                  (UserName "Unit")
-                                                  Meta
-                                                  (Id {unId = 6})))))))
-                                (Neutral
-                                   _
-                                   (GlobalVar
-                                      (Rigid
-                                         (RNameIntro
-                                            (UserName "unit")
-                                            Meta
-                                            (Id {unId = 7})))))))
+                             (GlobalVar
+                                (Rigid
+                                   (RNameIntro
+                                      (UserName "cons") Meta (Id {unId = 2})))))
                           (Neutral
                              _
-                             (MetaFunElim
-                                (Neutral
-                                   _
-                                   (GlobalVar
-                                      (Rigid
-                                         (RNameIntro
-                                            (UserName "nil")
-                                            Meta
-                                            (Id {unId = 1})))))
-                                (Neutral
-                                   _
-                                   (GlobalVar
-                                      (Rigid
-                                         (RNameIntro
-                                            (UserName "Unit")
-                                            Meta
-                                            (Id {unId = 6})))))))))))
+                             (GlobalVar
+                                (Rigid
+                                   (RNameIntro
+                                      (UserName "Unit")
+                                      Meta
+                                      (Id {unId = 6})))))))
+                    (Neutral
+                       _
+                       (GlobalVar
+                          (Rigid
+                             (RNameIntro
+                                (UserName "unit") Meta (Id {unId = 7})))))))
               (Neutral
                  _
-                 (GlobalVar
-                    (Rigid
-                       (RNameIntro
-                          (UserName "ys") Meta (Id {unId = 10})))))))
-        (fromList
-           [(MetaFunType
-               Explicit
-               (Rigid (TypeType Meta))
-               Clo
-               fromList
-               []
-               (MetaFunType
-                  Explicit
-                  (MetaFunElim
-                     (GlobalVar
-                        (Rigid
-                           (RNameIntro (UserName "List") Meta (Id {unId = 0}))))
-                     (LocalVar (Index {unIndex = 0})))
-                  (MetaFunType
-                     Explicit
-                     (MetaFunElim
-                        (GlobalVar
-                           (Rigid
-                              (RNameIntro
-                                 (UserName "List") Meta (Id {unId = 0}))))
-                        (LocalVar (Index {unIndex = 1})))
-                     (MetaFunType
-                        Explicit
-                        (MetaFunElim
-                           (GlobalVar
-                              (Rigid
-                                 (RNameIntro
-                                    (UserName "List") Meta (Id {unId = 0}))))
-                           (LocalVar (Index {unIndex = 2})))
-                        (Rigid (TypeType Meta)))))),
-            (MetaFunType
-               Explicit
-               (Rigid (TypeType Meta))
-               Clo
-               fromList
-               []
-               (Rigid (TypeType Meta))),
-            (Rigid (TypeType Meta)),
-            (Rigid
-               (AllType
-                  (MetaFunIntro
-                     Clo
-                     fromList
-                     []
-                     (Rigid
-                        (AllType
-                           (MetaFunIntro
-                              (Rigid
-                                 (AllType
-                                    (MetaFunIntro
-                                       (Rigid
-                                          (AllType
-                                             (MetaFunIntro
-                                                (Rigid
-                                                   (AllType
-                                                      (MetaFunIntro
-                                                         (Rigid
-                                                            (ImplType
-                                                               (MetaFunElim
-                                                                  (MetaFunElim
-                                                                     (MetaFunElim
-                                                                        (MetaFunElim
-                                                                           (GlobalVar
-                                                                              (Rigid
-                                                                                 (RNameIntro
-                                                                                    (UserName
-                                                                                       "Append")
-                                                                                    Meta
-                                                                                    (Id
-                                                                                       {unId =
-                                                                                          3}))))
-                                                                           (LocalVar
-                                                                              (Index
-                                                                                 {unIndex =
-                                                                                    4})))
-                                                                        (LocalVar
-                                                                           (Index
-                                                                              {unIndex =
-                                                                                 2})))
-                                                                     (LocalVar
-                                                                        (Index
-                                                                           {unIndex =
-                                                                              1})))
-                                                                  (LocalVar
-                                                                     (Index
-                                                                        {unIndex =
-                                                                           0})))
-                                                               (MetaFunElim
-                                                                  (MetaFunElim
-                                                                     (MetaFunElim
-                                                                        (MetaFunElim
-                                                                           (GlobalVar
-                                                                              (Rigid
-                                                                                 (RNameIntro
-                                                                                    (UserName
-                                                                                       "Append")
-                                                                                    Meta
-                                                                                    (Id
-                                                                                       {unId =
-                                                                                          3}))))
-                                                                           (LocalVar
-                                                                              (Index
-                                                                                 {unIndex =
-                                                                                    4})))
-                                                                        (MetaFunElim
-                                                                           (MetaFunElim
-                                                                              (MetaFunElim
-                                                                                 (GlobalVar
-                                                                                    (Rigid
-                                                                                       (RNameIntro
-                                                                                          (UserName
-                                                                                             "cons")
-                                                                                          Meta
-                                                                                          (Id
-                                                                                             {unId =
-                                                                                                2}))))
-                                                                                 (LocalVar
-                                                                                    (Index
-                                                                                       {unIndex =
-                                                                                          4})))
-                                                                              (LocalVar
-                                                                                 (Index
-                                                                                    {unIndex =
-                                                                                       3})))
-                                                                           (LocalVar
-                                                                              (Index
-                                                                                 {unIndex =
-                                                                                    2}))))
-                                                                     (LocalVar
-                                                                        (Index
-                                                                           {unIndex =
-                                                                              1})))
-                                                                  (MetaFunElim
-                                                                     (MetaFunElim
-                                                                        (MetaFunElim
-                                                                           (GlobalVar
-                                                                              (Rigid
-                                                                                 (RNameIntro
-                                                                                    (UserName
-                                                                                       "cons")
-                                                                                    Meta
-                                                                                    (Id
-                                                                                       {unId =
-                                                                                          2}))))
-                                                                           (LocalVar
-                                                                              (Index
-                                                                                 {unIndex =
-                                                                                    4})))
-                                                                        (LocalVar
-                                                                           (Index
-                                                                              {unIndex =
-                                                                                 3})))
-                                                                     (LocalVar
-                                                                        (Index
-                                                                           {unIndex =
-                                                                              0}))))))))))))))))))))),
-            (Rigid
-               (AllType
-                  (MetaFunIntro
-                     Clo
-                     fromList
-                     []
-                     (Rigid
-                        (AllType
-                           (MetaFunIntro
-                              (MetaFunElim
-                                 (MetaFunElim
-                                    (MetaFunElim
-                                       (MetaFunElim
-                                          (GlobalVar
-                                             (Rigid
-                                                (RNameIntro
-                                                   (UserName "Append")
-                                                   Meta
-                                                   (Id {unId = 3}))))
-                                          (LocalVar (Index {unIndex = 1})))
-                                       (LocalVar (Index {unIndex = 0})))
-                                    (MetaFunElim
-                                       (GlobalVar
-                                          (Rigid
-                                             (RNameIntro
-                                                (UserName "nil")
-                                                Meta
-                                                (Id {unId = 1}))))
-                                       (LocalVar (Index {unIndex = 1}))))
-                                 (MetaFunElim
-                                    (GlobalVar
-                                       (Rigid
-                                          (RNameIntro
-                                             (UserName "nil")
-                                             Meta
-                                             (Id {unId = 1}))))
-                                    (LocalVar (Index {unIndex = 1})))))))))),
-            (MetaFunType
-               Explicit
-               (Rigid (TypeType Meta))
-               Clo
-               fromList
-               []
-               (MetaFunType
-                  Explicit
-                  (LocalVar (Index {unIndex = 0}))
-                  (MetaFunType
-                     Explicit
-                     (MetaFunElim
-                        (GlobalVar
-                           (Rigid
-                              (RNameIntro
-                                 (UserName "List") Meta (Id {unId = 0}))))
-                        (LocalVar (Index {unIndex = 1})))
-                     (MetaFunElim
-                        (GlobalVar
-                           (Rigid
-                              (RNameIntro
-                                 (UserName "List") Meta (Id {unId = 0}))))
-                        (LocalVar (Index {unIndex = 2})))))),
-            (MetaFunType
-               Explicit
-               (Rigid (TypeType Meta))
-               Clo
-               fromList
-               []
-               (MetaFunElim
-                  (GlobalVar
-                     (Rigid
-                        (RNameIntro (UserName "List") Meta (Id {unId = 0}))))
-                  (LocalVar (Index {unIndex = 0})))),
-            (Neutral
-               _
-               (GlobalVar
-                  (Rigid
-                     (RNameIntro
-                        (UserName "Unit") Meta (Id {unId = 6})))))]))]),
+                 (MetaFunElim
+                    (Neutral
+                       _
+                       (GlobalVar
+                          (Rigid
+                             (RNameIntro
+                                (UserName "nil") Meta (Id {unId = 1})))))
+                    (Neutral
+                       _
+                       (GlobalVar
+                          (Rigid
+                             (RNameIntro
+                                (UserName "Unit")
+                                Meta
+                                (Id {unId = 6}))))))))))],
+  fromList [],
+  fromList []),
  Declare
    Meta
    (Rigid
@@ -984,24 +686,24 @@
                                                                                     (Index
                                                                                        {unIndex =
                                                                                           1})))
-                                                                              (LocalVar
-                                                                                 (Index
-                                                                                    {unIndex =
-                                                                                       0})))
-                                                                           (MetaFunElim
-                                                                              (GlobalVar
-                                                                                 (Rigid
-                                                                                    (RNameIntro
-                                                                                       (UserName
-                                                                                          "nil")
-                                                                                       Meta
-                                                                                       (Id
-                                                                                          {unId =
-                                                                                             1}))))
-                                                                              (LocalVar
-                                                                                 (Index
-                                                                                    {unIndex =
-                                                                                       1}))))
+                                                                              (MetaFunElim
+                                                                                 (GlobalVar
+                                                                                    (Rigid
+                                                                                       (RNameIntro
+                                                                                          (UserName
+                                                                                             "nil")
+                                                                                          Meta
+                                                                                          (Id
+                                                                                             {unId =
+                                                                                                1}))))
+                                                                                 (LocalVar
+                                                                                    (Index
+                                                                                       {unIndex =
+                                                                                          1}))))
+                                                                           (LocalVar
+                                                                              (Index
+                                                                                 {unIndex =
+                                                                                    0})))
                                                                         (MetaFunElim
                                                                            (GlobalVar
                                                                               (Rigid
@@ -1407,7 +1109,10 @@
                                                                                  {unId =
                                                                                     11})))
                                                                         (Rigid
-                                                                           ElabError)
+                                                                           (MetaConstIntro
+                                                                              (Id
+                                                                                 {unId =
+                                                                                    11})))
                                                                         (Rigid
                                                                            (TypeType
                                                                               Obj))))))))))))))))))))))))))

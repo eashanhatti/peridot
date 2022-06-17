@@ -19,7 +19,7 @@ import System.IO
 import Data.IORef
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import Extra
+import "peridot" Extra
 import Data.Sequence((<|))
 
 indentS = P.unlines . fmap ("  "<>) . P.lines

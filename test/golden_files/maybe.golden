@@ -10,11 +10,27 @@
                     (LocalVar Level {unLevel = 2})
                     (Field {unField = "tag"})))
               (LocalVar Level {unLevel = 0})
-              (RecType fromList [])))),
-     (UVGlobal 1001,
-      Just (LocalVar Level {unLevel = 0}))],
+              (RecType fromList []))))],
   fromList [],
-  fromList []),
+  fromList
+    [(SourcePos
+        {sourceName = "<TODO>",
+         sourceLine = Pos 43,
+         sourceColumn = Pos 9},
+      FailedUnify
+        (ObjFunElim
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Maybe") Obj (Id {unId = 0}))))
+           (LocalVar (Index {unIndex = 2})))
+        (ObjFunType
+           Unification
+           (Rigid (TypeType Obj))
+           (ObjFunElim
+              (GlobalVar
+                 (Rigid
+                    (RNameIntro (UserName "Maybe") Obj (Id {unId = 0}))))
+              (LocalVar (Index {unIndex = 0})))))]),
  Declare
    Obj
    (Rigid
@@ -138,12 +154,10 @@
                                        (RecElim
                                           (LocalVar (Index {unIndex = 0}))
                                           (Field {unField = "data"})))
-                                    (ObjFunElim
-                                       (GlobalVar
-                                          (Rigid
-                                             (RNameIntro
-                                                (UserName "nothing")
-                                                Obj
-                                                (Id {unId = 1}))))
-                                       (UniVar (UVGlobal 1001)))))))
+                                    (GlobalVar
+                                       (Rigid
+                                          (RNameIntro
+                                             (UserName "nothing")
+                                             Obj
+                                             (Id {unId = 1}))))))))
                         (Rigid (TypeType Obj))))))))))
