@@ -538,14 +538,14 @@ infer term = case term of
     cName <- check name (N.Rigid (N.NameType N.LowC vTy))
     contTy <- freshTypeUV
     cCont <- check cont contTy
-    pure (C.Rigid (C.CDeclare cName cTy cCont), contTy)
+    pure (C.Declare LowC cName cTy cCont, contTy)
   TermAst (CDefine name def cont) -> do
     ty <- freshTypeUV
     cName <- check name (N.Rigid (N.NameType N.LowC ty))
     cDef <- check def ty
     contTy <- freshTypeUV
     cCont <- check cont contTy
-    pure (C.Rigid (C.CDefine cName cDef cCont), contTy)
+    pure (C.Define cName cDef cCont, contTy)
   TermAst (NameType univ ty) -> do
     cTy <- check ty (N.Rigid (N.TypeType univ))
     pure (C.Rigid (C.NameType univ cTy), N.MetaTypeType)

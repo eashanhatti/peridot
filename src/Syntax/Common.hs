@@ -87,8 +87,6 @@ data RigidTerm a
   | CPtrElimLVal a
   | CStructIntro a
   | CCast a a
-  | CDeclare a a a -- ty, name, cont
-  | CDefine a a a -- name, def, cont
   -- Propositions
   | PropConstIntro Id
   | ImplType a a

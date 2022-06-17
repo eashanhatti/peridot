@@ -102,6 +102,7 @@ pretty term =
     Rigid (NameType univ ty) -> case univ of
       Obj -> con "PName" [pretty ty]
       LowC -> con "CName" [pretty ty]
+    Rigid (RNameIntro _ _ (Id n)) -> con "name" [pure . pack . show $ n]
     Rigid (CodeObjType ty) -> con "Code" [pretty ty]
     Rigid (CodeObjIntro code) -> combine [pure "<", pretty code, pure ">"]
     Rigid (CodeCType ty) -> con "CCode" [pretty ty]
@@ -123,6 +124,14 @@ pretty term =
     ObjTypeType -> pure "Type"
     LowCTypeType -> pure "CType"
     Rigid ElabError -> pure "<error>"
+    Declare univ name ty cont ->
+      let
+        pre = case univ of
+          LowC -> "[c_declare "
+          Obj -> "[p_declare "
+      in combine [pure pre, pretty name, pure " ", pretty ty, pure " ", pretty cont, pure "]"]
+    Define name def cont ->
+      combine [pure "[define ", pretty name, pure " ", pretty def, pure " ", pretty cont, pure "]"]
 
 con :: Print sig m => Text -> [m Text] -> m Text
 con name args = combine [pure name, pure "(", intercalate ", " <$> sequence args, pure ")"]

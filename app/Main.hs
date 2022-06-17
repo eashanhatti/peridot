@@ -4,8 +4,10 @@ import Elaboration
 import Elaboration.Effect hiding(readback, eval, zonk)
 import PrettyPrint
 import Control.Monad
+import Parser qualified as P
 import Data.Text(Text, pack, words, unpack, lines, unlines)
 import Syntax.Common
+import Syntax.Surface
 import System.IO
 import Data.Text.IO qualified as TIO
 import Text.Megaparsec.Pos
@@ -14,9 +16,11 @@ import Prelude qualified as P
 import Data.Sequence(Seq)
 import System.Directory
 import System.IO
+import Data.IORef
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Extra
+import Data.Sequence((<|))
 
 indentS = P.unlines . fmap ("  "<>) . P.lines
 indent = unlines . fmap ("  "<>) . lines
@@ -56,81 +60,84 @@ prettyErrors =
       prettyError err)
 
 loop = do
-  TIO.putStr "\ESC[34mPeridot\ESC[0m > "
-  hFlush stdout
-  input <- TIO.getLine
-  let args = words input
-  case args of
-    [":typecheck", filename] -> do
-      let sFilename = unpack filename
-      r <- doesFileExist sFilename
-      if r then do
-        r <- elaborateFile' sFilename
-        case r of
-          Right (_, qs) -> do
-            let tErrs = prettyErrors (unErrors qs)
-            let
-              sols =
-                Map.filterWithKey
-                  (\k _ -> case k of
-                    UVGlobal gl -> gl < 1000
-                    _ -> False)
-                  (unTypeUVs qs)
-            if null tErrs then do
-              TIO.putStrLn "  \ESC[32mOk\ESC[0m.\n"
-            else do
-              TIO.putStrLn "  \ESC[33mErrors\ESC[0m:"
-              traverse (TIO.putStrLn . indent) tErrs
-              pure ()
-            if not . null . unLogvarNames $ qs then do
-              TIO.putStrLn "  \ESC[32mSolutions\ESC[0m:"
-              flip traverse (Set.toList . Map.keysSet . unLogvarNames $ qs) \gl ->
+  let
+    go = do
+      TIO.putStr "\ESC[34mPeridot\ESC[0m > "
+      hFlush stdout
+      input <- TIO.getLine
+      let args = words input
+      case args of
+        [":typecheck", filename] -> do
+          let sFilename = unpack filename
+          r <- doesFileExist sFilename
+          if r then do
+            r <- elaborateFile' sFilename
+            case r of
+              Right (_, qs) -> do
+                let tErrs = prettyErrors (unErrors qs)
                 let
-                  UserName name = unLogvarNames qs ! gl
-                  sol = Map.lookup gl (justs . unTypeUVs $ qs)
-                in
-                  case sol of
-                    Just sol -> do
-                      let cSol = zonk sol (justs . unTypeUVs $ qs)
-                      TIO.putStrLn ("  " <> name <> " = " <> prettyPure cSol)
-                    Nothing -> TIO.putStrLn ("  \ESC[33mNo solution for\ESC[0m " <> name)
-              TIO.putStrLn ""
-              pure ()
-            else
-              pure ()
-          Left err -> do
-            TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
-            putStrLn (indentS err)
-      else
-        TIO.putStrLn "  \ESC[31mFile not found.\ESC[0m"
-      loop
-    [":help"] -> do
-      TIO.putStrLn "  :typecheck    Typechecks a file"
-      TIO.putStrLn "  :quit         Quit the REPL"
-      TIO.putStrLn "  :help         Display this menu"
-      loop
-    [":quit"] -> do
-      TIO.putStrLn "  \ESC[32mBye\ESC[0m."
-      pure ()
-    _ -> do
-      let r = infer input
-      case r of
-        Right (qs, term, ty) -> do
-          let tErrs = prettyErrors (unErrors qs)
-          if null tErrs then do
-            TIO.putStr "  \ESC[32mInferred type\ESC[0m:\n"
-            TIO.putStrLn (indent . prettyPure $ ty)
-            let term' = readback . eval $ term
-            TIO.putStr "  \ESC[32mEvaluated term\ESC[0m:\n"
-            TIO.putStrLn (indent . prettyPure $ term')
-          else do
-            TIO.putStrLn "  \ESC[33mErrors\ESC[0m:"
-            traverse (TIO.putStrLn . indent) tErrs
-            pure ()
-        Left err -> do
-          TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
-          putStrLn (indentS err)
-      loop
+                  sols =
+                    Map.filterWithKey
+                      (\k _ -> case k of
+                        UVGlobal gl -> gl < 1000
+                        _ -> False)
+                      (unTypeUVs qs)
+                if null tErrs then do
+                  TIO.putStrLn "  \ESC[32mOk\ESC[0m.\n"
+                else do
+                  TIO.putStrLn "  \ESC[33mErrors\ESC[0m:"
+                  traverse (TIO.putStrLn . indent) tErrs
+                  pure ()
+                if not . null . unLogvarNames $ qs then do
+                  TIO.putStrLn "  \ESC[32mSolutions\ESC[0m:"
+                  flip traverse (Set.toList . Map.keysSet . unLogvarNames $ qs) \gl ->
+                    let
+                      UserName name = unLogvarNames qs ! gl
+                      sol = Map.lookup gl (justs . unTypeUVs $ qs)
+                    in
+                      case sol of
+                        Just sol -> do
+                          let cSol = zonk sol (justs . unTypeUVs $ qs)
+                          TIO.putStrLn ("  " <> name <> " = " <> prettyPure cSol)
+                        Nothing -> TIO.putStrLn ("  \ESC[33mNo solution for\ESC[0m " <> name)
+                  TIO.putStrLn ""
+                  pure ()
+                else
+                  pure ()
+              Left err -> do
+                TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
+                putStrLn (indentS err)
+          else
+            TIO.putStrLn "  \ESC[31mFile not found.\ESC[0m"
+          go
+        [":help"] -> do
+          TIO.putStrLn "  :typecheck    Typechecks a file"
+          TIO.putStrLn "  :quit         Quit the REPL"
+          TIO.putStrLn "  :help         Display this menu"
+          go
+        [":quit"] -> do
+          TIO.putStrLn "  \ESC[32mBye\ESC[0m."
+          pure ()
+        _ -> do
+          let r = infer input
+          case r of
+            Right (qs, term, ty) -> do
+              let tErrs = prettyErrors (unErrors qs)
+              if null tErrs then do
+                TIO.putStr "  \ESC[32mInferred type\ESC[0m:\n"
+                TIO.putStrLn (indent . prettyPure $ ty)
+                let term' = readback . eval $ term
+                TIO.putStr "  \ESC[32mEvaluated term\ESC[0m:\n"
+                TIO.putStrLn (indent . prettyPure $ term')
+              else do
+                TIO.putStrLn "  \ESC[33mErrors\ESC[0m:"
+                traverse (TIO.putStrLn . indent) tErrs
+                pure ()
+            Left err -> do
+              TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
+              putStrLn (indentS err)
+          go
+  go
 
 main = do
   hSetEncoding stdout utf8

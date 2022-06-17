@@ -200,16 +200,6 @@ unifyRigid (ListIntroCons e1 l1) (ListIntroCons e2 l2) = do
 unifyRigid (CLValType ty1) (CLValType ty2) = do
   unifyS' ty1 ty2
   pure noop
-unifyRigid (CDeclare name1 ty1 cont1) (CDeclare name2 ty2 cont2) = do
-  unifyS' name1 name2
-  unifyS' ty1 ty2
-  unifyS' cont1 cont2
-  pure noop
-unifyRigid (CDefine name1 def1 cont1) (CDefine name2 def2 cont2) = do
-  unifyS' name1 name2
-  unifyS' def1 def2
-  unifyS' cont1 cont2
-  pure noop
 unifyRigid CIntType CIntType = pure noop
 unifyRigid (CPtrType ty1) (CPtrType ty2) = do
   unifyS' ty1 ty2

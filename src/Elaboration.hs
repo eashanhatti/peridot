@@ -2,6 +2,7 @@ module Elaboration where
 
 import Elaboration.Effect hiding(eval, zonk)
 import Elaboration.Term qualified as EE
+import Elaboration.Declaration qualified as ED
 import Syntax.Surface qualified as S
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
