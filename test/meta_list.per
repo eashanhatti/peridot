@@ -10,7 +10,7 @@ axiom Append:
     List(A)) ~> MetaType;
 axiom append_nil:
   Forall A, Forall xs,
-  Append(A, nil(A), xs, nil(A));
+  Append(A, nil(A), xs, xs);
 axiom append_cons:
   Forall A, Forall x, Forall ys, Forall zs, Forall ws,
   Implies(
@@ -22,10 +22,6 @@ axiom unit: Unit;
 
 variable xs: List(Unit);
 proof Append(Unit, nil(Unit), nil(Unit), xs);
-
 variable ys: List(Unit);
-proof Append(
-  Unit,
-  cons(Unit, unit, nil(Unit)),
-  cons(Unit, unit, nil(Unit)),
-  ys);
+proof Append(Unit, cons(Unit, unit, nil(Unit)), cons(Unit, unit, nil(Unit)), ys);
+proof Append(Unit, cons(Unit, unit, nil(Unit)), cons(Unit, unit, nil(Unit)), cons(Unit, unit, cons(Unit, unit, nil(Unit))));
