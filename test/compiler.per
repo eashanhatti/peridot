@@ -1,0 +1,8 @@
+define Int: Type = Record { };
+
+axiom Compile: Function(Code(Type), CCode(C_Int)) ~> MetaType;
+
+axiom compile_record_ty:
+  Forall cty1 cty2 ty1 ty2,
+  Compile(
+    Record)

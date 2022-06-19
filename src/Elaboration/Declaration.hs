@@ -33,9 +33,6 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
     PDDecl (DeclAst (MetaTerm name _ def) did) -> do
       cDef <- eval cSig >>= EE.check def
       pure cDef
-    PDDecl (DeclAst (CTerm name _ def) did) -> do
-      cDef <- eval cSig >>= EE.check def
-      pure cDef
     PDDecl (DeclAst (Axiom name _) did) ->
       pure (C.Rigid (C.MetaConstIntro did))
     PDDecl (DeclAst (Prove _) did) -> do
@@ -101,8 +98,6 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl -> asType
   case decl of
     PDDecl (DeclAst (ObjTerm name sig def) _) -> EE.checkObjType sig
     PDDecl (DeclAst (MetaTerm name sig def) _) -> EE.checkMetaType sig
-    PDDecl (DeclAst (CTerm name sig def) _) ->
-      (, N.LowC) <$> EE.check sig N.LowCTypeType
     PDDecl (DeclAst (Axiom name sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Prove sig) _) -> EE.checkMetaType sig
     PDDecl (DeclAst (Fresh name sig) (Id n)) -> do

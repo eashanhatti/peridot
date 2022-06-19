@@ -148,12 +148,6 @@ unifyRigid (CodeObjType ty1) (CodeObjType ty2) = do
 unifyRigid (CodeObjIntro term1) (CodeObjIntro term2) = do
   unifyS' term1 term2
   pure noop
-unifyRigid (CodeCType ty1) (CodeCType ty2) = do
-  unifyS' ty1 ty2
-  pure noop
-unifyRigid (CodeCIntro term1) (CodeCIntro term2) = do
-  unifyS' term1 term2
-  pure noop
 unifyRigid (PropConstIntro did1) (PropConstIntro did2) | did1 == did2 = pure noop
 unifyRigid (ImplType inTy1 outTy1) (ImplType inTy2 outTy2) = do
   unifyS' inTy1 inTy2
@@ -190,85 +184,6 @@ unifyRigid (SingIntro term1) (SingIntro term2) = do
   unifyS' term1 term2
   pure noop
 unifyRigid (TypeType u1) (TypeType u2) | u1 == u2 = pure noop
-unifyRigid ListTypeNil ListTypeNil = pure noop
-unifyRigid (ListTypeCons e1 l1) (ListTypeCons e2 l2) = do
-  unifyS' e1 e2
-  unifyS' l1 l2
-  pure noop
-unifyRigid ListIntroNil ListIntroNil = pure noop
-unifyRigid (ListIntroCons e1 l1) (ListIntroCons e2 l2) = do
-  unifyS' e1 e2
-  unifyS' l1 l2
-  pure noop
-unifyRigid (CLValType ty1) (CLValType ty2) = do
-  unifyS' ty1 ty2
-  pure noop
-unifyRigid CIntType CIntType = pure noop
-unifyRigid (CPtrType ty1) (CPtrType ty2) = do
-  unifyS' ty1 ty2
-  pure noop
-unifyRigid CStmtType CStmtType = pure noop
-unifyRigid CStmtIntroRet CStmtIntroRet = pure noop
-unifyRigid (CStmtIntroIf cond1 body11 body21) (CStmtIntroIf cond2 body12 body22) = do
-  unifyS' cond1 cond2
-  unifyS' body11 body12
-  unifyS' body21 body22
-  pure noop
-unifyRigid (CStmtIntroWhl cond1 body1) (CStmtIntroWhl cond2 body2) = do
-  unifyS' cond1 cond2
-  unifyS' body1 body2
-  pure noop
-unifyRigid CStmtIntroBrk CStmtIntroBrk = pure noop
-unifyRigid (CStmtIntroCall lam1 args1) (CStmtIntroCall lam2 args2) = do
-  unifyS' lam1 lam2
-  unifyS' args1 args2
-  pure noop
-unifyRigid (CStmtIntroSeq s11 s21) (CStmtIntroSeq s12 s22) = do
-  unifyS' s11 s12
-  unifyS' s21 s22
-  pure noop
-unifyRigid (CStmtIntroBind ty1 cont1) (CStmtIntroBind ty2 cont2) = do
-  unifyS' ty1 ty2
-  unifyS' cont1 cont2
-  pure noop
-unifyRigid (CStmtIntroSet var1 val1) (CStmtIntroSet var2 val2) = do
-  unifyS' var1 var2
-  unifyS' val1 val2
-  pure noop
-unifyRigid (CStructType ty1) (CStructType ty2) = do
-  unifyS' ty1 ty2
-  pure noop
-unifyRigid (CFunType ty1) (CFunType ty2) = do
-  unifyS' ty1 ty2
-  pure noop
-unifyRigid (CFunIntro lam1) (CFunIntro lam2) = do
-  unifyS' lam1 lam2
-  pure noop
-unifyRigid (CIntIntro x1) (CIntIntro x2) | x1 == x2 = pure noop
-unifyRigid (CIntElimAdd x1 y1) (CIntElimAdd x2 y2) = do
-  unifyS' x1 x2
-  unifyS' y1 y2
-  pure noop
-unifyRigid (CIntElimEq x1 y1) (CIntElimEq x2 y2) = do
-  unifyS' x1 x2
-  unifyS' y1 y2
-  pure noop
-unifyRigid (CPtrIntro e1) (CPtrIntro e2) = do
-  unifyS' e1 e2
-  pure noop
-unifyRigid (CPtrElimRVal e1) (CPtrElimRVal e2) = do
-  unifyS' e1 e2
-  pure noop
-unifyRigid (CPtrElimLVal e1) (CPtrElimLVal e2) = do
-  unifyS' e1 e2
-  pure noop
-unifyRigid (CStructIntro e1) (CStructIntro e2) = do
-  unifyS' e1 e2
-  pure noop
-unifyRigid (CCast ty1 e1) (CCast ty2 e2) = do
-  unifyS' ty1 ty2
-  unifyS' e1 e2
-  pure noop
 unifyRigid (NameType univ1 ty1) (NameType univ2 ty2)
   | univ1 == univ2
   = do
@@ -408,18 +323,10 @@ unify' term1 term2 =
       pure (liftCoe \e -> pure (C.Rigid (C.CodeObjIntro e)))
     complex ty1 (Rigid (CodeObjType ty2)) =
       pure (liftCoe \e -> pure (C.CodeObjElim e))
-    complex (Rigid (CodeCType ty1)) ty2 =
-      pure (liftCoe \e -> pure (C.Rigid (C.CodeCIntro e)))
-    complex ty1 (Rigid (CodeCType ty2)) =
-      pure (liftCoe \e -> pure (C.CodeCElim e))
     complex (Neutral _ (CodeObjElim term1)) term2 =
       unify' term1 (Rigid (CodeObjIntro term2))
     complex term1 (Neutral _ (CodeObjElim term2)) =
       unify' (Rigid (CodeObjIntro term1)) term2
-    complex (Neutral _ (CodeCElim term1)) term2 =
-      unify' term1 (Rigid (CodeCIntro term2))
-    complex term1 (Neutral _ (CodeCElim term2)) =
-      unify' (Rigid (CodeCIntro term1)) term2
     complex (Neutral term1 _) term2 = do
       term1 <- force term1
       case term1 of

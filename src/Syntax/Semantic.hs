@@ -121,5 +121,3 @@ pattern MetaFunElims lam args <- (viewMetaFunElims -> (lam, args))
 
 pattern ObjTypeType = Rigid (TypeType Obj)
 pattern MetaTypeType = Rigid (TypeType Meta)
-pattern LowCTypeType = Rigid (TypeType LowC)
-pattern ListTypeType = Rigid (TypeType List)

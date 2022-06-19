@@ -100,17 +100,10 @@ pretty term =
     Rigid (ObjIdType x y) -> con "Equals" [pretty x, pretty y]
     Rigid (ObjIdIntro _) -> pure "reflexive"
     Rigid (NameType univ ty) -> case univ of
-      Obj -> con "PName" [pretty ty]
-      LowC -> con "CName" [pretty ty]
+      Obj -> con "Name" [pretty ty]
     Rigid (RNameIntro _ _ (Id n)) -> con "name" [pure . pack . show $ n]
     Rigid (CodeObjType ty) -> con "Code" [pretty ty]
     Rigid (CodeObjIntro code) -> combine [pure "<", pretty code, pure ">"]
-    Rigid (CodeCType ty) -> con "CCode" [pretty ty]
-    Rigid (CodeCIntro code) -> combine [pure "c<", pretty code, pure ">"]
-    Rigid (CLValType ty) -> con "LVal" [pretty ty]
-    Rigid CIntType -> pure "C_Int"
-    Rigid (CIntElimAdd x y) -> combine [pure "[c_add ", pretty x, pure " ", pretty y, pure "]"]
-    Rigid (CIntIntro x) -> combine [pure "[c_int ", pure . pack . show $ x, pure "]"]
     Rigid (ImplType p q) -> con "Implies" [pretty p, pretty q]
     Rigid (ConjType p q) -> con "And" [pretty p, pretty q]
     Rigid (DisjType p q) -> con "Or" [pretty p, pretty q]
@@ -122,12 +115,10 @@ pretty term =
       combine [pure ("Exists "  <> name <> ", "), bindLocal name (pretty body)]
     MetaTypeType -> pure "MetaType"
     ObjTypeType -> pure "Type"
-    LowCTypeType -> pure "CType"
     Rigid ElabError -> pure "<error>"
     Declare univ name ty cont ->
       let
         pre = case univ of
-          LowC -> "[c_declare "
           Obj -> "[p_declare "
       in combine [pure pre, pretty name, pure " ", pretty ty, pure " ", pretty cont, pure "]"]
     Define name def cont ->

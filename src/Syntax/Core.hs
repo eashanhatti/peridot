@@ -38,8 +38,6 @@ data Term
 
 pattern ObjTypeType = Rigid (TypeType Obj)
 pattern MetaTypeType = Rigid (TypeType Meta)
-pattern LowCTypeType = Rigid (TypeType LowC)
-pattern ListTypeType = Rigid (TypeType List)
 
 viewObjFunTys :: Term -> (Seq (PassMethod, Term), Term)
 viewObjFunTys (ObjFunType pm inTy outTy) =

@@ -43,7 +43,6 @@ type DeclarationAst = Ast Declaration
 data Declaration
   = MetaTerm NameAst TermAst TermAst
   | ObjTerm NameAst TermAst TermAst
-  | CTerm NameAst TermAst TermAst
   | Axiom NameAst TermAst
   | Prove TermAst
   | Fresh NameAst TermAst
@@ -64,9 +63,6 @@ data Term
   | LiftObj TermAst
   | QuoteObj TermAst
   | SpliceObj TermAst
-  | LiftC TermAst
-  | QuoteC TermAst
-  | SpliceC TermAst
   | ImplProp TermAst TermAst
   | ConjProp TermAst TermAst
   | DisjProp TermAst TermAst
@@ -83,36 +79,7 @@ data Term
   | Struct (Seq (NameAst, TermAst))
   | Select TermAst NameAst
   | Patch TermAst (Seq (NameAst, TermAst))
-  | ListTypeNil
-  | ListTypeCons TermAst TermAst
-  | ListNil
-  | ListCons TermAst TermAst
-  | CIntType
-  | CInt Int
-  | CPtrType TermAst
-  | CLValType TermAst
-  | CStmtType
-  | CReturn
-  | CIf TermAst TermAst TermAst
-  | CWhile TermAst TermAst
-  | CBreak
-  | CStructType TermAst
-  | CStruct TermAst
-  | CApp TermAst TermAst
-  | CAdd TermAst TermAst
-  | CSeq TermAst TermAst
-  | CDeclVar TermAst TermAst
-  | CAssign TermAst TermAst
-  | CEq TermAst TermAst
-  | CRef TermAst
-  | CDerefLVal TermAst -- deref pointer into lval
-  | CDerefRVal TermAst -- deref pointer into rval
-  | CCast TermAst TermAst
-  | CLam TermAst
-  | CLamType TermAst
   | Declare TermAst TermAst TermAst
   | Define TermAst TermAst TermAst
-  | CDeclare TermAst TermAst TermAst
-  | CDefine TermAst TermAst TermAst
   | NameType Cm.Universe TermAst
   deriving (Show)

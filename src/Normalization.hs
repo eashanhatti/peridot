@@ -167,19 +167,6 @@ eval (C.CodeObjElim term) = do
             Just (N.Rigid (N.CodeObjIntro code)) -> pure (Just code)
             _ -> pure Nothing
   pure (N.Neutral reded (N.CodeObjElim vTerm))
-eval (C.CodeCElim term) = do
-  vTerm <- eval term
-  let
-    reded = do
-      vTerm <- unfold vTerm
-      case vTerm of
-        N.Rigid (N.CodeCIntro code) -> pure (Just code)
-        _ -> do
-          r <- findDefEq vTerm
-          case r of
-            Just (N.Rigid (N.CodeCIntro code)) -> pure (Just code)
-            _ -> pure Nothing
-  pure (N.Neutral reded (N.CodeCElim vTerm))
 eval (C.Rigid rterm) = N.Rigid <$> traverse eval rterm
 eval (C.TwoElim scr body1 body2) = do
   vScr <- eval scr
