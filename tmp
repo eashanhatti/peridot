@@ -1,1 +1,1 @@
-define x:  = function(x) => record { foo = x };
+define _: Function(Type) ~> Type = x;

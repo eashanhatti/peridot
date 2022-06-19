@@ -18,9 +18,7 @@ import Extra
 keywords =
   [ "Function", "function", "Type", "let", "in", "Bool", "true", "false"
   , "Record", "record", "if", "else", "elseif", "Equal", "reflexive", "patch"
-  , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "CType", "MNil"
-  , "mnil", "C_Int", "C_Stmt", "c_return", "c_break", "c_end", "Code"
-  , "CCode", "Text"]
+  , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text" ]
 
 ws :: Parser ()
 ws =
@@ -169,11 +167,6 @@ spliceObj = do
   char '~'; ws
   e <- prec2; ws
   pure (SpliceObj e)
-
-cUniv :: Parser Term
-cUniv = do
-  string "CType"
-  pure LCUniv
 
 letE :: Parser Term
 letE = do
@@ -392,10 +385,9 @@ text = do
 
 tAppend :: Parser Term
 tAppend = do
-  t1 <- prec2; ws
-  string "++"; ws
-  t2 <- prec2
-  pure (TextAppend t1 t2)
+  SourcePos (TermAst e) _ <- prec2
+  es <- some (ws *> string "++" *> ws *> prec2)
+  pure (foldl' (\acc e -> TextAppend (TermAst acc) e) e es)
 
 prec2 :: Parser TermAst
 prec2 = do
@@ -403,7 +395,6 @@ prec2 = do
   e <-
     try objUniv <|>
     try metaUniv <|>
-    try cUniv <|>
     try bool <|>
     try true <|>
     try false <|>

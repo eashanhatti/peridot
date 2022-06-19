@@ -1,0 +1,23 @@
+axiom CType: MetaType;
+axiom Int: CType;
+
+axiom CTerm: Function(CType) ~> MetaType;
+axiom zero: CTerm(Int);
+axiom one: CTerm(Int);
+axiom add: Function(CTerm(Int), CTerm(Int)) ~> CTerm(Int);
+
+axiom CompileTerm: Function(A: CType, CTerm(A), Text) ~> MetaType;
+
+axiom compile_add:
+  Forall e1 e2 t1 t2,
+  Implies(
+    CompileTerm(Int, e1, t1),
+    Implies(
+      CompileTerm(Int, e2, t2),
+      CompileTerm(Int, add(e1, e2), "(" ++ t1 ++ " + " ++ t2 ++ ")")));
+
+axiom compile_zero: CompileTerm(Int, zero, "0");
+axiom compile_one: CompileTerm(Int, one, "1");
+
+variable t: Text;
+proof CompileTerm(Int, add(one, one), t);

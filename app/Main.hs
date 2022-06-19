@@ -47,6 +47,7 @@ prettyError (InferredFunType infTy) =
   "\ESC[33mActual type was a function type\ESC[0m.\n" <>
   "\ESC[33mExpected type\ESC[0m:\n" <>
   (indent . prettyPure $ infTy)
+prettyError e = pack . show $ e
 
 prettyErrors :: Seq (SourcePos, Error) -> Seq Text
 prettyErrors =
@@ -60,12 +61,19 @@ prettyErrors =
       prettyError err)
 
 loop = do
+  prev <- newIORef []
   let
+    go :: IO ()
     go = do
       TIO.putStr "\ESC[34mPeridot\ESC[0m > "
       hFlush stdout
       input <- TIO.getLine
       let args = words input
+      case args of
+        [":"] -> readIORef prev >>= cmd input
+        _ -> cmd input args
+    cmd :: Text -> [Text] -> IO ()
+    cmd input args =
       case args of
         [":typecheck", filename] -> do
           let sFilename = unpack filename
@@ -109,6 +117,7 @@ loop = do
                 putStrLn (indentS err)
           else
             TIO.putStrLn "  \ESC[31mFile not found.\ESC[0m"
+          writeIORef prev args
           go
         [":help"] -> do
           TIO.putStrLn "  :typecheck    Typechecks a file"

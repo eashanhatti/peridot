@@ -55,6 +55,12 @@ infer' term =
       (Norm.eval >=> Norm.normalize) term'
   in (qs, term'', ty')
 
+normalize :: N.Term -> Map.Map Global N.Term -> C.Term
+normalize term sols =
+  run .
+  runReader (NormContext (N.Env mempty mempty) mempty sols mempty mempty) $
+  Norm.normalize term
+
 zonk :: N.Term -> Map.Map Global N.Term -> C.Term
 zonk term sols =
   run .

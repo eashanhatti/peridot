@@ -71,7 +71,7 @@ data Error
   | AmbiguousProve C.Term (Seq (Map.Map Global N.Term, Map.Map Global Global))
   | CLamFormCheck
   | InferredFunType C.Term
-  | CannotInfer
+  | CannotInfer TermAst
   deriving (Show)
 
 type Query sig m = 
