@@ -105,6 +105,9 @@ withVisited gl act = do
     local (Set.insert gl) act
 
 unifyRedexes :: Unify sig m => Redex -> Redex -> m ()
+unifyRedexes (TextElimCat t11 t12) (TextElimCat t21 t22) = do
+  unifyS' t11 t21
+  unifyS' t12 t22
 unifyRedexes (MetaFunElim lam1 arg1) (MetaFunElim lam2 arg2) = do
   unifyS' lam1 lam2
   unifyS' arg1 arg2
@@ -140,6 +143,11 @@ unifyRedexes (Define name1 def1 cont1) (Define name2 def2 cont2) = do
 unifyRedexes _ _ = throwError ()
 
 unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m (Coercion sig m)
+unifyRigid TextType TextType = pure noop
+unifyRigid TextIntroNil TextIntroNil = pure noop
+unifyRigid (TextIntroCons c1 t1) (TextIntroCons c2 t2) | c1 == c2 = do
+  unifyS' t1 t2
+  pure noop
 unifyRigid (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 =
   pure noop
 unifyRigid (CodeObjType ty1) (CodeObjType ty2) = do

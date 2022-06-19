@@ -123,6 +123,14 @@ pretty term =
       in combine [pure pre, pretty name, pure " ", pretty ty, pure " ", pretty cont, pure "]"]
     Define name def cont ->
       combine [pure "[define ", pretty name, pure " ", pretty def, pure " ", pretty cont, pure "]"]
+    Rigid TextType -> pure "Text"
+    TextElimCat t1 t2 -> combine [pretty t1, pure " ++ ", pretty t2]
+    (textIntro -> Just s) -> combine [pure "\"", pure . pack $ s, pure "\""]
+    _ -> pure "TODO"
+
+textIntro (Rigid TextIntroNil) = Just []
+textIntro (Rigid (TextIntroCons c t)) = (c:) <$> textIntro t
+textIntro _ = Nothing
 
 con :: Print sig m => Text -> [m Text] -> m Text
 con name args = combine [pure name, pure "(", intercalate ", " <$> sequence args, pure ")"]

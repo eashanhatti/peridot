@@ -27,6 +27,7 @@ data Term
   | MetaFunElim Term Term
   | CodeObjElim Term
   | CodeCElim Term
+  | TextElimCat Term Term
   -- Other
   | LocalVar Index
   | GlobalVar Term

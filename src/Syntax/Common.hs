@@ -58,6 +58,9 @@ data RigidTerm a
   | MetaConstIntro Id
   | CodeObjType a
   | CodeObjIntro a
+  | TextType
+  | TextIntroNil
+  | TextIntroCons Char a
   -- Propositions
   | PropConstIntro Id
   | ImplType a a

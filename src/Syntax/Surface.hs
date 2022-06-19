@@ -82,4 +82,7 @@ data Term
   | Declare TermAst TermAst TermAst
   | Define TermAst TermAst TermAst
   | NameType Cm.Universe TermAst
+  | Text
+  | TextLiteral Text
+  | TextAppend TermAst TermAst
   deriving (Show)

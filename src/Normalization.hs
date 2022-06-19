@@ -187,6 +187,20 @@ eval (C.TwoElim scr body1 body2) = do
             Just (N.Rigid N.TwoIntro1) -> pure (Just vBody2)
             _ -> pure Nothing
   pure (N.Neutral reded (N.TwoElim vScr vBody1 vBody2))
+eval (C.TextElimCat t1 t2) = do
+  vT1 <- eval t1
+  vT2 <- eval t2
+  let reded = Just <$> go vT1 vT2
+  pure (N.Neutral reded (N.TextElimCat vT1 vT2))
+  where
+    go :: Norm sig m => N.Term -> N.Term -> m N.Term
+    go t1@(N.Neutral r _) t2 = do
+      r <- force r
+      case r of
+        Just r -> go r t2
+        Nothing -> pure (N.Neutral (pure Nothing) (N.TextElimCat t1 t2))
+    go (N.Rigid (N.TextIntroCons c t1)) t2 = N.Rigid . N.TextIntroCons c <$> go t1 t2
+    go (N.Rigid N.TextIntroNil) t2 = pure t2
 eval (C.SingElim scr) = do
   vScr <- eval scr
   let
@@ -346,6 +360,8 @@ readbackRedex opt (N.Define name def cont) =
     readback' opt name <*>
     readback' opt def <*>
     readback' opt cont
+readbackRedex opt (N.TextElimCat t1 t2) =
+  C.TextElimCat <$> readback' opt t1 <*> readback' opt t2
 
 readback :: HasCallStack => Norm sig m => N.Term -> m C.Term
 readback = readback' None

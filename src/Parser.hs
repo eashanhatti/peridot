@@ -20,7 +20,7 @@ keywords =
   , "Record", "record", "if", "else", "elseif", "Equal", "reflexive", "patch"
   , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "CType", "MNil"
   , "mnil", "C_Int", "C_Stmt", "c_return", "c_break", "c_end", "Code"
-  , "CCode"]
+  , "CCode", "Text"]
 
 ws :: Parser ()
 ws =
@@ -378,6 +378,25 @@ cNameTy = do
   char ')'
   pure (NameType Cm.Obj ty)
 
+textTy :: Parser Term
+textTy = do
+  string "Text"
+  pure Text
+
+text :: Parser Term
+text = do
+  char '"'
+  s <- many (notFollowedBy "\"" *> anySingle)
+  char '"'
+  pure (TextLiteral (pack s))
+
+tAppend :: Parser Term
+tAppend = do
+  t1 <- prec2; ws
+  string "++"; ws
+  t2 <- prec2
+  pure (TextAppend t1 t2)
+
 prec2 :: Parser TermAst
 prec2 = do
   pos <- getSourcePos
@@ -398,6 +417,8 @@ prec2 = do
     try objNameTy <|>
     try defineE <|>
     try declare <|>
+    try textTy <|>
+    try text <|>
     (do
       char '('; ws
       SourcePos (TermAst e) pos <- try prec1 <|> prec0; ws
@@ -412,6 +433,7 @@ prec1 =
     e <-
       try select <|>
       try spliceObj <|>
+      try tAppend <|>
       (do
         char '('; ws
         SourcePos (TermAst e) pos <- prec0; ws

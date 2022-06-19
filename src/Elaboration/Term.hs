@@ -22,6 +22,7 @@ import Data.Sequence
 import Prelude hiding(zip, concatMap, head, tail, length, unzip)
 import Shower
 import Data.Bifunctor
+import Data.Text qualified as Text
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check (SourcePos term pos) goal = withPos pos (check term goal)
@@ -403,6 +404,14 @@ infer term = case term of
   TermAst (NameType univ ty) -> do
     cTy <- check ty (N.Rigid (N.TypeType univ))
     pure (C.Rigid (C.NameType univ cTy), N.MetaTypeType)
+  TermAst Text -> pure (C.Rigid C.TextType, N.MetaTypeType)
+  TermAst (TextLiteral t) -> do
+    let cT = Text.foldr (\c acc -> C.Rigid (C.TextIntroCons c acc)) (C.Rigid C.TextIntroNil) t
+    pure (cT, N.Rigid N.TextType)
+  TermAst (TextAppend t1 t2) -> do
+    cT1 <- check t1 (N.Rigid N.TextType)
+    cT2 <- check t2 (N.Rigid N.TextType)
+    pure (C.TextElimCat cT1 cT2, N.Rigid N.TextType)
   _ -> errorTerm CannotInfer
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Universe)
