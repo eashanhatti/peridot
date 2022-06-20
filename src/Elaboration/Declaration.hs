@@ -84,6 +84,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             all (uncurry Set.disjoint) $
             [(x, y) | (i1, x) <- substs', (i2, y) <- substs', i1 /= i2]
     PDDecl (DeclAst (Fresh name _) did@(Id n)) -> do
+      modify (\st -> st { unLogvars = Set.insert did (unLogvars st) })
       pure (C.UniVar (UVGlobal n))
     PDDecl (DeclAst (Output path text) _) -> do
       cText <- EE.check text (N.Rigid N.TextType)

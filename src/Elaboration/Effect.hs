@@ -55,10 +55,11 @@ data QueryState = QueryState
   , unErrors :: Seq (SourcePos, Error)
   , unDepGraph :: Map (Some Key) (Set (Some Key))
   , unLogvarNames :: Map Global Name
+  , unLogvars :: Set Id
   , unOutputs :: Seq (FilePath, N.Term) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs eqs errs _ _ _) =
+  show (QueryState _ _ _ tuvs eqs errs _ _ _ _) =
     show (tuvs, eqs, errs)
 
 data Error

@@ -118,7 +118,7 @@ unifyRedexes (CodeObjElim quote1) (CodeObjElim quote2) =
   unifyS' quote1 quote2
 unifyRedexes (CodeCElim quote1) (CodeCElim quote2) =
   unifyS' quote1 quote2
-unifyRedexes (GlobalVar did1) (GlobalVar did2) =
+unifyRedexes (GlobalVar did1 _) (GlobalVar did2 _) =
   unifyS' did1 did2
 unifyRedexes (TwoElim scr1 body11 body21) (TwoElim scr2 body12 body22) = do
   unifyS' scr1 scr2
@@ -308,6 +308,12 @@ unify' term1 term2 =
     simple _ _ = throwError ()
 
     complex :: Unify sig m => Term -> Term -> m (Coercion sig m)
+    complex (Neutral term1 (GlobalVar _ True)) term2 = do
+      term1 <- fromJust <$> force term1
+      unify' term1 term2
+    complex term1 (Neutral term2 (GlobalVar _ True)) = do
+      term2 <- fromJust <$> force term2
+      unify' term1 term2
     complex (Neutral prevSol (UniVar gl)) term = withVisited gl do
       prevSol <- force prevSol
       case prevSol of

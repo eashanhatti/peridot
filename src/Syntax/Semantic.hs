@@ -91,7 +91,7 @@ data Redex
   | ObjConstElim (Map Id Term)
   | CodeObjElim Term
   | CodeCElim Term
-  | GlobalVar Term
+  | GlobalVar Term Bool
   | UniVar Global
   | TwoElim Term Term Term
   | RecElim Term Field

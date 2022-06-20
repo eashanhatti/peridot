@@ -82,8 +82,8 @@ pretty term =
     CodeObjElim quote -> combine [pure "~", pretty quote]
     CodeCElim quote -> combine [pure "c~", pretty quote]
     LocalVar ix -> (Map.! ix) . unLocals <$> ask
-    GlobalVar (Rigid (RNameIntro (UserName name) _ did)) -> pure name
-    GlobalVar name -> combine [pure "GLOBAL(", pretty name, pure ")"]
+    GlobalVar (Rigid (RNameIntro (UserName name) _ did)) _ -> pure name
+    GlobalVar name _ -> combine [pure "GLOBAL(", pretty name, pure ")"]
     UniVar (unGlobal -> n) -> do
       st <- get
       case Map.lookup n (unUVNames st) of

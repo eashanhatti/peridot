@@ -98,6 +98,7 @@ loop = do
               Right (_, qs) -> do
                 let tErrs = prettyErrors (unErrors qs)
                 let tuvs = justs . unTypeUVs $ qs
+                let eqs = unUVEqs qs
                 let
                   sols =
                     Map.filterWithKey
@@ -116,26 +117,24 @@ loop = do
                   flip traverse (Set.toList . Map.keysSet . unLogvarNames $ qs) \gl ->
                     let
                       UserName name = unLogvarNames qs ! gl
-                      sol = Map.lookup gl tuvs
+                      sol = zonk (eval (C.UniVar gl)) tuvs eqs
                     in
                       case sol of
-                        Just sol -> do
-                          let cSol = zonk sol tuvs
-                          TIO.putStrLn ("    " <> name <> " = " <> prettyPure cSol)
-                        Nothing -> TIO.putStrLn ("    \ESC[33mNo solution for\ESC[0m " <> name)
+                        C.UniVar _ -> TIO.putStrLn ("    \ESC[33mNo solution for\ESC[0m " <> name)
+                        _ -> TIO.putStrLn ("    " <> name <> " = " <> prettyPure sol)
                   TIO.putStrLn ""
                   pure ()
                 else
                   pure ()
                 forM_ (unOutputs qs) \(path, term) -> do
-                    let text = outputToText (normalize term tuvs)
+                    let text = outputToText (normalize term tuvs eqs)
                     let cTerm = readback term
                     case text of
                       Just text -> TIO.writeFile path text
                       Nothing ->
                         TIO.putStrLn
                           ("  \ESC[31mCould not output\ESC[0m\n" <>
-                          (indent . indent . prettyPure . normalize term $ tuvs))
+                          (indent . indent . prettyPure $ normalize term tuvs eqs))
               Left err -> do
                 TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
                 putStrLn (indentS . indentS $ err)

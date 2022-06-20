@@ -27,7 +27,7 @@ infer' term =
   let
     (qs, (term', ty)) =
       run .
-      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty) .
+      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty mempty) .
       runReader (QueryContext Nothing) .
       evalState ElabState .
       runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .
@@ -55,16 +55,16 @@ infer' term =
       (Norm.eval >=> Norm.normalize) term'
   in (qs, term'', ty')
 
-normalize :: N.Term -> Map.Map Global N.Term -> C.Term
-normalize term sols =
+normalize :: N.Term -> Map.Map Global N.Term -> Map.Map Global Global -> C.Term
+normalize term sols eqs =
   run .
-  runReader (NormContext (N.Env mempty mempty) mempty sols mempty mempty) $
+  runReader (NormContext (N.Env mempty mempty) mempty sols eqs mempty) $
   Norm.normalize term
 
-zonk :: N.Term -> Map.Map Global N.Term -> C.Term
-zonk term sols =
+zonk :: N.Term -> Map.Map Global N.Term -> Map.Map Global Global -> C.Term
+zonk term sols eqs =
   run .
-  runReader (NormContext (N.Env mempty mempty) mempty sols mempty mempty) $
+  runReader (NormContext (N.Env mempty mempty) mempty sols eqs mempty) $
   Norm.zonk term
 
 readback :: N.Term -> C.Term
@@ -87,7 +87,7 @@ elaborate' term =
   let
     (qs, term') =
       run .
-      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty) .
+      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty mempty) .
       runReader (QueryContext Nothing) .
       evalState ElabState .
       runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .

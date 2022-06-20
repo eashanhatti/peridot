@@ -146,13 +146,13 @@ eval (C.MetaFunElim lam arg) = do
             _ -> pure Nothing
   pure (N.Neutral reded (N.MetaFunElim vLam vArg))
 eval (C.LocalVar ix) = entry ix
-eval (C.GlobalVar did) = do
+eval (C.GlobalVar did sunf) = do
   vDid <- eval did
   unfold vDid >>= \vDid -> case N.viewName vDid of
     Just did' -> do
       N.Env _ ((! did') -> def) <- unEnv <$> ask
-      pure (N.Neutral (pure (Just def)) (N.GlobalVar vDid))
-    Nothing -> pure (N.Neutral (pure Nothing) (N.GlobalVar vDid))
+      pure (N.Neutral (pure (Just def)) (N.GlobalVar vDid sunf))
+    Nothing -> pure (N.Neutral (pure Nothing) (N.GlobalVar vDid sunf))
 eval (C.UniVar gl) = pure (N.Neutral (uvRedex gl) (N.UniVar gl))
 eval (C.CodeObjElim term) = do
   vTerm <- eval term
@@ -346,7 +346,7 @@ readbackRedex opt (N.ObjFunElim lam arg) =
     readback' opt arg
 readbackRedex opt (N.CodeObjElim quote) = C.CodeObjElim <$> readback' opt quote
 readbackRedex opt (N.CodeCElim quote) = C.CodeCElim <$> readback' opt quote
-readbackRedex opt (N.GlobalVar did) = C.GlobalVar <$> readback' opt did
+readbackRedex opt (N.GlobalVar did sunf) = flip C.GlobalVar sunf <$> readback' opt did
 readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)
 readbackRedex opt (N.TwoElim scr body1 body2) =
   C.TwoElim <$>
@@ -376,6 +376,3 @@ zonk = readback' Zonk
 
 normalize :: Norm sig m => N.Term -> m C.Term
 normalize = readback' Full
-
--- normalize :: HasCallStack => Norm sig m => N.Term -> m N.Term
--- normalize = readbackFull >=> eval
