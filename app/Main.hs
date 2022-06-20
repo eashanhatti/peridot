@@ -129,7 +129,10 @@ loop = do
                     let cTerm = readback term
                     case text of
                       Just text -> TIO.writeFile path text
-                      Nothing -> TIO.putStrLn ("  \ESC[31mCould not output\ESC[0m `" <> prettyPure (normalize term tuvs) <> "`")
+                      Nothing ->
+                        TIO.putStrLn
+                          ("  \ESC[31mCould not output\ESC[0m\n" <>
+                          (indent . prettyPure . normalize term $ tuvs))
               Left err -> do
                 TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
                 putStrLn (indentS err)

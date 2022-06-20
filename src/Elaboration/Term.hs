@@ -264,16 +264,11 @@ infer term = case term of
     cP <- check p (N.MetaTypeType)
     cQ <- check q (N.MetaTypeType)
     pure (C.Rigid (C.DisjType cP cQ), N.MetaTypeType)
-  TermAst (ForallProp body) -> do
-    inTy <- freshTypeUV
-    outTy <- closureOf (C.MetaTypeType)
-    cBody <- check body (N.MetaFunType Explicit inTy outTy)
-    pure (C.Rigid (C.AllType cBody), N.MetaTypeType)
-  -- TermAst (ExistsProp body) -> do
-  --   inTy <- freshTypeUV
-  --   outTy <- closureOf (C.MetaTypeType)
-  --   cBody <- check body (N.MetaFunType Explicit inTy outTy)
-  --   pure (C.Rigid (C.SomeType cBody), N.MetaTypeType)
+  TermAst (ForallProp (NameAst name) ty body) -> do
+    cTy <- check ty N.MetaTypeType
+    vTy <- eval cTy
+    cBody <- bindLocal name vTy (check body N.MetaTypeType)
+    pure (C.Rigid (C.AllType (C.ObjFunIntro cBody)), N.MetaTypeType)
   TermAst (EqualProp x y) -> do
     ty <- freshTypeUV
     cX <- check x ty

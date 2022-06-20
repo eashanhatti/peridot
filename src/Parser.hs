@@ -342,17 +342,19 @@ disjProp = do
 forallProp :: Parser Term
 forallProp = do
   string "Forall"; ws
+  char '('; ws
   ns <-
     sepBy1
       (do
         n <- name; ws
         char ':'; ws
-        ty <- prec2
+        ty <- prec0
         pure (n, ty))
-      ws; ws
+      commaWs; ws
+  char ')'
   char ','; ws
   p <- prec0
-  let TermAst e = foldr (\(n, ty) acc -> TermAst (ForallProp n ty acc))) p ns
+  let TermAst e = foldr (\(n, ty) acc -> TermAst (ForallProp n ty acc)) p ns
   pure e
 
 objNameTy :: Parser Term

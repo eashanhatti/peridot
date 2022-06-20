@@ -98,12 +98,12 @@ uvRedex gl = do
         uvs <- unTypeUVs <$> ask
         case Map.lookup gl uvs of
           Just sol -> pure (Just sol)
-          Nothing -> pure Nothing --do
-            -- eqs <- unUVEqs <$> ask
-            -- case Map.lookup gl eqs of
-            --   Just gl' -> do
-            --     Just <$> eval (C.UniVar gl')
-            --   Nothing -> pure Nothing
+          Nothing -> do
+            eqs <- unUVEqs <$> ask
+            case Map.lookup gl eqs of
+              Just gl' -> do
+                Just <$> eval (C.UniVar gl')
+              Nothing -> pure Nothing
 
 -- gvRedex :: Norm sig m => Id -> m (Maybe N.Term)
 -- gvRedex did = do
