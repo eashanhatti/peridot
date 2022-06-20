@@ -80,7 +80,7 @@ search :: Search sig m => Seq Term -> Term -> Term -> m Substitution
 search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    normCtx <- ask
+    -- normCtx <- ask
     -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
     -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
     -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
