@@ -21,6 +21,7 @@ import Shower
 import Prelude hiding(length, zip, concatMap, concat, filter, null)
 import Data.Bifunctor
 import Data.Foldable(foldl')
+import PrettyPrint
 
 data SearchState = SearchState
   { unNextUV :: Natural }

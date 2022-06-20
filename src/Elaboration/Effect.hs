@@ -40,6 +40,7 @@ import Debug.Trace
 import Data.Sequence
 import Control.Monad.Fix
 import Data.Bifunctor
+import Search qualified
 
 data QueryContext = QueryContext
   { unCurQuery :: Maybe (Some Key) }
@@ -505,3 +506,12 @@ zonk = readback' Zonk
 
 readback :: Elab sig m => N.Term -> m C.Term
 readback = readback' None
+
+proveDet :: Elab sig m => Seq N.Term -> N.Term -> m (Maybe (Seq Search.Substitution))
+proveDet ctx goal = do
+  typeUVs <- unTypeUVs <$> get
+  eqs <- unUVEqs <$> get
+  local (\ctx -> ctx
+    { Norm.unTypeUVs = justs typeUVs
+    , Norm.unUVEqs = eqs })
+    (Search.proveDet ctx goal)

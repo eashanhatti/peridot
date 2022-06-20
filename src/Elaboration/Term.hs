@@ -268,7 +268,7 @@ infer term = case term of
     cTy <- check ty N.MetaTypeType
     vTy <- eval cTy
     cBody <- bindLocal name vTy (check body N.MetaTypeType)
-    pure (C.Rigid (C.AllType (C.ObjFunIntro cBody)), N.MetaTypeType)
+    pure (C.Rigid (C.AllType (C.MetaFunIntro cBody)), N.MetaTypeType)
   TermAst (EqualProp x y) -> do
     ty <- freshTypeUV
     cX <- check x ty

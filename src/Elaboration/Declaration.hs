@@ -18,7 +18,7 @@ import Data.Foldable(toList, foldl')
 import Data.Traversable
 import GHC.Stack
 import Data.Sequence
-import Search
+import Search(Substitution, concatSubsts)
 import Prelude hiding(traverse, map, zip, concat, filter, mapWithIndex)
 import Debug.Trace
 import Extra

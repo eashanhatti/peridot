@@ -56,11 +56,11 @@ data Term
 
 instance Show Term where
   show (ObjFunType pm inTy outTy) =
-    "(ObjFunType " ++ show pm ++ " " ++ show inTy ++ " " ++ show outTy ++ ")"
-  show (ObjFunIntro body) = "(ObjFunIntro " ++ show body ++ ")"
+    "(ObjFunType " ++ show pm ++ " " ++ show inTy ++ " (" ++ show outTy ++ "))"
+  show (ObjFunIntro body) = "(ObjFunIntro (" ++ show body ++ "))"
   show (MetaFunType pm inTy outTy) =
-    "(MetaFunType " ++ show pm ++ " " ++ show inTy ++ " " ++ show outTy ++ ")"
-  show (MetaFunIntro body) = "(MetaFunIntro " ++ show body ++ ")"
+    "(MetaFunType " ++ show pm ++ " " ++ show inTy ++ " (" ++ show outTy ++ "))"
+  show (MetaFunIntro body) = "(MetaFunIntro (" ++ show body ++ "))"
   show (LocalVar lvl) = "(LocalVar " ++ show lvl ++ ")"
   show (RecType tys) = "(RecType " ++ show tys ++ ")"
   show (RecIntro tys) = "(RecIntro " ++ show tys ++ ")"

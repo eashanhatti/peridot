@@ -166,4 +166,6 @@ prettyPure term =
     if null (unUVNames st) then
       t
     else
-      "forall " <> intercalate " " (fmap snd . Map.toList $  unUVNames st) <> ",\n  " <> t
+      let sep = if Data.Text.length t < 5 then " " else "\n  "
+      in
+        "forall " <> intercalate " " (fmap snd . Map.toList $  unUVNames st) <> "," <> sep <> t

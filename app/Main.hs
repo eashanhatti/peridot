@@ -118,8 +118,8 @@ loop = do
                       case sol of
                         Just sol -> do
                           let cSol = zonk sol tuvs
-                          TIO.putStrLn ("  " <> name <> " = " <> prettyPure cSol)
-                        Nothing -> TIO.putStrLn ("  \ESC[33mNo solution for\ESC[0m " <> name)
+                          TIO.putStrLn ("    " <> name <> " = " <> prettyPure cSol)
+                        Nothing -> TIO.putStrLn ("    \ESC[33mNo solution for\ESC[0m " <> name)
                   TIO.putStrLn ""
                   pure ()
                 else
@@ -132,7 +132,7 @@ loop = do
                       Nothing ->
                         TIO.putStrLn
                           ("  \ESC[31mCould not output\ESC[0m\n" <>
-                          (indent . prettyPure . normalize term $ tuvs))
+                          (indent . indent . prettyPure . normalize term $ tuvs))
               Left err -> do
                 TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
                 putStrLn (indentS err)
