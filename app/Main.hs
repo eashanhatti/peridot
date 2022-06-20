@@ -28,17 +28,17 @@ indent = unlines . fmap ("  "<>) . lines
 
 prettyError :: Error -> Text
 prettyError TooManyParams = "Too many parameters."
-prettyError (UnboundVariable (UserName name)) = "\ESC[33mUnbound variable\ESC[0m `" <> name <> "`."
+prettyError (UnboundVariable (UserName name)) = "\ESC[33mUnbound variable\ESC[0m " <> name <> "."
 prettyError (FailedUnify expTy infTy) =
   "\ESC[33mMismatched types.\nExpected type\ESC[0m:\n" <>
   (indent . prettyPure $ expTy) <>
-  "\n\ESC[33mActual type\ESC[0m:\n" <>
+  "\ESC[33mActual type\ESC[0m:\n" <>
   (indent . prettyPure $ infTy)
 prettyError (ExpectedRecordType infTy) =
   "\ESC[33mExpected a record\ESC[0m.\n\ESC[33mGot a value of type\ESC[0m:\n" <>
   (indent . prettyPure $ infTy)
 prettyError (MissingField (UserName name)) =
-  "\ESC[33mRecord does not have field\ESC[0m `" <> name <> "`"
+  "\ESC[33mRecord does not have field\ESC[0m " <> name <> "."
 prettyError (FailedProve prop _ _) =
   "\ESC[33mFailed to prove formula\ESC[0m:\n" <>
   (indent . prettyPure $ prop)
@@ -48,6 +48,9 @@ prettyError (InferredFunType infTy) =
   "\ESC[33mActual type was a function type\ESC[0m.\n" <>
   "\ESC[33mExpected type\ESC[0m:\n" <>
   (indent . prettyPure $ infTy)
+prettyError (TooManyArgs ty) =
+  "\ESC[33mToo many arguments\ESC[0m. \ESC[33mFunction type\ESC[0m:\n" <>
+  (indent . prettyPure $ ty)
 prettyError e = pack . show $ e
 
 prettyErrors :: Seq (SourcePos, Error) -> Seq Text
@@ -76,7 +79,7 @@ loop = do
   let
     go :: IO ()
     go = do
-      TIO.putStr "\ESC[34mPeridot\ESC[0m > "
+      TIO.putStr "\ESC[32mPeridot\ESC[0m > "
       hFlush stdout
       input <- TIO.getLine
       let args = words input
@@ -135,7 +138,7 @@ loop = do
                           (indent . indent . prettyPure . normalize term $ tuvs))
               Left err -> do
                 TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
-                putStrLn (indentS err)
+                putStrLn (indentS . indentS $ err)
           else
             TIO.putStrLn "  \ESC[31mFile not found.\ESC[0m"
           writeIORef prev args
@@ -149,7 +152,7 @@ loop = do
           TIO.putStrLn "  \ESC[32mBye\ESC[0m."
           pure ()
         _ -> do
-          let r = infer input
+          let r = infer "REPL" input
           case r of
             Right (qs, term, ty) -> do
               let tErrs = prettyErrors (unErrors qs)
@@ -165,7 +168,7 @@ loop = do
                 pure ()
             Left err -> do
               TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
-              putStrLn (indentS err)
+              putStrLn (indentS . indentS $ err)
           go
   go
 

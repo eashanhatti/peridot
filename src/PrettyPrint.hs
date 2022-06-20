@@ -40,7 +40,7 @@ pretty term =
       names <- traverse (const freshName) inTys
       params <-
         traverse
-          (\(name, (pm, inTy)) -> ((prettyPPm pm <> name <> " : ") <>) <$> pretty inTy)
+          (\(name, (pm, inTy)) -> ((prettyPPm pm <> name <> ": ") <>) <$> pretty inTy)
           (zip names inTys)
       tOutTy <- bindManyLocals names (pretty outTy)
       pure ("Function(" <> intercalate ", " (toList params) <> ") -> " <> tOutTy)
@@ -48,7 +48,7 @@ pretty term =
       names <- traverse (const freshName) inTys
       params <-
         traverse
-          (\(name, (pm, inTy)) -> ((prettyPPm pm <> name <> " : ") <>) <$> pretty inTy)
+          (\(name, (pm, inTy)) -> ((prettyPPm pm <> name <> ": ") <>) <$> pretty inTy)
           (zip names inTys)
       tOutTy <- bindManyLocals names (pretty outTy)
       pure ("Function(" <> intercalate ", " (toList params) <> ") ~> " <> tOutTy)
@@ -58,7 +58,7 @@ pretty term =
     TwoElim scr body1 body2 ->
       combine [pure "if ", pretty scr, pure " { ", pretty body1, pure " } else { ", pretty body2]
     RecType tys -> do
-      tTys <- traverse (\(fd, ty) -> ((unField fd <> " : ") <>) <$> pretty ty) tys
+      tTys <- traverse (\(fd, ty) -> ((unField fd <> ": ") <>) <$> pretty ty) tys
       if null tTys then
         pure ("Record { }")
       else
@@ -97,7 +97,7 @@ pretty term =
     Rigid TwoIntro1 -> pure "false"
     Rigid (SingType ty x) -> combine [pure "[ ", pretty ty, pure " | ", pretty x, pure " ]"]
     Rigid (SingIntro x) -> pretty x
-    Rigid (ObjIdType x y) -> con "Equals" [pretty x, pretty y]
+    Rigid (ObjIdType x y) -> con "Equal" [pretty x, pretty y]
     Rigid (ObjIdIntro _) -> pure "reflexive"
     Rigid (NameType univ ty) -> case univ of
       Obj -> con "Name" [pretty ty]
@@ -166,6 +166,6 @@ prettyPure term =
     if null (unUVNames st) then
       t
     else
-      let sep = if Data.Text.length t < 5 then " " else "\n  "
+      let sep = if Data.Text.length t < 20 then " " else "\n  "
       in
         "forall " <> intercalate " " (fmap snd . Map.toList $  unUVNames st) <> "," <> sep <> t

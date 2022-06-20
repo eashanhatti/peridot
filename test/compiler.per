@@ -7,7 +7,6 @@ axiom one: CTerm(Int)
 axiom add: Function(CTerm(Int), CTerm(Int)) ~> CTerm(Int)
 
 axiom CompileTerm: Function(inferred A: CType, CTerm(A), Text) ~> MetaType
-
 axiom compile_add:
   Forall(e1: CTerm(Int), e2: CTerm(Int), t1: Text, t2: Text),
   Implies(
@@ -15,6 +14,8 @@ axiom compile_add:
     Implies(
       CompileTerm(e2, t2),
       CompileTerm(add(e1, e2), "(" ++ t1 ++ " + " ++ t2 ++ ")")))
-
 axiom compile_zero: CompileTerm(zero, "0")
 axiom compile_one: CompileTerm(one, "1")
+
+variable t: Text
+proof CompileTerm(add(one, one), t)

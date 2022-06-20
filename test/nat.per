@@ -11,7 +11,7 @@ define Nat
         } else {
           Nat
         }
-    };
+    }
 
 /* Constructing dependent records */
 define zero
@@ -19,7 +19,7 @@ define zero
   = record {
       tag = true,
       data = record {}
-    };
+    }
 
 /* Constructing dependent records */
 define succ
@@ -28,7 +28,7 @@ define succ
       record {
         tag = false,
         data = n
-      };
+      }
 
 /* The `add` function, showcasing dependently typed `if`. The typechecker knows that in the first branch `n.data : Record {}` (because `maybe.tag = true`). In the second branch, the typechecker knows that `n.data : A` (because maybe.tag = false) */
 define add
@@ -38,4 +38,4 @@ define add
         m
       } else {
         add(n.data, m)
-      };
+      }

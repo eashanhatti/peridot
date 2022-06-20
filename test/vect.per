@@ -8,14 +8,14 @@ define Nat
         } else {
           Nat
         }
-    };
+    }
 
 define zero
   : Nat
   = record {
       tag = true,
       data = record {}
-    };
+    }
 
 define succ
   : Function(Nat) -> Nat
@@ -23,7 +23,7 @@ define succ
       record {
         tag = false,
         data = n
-      };
+      }
 
 define Vect
   : Function(Nat, Type) -> Type
@@ -43,7 +43,7 @@ define Vect
               next: Vect(m, A)
             }
           }
-      };
+      }
 
 define nil
   : Function(inferred A: Type) -> Vect(zero, A)
@@ -51,7 +51,7 @@ define nil
       record {
         tag = true,
         data = record { index = reflexive }
-      };
+      }
 
 define cons
   : Function(
@@ -70,4 +70,4 @@ define cons
             index = reflexive,
             next = vect
           }
-      };
+      }

@@ -20,7 +20,7 @@ keywords =
   [ "Function", "function", "Type", "let", "in", "Bool", "true", "false"
   , "Record", "record", "if", "else", "elseif", "Equal", "reflexive", "patch"
   , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text", "define"
-  , "metadefine", "axiom", "#output" ]
+  , "metadefine", "axiom", "#output", "proof", "variable", "Code" ]
 
 ws :: Parser ()
 ws =
@@ -174,7 +174,7 @@ letE :: Parser Term
 letE = do
   string "let"; ws
   char '{'; ws
-  ds <- many (decl <* ws <* char ';' <* ws)
+  ds <- many (decl <* ws)
   char '}'; ws
   string "in"; ws
   char '{'; ws
@@ -524,11 +524,11 @@ output = do
 
 toplevel :: Parser TermAst
 toplevel = do
-  ds <- sepBy1 decl ws
+  ds <- many (decl <* ws)
   pure (TermAst (Let (fromList ds) (TermAst OUniv)))
 
-parse :: Parser a -> Text -> Either String a
-parse p text =
+parse :: Parser a -> String -> Text -> Either String a
+parse p fn text =
   case
       fst .
       flip runState 0 .
@@ -539,7 +539,7 @@ parse p text =
           ws
           eof
           pure e)
-        "<TODO>" $
+        fn $
       text
     of
     Right term -> Right term

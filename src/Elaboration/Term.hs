@@ -2,6 +2,8 @@ module Elaboration.Term where
 
 import Control.Effect.Reader
 import Control.Effect.State
+import Control.Effect.Throw
+import Control.Carrier.Throw.Either(runThrow)
 import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
@@ -150,15 +152,17 @@ infer term = case term of
         convertible (N.ObjFunType Explicit x y) lamTy <*>
         convertible (N.ObjFunType Unification x y) lamTy
     let elim = if r then C.ObjFunElim else C.MetaFunElim
-    (cArgs, outTy) <- checkArgs args lamTy
-    pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
+    r <- runThrow @Error $ checkArgs args lamTy
+    case r of
+      Right (cArgs, outTy) -> pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
+      Left err -> errorTerm err
     where
       checkArgs ::
-        Elab sig m =>
+        (Has (Throw Error) sig m, Elab sig m) =>
         Seq (PassMethod, TermAst) ->
         N.Term ->
         m (Seq C.Term, N.Term)
-      checkArgs Empty outTy = pure (Empty, outTy)
+      checkArgs _ outTy@(N.viewFunType -> Nothing) = pure (Empty, outTy)
       checkArgs args (N.Neutral ty redex) = do
         ty <- force ty
         case ty of
@@ -176,7 +180,9 @@ infer term = case term of
         cArg <- readback arg
         (cArgs, outTy') <- appClosure outTy arg >>= checkArgs args
         pure (cArg <| cArgs, outTy')
-      checkArgs args ty = error "TODO: Error reporting"
+      checkArgs args ty = do
+        cTy <- readback ty
+        throwError (TooManyArgs cTy)
   TermAst (Var name) -> do
     binding <- lookupBinding name
     case binding of

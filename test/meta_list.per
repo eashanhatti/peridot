@@ -1,27 +1,22 @@
-axiom List: Function(MetaType) ~> MetaType;
-axiom nil: Function(A: MetaType) ~> List(A);
-axiom cons: Function(A: MetaType, A, List(A)) ~> List(A);
+axiom List: Function(MetaType) ~> MetaType
+axiom nil: Function(inferred A: MetaType) ~> List(A)
+axiom cons: Function(inferred A: MetaType, A, List(A)) ~> List(A)
 
-axiom Append:
-  Function(
-    A: MetaType,
-    List(A),
-    List(A),
-    List(A)) ~> MetaType;
+axiom Append: Function(inferred A: MetaType, List(A), List(A), List(A)) ~> MetaType
 axiom append_nil:
-  Forall A, Forall xs,
-  Append(A, nil(A), xs, xs);
+  Forall(A: MetaType), Forall(xs: List(A)),
+  Append(nil, xs, xs)
 axiom append_cons:
-  Forall A, Forall x, Forall ys, Forall zs, Forall ws,
+  Forall(A: MetaType), Forall(x: A, ys: List(A), zs: List(A), ws: List(A)),
   Implies(
-    Append(A, ys, zs, ws),
-    Append(A, cons(A, x, ys), zs, cons(A, x, ws)));
+    Append(ys, zs, ws),
+    Append(cons(x, ys), zs, cons(x, ws)))
 
-axiom Unit: MetaType;
-axiom unit: Unit;
+axiom Unit: MetaType
+axiom unit: Unit
 
-variable xs: List(Unit);
-proof Append(Unit, nil(Unit), nil(Unit), xs);
-variable ys: List(Unit);
-proof Append(Unit, cons(Unit, unit, nil(Unit)), cons(Unit, unit, nil(Unit)), ys);
-proof Append(Unit, cons(Unit, unit, nil(Unit)), cons(Unit, unit, nil(Unit)), cons(Unit, unit, cons(Unit, unit, nil(Unit))));
+variable xs: List(Unit)
+proof Append(nil, nil, xs)
+variable ys: List(Unit)
+proof Append(cons(unit, nil), cons(unit, nil), ys)
+proof Append(cons(unit, nil), cons(unit, nil), cons(unit, cons(unit, nil)))

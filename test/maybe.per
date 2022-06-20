@@ -13,7 +13,7 @@ define Maybe
           } else {
             Record {}
           }
-      };
+      }
 
 /* Constructing dependent records */
 define nothing
@@ -22,7 +22,7 @@ define nothing
       record {
         tag = false,
         data = record {}
-      };
+      }
 
 /* Constructing dependent records */
 define just
@@ -31,7 +31,7 @@ define just
       record {
         tag = true,
         data = x
-      };
+      }
 
 /* The `map` function, showcasing dependently typed `if`. The typechecker knows that in the first branch `maybe.data : Record {}` (because `maybe.tag = true`). In the second branch, the typechecker knows that `maybe.data : A` (because maybe.tag = false) */
 define map
@@ -41,4 +41,4 @@ define map
         just(maybe.data)
       } else {
         nothing
-      };
+      }
