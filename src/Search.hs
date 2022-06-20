@@ -125,13 +125,14 @@ isAtomic :: Term -> Bool
 isAtomic (MetaFunElims _ _) = True
 isAtomic _ = False
 
-proveDet :: Norm sig m => Seq Term -> Term -> m (Maybe (Seq Substitution))
-proveDet ctx goal = do
-  substs <-
-    runNonDetA .
-    evalState (SearchState 2000) $
+proveDet :: Norm sig m => Seq Term -> Term -> Natural -> m (Natural, Maybe (Seq Substitution))
+proveDet ctx goal uv = do
+  (ss, substs) <-
+    runState (SearchState uv) .
+    runNonDetA $
     prove ctx goal
-  if null substs then
-    pure Nothing
-  else
-    pure (Just substs)
+  (unNextUV ss, ) <$>
+    if null substs then
+      pure Nothing
+    else
+      pure (Just substs)

@@ -56,10 +56,11 @@ data QueryState = QueryState
   , unDepGraph :: Map (Some Key) (Set (Some Key))
   , unLogvarNames :: Map Global Name
   , unLogvars :: Set Id
-  , unOutputs :: Seq (FilePath, N.Term) }
+  , unOutputs :: Seq (FilePath, N.Term)
+  , unNextLogUV :: Natural }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs eqs errs _ _ _ _) =
+  show (QueryState _ _ _ tuvs eqs errs _ _ _ _ _) =
     show (tuvs, eqs, errs)
 
 data Error
@@ -511,9 +512,13 @@ readback = readback' None
 
 proveDet :: Elab sig m => Seq N.Term -> N.Term -> m (Maybe (Seq Search.Substitution))
 proveDet ctx goal = do
+  nextUV <- unNextLogUV <$> get
   typeUVs <- unTypeUVs <$> get
   eqs <- unUVEqs <$> get
-  local (\ctx -> ctx
-    { Norm.unTypeUVs = justs typeUVs
-    , Norm.unUVEqs = eqs })
-    (Search.proveDet ctx goal)
+  (nextUV', r) <-
+    local (\ctx -> ctx
+      { Norm.unTypeUVs = justs typeUVs
+      , Norm.unUVEqs = eqs })
+      (Search.proveDet ctx goal nextUV)
+  modify (\st -> st { unNextUV = nextUV' })
+  pure r
