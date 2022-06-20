@@ -80,10 +80,10 @@ search :: Search sig m => Seq Term -> Term -> Term -> m Substitution
 search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    -- normCtx <- ask
+    normCtx <- ask
     -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
-    let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-    let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
+    -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+    -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
     substs <-
       traverse
         (\(dArg, gArg) -> unifyR gArg dArg)
@@ -91,7 +91,7 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     -- let !_ = tracePrettyS "DEF" d
     -- let !_ = tracePrettyS "GOAL" g
     substs <- ((<| substs) <$> unifyR gHead dHead)
-    let !_ = tracePrettyS "SUBSTS" substs
+    -- let !_ = tracePrettyS "SUBSTS" substs
     case allJustOrNothing substs of
       Just substs ->
         pure (concatSubsts (fmap (\(Subst ts eqs) -> (ts, eqs)) substs))

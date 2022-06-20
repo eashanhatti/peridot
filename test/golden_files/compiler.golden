@@ -1,0 +1,753 @@
+((fromList
+    [(UVGlobal 10,
+      Just
+        (Rigid
+           (TextIntroCons
+              '('
+              (Neutral
+                 _
+                 (TextElimCat
+                    (Neutral
+                       _
+                       (TextElimCat
+                          (Neutral
+                             _
+                             (TextElimCat
+                                (Neutral _ (UniVar (LVGlobal 2002)))
+                                (Rigid
+                                   (TextIntroCons
+                                      ' '
+                                      (Rigid
+                                         (TextIntroCons
+                                            '+'
+                                            (Rigid
+                                               (TextIntroCons
+                                                  ' '
+                                                  (Rigid (TextIntroNil))))))))))
+                          (Neutral _ (UniVar (LVGlobal 2003)))))
+                    (Rigid
+                       (TextIntroCons ')' (Rigid (TextIntroNil))))))))),
+     (UVGlobal 1000,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 1001,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 1002,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 1003,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 1004,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 1005,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 1006,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 1007,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 1008,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 1009,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 1010,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 2012,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 2013,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 2014,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 2015,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 2016,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (UVGlobal 2017,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "Int") Meta (Id {unId = 1})))
+              False))),
+     (LVGlobal 2000,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "one") Meta (Id {unId = 4})))
+              False))),
+     (LVGlobal 2001,
+      Just
+        (Neutral
+           _
+           (GlobalVar
+              (Rigid
+                 (RNameIntro (UserName "one") Meta (Id {unId = 4})))
+              False))),
+     (LVGlobal 2002,
+      Just
+        (Rigid (TextIntroCons '1' (Rigid (TextIntroNil))))),
+     (LVGlobal 2003,
+      Just
+        (Rigid (TextIntroCons '1' (Rigid (TextIntroNil)))))],
+  fromList
+    [(UVGlobal 1005, UVGlobal 1008),
+     (UVGlobal 1006, UVGlobal 1009),
+     (UVGlobal 1007, UVGlobal 1009),
+     (UVGlobal 1008, UVGlobal 1005),
+     (UVGlobal 1009, UVGlobal 1007)],
+  fromList []),
+ Declare
+   Meta
+   (Rigid
+      (RNameIntro
+         (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+   (Rigid (TypeType Meta))
+   (Declare
+      Meta
+      (Rigid
+         (RNameIntro
+            (UserName "<PLACEHOLDER>") Meta (Id {unId = 10})))
+      (Rigid TextType)
+      (Define
+         (Rigid
+            (RNameIntro
+               (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+         (Rigid (MetaConstIntro (Id {unId = 0})))
+         (Define
+            (Rigid
+               (RNameIntro
+                  (UserName "<PLACEHOLDER>") Meta (Id {unId = 10})))
+            (UniVar (UVGlobal 10))
+            (Declare
+               Meta
+               (Rigid
+                  (RNameIntro
+                     (UserName "<PLACEHOLDER>") Meta (Id {unId = 1})))
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "CType") Meta (Id {unId = 0})))
+                  False)
+               (Declare
+                  Meta
+                  (Rigid
+                     (RNameIntro
+                        (UserName "<PLACEHOLDER>") Meta (Id {unId = 2})))
+                  (MetaFunType
+                     Explicit
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "CType") Meta (Id {unId = 0})))
+                        False)
+                     (Rigid (TypeType Meta)))
+                  (Define
+                     (Rigid
+                        (RNameIntro
+                           (UserName "<PLACEHOLDER>") Meta (Id {unId = 1})))
+                     (Rigid (MetaConstIntro (Id {unId = 1})))
+                     (Define
+                        (Rigid
+                           (RNameIntro
+                              (UserName "<PLACEHOLDER>") Meta (Id {unId = 2})))
+                        (Rigid (MetaConstIntro (Id {unId = 2})))
+                        (Declare
+                           Meta
+                           (Rigid
+                              (RNameIntro
+                                 (UserName "<PLACEHOLDER>")
+                                 Meta
+                                 (Id {unId = 3})))
+                           (MetaFunElim
+                              (GlobalVar
+                                 (Rigid
+                                    (RNameIntro
+                                       (UserName "CTerm") Meta (Id {unId = 2})))
+                                 False)
+                              (GlobalVar
+                                 (Rigid
+                                    (RNameIntro
+                                       (UserName "Int") Meta (Id {unId = 1})))
+                                 False))
+                           (Declare
+                              Meta
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "<PLACEHOLDER>")
+                                    Meta
+                                    (Id {unId = 4})))
+                              (MetaFunElim
+                                 (GlobalVar
+                                    (Rigid
+                                       (RNameIntro
+                                          (UserName "CTerm")
+                                          Meta
+                                          (Id {unId = 2})))
+                                    False)
+                                 (GlobalVar
+                                    (Rigid
+                                       (RNameIntro
+                                          (UserName "Int")
+                                          Meta
+                                          (Id {unId = 1})))
+                                    False))
+                              (Declare
+                                 Meta
+                                 (Rigid
+                                    (RNameIntro
+                                       (UserName "<PLACEHOLDER>")
+                                       Meta
+                                       (Id {unId = 5})))
+                                 (MetaFunType
+                                    Explicit
+                                    (MetaFunElim
+                                       (GlobalVar
+                                          (Rigid
+                                             (RNameIntro
+                                                (UserName "CTerm")
+                                                Meta
+                                                (Id {unId = 2})))
+                                          False)
+                                       (GlobalVar
+                                          (Rigid
+                                             (RNameIntro
+                                                (UserName "Int")
+                                                Meta
+                                                (Id {unId = 1})))
+                                          False))
+                                    (MetaFunType
+                                       Explicit
+                                       (MetaFunElim
+                                          (GlobalVar
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "CTerm")
+                                                   Meta
+                                                   (Id {unId = 2})))
+                                             False)
+                                          (GlobalVar
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "Int")
+                                                   Meta
+                                                   (Id {unId = 1})))
+                                             False))
+                                       (MetaFunElim
+                                          (GlobalVar
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "CTerm")
+                                                   Meta
+                                                   (Id {unId = 2})))
+                                             False)
+                                          (GlobalVar
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "Int")
+                                                   Meta
+                                                   (Id {unId = 1})))
+                                             False))))
+                                 (Declare
+                                    Meta
+                                    (Rigid
+                                       (RNameIntro
+                                          (UserName "<PLACEHOLDER>")
+                                          Meta
+                                          (Id {unId = 6})))
+                                    (MetaFunType
+                                       Unification
+                                       (GlobalVar
+                                          (Rigid
+                                             (RNameIntro
+                                                (UserName "CType")
+                                                Meta
+                                                (Id {unId = 0})))
+                                          False)
+                                       (MetaFunType
+                                          Explicit
+                                          (MetaFunElim
+                                             (GlobalVar
+                                                (Rigid
+                                                   (RNameIntro
+                                                      (UserName "CTerm")
+                                                      Meta
+                                                      (Id {unId = 2})))
+                                                False)
+                                             (LocalVar (Index {unIndex = 0})))
+                                          (MetaFunType
+                                             Explicit
+                                             (Rigid TextType)
+                                             (Rigid (TypeType Meta)))))
+                                    (Define
+                                       (Rigid
+                                          (RNameIntro
+                                             (UserName "<PLACEHOLDER>")
+                                             Meta
+                                             (Id {unId = 3})))
+                                       (Rigid (MetaConstIntro (Id {unId = 3})))
+                                       (Define
+                                          (Rigid
+                                             (RNameIntro
+                                                (UserName "<PLACEHOLDER>")
+                                                Meta
+                                                (Id {unId = 4})))
+                                          (Rigid
+                                             (MetaConstIntro (Id {unId = 4})))
+                                          (Define
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "<PLACEHOLDER>")
+                                                   Meta
+                                                   (Id {unId = 5})))
+                                             (Rigid
+                                                (MetaConstIntro
+                                                   (Id {unId = 5})))
+                                             (Define
+                                                (Rigid
+                                                   (RNameIntro
+                                                      (UserName "<PLACEHOLDER>")
+                                                      Meta
+                                                      (Id {unId = 6})))
+                                                (Rigid
+                                                   (MetaConstIntro
+                                                      (Id {unId = 6})))
+                                                (Declare
+                                                   Meta
+                                                   (Rigid
+                                                      (RNameIntro
+                                                         (UserName
+                                                            "<PLACEHOLDER>")
+                                                         Meta
+                                                         (Id {unId = 7})))
+                                                   (Rigid
+                                                      (AllType
+                                                         (MetaFunIntro
+                                                            (Rigid
+                                                               (AllType
+                                                                  (MetaFunIntro
+                                                                     (Rigid
+                                                                        (AllType
+                                                                           (MetaFunIntro
+                                                                              (Rigid
+                                                                                 (AllType
+                                                                                    (MetaFunIntro
+                                                                                       (Rigid
+                                                                                          (ImplType
+                                                                                             (MetaFunElim
+                                                                                                (MetaFunElim
+                                                                                                   (MetaFunElim
+                                                                                                      (GlobalVar
+                                                                                                         (Rigid
+                                                                                                            (RNameIntro
+                                                                                                               (UserName
+                                                                                                                  "CompileTerm")
+                                                                                                               Meta
+                                                                                                               (Id
+                                                                                                                  {unId =
+                                                                                                                     6})))
+                                                                                                         False)
+                                                                                                      (UniVar
+                                                                                                         (UVGlobal
+                                                                                                            2012)))
+                                                                                                   (LocalVar
+                                                                                                      (Index
+                                                                                                         {unIndex =
+                                                                                                            3})))
+                                                                                                (LocalVar
+                                                                                                   (Index
+                                                                                                      {unIndex =
+                                                                                                         1})))
+                                                                                             (Rigid
+                                                                                                (ImplType
+                                                                                                   (MetaFunElim
+                                                                                                      (MetaFunElim
+                                                                                                         (MetaFunElim
+                                                                                                            (GlobalVar
+                                                                                                               (Rigid
+                                                                                                                  (RNameIntro
+                                                                                                                     (UserName
+                                                                                                                        "CompileTerm")
+                                                                                                                     Meta
+                                                                                                                     (Id
+                                                                                                                        {unId =
+                                                                                                                           6})))
+                                                                                                               False)
+                                                                                                            (UniVar
+                                                                                                               (UVGlobal
+                                                                                                                  2013)))
+                                                                                                         (LocalVar
+                                                                                                            (Index
+                                                                                                               {unIndex =
+                                                                                                                  2})))
+                                                                                                      (LocalVar
+                                                                                                         (Index
+                                                                                                            {unIndex =
+                                                                                                               0})))
+                                                                                                   (MetaFunElim
+                                                                                                      (MetaFunElim
+                                                                                                         (MetaFunElim
+                                                                                                            (GlobalVar
+                                                                                                               (Rigid
+                                                                                                                  (RNameIntro
+                                                                                                                     (UserName
+                                                                                                                        "CompileTerm")
+                                                                                                                     Meta
+                                                                                                                     (Id
+                                                                                                                        {unId =
+                                                                                                                           6})))
+                                                                                                               False)
+                                                                                                            (UniVar
+                                                                                                               (UVGlobal
+                                                                                                                  2014)))
+                                                                                                         (MetaFunElim
+                                                                                                            (MetaFunElim
+                                                                                                               (GlobalVar
+                                                                                                                  (Rigid
+                                                                                                                     (RNameIntro
+                                                                                                                        (UserName
+                                                                                                                           "add")
+                                                                                                                        Meta
+                                                                                                                        (Id
+                                                                                                                           {unId =
+                                                                                                                              5})))
+                                                                                                                  False)
+                                                                                                               (LocalVar
+                                                                                                                  (Index
+                                                                                                                     {unIndex =
+                                                                                                                        3})))
+                                                                                                            (LocalVar
+                                                                                                               (Index
+                                                                                                                  {unIndex =
+                                                                                                                     2}))))
+                                                                                                      (TextElimCat
+                                                                                                         (TextElimCat
+                                                                                                            (TextElimCat
+                                                                                                               (TextElimCat
+                                                                                                                  (Rigid
+                                                                                                                     (TextIntroCons
+                                                                                                                        '('
+                                                                                                                        (Rigid
+                                                                                                                           TextIntroNil)))
+                                                                                                                  (LocalVar
+                                                                                                                     (Index
+                                                                                                                        {unIndex =
+                                                                                                                           1})))
+                                                                                                               (Rigid
+                                                                                                                  (TextIntroCons
+                                                                                                                     ' '
+                                                                                                                     (Rigid
+                                                                                                                        (TextIntroCons
+                                                                                                                           '+'
+                                                                                                                           (Rigid
+                                                                                                                              (TextIntroCons
+                                                                                                                                 ' '
+                                                                                                                                 (Rigid
+                                                                                                                                    TextIntroNil))))))))
+                                                                                                            (LocalVar
+                                                                                                               (Index
+                                                                                                                  {unIndex =
+                                                                                                                     0})))
+                                                                                                         (Rigid
+                                                                                                            (TextIntroCons
+                                                                                                               ')'
+                                                                                                               (Rigid
+                                                                                                                  TextIntroNil)))))))))))))))))))))
+                                                   (Declare
+                                                      Meta
+                                                      (Rigid
+                                                         (RNameIntro
+                                                            (UserName
+                                                               "<PLACEHOLDER>")
+                                                            Meta
+                                                            (Id {unId = 8})))
+                                                      (MetaFunElim
+                                                         (MetaFunElim
+                                                            (MetaFunElim
+                                                               (GlobalVar
+                                                                  (Rigid
+                                                                     (RNameIntro
+                                                                        (UserName
+                                                                           "CompileTerm")
+                                                                        Meta
+                                                                        (Id
+                                                                           {unId =
+                                                                              6})))
+                                                                  False)
+                                                               (UniVar
+                                                                  (UVGlobal
+                                                                     2015)))
+                                                            (GlobalVar
+                                                               (Rigid
+                                                                  (RNameIntro
+                                                                     (UserName
+                                                                        "zero")
+                                                                     Meta
+                                                                     (Id
+                                                                        {unId =
+                                                                           3})))
+                                                               False))
+                                                         (Rigid
+                                                            (TextIntroCons
+                                                               '0'
+                                                               (Rigid
+                                                                  TextIntroNil))))
+                                                      (Declare
+                                                         Meta
+                                                         (Rigid
+                                                            (RNameIntro
+                                                               (UserName
+                                                                  "<PLACEHOLDER>")
+                                                               Meta
+                                                               (Id {unId = 9})))
+                                                         (MetaFunElim
+                                                            (MetaFunElim
+                                                               (MetaFunElim
+                                                                  (GlobalVar
+                                                                     (Rigid
+                                                                        (RNameIntro
+                                                                           (UserName
+                                                                              "CompileTerm")
+                                                                           Meta
+                                                                           (Id
+                                                                              {unId =
+                                                                                 6})))
+                                                                     False)
+                                                                  (UniVar
+                                                                     (UVGlobal
+                                                                        2016)))
+                                                               (GlobalVar
+                                                                  (Rigid
+                                                                     (RNameIntro
+                                                                        (UserName
+                                                                           "one")
+                                                                        Meta
+                                                                        (Id
+                                                                           {unId =
+                                                                              4})))
+                                                                  False))
+                                                            (Rigid
+                                                               (TextIntroCons
+                                                                  '1'
+                                                                  (Rigid
+                                                                     TextIntroNil))))
+                                                         (Declare
+                                                            Meta
+                                                            (Rigid
+                                                               (RNameIntro
+                                                                  (UserName
+                                                                     "<PLACEHOLDER>")
+                                                                  Meta
+                                                                  (Id
+                                                                     {unId =
+                                                                        11})))
+                                                            (MetaFunElim
+                                                               (MetaFunElim
+                                                                  (MetaFunElim
+                                                                     (GlobalVar
+                                                                        (Rigid
+                                                                           (RNameIntro
+                                                                              (UserName
+                                                                                 "CompileTerm")
+                                                                              Meta
+                                                                              (Id
+                                                                                 {unId =
+                                                                                    6})))
+                                                                        False)
+                                                                     (UniVar
+                                                                        (UVGlobal
+                                                                           2017)))
+                                                                  (MetaFunElim
+                                                                     (MetaFunElim
+                                                                        (GlobalVar
+                                                                           (Rigid
+                                                                              (RNameIntro
+                                                                                 (UserName
+                                                                                    "add")
+                                                                                 Meta
+                                                                                 (Id
+                                                                                    {unId =
+                                                                                       5})))
+                                                                           False)
+                                                                        (GlobalVar
+                                                                           (Rigid
+                                                                              (RNameIntro
+                                                                                 (UserName
+                                                                                    "one")
+                                                                                 Meta
+                                                                                 (Id
+                                                                                    {unId =
+                                                                                       4})))
+                                                                           False))
+                                                                     (GlobalVar
+                                                                        (Rigid
+                                                                           (RNameIntro
+                                                                              (UserName
+                                                                                 "one")
+                                                                              Meta
+                                                                              (Id
+                                                                                 {unId =
+                                                                                    4})))
+                                                                        False)))
+                                                               (GlobalVar
+                                                                  (Rigid
+                                                                     (RNameIntro
+                                                                        (UserName
+                                                                           "t")
+                                                                        Meta
+                                                                        (Id
+                                                                           {unId =
+                                                                              10})))
+                                                                  True))
+                                                            (Define
+                                                               (Rigid
+                                                                  (RNameIntro
+                                                                     (UserName
+                                                                        "<PLACEHOLDER>")
+                                                                     Meta
+                                                                     (Id
+                                                                        {unId =
+                                                                           7})))
+                                                               (Rigid
+                                                                  (MetaConstIntro
+                                                                     (Id
+                                                                        {unId =
+                                                                           7})))
+                                                               (Define
+                                                                  (Rigid
+                                                                     (RNameIntro
+                                                                        (UserName
+                                                                           "<PLACEHOLDER>")
+                                                                        Meta
+                                                                        (Id
+                                                                           {unId =
+                                                                              8})))
+                                                                  (Rigid
+                                                                     (MetaConstIntro
+                                                                        (Id
+                                                                           {unId =
+                                                                              8})))
+                                                                  (Define
+                                                                     (Rigid
+                                                                        (RNameIntro
+                                                                           (UserName
+                                                                              "<PLACEHOLDER>")
+                                                                           Meta
+                                                                           (Id
+                                                                              {unId =
+                                                                                 9})))
+                                                                     (Rigid
+                                                                        (MetaConstIntro
+                                                                           (Id
+                                                                              {unId =
+                                                                                 9})))
+                                                                     (Define
+                                                                        (Rigid
+                                                                           (RNameIntro
+                                                                              (UserName
+                                                                                 "<PLACEHOLDER>")
+                                                                              Meta
+                                                                              (Id
+                                                                                 {unId =
+                                                                                    11})))
+                                                                        (Rigid
+                                                                           (MetaConstIntro
+                                                                              (Id
+                                                                                 {unId =
+                                                                                    11})))
+                                                                        (Rigid
+                                                                           (TypeType
+                                                                              Obj))))))))))))))))))))))))))

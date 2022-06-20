@@ -1,0 +1,41 @@
+((fromList [], fromList [], fromList []),
+ Declare
+   Meta
+   (Rigid
+      (RNameIntro
+         (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+   (Rigid TextType)
+   (Declare
+      Meta
+      (Rigid
+         (RNameIntro
+            (UserName "<PLACEHOLDER>") Meta (Id {unId = 1})))
+      (Rigid TextType)
+      (Define
+         (Rigid
+            (RNameIntro
+               (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+         (Rigid
+            (TextIntroCons
+               'a'
+               (Rigid
+                  (TextIntroCons
+                     'b'
+                     (Rigid (TextIntroCons 'c' (Rigid TextIntroNil)))))))
+         (Define
+            (Rigid
+               (RNameIntro
+                  (UserName "<PLACEHOLDER>") Meta (Id {unId = 1})))
+            (TextElimCat
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "foo") Meta (Id {unId = 0})))
+                  False)
+               (Rigid
+                  (TextIntroCons
+                     'b'
+                     (Rigid
+                        (TextIntroCons
+                           'a'
+                           (Rigid (TextIntroCons 'r' (Rigid TextIntroNil))))))))
+            (Rigid (TypeType Obj))))))
