@@ -85,6 +85,11 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             [(x, y) | (i1, x) <- substs', (i2, y) <- substs', i1 /= i2]
     PDDecl (DeclAst (Fresh name _) did@(Id n)) -> do
       pure (C.UniVar (UVGlobal n))
+    PDDecl (DeclAst (Output path text) _) -> do
+      cText <- EE.check text (N.Rigid N.TextType)
+      vText <- eval cText
+      modify (\st -> st { unOutputs = (path, vText) <| unOutputs st })
+      pure (C.Rigid C.Dummy)
 
 withPos' ::
   HasCallStack => Elab sig m =>
@@ -103,4 +108,4 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl -> asType
     PDDecl (DeclAst (Fresh name sig) (Id n)) -> do
       modify (\st -> st { unLogvarNames = Map.insert (UVGlobal n) (unName name) (unLogvarNames st) })
       EE.checkMetaType sig
- 
+    PDDecl (DeclAst (Output _ _) _) -> pure (C.Rigid C.Dummy, N.Meta)

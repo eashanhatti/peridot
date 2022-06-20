@@ -27,7 +27,7 @@ infer' term =
   let
     (qs, (term', ty)) =
       run .
-      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty) .
+      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty) .
       runReader (QueryContext Nothing) .
       evalState ElabState .
       runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .
@@ -87,7 +87,7 @@ elaborate' term =
   let
     (qs, term') =
       run .
-      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty) .
+      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty) .
       runReader (QueryContext Nothing) .
       evalState ElabState .
       runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .

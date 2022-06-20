@@ -269,11 +269,11 @@ infer term = case term of
     outTy <- closureOf (C.MetaTypeType)
     cBody <- check body (N.MetaFunType Explicit inTy outTy)
     pure (C.Rigid (C.AllType cBody), N.MetaTypeType)
-  TermAst (ExistsProp body) -> do
-    inTy <- freshTypeUV
-    outTy <- closureOf (C.MetaTypeType)
-    cBody <- check body (N.MetaFunType Explicit inTy outTy)
-    pure (C.Rigid (C.SomeType cBody), N.MetaTypeType)
+  -- TermAst (ExistsProp body) -> do
+  --   inTy <- freshTypeUV
+  --   outTy <- closureOf (C.MetaTypeType)
+  --   cBody <- check body (N.MetaFunType Explicit inTy outTy)
+  --   pure (C.Rigid (C.SomeType cBody), N.MetaTypeType)
   TermAst (EqualProp x y) -> do
     ty <- freshTypeUV
     cX <- check x ty

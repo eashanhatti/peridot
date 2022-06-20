@@ -53,10 +53,11 @@ data QueryState = QueryState
   , unUVEqs :: Map Global Global
   , unErrors :: Seq (SourcePos, Error)
   , unDepGraph :: Map (Some Key) (Set (Some Key))
-  , unLogvarNames :: Map Global Name }
+  , unLogvarNames :: Map Global Name
+  , unOutputs :: Seq (FilePath, N.Term) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs eqs errs _ _) =
+  show (QueryState _ _ _ tuvs eqs errs _ _ _) =
     show (tuvs, eqs, errs)
 
 data Error
@@ -495,7 +496,7 @@ readback' unf term = do
   typeUVs <- unTypeUVs <$> get
   eqs <- unUVEqs <$> get
   local (\ctx -> ctx
-    { Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
+    { Norm.unTypeUVs = justs typeUVs
     , Norm.unUVEqs = eqs })
     (Norm.readback' unf term)
 

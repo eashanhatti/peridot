@@ -21,3 +21,5 @@ axiom compile_one: CompileTerm(Int, one, "1");
 
 variable t: Text;
 proof CompileTerm(Int, add(one, one), t);
+
+#output OUTPUT.c t;

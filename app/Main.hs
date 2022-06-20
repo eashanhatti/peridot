@@ -9,6 +9,7 @@ import Data.Text(Text, pack, words, unpack, lines, unlines)
 import Syntax.Common
 import Syntax.Surface
 import System.IO
+import Syntax.Core qualified as C
 import Data.Text.IO qualified as TIO
 import Text.Megaparsec.Pos
 import Prelude hiding(words, lines, unlines)
@@ -60,6 +61,16 @@ prettyErrors =
       ": " <>
       prettyError err)
 
+outputToText :: C.Term -> Maybe Text
+outputToText term = pack <$> go term where
+  go (C.Rigid C.TextIntroNil) = Just []
+  go (C.Rigid (C.TextIntroCons c t)) = (c :) <$> go t
+  go (C.TextElimCat t1 t2) = do
+    t1 <- go t1
+    t2 <- go t2
+    Just (t1 <> t2)
+  go _ = Nothing
+
 loop = do
   prev <- newIORef []
   let
@@ -83,6 +94,7 @@ loop = do
             case r of
               Right (_, qs) -> do
                 let tErrs = prettyErrors (unErrors qs)
+                let tuvs = justs . unTypeUVs $ qs
                 let
                   sols =
                     Map.filterWithKey
@@ -101,17 +113,23 @@ loop = do
                   flip traverse (Set.toList . Map.keysSet . unLogvarNames $ qs) \gl ->
                     let
                       UserName name = unLogvarNames qs ! gl
-                      sol = Map.lookup gl (justs . unTypeUVs $ qs)
+                      sol = Map.lookup gl tuvs
                     in
                       case sol of
                         Just sol -> do
-                          let cSol = zonk sol (justs . unTypeUVs $ qs)
+                          let cSol = zonk sol tuvs
                           TIO.putStrLn ("  " <> name <> " = " <> prettyPure cSol)
                         Nothing -> TIO.putStrLn ("  \ESC[33mNo solution for\ESC[0m " <> name)
                   TIO.putStrLn ""
                   pure ()
                 else
                   pure ()
+                forM_ (unOutputs qs) \(path, term) -> do
+                    let text = outputToText (normalize term tuvs)
+                    let cTerm = readback term
+                    case text of
+                      Just text -> TIO.writeFile path text
+                      Nothing -> TIO.putStrLn ("  \ESC[31mCould not output\ESC[0m `" <> prettyPure (normalize term tuvs) <> "`")
               Left err -> do
                 TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
                 putStrLn (indentS err)

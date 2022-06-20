@@ -14,6 +14,7 @@ import Control.Monad.State
 import Data.Sequence hiding(empty)
 import Data.Maybe
 import Extra
+import Data.List qualified as L
 
 keywords =
   [ "Function", "function", "Type", "let", "in", "Bool", "true", "false"
@@ -341,19 +342,18 @@ disjProp = do
 forallProp :: Parser Term
 forallProp = do
   string "Forall"; ws
-  ns <- sepBy1 name ws; ws
+  ns <-
+    sepBy1
+      (do
+        n <- name; ws
+        char ':'; ws
+        ty <- prec2
+        pure (n, ty))
+      ws; ws
   char ','; ws
   p <- prec0
-  let TermAst e = foldr (\n acc -> TermAst (ForallProp (TermAst (MetaLam (singleton n) acc)))) p ns
+  let TermAst e = foldr (\(n, ty) acc -> TermAst (ForallProp n ty acc))) p ns
   pure e
-
-existsProp :: Parser Term
-existsProp = do
-  string "Exists"; ws
-  n <- name; ws
-  char ','; ws
-  p <- prec0
-  pure (ExistsProp (TermAst (MetaLam (singleton n) p)))
 
 objNameTy :: Parser Term
 objNameTy = do
@@ -441,7 +441,7 @@ prec0 =
       try (piE "->" ObjPi) <|>
       try (piE "~>" MetaPi) <|>
       try forallProp <|>
-      try existsProp <|>
+      -- try existsProp <|>
       try quoteObj <|>
       try (lam "function" ObjLam) <|>
       try (lam "metafunction" (\ps -> MetaLam (fmap snd ps))) <|>
@@ -463,6 +463,7 @@ decl = do
     try metadefine <|>
     try proof <|>
     try fresh <|>
+    try output <|>
     axiom
   pure (SourcePos (DeclAst d did) pos)
 
@@ -507,6 +508,16 @@ fresh = do
   char ':'; ws
   ty <- prec0
   pure (Fresh n ty)
+
+path :: Parser String
+path = L.intercalate "/" <$> sepBy1 (some (nameChar <|> char '.')) (char '/')
+
+output :: Parser Declaration
+output = do
+  string "#output"; ws
+  n <- path; ws
+  e <- prec0
+  pure (Output n e)
 
 toplevel :: Parser TermAst
 toplevel = do

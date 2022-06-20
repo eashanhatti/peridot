@@ -5,3 +5,4 @@ zonk should raise error on unsolved uvs. or make zonk a completely separate func
 `elaborate` hardcodes `unNextUV` to `1000`, change that
 remove nary records from core language - elaborate surface records to pairs
 make neutral redex part lazy
+separate metavar norm context from env norm context

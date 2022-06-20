@@ -26,6 +26,7 @@ unDeclName (DeclAst (MetaTerm (NameAst name) _ _) _) = name
 unDeclName (DeclAst (ObjTerm (NameAst name) _ _) _) = name
 unDeclName (DeclAst (Axiom (NameAst name) _) _) = name
 unDeclName (DeclAst (Prove _) did) = MachineName (fromIntegral did)
+unDeclName (DeclAst (Output _ _) did) = MachineName (fromIntegral did)
 unDeclName (DeclAst (Fresh (NameAst name) _) _) = name
 unDeclName (SourcePos ast _) = unDeclName ast
 
@@ -46,6 +47,7 @@ data Declaration
   | Axiom NameAst TermAst
   | Prove TermAst
   | Fresh NameAst TermAst
+  | Output FilePath TermAst
   deriving (Show)
 
 type TermAst = Ast Term
@@ -65,8 +67,8 @@ data Term
   | ImplProp TermAst TermAst
   | ConjProp TermAst TermAst
   | DisjProp TermAst TermAst
-  | ForallProp TermAst
-  | ExistsProp TermAst
+  | ForallProp NameAst TermAst TermAst
+  | ExistsProp NameAst TermAst TermAst
   | EqualProp TermAst TermAst
   | Bool
   | BTrue

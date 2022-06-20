@@ -133,6 +133,7 @@ eval (C.ObjFunElim lam arg) = do
   pure (N.Neutral reded (N.ObjFunElim vLam vArg))
 eval (C.MetaFunElim lam arg) = do
   vLam <- eval lam
+  -- !_ <- tracePretty . N.unLocals . unEnv <$> ask
   vArg <- eval arg
   let
     reded = do
@@ -190,7 +191,12 @@ eval (C.TwoElim scr body1 body2) = do
 eval (C.TextElimCat t1 t2) = do
   vT1 <- eval t1
   vT2 <- eval t2
-  let reded = Just <$> go vT1 vT2
+  let
+    reded = do
+      -- !_ <- tracePretty . N.unLocals . unEnv <$> ask
+      -- vT1 <- eval (tracePrettyS "T1" t1)
+      -- vT2 <- eval (tracePrettyS "T2" t2)
+      Just <$> go vT1 vT2
   pure (N.Neutral reded (N.TextElimCat vT1 vT2))
   where
     go :: Norm sig m => N.Term -> N.Term -> m N.Term
@@ -300,7 +306,7 @@ readback' opt (N.ObjFunIntro body) =
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
   pure (C.LocalVar (Index (fromIntegral (N.envSize env) - lvl - 1)))
-readback' opt (N.Neutral sol redex) = do
+readback' opt e@(N.Neutral sol redex) = do
   vSol <- force sol
   case (opt, vSol, redex) of
     (Full, Just vSol, _) -> readback' Full vSol
