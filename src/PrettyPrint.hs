@@ -127,7 +127,7 @@ pretty term =
     TextElimCat t1 t2 -> combine [pretty t1, pure " ++ ", pretty t2]
     (textIntro -> Just s) -> combine [pure "\"", pure . pack $ s, pure "\""]
     Rigid TextIntroNil -> pure "\"\""
-    Rigid (TextIntroCons c t) -> combine [pure . pack $ '\'':c:"'::", pretty t]
+    Rigid (TextIntroCons c t) -> combine [pure . pack $ '\"':c:"\" ++ ", pretty t]
     e -> pure . pack . show $ e
 
 textIntro (Rigid TextIntroNil) = Just []

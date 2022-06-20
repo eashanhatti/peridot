@@ -19,7 +19,8 @@ import Data.List qualified as L
 keywords =
   [ "Function", "function", "Type", "let", "in", "Bool", "true", "false"
   , "Record", "record", "if", "else", "elseif", "Equal", "reflexive", "patch"
-  , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text" ]
+  , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text", "define"
+  , "metadefine", "axiom", "#output" ]
 
 ws :: Parser ()
 ws =
@@ -381,7 +382,7 @@ textTy = do
 text :: Parser Term
 text = do
   char '"'
-  s <- many (notFollowedBy "\"" *> anySingle)
+  s <- many (notFollowedBy "\"" *> (anySingle <|> (string "\\n" *> pure '\n')))
   char '"'
   pure (TextLiteral (pack s))
 
@@ -523,7 +524,7 @@ output = do
 
 toplevel :: Parser TermAst
 toplevel = do
-  ds <- many (decl <* ws <* char ';' <* ws)
+  ds <- sepBy1 decl ws
   pure (TermAst (Let (fromList ds) (TermAst OUniv)))
 
 parse :: Parser a -> Text -> Either String a

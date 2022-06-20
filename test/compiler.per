@@ -1,8 +1,20 @@
-define Int: Type = Record { };
+axiom CType: MetaType
+axiom Int: CType
 
-axiom Compile: Function(Code(Type), CCode(C_Int)) ~> MetaType;
+axiom CTerm: Function(CType) ~> MetaType
+axiom zero: CTerm(Int)
+axiom one: CTerm(Int)
+axiom add: Function(CTerm(Int), CTerm(Int)) ~> CTerm(Int)
 
-axiom compile_record_ty:
-  Forall cty1 cty2 ty1 ty2,
-  Compile(
-    Record)
+axiom CompileTerm: Function(inferred A: CType, CTerm(A), Text) ~> MetaType
+
+axiom compile_add:
+  Forall(e1: CTerm(Int), e2: CTerm(Int), t1: Text, t2: Text),
+  Implies(
+    CompileTerm(e1, t1),
+    Implies(
+      CompileTerm(e2, t2),
+      CompileTerm(add(e1, e2), "(" ++ t1 ++ " + " ++ t2 ++ ")")))
+
+axiom compile_zero: CompileTerm(zero, "0")
+axiom compile_one: CompileTerm(one, "1")
