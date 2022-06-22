@@ -28,8 +28,8 @@ withLocal def (Env locals globals) = Env (def <| locals) globals
 withGlobal :: Id -> Term -> Environment -> Environment
 withGlobal did def (Env locals globals) = Env locals (insert did def globals)
 
-envSize :: Environment -> Int
-envSize (Env locals _) = length locals
+envSize :: Environment -> Natural
+envSize (Env locals _) = fromIntegral (length locals)
 
 instance Show Environment where
   show (Env locals _) = show locals

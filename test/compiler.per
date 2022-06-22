@@ -11,7 +11,7 @@ axiom CStmt: MetaType
 axiom return: Function(CTerm(Int)) ~> CStmt
 
 axiom CDecl: MetaType
-axiom fun: Function(CType, CType, Function(CTerm(Int)) ~> CStmt) ~> CDecl
+axiom fun: Function(CType, CType, CStmt) ~> CDecl
 
 axiom CompileTerm: Function(inferred A: CType, CTerm(A), Text) ~> MetaType
 axiom compile_add:
@@ -31,8 +31,13 @@ axiom compile_fun:
     Implies(
       CompileType(outTy, cOutTy),
       Implies(
-        CompileTerm(body(var("x")), cBody),
-        CompileDecl(fun(inTy, outTy, body), cOutTy ++ "f(" ++ cInTy + " x) { " ++ cBody ++ " }"))))
+        CompileStmt(body(var("x")), cBody),
+        CompileDecl(x, y))))
+/*fun(inTy, outTy, body), cOutTy ++ "f(" ++ cInTy + " x) { " ++ cBody ++ " }"*/
 
 axiom CompileType: Function(CType, Text) ~> MetaType
 axiom compile_int: CompileType(Int, "int")
+
+axiom CompileStmt: Function(CStmt, Text) ~> MetaType
+axiom compile_return:
+  Forall()CompileStmt(return)

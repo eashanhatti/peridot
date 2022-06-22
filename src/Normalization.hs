@@ -304,7 +304,10 @@ readback' opt (N.ObjFunIntro body) =
     bind (evalClosure body >>= readback' opt)
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
-  pure (C.LocalVar (Index (fromIntegral (N.envSize env) - lvl - 1)))
+  if lvl > N.envSize env || N.envSize env - lvl < 1 then
+    error "BUG: Local variable readback"
+  else
+    pure (C.LocalVar (Index (N.envSize env - lvl - 1)))
 readback' opt e@(N.Neutral sol redex) = do
   vSol <- force sol
   case (opt, vSol, redex) of

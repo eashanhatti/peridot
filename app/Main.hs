@@ -23,12 +23,10 @@ import Data.Set qualified as Set
 import "peridot" Extra
 import Data.Sequence((<|))
 
-indentS = P.unlines . fmap ("  "<>) . P.lines
-indent = unlines . fmap ("  "<>) . lines
-
 prettyError :: Error -> Text
 prettyError TooManyParams = "Too many parameters."
-prettyError (UnboundVariable (UserName name)) = "\ESC[33mUnbound variable\ESC[0m " <> name <> "."
+prettyError (UnboundVariable (UserName name)) =
+  "\ESC[33mUnbound variable\ESC[0m " <> name <> "."
 prettyError (FailedUnify expTy infTy) =
   "\ESC[33mMismatched types.\nExpected type\ESC[0m:\n" <>
   (indent . prettyPure $ expTy) <>
@@ -95,7 +93,7 @@ loop = do
           if r then do
             r <- elaborateFile' sFilename
             case r of
-              Right (_, qs) -> do
+              Right (ct, qs) -> do
                 let tErrs = prettyErrors (unErrors qs)
                 let tuvs = justs . unTypeUVs $ qs
                 let eqs = unUVEqs qs
@@ -120,7 +118,8 @@ loop = do
                       sol = zonk (eval (C.UniVar gl)) tuvs eqs
                     in
                       case sol of
-                        C.UniVar _ -> TIO.putStrLn ("    \ESC[33mNo solution for\ESC[0m " <> name)
+                        C.UniVar _ ->
+                          TIO.putStrLn ("    \ESC[33mNo solution for\ESC[0m " <> name)
                         _ -> TIO.putStrLn ("    " <> name <> " = " <> prettyPure sol)
                   TIO.putStrLn ""
                   pure ()
@@ -146,6 +145,7 @@ loop = do
           TIO.putStrLn "  :typecheck    Typechecks a file"
           TIO.putStrLn "  :quit         Quit the REPL"
           TIO.putStrLn "  :help         Display this menu"
+          TIO.putStrLn "  :             Run the previous command again"
           go
         [":quit"] -> do
           TIO.putStrLn "  \ESC[32mBye\ESC[0m."
@@ -177,4 +177,5 @@ main = do
   TIO.putStrLn "  :typecheck    Typechecks a file"
   TIO.putStrLn "  :quit         Quit the REPL"
   TIO.putStrLn "  :help         Display this menu"
+  TIO.putStrLn "  :             Run the previous command again"
   loop

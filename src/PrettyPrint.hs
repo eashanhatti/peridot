@@ -12,10 +12,11 @@ import Data.Set qualified as Set
 import Syntax.Common(Id(..), Index(..))
 import Data.Char
 import Control.Monad
-import Prelude hiding(zip, foldl', intercalate, words)
+import Prelude hiding(zip, foldl', intercalate, words, lines, unlines)
 import Data.Foldable
 import Data.Sequence hiding(singleton, foldl', replicateM, null)
 import Extra
+import Prelude qualified as P
 import Numeric.Natural
 
 data PrintContext = PrintContext
@@ -28,6 +29,9 @@ data PrintState = PrintState
 type Print sig m =
   ( Has (Reader PrintContext) sig m
   , Has (State PrintState) sig m )
+
+indentS = P.unlines . fmap ("  "<>) . P.lines
+indent = unlines . fmap ("  "<>) . lines
 
 prettyPPm :: PassMethod -> Text
 prettyPPm Unification = "inferred "
@@ -54,9 +58,16 @@ pretty term =
       pure ("Function(" <> intercalate ", " (toList params) <> ") ~> " <> tOutTy)
     (viewObjFunIntros -> (n@((> 0) -> True), body)) -> do
       names <- replicateM (fromIntegral n) freshName
-      (("function(" <> intercalate ", " names <> ") => ") <>) <$> bindManyLocals (fromList names) (pretty body)
+      (("function(" <> intercalate ", " names <> ") => ") <>) <$>
+        bindManyLocals (fromList names) (pretty body)
     TwoElim scr body1 body2 ->
-      combine [pure "if ", pretty scr, pure " { ", pretty body1, pure " } else { ", pretty body2]
+      combine
+        [ pure "if "
+        , pretty scr
+        , pure " { "
+        , pretty body1
+        , pure " } else { "
+        , pretty body2 ]
     RecType tys -> do
       tTys <- traverse (\(fd, ty) -> ((unField fd <> ": ") <>) <$> pretty ty) tys
       if null tTys then
@@ -78,7 +89,10 @@ pretty term =
           case words tLam of
             _:[] -> tLam
             _:_ -> "(" <> tLam <> ")"
-      combine [pure tLam', pure "(", intercalate ", " . toList <$> traverse pretty args, pure ")"]
+      combine
+        [ pure tLam'
+        , pure "("
+        , intercalate ", " . toList <$> traverse pretty args, pure ")"]
     CodeObjElim quote -> combine [pure "~", pretty quote]
     CodeCElim quote -> combine [pure "c~", pretty quote]
     LocalVar ix -> (Map.! ix) . unLocals <$> ask
@@ -95,7 +109,13 @@ pretty term =
     Rigid TwoType -> pure "Bool"
     Rigid TwoIntro0 -> pure "true"
     Rigid TwoIntro1 -> pure "false"
-    Rigid (SingType ty x) -> combine [pure "[ ", pretty ty, pure " | ", pretty x, pure " ]"]
+    Rigid (SingType ty x) ->
+      combine
+        [ pure "[ "
+        , pretty ty
+        , pure " | "
+        , pretty x
+        , pure " ]" ]
     Rigid (SingIntro x) -> pretty x
     Rigid (ObjIdType x y) -> con "Equal" [pretty x, pretty y]
     Rigid (ObjIdIntro _) -> pure "reflexive"
@@ -119,10 +139,26 @@ pretty term =
     Declare univ name ty cont ->
       let
         pre = case univ of
-          Obj -> "[p_declare "
-      in combine [pure pre, pretty name, pure " ", pretty ty, pure " ", pretty cont, pure "]"]
+          Obj -> "[ p_declare "
+          Meta -> "[ m_declare "
+      in
+        combine
+          [ pure pre
+          , pretty name
+          , pure "\n"
+          , indent <$> pretty ty
+          , pure "\n"
+          , indent <$> pretty cont
+          , pure " ]" ]
     Define name def cont ->
-      combine [pure "[define ", pretty name, pure " ", pretty def, pure " ", pretty cont, pure "]"]
+      combine
+        [ pure "[ define "
+        , pretty name
+        , pure "\n"
+        , indent <$> pretty def
+        , pure " "
+        , indent <$> pretty cont
+        , pure " ]"]
     Rigid TextType -> pure "Text"
     TextElimCat t1 t2 -> combine [pretty t1, pure " ++ ", pretty t2]
     (textIntro -> Just s) -> combine [pure "\"", pure . pack $ s, pure "\""]
@@ -135,7 +171,12 @@ textIntro (Rigid (TextIntroCons c t)) = (c:) <$> textIntro t
 textIntro _ = Nothing
 
 con :: Print sig m => Text -> [m Text] -> m Text
-con name args = combine [pure name, pure "(", intercalate ", " <$> sequence args, pure ")"]
+con name args =
+  combine
+    [ pure name
+    , pure "("
+    , intercalate ", " <$> sequence args
+    , pure ")" ]
 
 combine :: Print sig m => [m Text] -> m Text
 combine [] = pure ""
@@ -146,7 +187,10 @@ bindManyLocals Empty = id
 bindManyLocals (t :<| ts) = bindLocal t . bindManyLocals ts
 
 bindLocal :: Print sig m => Text -> m a -> m a
-bindLocal var = local (\ctx -> ctx { unLocals = Map.insert 0 var (Map.mapKeys (+1) (unLocals ctx)) })
+bindLocal var =
+  local
+    (\ctx -> ctx
+      { unLocals = Map.insert 0 var (Map.mapKeys (+1) (unLocals ctx)) })
 
 freshName :: Print sig m => m Text
 freshName = do
@@ -168,4 +212,8 @@ prettyPure term =
     else
       let sep = if Data.Text.length t < 20 then " " else "\n  "
       in
-        "forall " <> intercalate " " (fmap snd . Map.toList $  unUVNames st) <> "," <> sep <> t
+        "forall " <>
+        intercalate " " (fmap snd . Map.toList $  unUVNames st) <>
+        "," <>
+        sep <>
+        t
