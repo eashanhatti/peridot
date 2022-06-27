@@ -321,8 +321,11 @@ readback' opt e@(N.Neutral sol redex) = do
   case (opt, vSol, redex) of
     (notNone -> True, Just vSol, N.UniVar gl) -> do
       lCtx <- unCtx . (Map.! gl) . unTypeUVs <$> ask
+      let !_ = tracePretty (vSol, lCtx)
       local
-        (\ctx -> lCtx { unTypeUVs = unTypeUVs ctx })
+        (\ctx -> lCtx
+          { unTypeUVs = unTypeUVs ctx
+          , unUVEqs = unUVEqs ctx })
         (readback' opt vSol)
     (Full, Just vSol, _) -> readback' Full vSol
     -- (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
