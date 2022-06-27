@@ -32,7 +32,7 @@ type Search sig m =
   , Norm sig m
   , Has (State SearchState) sig m )
 
-type Substitution = (Map.Map Global Term, Map.Map Global Global)
+type Substitution = (Map.Map Global UVSolution, Map.Map Global Global)
 
 withSubst :: Search sig m => Substitution -> m Substitution -> m Substitution
 withSubst (subst, eqs) =

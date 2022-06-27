@@ -49,7 +49,7 @@ isNoop (Coe Nothing) = True
 isNoop _ = False
 
 data Substitution = Subst
-  { unTypeSols :: Map Global Term
+  { unTypeSols :: Map Global UVSolution
   , unUVEqs :: Map Global Global }
   deriving (Show)
 
@@ -72,9 +72,10 @@ putTypeSolExp gl sol = do
   case Map.lookup gl (unTypeSols sols) of
     Nothing -> do
       occurs mempty gl sol
-      put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
+      ctx <- ask
+      put (sols { unTypeSols = Map.insert gl (UVSol ctx sol) (unTypeSols sols) })
       pure noop
-    Just sol' -> unify' sol sol'
+    Just (unTerm -> sol') -> unify' sol sol'
 
 putTypeSolInf :: Unify sig m => Global -> Term -> m (Coercion sig m)
 putTypeSolInf gl sol = do
@@ -82,9 +83,10 @@ putTypeSolInf gl sol = do
   case Map.lookup gl (unTypeSols sols) of
     Nothing -> do
       occurs mempty gl sol
-      put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
+      ctx <- ask
+      put (sols { unTypeSols = Map.insert gl (UVSol ctx sol) (unTypeSols sols) })
       pure noop
-    Just sol' -> unify' sol' sol
+    Just (unTerm -> sol') -> unify' sol' sol
 
 equateUVs :: Unify sig m => Global -> Global -> m ()
 equateUVs gl1 gl2 =

@@ -55,13 +55,13 @@ infer' term =
       (Norm.eval >=> Norm.normalize) term'
   in (qs, term'', ty')
 
-normalize :: N.Term -> Map.Map Global N.Term -> Map.Map Global Global -> C.Term
+normalize :: N.Term -> Map.Map Global UVSolution -> Map.Map Global Global -> C.Term
 normalize term sols eqs =
   run .
   runReader (NormContext (N.Env mempty mempty) mempty sols eqs mempty) $
   Norm.normalize term
 
-zonk :: N.Term -> Map.Map Global N.Term -> Map.Map Global Global -> C.Term
+zonk :: N.Term -> Map.Map Global UVSolution -> Map.Map Global Global -> C.Term
 zonk term sols eqs =
   run .
   runReader (NormContext (N.Env mempty mempty) mempty sols eqs mempty) $
@@ -104,7 +104,7 @@ elaborate' term =
           mempty)
       (Norm.eval term' >>= Norm.zonk)
   in
-    (qs, term')
+    (qs, term'')
 
 elaborateFile :: String -> IO (Either String C.Term)
 elaborateFile f = do

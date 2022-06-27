@@ -25,9 +25,14 @@ import Prelude hiding(length)
 data NormContext = NormContext
   { unEnv :: N.Environment
   , unVisited :: Set.Set Global
-  , unTypeUVs :: Map.Map Global N.Term
+  , unTypeUVs :: Map.Map Global UVSolution
   , unUVEqs :: Map.Map Global Global -- FIXME? `Map Global (Set Global)`
   , unDefEqs :: Seq (N.Term, N.Term) }
+  deriving (Show)
+
+data UVSolution = UVSol
+  { unCtx :: NormContext
+  , unTerm :: N.Term }
   deriving (Show)
 
 type Norm sig m =
@@ -97,7 +102,7 @@ uvRedex gl = do
       do
         uvs <- unTypeUVs <$> ask
         case Map.lookup gl uvs of
-          Just sol -> pure (Just sol)
+          Just (unTerm -> sol) -> pure (Just sol)
           Nothing -> do
             eqs <- unUVEqs <$> ask
             case Map.lookup gl eqs of
@@ -150,8 +155,8 @@ eval (C.GlobalVar did sunf) = do
   vDid <- eval did
   unfold vDid >>= \vDid -> case N.viewName vDid of
     Just did' -> do
-      N.Env _ ((! did') -> def) <- unEnv <$> ask
-      pure (N.Neutral (pure (Just def)) (N.GlobalVar vDid sunf))
+      N.Env _ ((Map.lookup did') -> def) <- unEnv <$> ask
+      pure (N.Neutral (pure def) (N.GlobalVar vDid sunf))
     Nothing -> pure (N.Neutral (pure Nothing) (N.GlobalVar vDid sunf))
 eval (C.UniVar gl) = pure (N.Neutral (uvRedex gl) (N.UniVar gl))
 eval (C.CodeObjElim term) = do
@@ -283,6 +288,9 @@ entry ix = do
 
 data ReadbackDepth = None | Zonk | Full
 
+notNone None = False
+notNone _ = True
+
 readback' ::
   forall sig m. HasCallStack => Norm sig m =>
   ReadbackDepth ->
@@ -311,8 +319,12 @@ readback' opt (N.LocalVar (Level lvl)) = do
 readback' opt e@(N.Neutral sol redex) = do
   vSol <- force sol
   case (opt, vSol, redex) of
+    (notNone -> True, Just vSol, N.UniVar gl) -> do
+      lCtx <- unCtx . (Map.! gl) . unTypeUVs <$> ask
+      local
+        (\ctx -> lCtx { unTypeUVs = unTypeUVs ctx })
+        (readback' opt vSol)
     (Full, Just vSol, _) -> readback' Full vSol
-    (Zonk, Just vSol, N.UniVar _) -> readback' Zonk vSol
     -- (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
     _ -> readbackRedex opt redex
 readback' opt (N.RecIntro fds) =

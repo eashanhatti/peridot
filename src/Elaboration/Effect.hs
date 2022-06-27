@@ -50,7 +50,7 @@ data QueryState = QueryState
   { unMemoTable :: DHashMap Key Identity
   , unPredecls :: Map Id (AllState, Predeclaration)
   , unNextUV :: Natural
-  , unTypeUVs :: Map Global (Maybe N.Term)
+  , unTypeUVs :: Map Global (Maybe UVSolution)
   , unUVEqs :: Map Global Global
   , unErrors :: Seq (SourcePos, Error)
   , unDepGraph :: Map (Some Key) (Set (Some Key))
@@ -73,7 +73,7 @@ data Error
   | ExpectedRecordType C.Term
   | MissingField Name
   | FailedProve C.Term N.Term (Seq N.Term)
-  | AmbiguousProve C.Term (Seq (Map.Map Global N.Term, Map.Map Global Global))
+  | AmbiguousProve C.Term (Seq (Map.Map Global UVSolution, Map.Map Global Global))
   | CLamFormCheck
   | InferredFunType C.Term
   | CannotInfer TermAst
@@ -231,27 +231,9 @@ unify e term1 term2 = do
       (Uni.unify e term1 term2)
   case r of
     Just (Uni.Subst ts eqs, e') -> do
-      state <- get
-      let
-        dups =
-          [ (sol1, sol2)
-          | (gl1, sol1) <- Map.toList ts
-          , (gl2, sol2) <-
-              Pre.map (second fromJust) .
-              Pre.filter (\(_, e) -> isJust e) $
-              (Map.toList (unTypeUVs state))
-          , gl1 == gl2]
-      extraSubsts <- traverse (uncurry Uni.unifyR) dups
-      let r = sequence extraSubsts
-      case r of
-        Just _ ->
-          put (state
-            { unTypeUVs = fmap Just ts <> unTypeUVs state
-            , unUVEqs = eqs <> unUVEqs state })
-        Nothing -> do
-          cTerm1 <- zonk term1
-          cTerm2 <- zonk term2
-          report (FailedUnify cTerm1 cTerm2)
+      modify (\st -> st
+        { unTypeUVs = fmap Just ts <> unTypeUVs st
+        , unUVEqs = eqs <> unUVEqs st })
       pure e'
     Nothing -> do
       cTerm1 <- zonk term1
@@ -274,28 +256,10 @@ unifyR term1 term2 = do
         })
       (Uni.unifyR term1 term2)
   case subst of
-    Just (Uni.Subst ts eqs) -> do
-      state <- get
-      let
-        dups =
-          [ (sol1, sol2)
-          | (gl1, sol1) <- Map.toList ts
-          , (gl2, sol2) <-
-              Pre.map (second fromJust) .
-              Pre.filter (\(_, e) -> isJust e) $
-              (Map.toList (unTypeUVs state))
-          , gl1 == gl2]
-      extraSubsts <- traverse (uncurry Uni.unifyR) dups
-      let r = sequence extraSubsts
-      case r of
-        Just _ ->
-          put (state
-            { unTypeUVs = fmap Just ts <> unTypeUVs state
-            , unUVEqs = eqs <> unUVEqs state })
-        Nothing -> do
-          cTerm1 <- zonk term1
-          cTerm2 <- zonk term2
-          report (FailedUnify cTerm1 cTerm2)
+    Just (Uni.Subst ts eqs) ->
+      modify (\st -> st
+        { unTypeUVs = fmap Just ts <> unTypeUVs st
+        , unUVEqs = eqs <> unUVEqs st })
     Nothing -> do
       cTerm1 <- zonk term1
       cTerm2 <- zonk term2
@@ -315,7 +279,7 @@ convertible term1 term2 = do
       })
     (isJust <$> Uni.unifyR term1 term2)
 
-putTypeUVSols :: Elab sig m => Map Global N.Term -> m ()
+putTypeUVSols :: Elab sig m => Map Global UVSolution -> m ()
 putTypeUVSols sols =
   modify (\st -> st { unTypeUVs = fmap Just sols <> unTypeUVs st })
 
