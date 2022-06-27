@@ -377,7 +377,7 @@ solve fun spine rhs = do
       toList .
       filter (\lvl -> length (filter (== lvl) vars) == 1) $
       vars
-  allowable vars' rhs
+  allowable mempty vars' rhs
   cRhs <- readback rhs
   eval (foldl' (\acc _ -> fun acc) cRhs spine)
   where
@@ -390,42 +390,48 @@ solve fun spine rhs = do
         LocalVar lvl -> pure (lvl <| vars)
         _ -> pure vars
 
-    allowable :: Unify sig m => Set Level -> Term -> m ()
-    allowable vars (ObjFunType _ inTy outTy) = do
-      allowable vars inTy
+    allowable :: Unify sig m => Set Id -> Set Level -> Term -> m ()
+    allowable vis vars (ObjFunType _ inTy outTy) = do
+      allowable vis vars inTy
       l <- level
-      evalClosure outTy >>= allowable (Set.insert l vars)
-    allowable vars (MetaFunType _ inTy outTy) = do
-      allowable vars inTy
+      evalClosure outTy >>= allowable vis (Set.insert l vars)
+    allowable vis vars (MetaFunType _ inTy outTy) = do
+      allowable vis vars inTy
       l <- level
-      evalClosure outTy >>= allowable (Set.insert l vars)
-    allowable vars (ObjFunIntro body) = do
+      evalClosure outTy >>= allowable vis (Set.insert l vars)
+    allowable vis vars (ObjFunIntro body) = do
       l <- level
-      evalClosure body >>= allowable (Set.insert l vars)
-    allowable vars (MetaFunIntro body) = do
+      evalClosure body >>= allowable vis (Set.insert l vars)
+    allowable vis vars (MetaFunIntro body) = do
       l <- level
-      evalClosure body >>= allowable (Set.insert l vars)
-    allowable vars (RecIntro defs) =
-      traverse_ (\(_, def) -> allowable vars def) defs
-    allowable vars (RecType tys) = do
+      evalClosure body >>= allowable vis (Set.insert l vars)
+    allowable vis vars (RecIntro defs) =
+      traverse_ (\(_, def) -> allowable vis vars def) defs
+    allowable vis vars (RecType tys) = do
       vTys <- evalFieldTypes Empty tys
       l <- level
       traverseWithIndex
         (\i (_, ty) ->
-          allowable (Set.fromList [l .. l + fromIntegral i] <> vars) ty)
+          allowable vis (Set.fromList [l .. l + fromIntegral i] <> vars) ty)
         vTys
       pure ()
-    allowable vars (LocalVar lvl) =
+    allowable vis vars (LocalVar lvl) =
       if Set.member lvl vars then
         pure ()
       else
         throwError ()
-    allowable vars (Rigid rterm) = traverse_ (allowable vars) rterm
-    allowable vars (Neutral term redex) = do
+    allowable vis vars (Rigid rterm) = traverse_ (allowable vis vars) rterm
+    allowable vis vars (Neutral term redex) = do
       term <- force term
       case term of
-        Just term -> allowable vars term
-        Nothing -> traverse_ (allowable vars) redex
+        Just term -> case redex of
+          GlobalVar (Rigid (NameIntro _ did)) _ ->
+            if Set.member did vis then
+              pure ()
+            else
+              allowable (Set.insert did vis) vars term
+          _ -> allowable vis vars term
+        Nothing -> traverse_ (allowable vis vars) redex
 
 unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unifyS' term1 term2 = do
