@@ -26,10 +26,6 @@ import Control.Applicative
 import Prelude hiding(zip, length, filter, elem)
 import Extra
 
-data Error
-  = OccursCheck
-  |
-
 -- coerce term of inferred type to term of expected type
 newtype Coercion sig m =
   Coe (Unify sig m => Maybe (C.Term -> m C.Term))
