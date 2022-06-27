@@ -10,6 +10,6 @@ Taking all of this into consideration, it makes sense why #2 is often the chosen
 
 Peridot is a high level language that enables users to declaratively optimize their domain specific abstractions. It has two layers:
 1. A pure, dependently typed, high-level functional language
-2. A logic language with support for contextual types
+2. A logic language with support for HOAS
 
 The second layer is used as a metaprogramming language for the first. Logic programming allows optimizers to be written declaratively - only with regard to the optimizations themselves.
