@@ -40,7 +40,7 @@ infer' term =
           (N.Env mempty mempty)
           mempty
           (justs . unTypeUVs $ qs)
-          mempty
+          (Elaboration.Effect.unUVEqs qs)
           mempty) $
       Norm.zonk ty
     term'' =

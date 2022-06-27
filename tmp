@@ -1,1 +1,1 @@
-define _: Function(Type) ~> Type = x;
+def _: Struct {} = (fun(x) => x)(struct {})
