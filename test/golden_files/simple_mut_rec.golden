@@ -1,0 +1,6 @@
+<TODO>:1:25:
+  |
+1 | define x : Record {} = y;
+  |                         ^
+unexpected ';'
+expecting "#output", "/*", "axiom", "define", "metadefine", "proof", "variable", '_', alphanumeric character, carriage return, end of input, newline, space, or tab

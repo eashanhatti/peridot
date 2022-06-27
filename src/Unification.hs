@@ -420,6 +420,7 @@ solve fun spine rhs = do
         pure ()
       else
         throwError ()
+    allowable vars (Rigid rterm) = traverse_ (allowable vars) rterm
     allowable vars (Neutral term redex) = do
       term <- force term
       case term of
