@@ -67,3 +67,7 @@ tracePrettyS s = traceWith ((s++) . shower)
 
 tracePretty :: Show a => a -> a
 tracePretty = tracePrettyS ""
+
+appN :: Int -> (a -> a) -> (a -> a)
+appN 0 _ = id
+appN n f = f . appN (n - 1) f

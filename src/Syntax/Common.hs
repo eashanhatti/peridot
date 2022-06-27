@@ -23,7 +23,7 @@ newtype Index = Index { unIndex :: Natural }
   deriving (Num, Eq, Ord, Enum, Real, Integral, Show)
 
 newtype Level = Level { unLevel :: Natural }
-  deriving (Num, Eq, Enum, Show)
+  deriving (Num, Eq, Enum, Show, Ord)
 
 newtype Id = Id { unId :: Natural }
   deriving (Eq, Ord, Generic, Num, Enum, Real, Integral, Show)

@@ -11,6 +11,7 @@ import Syntax.Semantic
 import Syntax.Core qualified as C
 import Syntax.Common
 import Normalization hiding(unUVEqs)
+import Normalization qualified as Norm
 import Data.Set(Set)
 import Data.Set qualified as Set
 import Data.Map(Map)
@@ -22,7 +23,7 @@ import Debug.Trace
 import Data.Maybe
 import Data.Sequence
 import Control.Applicative
-import Prelude hiding(zip, length)
+import Prelude hiding(zip, length, filter, elem)
 import Extra
 
 -- coerce term of inferred type to term of expected type
@@ -70,7 +71,7 @@ putTypeSolExp gl sol = do
   sols <- get
   case Map.lookup gl (unTypeSols sols) of
     Nothing -> do
-      occurs gl sol
+      occurs mempty gl sol
       put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
       pure noop
     Just sol' -> unify' sol sol'
@@ -80,7 +81,7 @@ putTypeSolInf gl sol = do
   sols <- get
   case Map.lookup gl (unTypeSols sols) of
     Nothing -> do
-      occurs gl sol
+      occurs mempty gl sol
       put (sols { unTypeSols = Map.insert gl sol (unTypeSols sols) })
       pure noop
     Just sol' -> unify' sol' sol
@@ -204,29 +205,37 @@ unifyRigid ElabError _ = pure noop
 unifyRigid _ ElabError = pure noop
 unifyRigid term1 term2 = throwError ()
 
-occurs :: Unify sig m => Global -> Term -> m ()
-occurs gl term = case term of
+occurs :: Unify sig m => Set Id -> Global -> Term -> m ()
+occurs vis gl term = case term of
   ObjFunType _ inTy outTy -> do
-    occurs gl inTy
-    evalClosure outTy >>= occurs gl
-  ObjFunIntro body -> evalClosure body >>= occurs gl
+    occurs vis gl inTy
+    evalClosure outTy >>= occurs vis gl
+  ObjFunIntro body -> evalClosure body >>= occurs vis gl
   MetaFunType _ inTy outTy -> do
-    occurs gl inTy
-    evalClosure outTy >>= occurs gl
-  MetaFunIntro body -> evalClosure body >>= occurs gl
+    occurs vis gl inTy
+    evalClosure outTy >>= occurs vis gl
+  MetaFunIntro body -> evalClosure body >>= occurs vis gl
   RecType tys ->
-    void (traverse (\ty -> evalClosure ty >>= occurs gl) (fmap snd tys))
+    void (traverse (\ty -> evalClosure ty >>= occurs vis gl) (fmap snd tys))
   RecIntro defs ->
-    void (traverse (occurs gl) (fmap snd defs))
+    void (traverse (occurs vis gl) (fmap snd defs))
   LocalVar _ -> pure ()
-  Rigid rterm -> void (traverse (occurs gl) rterm)
-  Neutral _ (UniVar gl') | gl == gl' -> do
-    -- let !_ = tracePretty (gl, gl')
-    throwError ()
-  Neutral term _ -> do
+  Rigid rterm -> void (traverse (occurs vis gl) rterm)
+  Neutral _ (UniVar gl') -> do
+    eq <- Map.lookup gl' . Norm.unUVEqs <$> ask
+    if gl' == gl || eq == Just gl then
+      throwError ()
+    else
+      pure ()
+  Neutral term redex -> do
     term <- force term
     case term of
-      Just term -> occurs gl term
+      Just term ->
+        let
+          vis' = case redex of
+            GlobalVar (Rigid (NameIntro _ did)) _ -> Set.insert did vis
+            _ -> vis
+        in occurs vis gl term
       Nothing -> pure ()
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m (Coercion sig m)
@@ -314,16 +323,22 @@ unify' term1 term2 =
     complex term1 (Neutral term2 (GlobalVar _ True)) = do
       term2 <- fromJust <$> force term2
       unify' term1 term2
-    complex (Neutral prevSol (UniVar gl)) term = withVisited gl do
-      prevSol <- force prevSol
-      case prevSol of
-        Just prevSol -> unify' prevSol term
-        Nothing -> putTypeSolInf gl term
-    complex term (Neutral prevSol (UniVar gl)) = withVisited gl do
-      prevSol <- force prevSol
-      case prevSol of
-        Just prevSol -> unify' term prevSol
-        Nothing -> putTypeSolExp gl term
+    complex (viewObjFunElims -> Just (Neutral _ (UniVar gl), spine)) term =
+      withVisited gl do
+        sol <- solve C.ObjFunIntro spine term
+        putTypeSolInf gl sol
+    complex term (viewObjFunElims -> Just (Neutral _ (UniVar gl), spine)) =
+      withVisited gl do
+        sol <- solve C.ObjFunIntro spine term
+        putTypeSolExp gl sol
+    complex (viewMetaFunElims -> Just (Neutral _ (UniVar gl), spine)) term =
+      withVisited gl do
+        sol <- solve C.MetaFunIntro spine term
+        putTypeSolInf gl sol
+    complex term (viewMetaFunElims -> Just (Neutral _ (UniVar gl), spine)) =
+      withVisited gl do
+        sol <- solve C.MetaFunIntro spine term
+        putTypeSolExp gl sol
     complex (Rigid (SingType _ term)) _ =
       pure (liftCoe \e -> do
         vE <- eval e
@@ -352,6 +367,64 @@ unify' term1 term2 =
         Just term2 -> unify' term1 term2
         Nothing -> throwError ()
     complex term1 term2 = throwError ()
+
+solve :: Unify sig m => (C.Term -> C.Term) -> Seq Term -> Term -> m Term
+solve fun spine rhs = do
+  vars <- localVars spine
+  let
+    vars' =
+      Set.fromList .
+      toList .
+      filter (\lvl -> length (filter (== lvl) vars) == 1) $
+      vars
+  allowable vars' rhs
+  cRhs <- readback rhs
+  eval (foldl' (\acc _ -> fun acc) cRhs spine)
+  where
+    localVars :: Unify sig m => Seq Term -> m (Seq Level)
+    localVars Empty = pure mempty
+    localVars (e :<| spine) = do
+      vars <- localVars spine
+      e <- unfold e
+      case e of
+        LocalVar lvl -> pure (lvl <| vars)
+        _ -> pure vars
+
+    allowable :: Unify sig m => Set Level -> Term -> m ()
+    allowable vars (ObjFunType _ inTy outTy) = do
+      allowable vars inTy
+      l <- level
+      evalClosure outTy >>= allowable (Set.insert l vars)
+    allowable vars (MetaFunType _ inTy outTy) = do
+      allowable vars inTy
+      l <- level
+      evalClosure outTy >>= allowable (Set.insert l vars)
+    allowable vars (ObjFunIntro body) = do
+      l <- level
+      evalClosure body >>= allowable (Set.insert l vars)
+    allowable vars (MetaFunIntro body) = do
+      l <- level
+      evalClosure body >>= allowable (Set.insert l vars)
+    allowable vars (RecIntro defs) =
+      traverse_ (\(_, def) -> allowable vars def) defs
+    allowable vars (RecType tys) = do
+      vTys <- evalFieldTypes Empty tys
+      l <- level
+      traverseWithIndex
+        (\i (_, ty) ->
+          allowable (Set.fromList [l .. l + fromIntegral i] <> vars) ty)
+        vTys
+      pure ()
+    allowable vars (LocalVar lvl) =
+      if Set.member lvl vars then
+        pure ()
+      else
+        throwError ()
+    allowable vars (Neutral term redex) = do
+      term <- force term
+      case term of
+        Just term -> allowable vars term
+        Nothing -> traverse_ (allowable vars) redex
 
 unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unifyS' term1 term2 = do

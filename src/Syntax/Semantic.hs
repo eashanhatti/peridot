@@ -85,21 +85,22 @@ instance Eq Term where
   Neutral _ redex1 == Neutral _ redex2 = redex1 == redex2
   _ == _ = False
 
-data Redex
-  = MetaFunElim Term Term
-  | ObjFunElim Term Term
-  | ObjConstElim (Map Id Term)
-  | CodeObjElim Term
-  | CodeCElim Term
-  | GlobalVar Term Bool
+type Redex = RedexF Term
+
+data RedexF a
+  = MetaFunElim a a
+  | ObjFunElim a a
+  | CodeObjElim a
+  | CodeCElim a
+  | GlobalVar a Bool
   | UniVar Global
-  | TwoElim Term Term Term
-  | RecElim Term Field
-  | SingElim Term
-  | Declare Universe Term Term Term
-  | Define Term Term Term
-  | TextElimCat Term Term
-  deriving (Eq, Show)
+  | TwoElim a a a
+  | RecElim a Field
+  | SingElim a
+  | Declare Universe a a a
+  | Define a a a
+  | TextElimCat a a
+  deriving (Eq, Show, Functor, Foldable, Traversable)
 
 viewFunType :: Term -> Maybe (PassMethod, Term, Closure)
 viewFunType (MetaFunType pm inTy outTy) = Just (pm, inTy, outTy)
@@ -108,17 +109,25 @@ viewFunType _ = Nothing
 
 pattern FunType pm inTy outTy <- (viewFunType -> Just (pm, inTy, outTy))
 
-viewMetaFunElims :: Term -> (Term, Seq Term)
-viewMetaFunElims (Neutral _ (MetaFunElim lam arg)) =
-  let (lam', args) = viewMetaFunElims lam
-  in (lam', args |> arg)
-viewMetaFunElims term = (term, mempty)
+viewMetaFunElims :: Term -> Maybe (Term, Seq Term)
+viewMetaFunElims (Neutral _ (ObjFunElim _ _)) = Nothing
+viewMetaFunElims (Neutral _ (MetaFunElim lam arg)) = do
+  (lam', args) <- viewMetaFunElims lam
+  pure (lam', args |> arg)
+viewMetaFunElims term = pure (term, mempty)
+
+viewObjFunElims :: Term -> Maybe (Term, Seq Term)
+viewObjFunElims (Neutral _ (MetaFunElim _ _)) = Nothing
+viewObjFunElims (Neutral _ (ObjFunElim lam arg)) = do
+  (lam', args) <- viewObjFunElims lam
+  pure (lam', args |> arg)
+viewObjFunElims term = pure (term, mempty)
 
 viewName :: Term -> Maybe Id
 viewName (Rigid (NameIntro _ did)) = Just did
 viewName _ = Nothing
 
-pattern MetaFunElims lam args <- (viewMetaFunElims -> (lam, args))
+pattern MetaFunElims lam args <- (viewMetaFunElims -> Just (lam, args))
 
 pattern ObjTypeType = Rigid (TypeType Obj)
 pattern MetaTypeType = Rigid (TypeType Meta)

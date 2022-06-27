@@ -6,3 +6,4 @@ zonk should raise error on unsolved uvs. or make zonk a completely separate func
 remove nary records from core language - elaborate surface records to pairs
 make neutral redex part lazy
 separate metavar norm context from env norm context
+account for globals in a better way
