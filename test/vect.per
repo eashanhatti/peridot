@@ -1,42 +1,42 @@
-define Nat
+def Nat
   : Type
-  = Record {
+  = Struct {
       tag: Bool,
       data:
         if tag {
-          Record {}
+          Struct {}
         } else {
           Nat
         }
     }
 
-define zero
+def zero
   : Nat
-  = record {
+  = struct {
       tag = true,
-      data = record {}
+      data = struct {}
     }
 
-define succ
-  : Function(Nat) -> Nat
-  = function(n) =>
-      record {
+def succ
+  : Fun(Nat) -> Nat
+  = fun(n) =>
+      struct {
         tag = false,
         data = n
       }
 
-define Vect
-  : Function(Nat, Type) -> Type
-  = function(n, A) =>
-      Record {
+def Vect
+  : Fun(Nat, Type) -> Type
+  = fun(n, A) =>
+      Struct {
         tag: Bool,
         data:
           if tag {
-            Record {
+            Struct {
               index: Equal(n, zero)
             }
           } else {
-            Record {
+            Struct {
               m: Nat,
               item: A,
               index: Equal(n, succ(m)),
@@ -45,29 +45,29 @@ define Vect
           }
       }
 
-define nil
-  : Function(inferred A: Type) -> Vect(zero, A)
-  = function() =>
-      record {
+def nil
+  : Fun(inf A: Type) -> Vect(zero, A)
+  = fun() =>
+      struct {
         tag = true,
-        data = record { index = reflexive }
+        data = struct { index = refl }
       }
 
-define cons
-  : Function(
-      inferred A: Type,
-      inferred n: Nat,
+def cons
+  : Fun(
+      inf A: Type,
+      inf n: Nat,
       item: A,
       vect: Vect(n, A))
       -> Vect(succ(n), A)
-  = function(inferred A, inferred n, item, vect) =>
-      record {
+  = fun(inf A, inf n, item, vect) =>
+      struct {
         tag = false,
         data =
-          record {
+          struct {
             m = n,
             item = item,
-            index = reflexive,
+            index = refl,
             next = vect
           }
       }

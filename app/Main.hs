@@ -2,7 +2,7 @@ module Main where
 
 import Elaboration
 import Elaboration.Effect hiding(readback, eval, zonk)
-import PrettyPrint
+import PrettyPrint hiding(unUVEqs)
 import Control.Monad
 import Parser qualified as P
 import Data.Text(Text, pack, words, unpack, lines, unlines)
@@ -22,37 +22,39 @@ import Data.Map qualified as Map
 import Data.Set qualified as Set
 import "peridot" Extra
 import Data.Sequence((<|))
+import Data.Bifunctor
+import Numeric.Natural
 
-prettyError :: Error -> Text
-prettyError TooManyParams = "Too many parameters."
-prettyError (UnboundVariable (UserName name)) =
+prettyError :: Map.Map Natural Natural -> Error -> Text
+prettyError _ TooManyParams = "Too many parameters."
+prettyError _ (UnboundVariable (UserName name)) =
   "\ESC[33mUnbound variable\ESC[0m " <> name <> "."
-prettyError (FailedUnify expTy infTy) =
+prettyError eqs (FailedUnify expTy infTy) =
   "\ESC[33mMismatched types.\nExpected type\ESC[0m:\n" <>
-  (indent . prettyPure $ expTy) <>
+  (indent . prettyPure eqs $ expTy) <>
   "\ESC[33mActual type\ESC[0m:\n" <>
-  (indent . prettyPure $ infTy)
-prettyError (ExpectedRecordType infTy) =
+  (indent . prettyPure eqs $ infTy)
+prettyError eqs (ExpectedRecordType infTy) =
   "\ESC[33mExpected a record\ESC[0m.\n\ESC[33mGot a value of type\ESC[0m:\n" <>
-  (indent . prettyPure $ infTy)
-prettyError (MissingField (UserName name)) =
+  (indent . prettyPure eqs $ infTy)
+prettyError _ (MissingField (UserName name)) =
   "\ESC[33mRecord does not have field\ESC[0m " <> name <> "."
-prettyError (FailedProve prop _ _) =
+prettyError eqs (FailedProve prop _ _) =
   "\ESC[33mFailed to prove formula\ESC[0m:\n" <>
-  (indent . prettyPure $ prop)
-prettyError (AmbiguousProve prop _) =
+  (indent . prettyPure eqs $ prop)
+prettyError _ (AmbiguousProve prop _) =
   "\ESC[33mFormula has multiple solutions\ESC[0m."
-prettyError (InferredFunType infTy) =
+prettyError eqs (InferredFunType infTy) =
   "\ESC[33mActual type was a function type\ESC[0m.\n" <>
   "\ESC[33mExpected type\ESC[0m:\n" <>
-  (indent . prettyPure $ infTy)
-prettyError (TooManyArgs ty) =
+  (indent . prettyPure eqs $ infTy)
+prettyError eqs (TooManyArgs ty) =
   "\ESC[33mToo many arguments\ESC[0m. \ESC[33mFunction type\ESC[0m:\n" <>
-  (indent . prettyPure $ ty)
-prettyError e = pack . show $ e
+  (indent . prettyPure eqs $ ty)
+prettyError _ e = pack . show $ e
 
-prettyErrors :: Seq (SourcePos, Error) -> Seq Text
-prettyErrors =
+prettyErrors :: Map.Map Natural Natural -> Seq (SourcePos, Error) -> Seq Text
+prettyErrors eqs =
   fmap
     (\(pos, err) ->
       "Line " <>
@@ -60,7 +62,7 @@ prettyErrors =
       ", column " <>
       pack (show (unPos $ sourceColumn pos)) <>
       ": " <>
-      prettyError err)
+      prettyError eqs err)
 
 outputToText :: C.Term -> Maybe Text
 outputToText term = pack <$> go term where
@@ -71,6 +73,8 @@ outputToText term = pack <$> go term where
     t2 <- go t2
     Just (t1 <> t2)
   go _ = Nothing
+
+rmGlobals = Map.mapKeys unGlobal . fmap unGlobal
 
 loop = do
   prev <- newIORef []
@@ -94,9 +98,14 @@ loop = do
             r <- elaborateFile' sFilename
             case r of
               Right (ct, qs) -> do
-                let tErrs = prettyErrors (unErrors qs)
+                let
+                  tErrs =
+                    prettyErrors
+                      (rmGlobals (unUVEqs qs))
+                      (unErrors qs)
                 let tuvs = justs . unTypeUVs $ qs
                 let eqs = unUVEqs qs
+                let eqs' = rmGlobals eqs
                 let
                   sols =
                     Map.filterWithKey
@@ -120,7 +129,7 @@ loop = do
                     case sol of
                       C.UniVar _ ->
                         TIO.putStrLn ("    \ESC[33mNo solution for\ESC[0m " <> name)
-                      _ -> TIO.putStrLn ("    " <> name <> " = " <> prettyPure sol)
+                      _ -> TIO.putStrLn ("    " <> name <> " = " <> prettyPure eqs' sol)
                   TIO.putStrLn ""
                   pure ()
                 else
@@ -133,7 +142,7 @@ loop = do
                       Nothing ->
                         TIO.putStrLn
                           ("  \ESC[31mCould not output\ESC[0m\n" <>
-                          (indent . indent . prettyPure $ normalize term tuvs eqs))
+                          (indent . indent . prettyPure eqs' $ normalize term tuvs eqs))
               Left err -> do
                 TIO.putStrLn "  \ESC[31mParse error\ESC[0m:"
                 putStrLn (indentS . indentS $ err)
@@ -154,13 +163,14 @@ loop = do
           let r = infer "REPL" input
           case r of
             Right (qs, term, ty) -> do
-              let tErrs = prettyErrors (unErrors qs)
+              let eqs' = rmGlobals (unUVEqs qs)
+              let tErrs = prettyErrors eqs' (unErrors qs)
               if null tErrs then do
                 TIO.putStr "  \ESC[32mInferred type\ESC[0m:\n"
-                TIO.putStrLn (indent . prettyPure $ ty)
+                TIO.putStrLn (indent . prettyPure eqs' $ ty)
                 let term' = readback . eval $ term
                 TIO.putStr "  \ESC[32mEvaluated term\ESC[0m:\n"
-                TIO.putStrLn (indent . prettyPure $ term')
+                TIO.putStrLn (indent . prettyPure eqs' $ term')
               else do
                 TIO.putStrLn "  \ESC[33mErrors\ESC[0m:"
                 traverse (TIO.putStrLn . indent) tErrs

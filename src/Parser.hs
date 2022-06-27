@@ -388,8 +388,8 @@ text = do
 
 tAppend :: Parser Term
 tAppend = do
-  SourcePos (TermAst e) _ <- prec2
-  es <- some (ws *> string "++" *> ws *> prec2)
+  SourcePos (TermAst e) _ <- prec1
+  es <- some (ws *> string "++" *> ws *> prec1)
   pure (foldl' (\acc e -> TextAppend (TermAst acc) e) e es)
 
 prec2 :: Parser TermAst
@@ -415,7 +415,7 @@ prec2 = do
     try text <|>
     (do
       char '('; ws
-      SourcePos (TermAst e) pos <- try prec1 <|> prec0; ws
+      SourcePos (TermAst e) pos <- prec0; ws
       char ')'
       pure e)
   pure (SourcePos (TermAst e) pos)
@@ -426,13 +426,7 @@ prec1 =
     pos <- getSourcePos
     e <-
       try select <|>
-      try spliceObj <|>
-      try tAppend <|>
-      (do
-        char '('; ws
-        SourcePos (TermAst e) pos <- prec0; ws
-        char ')'
-        pure e)
+      try spliceObj
     pure (SourcePos (TermAst e) pos)) <|>
   prec2
 
@@ -441,6 +435,7 @@ prec0 =
   try (do
     pos <- getSourcePos
     e <-
+      try tAppend <|>
       try (piE "Fun" ObjPi) <|>
       try (piE "MetaFun" MetaPi) <|>
       try forallProp <|>

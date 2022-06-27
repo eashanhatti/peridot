@@ -1,27 +1,27 @@
 /* The natural number datatype. See `nat.per` */
-define Nat
+def Nat
   : Type
-  = Record {
+  = Struct {
       tag: Bool,
       data:
         if tag {
-          Record {}
+          Struct {}
         } else {
           Nat
         }
     }
 
 /* A `Bool` is not sufficient to describe a datatype with more than two variants, so here we use a `Nat` */
-define Foo
+def Foo
   : Type
-  = Record {
+  = Struct {
       tag: Nat,
       data:
         if tag.tag {
-          Record { data: Nat }
+          Struct { data: Nat }
         } elseif tag.data.tag {
-          Record { a: Bool }
+          Struct { a: Bool }
         } else {
-          Record { data: Bool }
+          Struct { data: Bool }
         }
     }

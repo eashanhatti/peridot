@@ -1,39 +1,39 @@
 /*
-The `Nat` datatype, showcasing dependent records. The type of the `data` field is dependent on the value of the `tag` field. If `tag = true`, `data : Record {}` (`Record {}` is essentially the unit type), and if `tag = false`, `data : Nat`
+The `Nat` datatype, showcasing dependent structs. The type of the `data` field is dependent on the value of the `tag` field. If `tag = true`, `data : Struct {}` (`Struct {}` is essentially the unit type), and if `tag = false`, `data : Nat`
 */
-define Nat
+def Nat
   : Type
-  = Record {
+  = Struct {
       tag: Bool,
       data:
         if tag {
-          Record {}
+          Struct {}
         } else {
           Nat
         }
     }
 
-/* Constructing dependent records */
-define zero
+/* Constructing dependent structs */
+def zero
   : Nat
-  = record {
+  = struct {
       tag = true,
-      data = record {}
+      data = struct {}
     }
 
-/* Constructing dependent records */
-define succ
-  : Function(Nat) -> Nat
-  = function(n) =>
-      record {
+/* Constructing dependent structs */
+def succ
+  : Fun(Nat) -> Nat
+  = fun(n) =>
+      struct {
         tag = false,
         data = n
       }
 
-/* The `add` function, showcasing dependently typed `if`. The typechecker knows that in the first branch `n.data : Record {}` (because `maybe.tag = true`). In the second branch, the typechecker knows that `n.data : A` (because maybe.tag = false) */
-define add
-  : Function(Nat, Nat) -> Nat
-  = function(n, m) =>
+/* The `add` function, showcasing dependently typed `if`. The typechecker knows that in the first branch `n.data : Struct {}` (because `maybe.tag = true`). In the second branch, the typechecker knows that `n.data : A` (because maybe.tag = false) */
+def add
+  : Fun(Nat, Nat) -> Nat
+  = fun(n, m) =>
       if n.tag {
         m
       } else {

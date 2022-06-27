@@ -20,7 +20,8 @@ import Prelude qualified as P
 import Numeric.Natural
 
 data PrintContext = PrintContext
-  { unLocals :: Map.Map Index Text }
+  { unLocals :: Map.Map Index Text
+  , unUVEqs :: Map.Map Natural Natural }
 
 data PrintState = PrintState
   { unNextName :: Int
@@ -34,7 +35,7 @@ indentS = P.unlines . fmap ("  "<>) . P.lines
 indent = unlines . fmap ("  "<>) . lines
 
 prettyPPm :: PassMethod -> Text
-prettyPPm Unification = "inferred "
+prettyPPm Unification = "inf "
 prettyPPm Explicit = ""
 
 pretty :: Print sig m => Term -> m Text
@@ -47,7 +48,7 @@ pretty term =
           (\(name, (pm, inTy)) -> ((prettyPPm pm <> name <> ": ") <>) <$> pretty inTy)
           (zip names inTys)
       tOutTy <- bindManyLocals names (pretty outTy)
-      pure ("Function(" <> intercalate ", " (toList params) <> ") -> " <> tOutTy)
+      pure ("Fun(" <> intercalate ", " (toList params) <> ") -> " <> tOutTy)
     (viewMetaFunTys -> (inTys@(_:<|_), outTy)) -> do
       names <- traverse (const freshName) inTys
       params <-
@@ -55,10 +56,10 @@ pretty term =
           (\(name, (pm, inTy)) -> ((prettyPPm pm <> name <> ": ") <>) <$> pretty inTy)
           (zip names inTys)
       tOutTy <- bindManyLocals names (pretty outTy)
-      pure ("Function(" <> intercalate ", " (toList params) <> ") ~> " <> tOutTy)
+      pure ("Fun(" <> intercalate ", " (toList params) <> ") ~> " <> tOutTy)
     (viewObjFunIntros -> (n@((> 0) -> True), body)) -> do
       names <- replicateM (fromIntegral n) freshName
-      (("function(" <> intercalate ", " names <> ") => ") <>) <$>
+      (("fun(" <> intercalate ", " names <> ") => ") <>) <$>
         bindManyLocals (fromList names) (pretty body)
     TwoElim scr body1 body2 ->
       combine
@@ -71,15 +72,15 @@ pretty term =
     RecType tys -> do
       tTys <- traverse (\(fd, ty) -> ((unField fd <> ": ") <>) <$> pretty ty) tys
       if null tTys then
-        pure ("Record { }")
+        pure ("Struct { }")
       else
-        pure ("Record { " <> intercalate ", " (toList tTys) <> " }")
+        pure ("Struct { " <> intercalate ", " (toList tTys) <> " }")
     RecIntro defs -> do
       tDefs <- traverse (\(fd, def) -> ((unField fd <> " = ") <>) <$> pretty def) defs
       if null tDefs then
-        pure ("record { }")
+        pure ("struct { }")
       else
-        pure ("record { " <> intercalate ", " (toList tDefs) <> " }")
+        pure ("struct { " <> intercalate ", " (toList tDefs) <> " }")
     RecElim str fd -> combine [pretty str, pure ("." <> unField fd)]
     SingElim sing -> pretty sing
     (viewFunElims -> (lam, args@(_:<|_))) -> do
@@ -98,9 +99,8 @@ pretty term =
     LocalVar ix -> (Map.! ix) . unLocals <$> ask
     GlobalVar (Rigid (RNameIntro (UserName name) _ did)) _ -> pure name
     GlobalVar name _ -> combine [pure "GLOBAL(", pretty name, pure ")"]
-    UniVar (unGlobal -> n) -> do
-      st <- get
-      case Map.lookup n (unUVNames st) of
+    UniVar (unGlobal -> n) ->
+      lookupUV n >>= \case
         Just name -> pure name
         Nothing -> do
           name <- freshName
@@ -118,7 +118,7 @@ pretty term =
         , pure " ]" ]
     Rigid (SingIntro x) -> pretty x
     Rigid (ObjIdType x y) -> con "Equal" [pretty x, pretty y]
-    Rigid (ObjIdIntro _) -> pure "reflexive"
+    Rigid (ObjIdIntro _) -> pure "refl"
     Rigid (NameType univ ty) -> case univ of
       Obj -> con "Name" [pretty ty]
     Rigid (RNameIntro _ _ (Id n)) -> con "name" [pure . pack . show $ n]
@@ -166,6 +166,16 @@ pretty term =
     Rigid (TextIntroCons c t) -> combine [pure . pack $ '\"':c:"\" ++ ", pretty t]
     e -> pure . pack . show $ e
 
+lookupUV :: Print sig m => Natural -> m (Maybe Text)
+lookupUV n = do
+  eqs <- unUVEqs <$> ask
+  names <- unUVNames <$> get
+  case Map.lookup n names of
+    Just t -> pure (Just t)
+    Nothing -> case Map.lookup n eqs of
+      Just n' -> pure (Map.lookup n' names)
+      Nothing -> pure Nothing
+
 textIntro (Rigid TextIntroNil) = Just []
 textIntro (Rigid (TextIntroCons c t)) = (c:) <$> textIntro t
 textIntro _ = Nothing
@@ -198,13 +208,13 @@ freshName = do
   modify (\st -> st { unNextName = unNextName st + 1 })
   pure (singleton (chr x))
 
-prettyPure :: Term -> Text
-prettyPure term =
+prettyPure :: Map.Map Natural Natural -> Term -> Text
+prettyPure eqs term =
   let
     (st, t) =
       run .
       runState (PrintState 97 mempty) .
-      runReader (PrintContext mempty) $
+      runReader (PrintContext mempty eqs) $
       pretty term
   in
     if null (unUVNames st) then

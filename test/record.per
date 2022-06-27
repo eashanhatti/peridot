@@ -1,33 +1,33 @@
-/* A dependent record type. The type of `f` is dependent on the value of `T` */
-define Ty
+/* A dependent struct type. The type of `f` is dependent on the value of `T` */
+def Ty
   : Type
-  = Record {
+  = Struct {
       T: Type,
-      f: Function(T) -> T
+      f: Fun(T) -> T
     }
 
-/* Constructing dependent records */
-define foo
+/* Constructing dependent structs */
+def foo
   : Ty
-  = record {
+  = struct {
       T = Bool,
-      f = function(b) => b
+      f = fun(b) => b
     }
 
-/* Patched records. We can 'patch' the record type `Ty` to make the `T` field a singleton type. Records of type `patch(Ty){ T = Bool }` can only have a value of `Bool` in the `T` field, anything else is a type error */
-define bar
+/* Patched structs. We can 'patch' the struct type `Ty` to make the `T` field a singleton type. Structs of type `patch(Ty){ T = Bool }` can only have a value of `Bool` in the `T` field, anything else is a type error */
+def bar
   : patch Ty { T = Bool }
-  = record {
+  = struct {
       T = Bool,
-      f = function(b) => b
+      f = fun(b) => b
     }
 
-/* Subtyping between patched and non-patched records. Definition of non-patched needs to be available */
-define baz
+/* Subtyping between patched and non-patched structs. Definition of non-patched needs to be available */
+def baz
   : patch Ty { T = Bool }
   = foo
 
-/* Subtyping between non-patched and patched records. No definitions need to be available */
-define qux
+/* Subtyping between non-patched and patched structs. No definitions need to be available */
+def qux
   : Ty
   = bar
