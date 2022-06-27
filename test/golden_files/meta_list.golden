@@ -1,55 +1,69 @@
 ((fromList
     [(UVGlobal 1000,
-      Just (LocalVar Level {unLevel = 0})),
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
      (UVGlobal 1001, Nothing),
-     (UVGlobal 1002, Just (LocalVar Level {unLevel = 0})),
+     (UVGlobal 1002,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
      (UVGlobal 1003, Nothing),
-     (UVGlobal 1004, Just (LocalVar Level {unLevel = 0})),
-     (UVGlobal 1005, Just (LocalVar Level {unLevel = 0})),
+     (UVGlobal 1004,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
+     (UVGlobal 1005,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
      (UVGlobal 1006,
       Just
-        (Neutral
-           _
-           (GlobalVar
-              (Rigid
-                 (RNameIntro (UserName "Unit") Meta (Id {unId = 6})))
-              False))),
+        (UVSol
+           ((Neutral
+               _
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Unit") Meta (Id {unId = 6})))
+                  False))))),
      (UVGlobal 1007, Nothing),
      (UVGlobal 1008, Nothing),
-     (UVGlobal 1009, Just (LocalVar Level {unLevel = 0})),
+     (UVGlobal 1009,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
      (UVGlobal 1010, Nothing),
-     (UVGlobal 1011, Just (LocalVar Level {unLevel = 0})),
-     (UVGlobal 1012, Just (LocalVar Level {unLevel = 0})),
-     (UVGlobal 1013, Just (LocalVar Level {unLevel = 0})),
+     (UVGlobal 1011,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
+     (UVGlobal 1012,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
+     (UVGlobal 1013,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
      (UVGlobal 1014, Nothing),
-     (UVGlobal 2007, Just (LocalVar Level {unLevel = 0})),
+     (UVGlobal 2007,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
      (UVGlobal 2008, Nothing),
-     (UVGlobal 2009, Just (LocalVar Level {unLevel = 0})),
+     (UVGlobal 2009,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
      (UVGlobal 2010, Nothing),
-     (UVGlobal 2011, Just (LocalVar Level {unLevel = 0})),
-     (UVGlobal 2012, Just (LocalVar Level {unLevel = 0})),
+     (UVGlobal 2011,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
+     (UVGlobal 2012,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
      (UVGlobal 2013,
       Just
-        (Neutral
-           _
-           (GlobalVar
-              (Rigid
-                 (RNameIntro (UserName "Unit") Meta (Id {unId = 6})))
-              False))),
+        (UVSol
+           ((Neutral
+               _
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Unit") Meta (Id {unId = 6})))
+                  False))))),
      (UVGlobal 2014, Nothing),
      (UVGlobal 2015, Nothing),
      (LVGlobal 2006,
       Just
-        (Neutral
-           _
-           (MetaFunElim
-              (Neutral
-                 _
-                 (GlobalVar
-                    (Rigid
-                       (RNameIntro (UserName "nil") Meta (Id {unId = 1})))
-                    False))
-              (Neutral _ (UniVar (UVGlobal 1008))))))],
+        (UVSol
+           ((Neutral
+               _
+               (MetaFunElim
+                  (Neutral
+                     _
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "nil") Meta (Id {unId = 1})))
+                        False))
+                  (Neutral _ (UniVar (UVGlobal 1008))))))))],
   fromList
     [(UVGlobal 8, LVGlobal 2006),
      (UVGlobal 1000, UVGlobal 1001),
@@ -271,9 +285,10 @@
                                                                                        {unId =
                                                                                           3})))
                                                                               False)
-                                                                           (UniVar
-                                                                              (UVGlobal
-                                                                                 2007)))
+                                                                           (LocalVar
+                                                                              (Index
+                                                                                 {unIndex =
+                                                                                    1})))
                                                                         (MetaFunElim
                                                                            (GlobalVar
                                                                               (Rigid
@@ -334,9 +349,10 @@
                                                                                                                            {unId =
                                                                                                                               3})))
                                                                                                                   False)
-                                                                                                               (UniVar
-                                                                                                                  (UVGlobal
-                                                                                                                     2009)))
+                                                                                                               (LocalVar
+                                                                                                                  (Index
+                                                                                                                     {unIndex =
+                                                                                                                        4})))
                                                                                                             (LocalVar
                                                                                                                (Index
                                                                                                                   {unIndex =
@@ -379,9 +395,10 @@
                                                                                                                                  {unId =
                                                                                                                                     2})))
                                                                                                                         False)
-                                                                                                                     (UniVar
-                                                                                                                        (UVGlobal
-                                                                                                                           2011)))
+                                                                                                                     (LocalVar
+                                                                                                                        (Index
+                                                                                                                           {unIndex =
+                                                                                                                              4})))
                                                                                                                   (LocalVar
                                                                                                                      (Index
                                                                                                                         {unIndex =
@@ -407,9 +424,10 @@
                                                                                                                            {unId =
                                                                                                                               2})))
                                                                                                                   False)
-                                                                                                               (UniVar
-                                                                                                                  (UVGlobal
-                                                                                                                     2012)))
+                                                                                                               (LocalVar
+                                                                                                                  (Index
+                                                                                                                     {unIndex =
+                                                                                                                        4})))
                                                                                                             (LocalVar
                                                                                                                (Index
                                                                                                                   {unIndex =
@@ -440,9 +458,16 @@
                                                                            {unId =
                                                                               3})))
                                                                   False)
-                                                               (UniVar
-                                                                  (UVGlobal
-                                                                     2013)))
+                                                               (GlobalVar
+                                                                  (Rigid
+                                                                     (RNameIntro
+                                                                        (UserName
+                                                                           "Unit")
+                                                                        Meta
+                                                                        (Id
+                                                                           {unId =
+                                                                              6})))
+                                                                  False))
                                                             (MetaFunElim
                                                                (GlobalVar
                                                                   (Rigid

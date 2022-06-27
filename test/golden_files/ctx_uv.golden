@@ -1,0 +1,88 @@
+((fromList
+    [(UVGlobal 1000, Nothing),
+     (UVGlobal 1001, Nothing),
+     (UVGlobal 1002, Nothing),
+     (UVGlobal 1003, Nothing),
+     (UVGlobal 1004, Nothing)],
+  fromList
+    [(UVGlobal 1000, UVGlobal 1001),
+     (UVGlobal 1001, UVGlobal 1000),
+     (UVGlobal 1002, UVGlobal 1004),
+     (UVGlobal 1003, UVGlobal 1004),
+     (UVGlobal 1004, UVGlobal 1003)],
+  fromList
+    [(SourcePos
+        {sourceName = "<TODO>",
+         sourceLine = Pos 2,
+         sourceColumn = Pos 37},
+      FailedUnify
+        (ObjFunType
+           Unification
+           (Rigid (TypeType Obj))
+           (ObjFunType
+              Explicit
+              (LocalVar (Index {unIndex = 0}))
+              (LocalVar (Index {unIndex = 1}))))
+        (ObjFunType
+           Explicit
+           (UniVar (UVGlobal 1002))
+           (UniVar (UVGlobal 1003)))),
+     (SourcePos
+        {sourceName = "<TODO>",
+         sourceLine = Pos 1,
+         sourceColumn = Pos 36},
+      FailedUnify
+        (ObjFunType
+           Unification
+           (Rigid (TypeType Obj))
+           (ObjFunType
+              Explicit
+              (LocalVar (Index {unIndex = 0}))
+              (LocalVar (Index {unIndex = 1}))))
+        (ObjFunType
+           Explicit
+           (UniVar (UVGlobal 1000))
+           (UniVar (UVGlobal 1001))))]),
+ Declare
+   Obj
+   (Rigid
+      (RNameIntro
+         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+   (ObjFunType
+      Unification
+      (Rigid (TypeType Obj))
+      (ObjFunType
+         Explicit
+         (LocalVar (Index {unIndex = 0}))
+         (LocalVar (Index {unIndex = 1}))))
+   (Declare
+      Obj
+      (Rigid
+         (RNameIntro
+            (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+      (ObjFunType
+         Unification
+         (Rigid (TypeType Obj))
+         (ObjFunType
+            Explicit
+            (LocalVar (Index {unIndex = 0}))
+            (LocalVar (Index {unIndex = 1}))))
+      (Define
+         (Rigid
+            (RNameIntro
+               (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+         (ObjFunIntro (LocalVar (Index {unIndex = 0})))
+         (Define
+            (Rigid
+               (RNameIntro
+                  (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+            (ObjFunIntro
+               (ObjFunElim
+                  (ObjFunElim
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "id") Obj (Id {unId = 0})))
+                        False)
+                     (UniVar (UVGlobal 1004)))
+                  (LocalVar (Index {unIndex = 0}))))
+            (Rigid (TypeType Obj))))))

@@ -31,9 +31,11 @@ concatMap f = runIdentity . concatMapM (Identity . f)
 
 head :: Seq a -> a
 head (x :<| _) = x
+head _ = error "error: `head`"
 
 tail :: Seq a -> Seq a
 tail (_ :<| xs) = xs
+tail _ = error "error: `tail`"
 
 filterMapM :: Monad m => (a -> m (Maybe b)) -> Seq a -> m (Seq b)
 filterMapM f Empty = pure Empty

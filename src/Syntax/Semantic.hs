@@ -44,7 +44,7 @@ data Term
   = ObjFunType PassMethod Term Closure
   | ObjFunIntro Closure
   | RecType (Seq (Field, Closure))
-  | RecIntro (Seq (Field, Term))
+  | RecIntro (Seq (Field, Closure))
   -- Meta level
   | MetaFunType PassMethod Term Closure
   | MetaFunIntro Closure

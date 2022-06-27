@@ -28,28 +28,28 @@ import Data.Text qualified as Text
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check (SourcePos term pos) goal = withPos pos (check term goal)
-check (TermAst (ObjLam (fmap (second unName) -> names) body)) goal =
-  checkBody names goal
-  where
-    checkBody :: Elab sig m => Seq (PassMethod, Name) -> N.Term -> m C.Term
-    checkBody Empty outTy@(N.viewFunType -> Nothing) = check body outTy
-    checkBody names (N.Neutral ty redex) = do
-      ty <- force ty
-      case ty of
-        Just ty -> checkBody names ty
-        Nothing -> error $ shower (names, redex)
-    checkBody ((pm1, name) :<| names) (N.ObjFunType pm2 inTy outTy)
-      | pm1 == pm2
-      = do
-        vOutTy <- evalClosure outTy
-        C.ObjFunIntro <$> bindLocal name inTy (checkBody names vOutTy)
-    checkBody names (N.ObjFunType Unification inTy outTy) = do
-      vOutTy <- evalClosure outTy
-      C.ObjFunIntro <$> bind (checkBody names vOutTy)
-    checkBody names ty = do
-      cTy <- readback ty
-      report (InferredFunType cTy)
-      pure (C.Rigid C.ElabError)
+-- check (TermAst (ObjLam (fmap (second unName) -> names) body)) goal =
+--   checkBody names goal
+--   where
+--     checkBody :: Elab sig m => Seq (PassMethod, Name) -> N.Term -> m C.Term
+--     checkBody Empty outTy@(N.viewFunType -> Nothing) = check body outTy
+--     checkBody names (N.Neutral ty redex) = do
+--       ty <- force ty
+--       case ty of
+--         Just ty -> checkBody names ty
+--         Nothing -> error $ shower (names, redex)
+--     checkBody ((pm1, name) :<| names) (N.ObjFunType pm2 inTy outTy)
+--       | pm1 == pm2
+--       = do
+--         vOutTy <- evalClosure outTy
+--         C.ObjFunIntro <$> bindLocal name inTy (checkBody names vOutTy)
+--     checkBody names (N.ObjFunType Unification inTy outTy) = do
+--       vOutTy <- evalClosure outTy
+--       C.ObjFunIntro <$> bind (checkBody names vOutTy)
+--     checkBody names ty = do
+--       cTy <- readback ty
+--       report (InferredFunType cTy)
+--       pure (C.Rigid C.ElabError)
 check term@(TermAst (Struct defs)) goal = do
   goal <- unfold goal
   case goal of
@@ -114,6 +114,7 @@ infer term = case term of
       checkBody ((name, inTy) :<| params) outTy =
         bindLocal name inTy (checkBody params outTy)
   TermAst (ObjLam (fmap (second unName) -> names) body) -> do
+    let !_ = tracePretty names
     inTys <- traverse (const freshTypeUV) names
     cInTys <- traverse readback inTys
     outTy <- freshTypeUV

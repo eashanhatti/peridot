@@ -33,7 +33,7 @@ data NormContext = NormContext
 data UVSolution = UVSol
   { unCtx :: NormContext
   , unTerm :: N.Term }
-
+  -- deriving (Show)
 instance Show UVSolution where
   show (UVSol _ e) = "(UVSol (" ++ show e ++ "))"
 
@@ -250,15 +250,19 @@ eval (C.RecElim str name) = do
     reded = do
       vStr <- unfold vStr
       case vStr of
-        N.RecIntro defs -> pure (snd <$> find (\(name', _) -> name == name') defs)
+        N.RecIntro defs -> do
+          vDefs <- evalFieldClos Empty defs
+          pure (snd <$> find (\(name', _) -> name == name') vDefs)
         _ -> do
           r <- findDefEq vStr
           case r of
-            Just (N.RecIntro defs) ->
-              pure (snd <$> find (\(name', _) -> name == name') defs)
+            Just (N.RecIntro defs) -> do
+              vDefs <- evalFieldClos Empty defs
+              pure (snd <$> find (\(name', _) -> name == name') vDefs)
             _ -> pure Nothing
   pure (N.Neutral reded (N.RecElim vStr name))
-eval (C.RecIntro defs) = N.RecIntro <$> evalFields defs
+eval (C.RecIntro defs) =
+  N.RecIntro <$> (traverse (\(fd, def) -> (fd ,) <$> closureOf def) defs)
 eval (C.RecType tys) =
   N.RecType <$> traverse (\(fd, ty) -> (fd ,) <$> closureOf ty) tys
 eval (C.Declare univ name ty cont) = do
@@ -333,7 +337,7 @@ readback' opt (N.ObjFunIntro body) =
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
   if lvl > N.envSize env || N.envSize env - lvl < 1 then
-    error "BUG: Local variable readback"
+    error ("BUG: Local variable readback " ++ show (lvl, N.envSize env, 1))
   else
     pure (C.LocalVar (Index (N.envSize env - lvl - 1)))
 readback' opt e@(N.Neutral sol redex) = do
@@ -352,10 +356,15 @@ readback' opt e@(N.Neutral sol redex) = do
     (Full, Just vSol, _) -> readback' Full vSol
     -- (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
     _ -> readbackRedex opt redex
-readback' opt (N.RecIntro fds) =
-  C.RecIntro <$> traverse (\(fd, def) -> (fd ,) <$> readback' opt def) fds
+readback' opt (N.RecIntro defs) = do
+  vDefs <- evalFieldClos Empty defs
+  cDefs <-
+    traverseWithIndex
+      (\i (fd, def) -> (fd ,) <$> bindN i (readback' opt def))
+      vDefs
+  pure (C.RecIntro cDefs)
 readback' opt (N.RecType tys) = do
-  vTys <- evalFieldTypes Empty tys
+  vTys <- evalFieldClos Empty tys
   cTys <-
     traverseWithIndex
       (\i (fd, ty) -> (fd ,) <$> bindN i (readback' opt ty))
@@ -363,16 +372,16 @@ readback' opt (N.RecType tys) = do
   pure (C.RecType cTys)
 readback' opt (N.Rigid rterm) = C.Rigid <$> traverse (readback' opt) rterm
 
-evalFieldTypes ::
+evalFieldClos ::
   HasCallStack => Norm sig m =>
   Seq N.Term ->
   Seq (Field, N.Closure) ->
   m (Seq (Field, N.Term))
-evalFieldTypes _ Empty = pure Empty
-evalFieldTypes defs ((fd, ty) :<| tys) = do
+evalFieldClos _ Empty = pure Empty
+evalFieldClos defs ((fd, ty) :<| tys) = do
   vTy <- appClosureN ty defs
   l <- level
-  vTys <- bind (evalFieldTypes (N.LocalVar l <| defs) tys)
+  vTys <- bind (evalFieldClos (N.LocalVar l <| defs) tys)
   pure ((fd, vTy) <| vTys)
 
 readbackRedex :: HasCallStack => Norm sig m => ReadbackDepth -> N.Redex -> m C.Term

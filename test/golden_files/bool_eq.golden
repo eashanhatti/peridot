@@ -1,20 +1,20 @@
 ((fromList
-    [(UVGlobal 1000, Just (Rigid (TwoType))),
-     (UVGlobal 1001, Just (Rigid (TwoType))),
-     (UVGlobal 1002, Just (Rigid (TwoIntro0))),
-     (UVGlobal 1003, Just (Rigid (TwoType))),
-     (UVGlobal 1004, Just (Rigid (TwoType))),
+    [(UVGlobal 1000, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1001, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1002, Just (UVSol ((Rigid (TwoIntro0))))),
+     (UVGlobal 1003, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1004, Just (UVSol ((Rigid (TwoType))))),
      (UVGlobal 1005, Nothing),
-     (UVGlobal 1006, Just (Rigid (TwoType))),
-     (UVGlobal 1007, Just (Rigid (TwoType))),
-     (UVGlobal 1008, Just (Rigid (TwoType))),
-     (UVGlobal 1009, Just (Rigid (TwoType)))],
+     (UVGlobal 1006, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1007, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1008, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1009, Just (UVSol ((Rigid (TwoType)))))],
   fromList [],
   fromList
     [(SourcePos
         {sourceName = "<TODO>",
          sourceLine = Pos 5,
-         sourceColumn = Pos 32},
+         sourceColumn = Pos 29},
       FailedUnify
         (Rigid
            (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro1)))
@@ -40,7 +40,7 @@
          (Rigid
             (RNameIntro
                (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
-         (Rigid (ObjIdIntro (UniVar (UVGlobal 1002))))
+         (Rigid (ObjIdIntro (Rigid TwoIntro0)))
          (Define
             (Rigid
                (RNameIntro

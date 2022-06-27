@@ -1,6 +1,27 @@
-((fromList [(UVGlobal 1000, Just (Rigid (TwoType)))],
-  fromList [],
-  fromList []),
+((fromList
+    [(UVGlobal 1000, Nothing),
+     (UVGlobal 1001, Nothing),
+     (UVGlobal 1002, Just (UVSol ((Rigid (TwoType)))))],
+  fromList
+    [(UVGlobal 1000, UVGlobal 1001),
+     (UVGlobal 1001, UVGlobal 1000)],
+  fromList
+    [(SourcePos
+        {sourceName = "<TODO>",
+         sourceLine = Pos 4,
+         sourceColumn = Pos 5},
+      FailedUnify
+        (ObjFunType
+           Unification
+           (Rigid (TypeType Obj))
+           (ObjFunType
+              Explicit
+              (LocalVar (Index {unIndex = 0}))
+              (LocalVar (Index {unIndex = 1}))))
+        (ObjFunType
+           Explicit
+           (UniVar (UVGlobal 1000))
+           (UniVar (UVGlobal 1001))))]),
  Declare
    Obj
    (Rigid
@@ -29,8 +50,7 @@
             (Rigid
                (RNameIntro
                   (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
-            (ObjFunIntro
-               (ObjFunIntro (LocalVar (Index {unIndex = 0}))))
+            (ObjFunIntro (LocalVar (Index {unIndex = 0})))
             (Define
                (Rigid
                   (RNameIntro
@@ -41,7 +61,7 @@
                         (Rigid
                            (RNameIntro (UserName "id") Obj (Id {unId = 0})))
                         False)
-                     (UniVar (UVGlobal 1000)))
+                     (Rigid TwoType))
                   (Rigid TwoIntro0))
                (Define
                   (Rigid

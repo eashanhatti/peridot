@@ -1,5 +1,6 @@
 ((fromList
-    [(UVGlobal 1000, Just (Rigid (TypeType Obj)))],
+    [(UVGlobal 1000,
+      Just (UVSol ((Rigid (TypeType Obj)))))],
   fromList [],
   fromList []),
  Declare

@@ -220,7 +220,7 @@ occurs vis gl term = case term of
   RecType tys ->
     void (traverse (\ty -> evalClosure ty >>= occurs vis gl) (fmap snd tys))
   RecIntro defs ->
-    void (traverse (occurs vis gl) (fmap snd defs))
+    void (traverse (\def -> evalClosure def >>= occurs vis gl) (fmap snd defs))
   LocalVar _ -> pure ()
   Rigid rterm -> void (traverse (occurs vis gl) rterm)
   Neutral _ (UniVar gl') -> do
@@ -282,7 +282,7 @@ unify' term1 term2 =
       pure noop
     simple (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure noop
     simple (RecType tys1) (RecType tys2) | length tys1 == length tys2 = do
-      coes <- go Empty (zip tys1 tys2)
+      coes <- goFields Empty unify' (zip tys1 tys2)
       if all isNoop coes then
         pure noop
       else
@@ -292,31 +292,28 @@ unify' term1 term2 =
               (\(fd, coe) -> do
                 (fd ,) <$> applyCoe coe (C.RecElim e fd))
               (zip (fmap fst tys1) coes))
-      where
-        go ::
-          Unify sig m =>
-          Seq Term ->
-          Seq ((Field, Closure), (Field, Closure)) ->
-          m (Seq (Coercion sig m))
-        go _ Empty = pure Empty
-        go defs (((fd1, ty1), (fd2, ty2)) :<| tys) = do
-          when (fd1 /= fd2) (throwError ())
-          vTy1 <- appClosureN ty1 defs
-          vTy2 <- appClosureN ty2 defs
-          coe <- unify' vTy1 vTy2
-          l <- level
-          (coe <|) <$> bind (go (LocalVar l <| defs) tys)
-    simple (RecIntro fds1) (RecIntro fds2) = do
-      traverse_
-        (\((name1, fd1), (name2, fd2)) -> do
-          when (name1 /= name2) (throwError ())
-          unifyS' fd1 fd2)
-        (zip fds1 fds2)
+    simple (RecIntro defs1) (RecIntro defs2) = do
+      goFields Empty (\def1 def2 -> unifyS' def1 def2 *> pure noop) (zip defs1 defs2)
       pure noop
     simple (Rigid term1) (Rigid term2) = do
       unifyRigid term1 term2
       pure noop
     simple _ _ = throwError ()
+
+    goFields ::
+      Unify sig m =>
+      Seq Term ->
+      (Term -> Term -> m (Coercion sig m)) ->
+      Seq ((Field, Closure), (Field, Closure)) ->
+      m (Seq (Coercion sig m))
+    goFields _ u Empty = pure Empty
+    goFields defs u (((fd1, ty1), (fd2, ty2)) :<| tys) = do
+      when (fd1 /= fd2) (throwError ())
+      vTy1 <- appClosureN ty1 defs
+      vTy2 <- appClosureN ty2 defs
+      coe <- u vTy1 vTy2
+      l <- level
+      (coe <|) <$> bind (goFields (LocalVar l <| defs) u tys)
 
     complex :: Unify sig m => Term -> Term -> m (Coercion sig m)
     complex (Neutral term1 (GlobalVar _ True)) term2 = do
