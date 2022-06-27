@@ -440,22 +440,6 @@ scopeUVState act = do
     , unUVEqs = unUVEqs state })
   pure r
 
--- freshVCUV :: Elab sig m => m N.ValueCategory
--- freshVCUV = do
---   state <- get
---   put (state
---     { unVCUVs = insert (unNextUV state) Nothing (unVCUVs state)
---     , unNextUV = unNextUV state + 1 })
---   pure (N.VCUniVar (unNextUV state))
-
--- freshUniverseUV :: Elab sig m => m Universe
--- freshUniverseUV = do
---   state <- get
---   put (state
---     { unUnivUVs = insert (unNextUV state) Nothing (unUnivUVs state)
---     , unNextUV = unNextUV state + 1 })
---   pure (SUniVar (unNextUV state))
-
 report :: Elab sig m => Error -> m ()
 report err = do
   state <- get

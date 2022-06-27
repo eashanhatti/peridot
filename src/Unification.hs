@@ -26,6 +26,10 @@ import Control.Applicative
 import Prelude hiding(zip, length, filter, elem)
 import Extra
 
+data Error
+  = OccursCheck
+  |
+
 -- coerce term of inferred type to term of expected type
 newtype Coercion sig m =
   Coe (Unify sig m => Maybe (C.Term -> m C.Term))
@@ -323,22 +327,16 @@ unify' term1 term2 =
     complex term1 (Neutral term2 (GlobalVar _ True)) = do
       term2 <- fromJust <$> force term2
       unify' term1 term2
-    complex (viewObjFunElims -> Just (Neutral _ (UniVar gl), spine)) term =
-      withVisited gl do
-        sol <- solve C.ObjFunIntro spine term
-        putTypeSolInf gl sol
-    complex term (viewObjFunElims -> Just (Neutral _ (UniVar gl), spine)) =
-      withVisited gl do
-        sol <- solve C.ObjFunIntro spine term
-        putTypeSolExp gl sol
-    complex (viewMetaFunElims -> Just (Neutral _ (UniVar gl), spine)) term =
-      withVisited gl do
-        sol <- solve C.MetaFunIntro spine term
-        putTypeSolInf gl sol
-    complex term (viewMetaFunElims -> Just (Neutral _ (UniVar gl), spine)) =
-      withVisited gl do
-        sol <- solve C.MetaFunIntro spine term
-        putTypeSolExp gl sol
+    complex (Neutral prevSol (UniVar gl)) term = withVisited gl do
+      prevSol <- force prevSol
+      case prevSol of
+        Just prevSol -> unify' prevSol term
+        Nothing -> putTypeSolInf gl term
+    complex term (Neutral prevSol (UniVar gl)) = withVisited gl do
+      prevSol <- force prevSol
+      case prevSol of
+        Just prevSol -> unify' term prevSol
+        Nothing -> putTypeSolExp gl term
     complex (Rigid (SingType _ term)) _ =
       pure (liftCoe \e -> do
         vE <- eval e
@@ -367,71 +365,6 @@ unify' term1 term2 =
         Just term2 -> unify' term1 term2
         Nothing -> throwError ()
     complex term1 term2 = throwError ()
-
-solve :: Unify sig m => (C.Term -> C.Term) -> Seq Term -> Term -> m Term
-solve fun spine rhs = do
-  vars <- localVars spine
-  let
-    vars' =
-      Set.fromList .
-      toList .
-      filter (\lvl -> length (filter (== lvl) vars) == 1) $
-      vars
-  allowable mempty vars' rhs
-  cRhs <- readback rhs
-  eval (foldl' (\acc _ -> fun acc) cRhs spine)
-  where
-    localVars :: Unify sig m => Seq Term -> m (Seq Level)
-    localVars Empty = pure mempty
-    localVars (e :<| spine) = do
-      vars <- localVars spine
-      e <- unfold e
-      case e of
-        LocalVar lvl -> pure (lvl <| vars)
-        _ -> pure vars
-
-    allowable :: Unify sig m => Set Id -> Set Level -> Term -> m ()
-    allowable vis vars (ObjFunType _ inTy outTy) = do
-      allowable vis vars inTy
-      l <- level
-      evalClosure outTy >>= allowable vis (Set.insert l vars)
-    allowable vis vars (MetaFunType _ inTy outTy) = do
-      allowable vis vars inTy
-      l <- level
-      evalClosure outTy >>= allowable vis (Set.insert l vars)
-    allowable vis vars (ObjFunIntro body) = do
-      l <- level
-      evalClosure body >>= allowable vis (Set.insert l vars)
-    allowable vis vars (MetaFunIntro body) = do
-      l <- level
-      evalClosure body >>= allowable vis (Set.insert l vars)
-    allowable vis vars (RecIntro defs) =
-      traverse_ (\(_, def) -> allowable vis vars def) defs
-    allowable vis vars (RecType tys) = do
-      vTys <- evalFieldTypes Empty tys
-      l <- level
-      traverseWithIndex
-        (\i (_, ty) ->
-          allowable vis (Set.fromList [l .. l + fromIntegral i] <> vars) ty)
-        vTys
-      pure ()
-    allowable vis vars (LocalVar lvl) =
-      if Set.member lvl vars then
-        pure ()
-      else
-        throwError ()
-    allowable vis vars (Rigid rterm) = traverse_ (allowable vis vars) rterm
-    allowable vis vars (Neutral term redex) = do
-      term <- force term
-      case term of
-        Just term -> case redex of
-          GlobalVar (Rigid (NameIntro _ did)) _ ->
-            if Set.member did vis then
-              pure ()
-            else
-              allowable (Set.insert did vis) vars term
-          _ -> allowable vis vars term
-        Nothing -> traverse_ (allowable vis vars) redex
 
 unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unifyS' term1 term2 = do
