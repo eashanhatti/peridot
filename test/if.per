@@ -1,16 +1,16 @@
 /*
 Dependent function types. The return type of `example` depends on the value of the parameter
 */
-define example
-  : Function(b: Bool) ->
+def example
+  : Fun(b: Bool) ->
       if b {
         Bool
       } else {
         Equal(true, true)
       }
-  = function(b) =>
+  = fun(b) =>
       if b {
         true
       } else {
-        reflexive
+        refl
       }

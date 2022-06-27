@@ -17,10 +17,10 @@ import Extra
 import Data.List qualified as L
 
 keywords =
-  [ "Function", "function", "Type", "let", "in", "Bool", "true", "false"
-  , "Record", "record", "if", "else", "elseif", "Equal", "reflexive", "patch"
-  , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text", "define"
-  , "metadefine", "axiom", "#output", "proof", "variable", "Code" ]
+  [ "Fun", "fun", "Type", "let", "in", "Bool", "true", "false"
+  , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
+  , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text", "def"
+  , "metadef", "axiom", "#output", "prove", "metavar", "Code" ]
 
 ws :: Parser ()
 ws =
@@ -62,7 +62,7 @@ freshId = do
 
 passMethod :: Parser PassMethod
 passMethod =
-  try (string "inferred" *> pure Unification) <|>
+  try (string "inf" *> pure Unification) <|>
   string "dontcare" *> pure DontCare
 
 piE ::
@@ -70,7 +70,7 @@ piE ::
   (PassMethod -> NameAst -> TermAst -> TermAst -> Term) ->
   Parser Term
 piE s c = do
-  string "Function"; ws
+  string s; ws
   char '('; ws
   inTys <-
     sepBy1
@@ -85,7 +85,7 @@ piE s c = do
         pure (Explicit, Nothing, ty)))
       commaWs
   char ')'; ws
-  string s; ws
+  string "->"; ws
   outTy <- prec0
   let
     go :: [(PassMethod, Maybe NameAst, TermAst)] -> Term
@@ -126,7 +126,7 @@ app = do
   args <-
     sepBy1
       (do
-        pm <- fromMaybe Explicit <$> optional (string "explicit" *> pure Unification); ws
+        pm <- fromMaybe Explicit <$> optional (string "ex" *> pure Unification); ws
         arg <- prec0
         pure (pm, arg))
       commaWs
@@ -233,12 +233,12 @@ equal = do
 
 refl :: Parser Term
 refl = do
-  string "reflexive"
+  string "refl"
   pure Refl
 
 sig :: Parser Term
 sig = do
-  string "Record"; ws
+  string "Struct"; ws
   char '{'; ws
   tys <-
     sepBy
@@ -253,7 +253,7 @@ sig = do
 
 struct :: Parser Term
 struct = do
-  string "record"; ws
+  string "struct"; ws
   char '{'; ws
   defs <-
     sepBy
@@ -441,13 +441,13 @@ prec0 =
   try (do
     pos <- getSourcePos
     e <-
-      try (piE "->" ObjPi) <|>
-      try (piE "~>" MetaPi) <|>
+      try (piE "Fun" ObjPi) <|>
+      try (piE "MetaFun" MetaPi) <|>
       try forallProp <|>
       -- try existsProp <|>
       try quoteObj <|>
-      try (lam "function" ObjLam) <|>
-      try (lam "metafunction" (\ps -> MetaLam (fmap snd ps))) <|>
+      try (lam "fun" ObjLam) <|>
+      try (lam "metafun" (\ps -> MetaLam (fmap snd ps))) <|>
       try app <|>
       try equal <|>
       try liftObj <|>
@@ -472,7 +472,7 @@ decl = do
 
 define :: Parser Declaration
 define = do
-  string "define"; ws
+  string "def"; ws
   n <- name; ws
   char ':'; ws
   ty <- prec0; ws
@@ -482,7 +482,7 @@ define = do
 
 metadefine :: Parser Declaration
 metadefine = do
-  string "metadefine"; ws
+  string "metadef"; ws
   n <- name; ws
   char ':'; ws
   ty <- prec0; ws
@@ -500,13 +500,13 @@ axiom = do
 
 proof :: Parser Declaration
 proof = do
-  string "proof"; ws
+  string "prove"; ws
   ty <- prec0
   pure (Prove ty)
 
 fresh :: Parser Declaration
 fresh = do
-  string "variable"; ws
+  string "metavar"; ws
   n <- name; ws
   char ':'; ws
   ty <- prec0

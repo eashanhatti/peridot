@@ -33,7 +33,9 @@ data NormContext = NormContext
 data UVSolution = UVSol
   { unCtx :: NormContext
   , unTerm :: N.Term }
-  deriving (Show)
+
+instance Show UVSolution where
+  show (UVSol _ e) = "(UVSol (" ++ show e ++ "))"
 
 type Norm sig m =
   ( Has (Reader NormContext) sig m )
@@ -107,6 +109,24 @@ uvRedex gl = do
             eqs <- unUVEqs <$> ask
             case Map.lookup gl eqs of
               Just gl' -> uvRedex gl'
+              Nothing -> pure Nothing
+
+findUVSol :: Norm sig m => Global -> m (Maybe UVSolution)
+findUVSol gl = do
+  visited <- unVisited <$> ask
+  if Set.member gl visited then
+    pure Nothing
+  else
+    local
+      (\ctx -> ctx { unVisited = Set.insert gl (unVisited ctx) })
+      do
+        uvs <- unTypeUVs <$> ask
+        case Map.lookup gl uvs of
+          Just sol -> pure (Just sol)
+          Nothing -> do
+            eqs <- unUVEqs <$> ask
+            case Map.lookup gl eqs of
+              Just gl' -> findUVSol gl'
               Nothing -> pure Nothing
 
 -- gvRedex :: Norm sig m => Id -> m (Maybe N.Term)
@@ -320,13 +340,15 @@ readback' opt e@(N.Neutral sol redex) = do
   vSol <- force sol
   case (opt, vSol, redex) of
     (notNone -> True, Just vSol, N.UniVar gl) -> do
-      lCtx <- unCtx . (Map.! gl) . unTypeUVs <$> ask
-      let !_ = tracePretty (vSol, lCtx)
-      local
-        (\ctx -> lCtx
-          { unTypeUVs = unTypeUVs ctx
-          , unUVEqs = unUVEqs ctx })
-        (readback' opt vSol)
+      sol <- findUVSol gl
+      case sol of
+        Just (unCtx -> lCtx) ->
+          local
+            (\ctx -> lCtx
+              { unTypeUVs = unTypeUVs ctx
+              , unUVEqs = unUVEqs ctx })
+            (readback' opt vSol)
+        Nothing -> error "TODO: Error reporting"
     (Full, Just vSol, _) -> readback' Full vSol
     -- (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
     _ -> readbackRedex opt redex

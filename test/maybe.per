@@ -1,42 +1,42 @@
 /*
-The `Maybe` datatype, showcasing dependent records. The type of the `data` field is dependent on the value of the `tag` field. If `tag = true`, `data : A`, and if `tag = false`, `data : Record {}` (`Record {}` is essentially the unit type)
+The `Maybe` datatype, showcasing dependent structs. The type of the `data` field is dependent on the value of the `tag` field. If `tag = true`, `data : A`, and if `tag = false`, `data : Struct {}` (`Struct {}` is essentially the unit type)
 */
 
-define Maybe
-  : Function(Type) -> Type
-  = function(A) =>
-      Record {
+def Maybe
+  : Fun(Type) -> Type
+  = fun(A) =>
+      Struct {
         tag: Bool,
         data:
           if tag {
             A
           } else {
-            Record {}
+            Struct {}
           }
       }
 
-/* Constructing dependent records */
-define nothing
-  : Function(inferred A: Type) -> Maybe(A)
-  = function() =>
-      record {
+/* Constructing dependent structs */
+def nothing
+  : Fun(inf A: Type) -> Maybe(A)
+  = fun() =>
+      struct {
         tag = false,
-        data = record {}
+        data = struct {}
       }
 
-/* Constructing dependent records */
-define just
-  : Function(inferred A: Type, A) -> Maybe(A)
-  = function(x) =>
-      record {
+/* Constructing dependent structs */
+def just
+  : Fun(inf A: Type, A) -> Maybe(A)
+  = fun(x) =>
+      struct {
         tag = true,
         data = x
       }
 
-/* The `map` function, showcasing dependently typed `if`. The typechecker knows that in the first branch `maybe.data : Record {}` (because `maybe.tag = true`). In the second branch, the typechecker knows that `maybe.data : A` (because maybe.tag = false) */
-define map
-  : Function(A: Type, Function(A) -> A, Maybe(A)) -> Maybe(A)
-  = function(A, func, maybe) =>
+/* The `map` function, showcasing dependently typed `if`. The typechecker knows that in the first branch `maybe.data : Struct {}` (because `maybe.tag = true`). In the second branch, the typechecker knows that `maybe.data : A` (because maybe.tag = false) */
+def map
+  : Fun(A: Type, Fun(A) -> A, Maybe(A)) -> Maybe(A)
+  = fun(A, func, maybe) =>
       if maybe.tag {
         just(maybe.data)
       } else {

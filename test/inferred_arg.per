@@ -1,10 +1,10 @@
 /* Inferred arguments. The typechecker figures out the value of an inferred argument when the function is called, based on the types of the other arguments. Because `x : A`, the typechecker will know the value of `A` once the type of `x` is known */
-define id
-  : Function(inferred A: Type, A) -> A
-  = function(x) => x
+def id
+  : Fun(inf A: Type, A) -> A
+  = fun(x) => x
 
 /* `x = true`, so the typechecker knows `A = Bool` */
-define x: Bool = id(true)
+def x: Bool = id(true)
 
-/* Inferred arguments can also be explicitly pass with the `explicit` keyword */
-define y: Bool = id(explicit Bool, true)
+/* Inferred arguments can also be explicitly pass with the `ex` keyword */
+def y: Bool = id(ex Bool, true)

@@ -1,19 +1,19 @@
 axiom CType: MetaType
 axiom Int: CType
 
-axiom CTerm: Function(CType) ~> MetaType
+axiom CTerm: MetaFun(CType) -> MetaType
 axiom zero: CTerm(Int)
 axiom one: CTerm(Int)
-axiom add: Function(CTerm(Int), CTerm(Int)) ~> CTerm(Int)
-axiom var: Function(Text) ~> CTerm(Int)
+axiom add: MetaFun(CTerm(Int), CTerm(Int)) -> CTerm(Int)
+axiom var: MetaFun(Text) -> CTerm(Int)
 
 axiom CStmt: MetaType
-axiom return: Function(CTerm(Int)) ~> CStmt
+axiom return: MetaFun(CTerm(Int)) -> CStmt
 
 axiom CDecl: MetaType
-axiom fun: Function(CType, Text, CType, CStmt) ~> CDecl
+axiom func: MetaFun(CType, Text, CType, CStmt) -> CDecl
 
-axiom CompileTerm: Function(inferred A: CType, CTerm(A), Text) ~> MetaType
+axiom CompileTerm: MetaFun(inf A: CType, CTerm(A), Text) -> MetaType
 axiom compile_add:
   Forall(e1: CTerm(Int), e2: CTerm(Int), t1: Text, t2: Text),
   Implies(
@@ -25,8 +25,8 @@ axiom compile_zero: CompileTerm(zero, "0")
 axiom compile_one: CompileTerm(one, "1")
 axiom compile_var: Forall(t: Text), CompileTerm(var(t), t)
 
-axiom CompileDecl: Function(CDecl, Text) ~> MetaType
-axiom compile_fun:
+axiom CompileDecl: MetaFun(CDecl, Text) -> MetaType
+axiom compile_func:
   Forall(x: Text, inTy: CType, cInTy: Text, outTy: CType, cOutTy: Text, body: CStmt, cBody: Text),
   Implies(
     CompileType(inTy, cInTy),
@@ -34,18 +34,18 @@ axiom compile_fun:
       CompileType(outTy, cOutTy),
       Implies(
         CompileStmt(body, cBody),
-        CompileDecl(fun(inTy, x, outTy, body), cOutTy ++ " f(" ++ cInTy ++ " " ++ x ++ ") { " ++ cBody ++ " }"))))
+        CompileDecl(func(inTy, x, outTy, body), cOutTy ++ " f(" ++ cInTy ++ " " ++ x ++ ") { " ++ cBody ++ " }"))))
 
-axiom CompileType: Function(CType, Text) ~> MetaType
+axiom CompileType: MetaFun(CType, Text) -> MetaType
 axiom compile_int: CompileType(Int, "int")
 
-axiom CompileStmt: Function(CStmt, Text) ~> MetaType
+axiom CompileStmt: MetaFun(CStmt, Text) -> MetaType
 axiom compile_return:
   Forall(x: CTerm(Int), t: Text),
   Implies(
     CompileTerm(x, t),
     CompileStmt(return(x), "return " ++ t ++ ";"))
 
-variable t: Text
-proof CompileDecl(fun(Int, "x", Int, return(add(one, var("x")))), t)
+metavar t: Text
+prove CompileDecl(func(Int, "x", Int, return(add(one, var("x")))), t)
 #output OUTPUT.c t

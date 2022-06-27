@@ -112,15 +112,15 @@ loop = do
                   pure ()
                 if not . null . unLogvarNames $ qs then do
                   TIO.putStrLn "  \ESC[32mSolutions\ESC[0m:"
-                  flip traverse (Set.toList . Map.keysSet . unLogvarNames $ qs) \gl ->
+                  flip traverse (Set.toList . Map.keysSet . unLogvarNames $ qs) \gl -> do
+                    -- let !_ = tracePretty (tuvs, eqs)
                     let
                       UserName name = unLogvarNames qs ! gl
                       sol = zonk (eval (C.UniVar gl)) tuvs eqs
-                    in
-                      case sol of
-                        C.UniVar _ ->
-                          TIO.putStrLn ("    \ESC[33mNo solution for\ESC[0m " <> name)
-                        _ -> TIO.putStrLn ("    " <> name <> " = " <> prettyPure sol)
+                    case sol of
+                      C.UniVar _ ->
+                        TIO.putStrLn ("    \ESC[33mNo solution for\ESC[0m " <> name)
+                      _ -> TIO.putStrLn ("    " <> name <> " = " <> prettyPure sol)
                   TIO.putStrLn ""
                   pure ()
                 else

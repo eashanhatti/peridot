@@ -1,8 +1,8 @@
-axiom List: Function(MetaType) ~> MetaType
-axiom nil: Function(inferred A: MetaType) ~> List(A)
-axiom cons: Function(inferred A: MetaType, A, List(A)) ~> List(A)
+axiom List: MetaFun(MetaType) -> MetaType
+axiom nil: MetaFun(inf A: MetaType) -> List(A)
+axiom cons: MetaFun(inf A: MetaType, A, List(A)) -> List(A)
 
-axiom Append: Function(inferred A: MetaType, List(A), List(A), List(A)) ~> MetaType
+axiom Append: MetaFun(inf A: MetaType, List(A), List(A), List(A)) -> MetaType
 axiom append_nil:
   Forall(A: MetaType), Forall(xs: List(A)),
   Append(nil, xs, xs)
@@ -15,11 +15,10 @@ axiom append_cons:
 axiom Unit: MetaType
 axiom unit: Unit
 
-variable xs: List(Unit)
-proof Append(nil, nil, xs)
+metavar xs: List(Unit)
+prove Append(nil, nil, xs)
 
-/*
-variable ys: List(Unit)
-proof Append(cons(unit, nil), cons(unit, nil), ys)
-proof Append(cons(unit, nil), cons(unit, nil), cons(unit, cons(unit, nil)))
+metavar ys: List(Unit)
+prove Append(cons(unit, nil), cons(unit, nil), ys)
+/*prove Append(cons(unit, nil), cons(unit, nil), cons(unit, cons(unit, nil)))
 */
