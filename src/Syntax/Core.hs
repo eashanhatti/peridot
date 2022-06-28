@@ -58,6 +58,12 @@ viewObjFunIntros (ObjFunIntro body) =
   in (n + 1, body')
 viewObjFunIntros e = (0, e)
 
+viewMetaFunIntros :: Term -> (Natural, Term)
+viewMetaFunIntros (MetaFunIntro body) =
+  let (n, body') = viewObjFunIntros body
+  in (n + 1, body')
+viewMetaFunIntros e = (0, e)
+
 viewFunElims :: Term -> (Term, Seq Term)
 viewFunElims (ObjFunElim lam arg) =
   let (lam', args) = viewFunElims lam

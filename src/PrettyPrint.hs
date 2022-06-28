@@ -56,10 +56,14 @@ pretty term =
           (\(name, (pm, inTy)) -> ((prettyPPm pm <> name <> ": ") <>) <$> pretty inTy)
           (zip names inTys)
       tOutTy <- bindManyLocals names (pretty outTy)
-      pure ("Fun(" <> intercalate ", " (toList params) <> ") ~> " <> tOutTy)
+      pure ("MetaFun(" <> intercalate ", " (toList params) <> ") -> " <> tOutTy)
     (viewObjFunIntros -> (n@((> 0) -> True), body)) -> do
       names <- replicateM (fromIntegral n) freshName
       (("fun(" <> intercalate ", " names <> ") => ") <>) <$>
+        bindManyLocals (fromList names) (pretty body)
+    (viewMetaFunIntros -> (n@((> 0) -> True), body)) -> do
+      names <- replicateM (fromIntegral n) freshName
+      (("metafun(" <> intercalate ", " names <> ") => ") <>) <$>
         bindManyLocals (fromList names) (pretty body)
     TwoElim scr body1 body2 ->
       combine
