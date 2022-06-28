@@ -1,1 +1,1 @@
-def _: Struct {} = (fun(x) => x)(struct {})
+axiom b: p :- q & c

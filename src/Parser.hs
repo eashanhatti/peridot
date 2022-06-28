@@ -22,6 +22,14 @@ keywords =
   , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text", "def"
   , "metadef", "axiom", "#output", "prove", "metavar", "Code" ]
 
+keyword :: Parser ()
+keyword = do
+  s <- some nameChar
+  if elem s keywords then
+    pure ()
+  else
+    empty
+
 ws :: Parser ()
 ws =
   void (many 
@@ -30,6 +38,14 @@ ws =
     try (void (char '\r')) <|>
     try (void (char '\t')) <|>
     comment))
+
+wsNc :: Parser ()
+wsNc =
+  void (many
+    (try (char ' ') <|>
+    try (char '\n') <|>
+    try (char '\r') <|>
+    char '\t'))
 
 comment :: Parser ()
 comment = void do
@@ -41,6 +57,12 @@ comment = void do
 
 commaWs :: Parser ()
 commaWs = void (ws *> char ',' *> ws)
+
+ampWs :: Parser ()
+ampWs = void (ws *> char '&' *> ws)
+
+barWs :: Parser ()
+barWs = void (ws *> char '|' *> ws)
 
 semiWs :: Parser ()
 semiWs = void (ws *> char ';' *> ws)
@@ -462,7 +484,9 @@ decl = do
     try proof <|>
     try fresh <|>
     try output <|>
-    axiom
+    rel
+    -- try rel <|>
+    -- axiom
   pure (SourcePos (DeclAst d did) pos)
 
 define :: Parser Declaration
@@ -484,6 +508,19 @@ metadefine = do
   char '='; ws
   def <- prec0
   pure (MetaTerm n ty def)
+
+rel :: Parser Declaration
+rel = do
+  string "axiom"; ws
+  n <- name; ws
+  char ':'; ws
+  hd <- prec0; ws
+  string ":-"; ws
+  a:as <- sepBy1
+    prec0
+    (notFollowedBy (ws *> (void (try keyword) <|> eof)) *> ampWs)
+  let aAs = foldl' (\acc a -> TermAst (DisjProp a acc)) a as
+  pure (Axiom n (TermAst (ImplProp aAs hd)))
 
 axiom :: Parser Declaration
 axiom = do
