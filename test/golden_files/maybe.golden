@@ -1,0 +1,161 @@
+((fromList
+    [(UVGlobal 1000,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (TwoElim
+                  (Neutral
+                     _
+                     (RecElim
+                        (LocalVar Level {unLevel = 2})
+                        (Field {unField = "tag"})))
+                  (LocalVar Level {unLevel = 0})
+                  (RecType fromList [])))))),
+     (UVGlobal 1001,
+      Just (UVSol ((LocalVar Level {unLevel = 0}))))],
+  fromList [],
+  fromList []),
+ Declare
+   Obj
+   (Rigid
+      (RNameIntro
+         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+   (ObjFunType
+      Explicit
+      (Rigid (TypeType Obj))
+      (Rigid (TypeType Obj)))
+   (Define
+      (Rigid
+         (RNameIntro
+            (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+      (ObjFunIntro
+         (RecType
+            (fromList
+               [(Field {unField = "tag"}, Rigid TwoType),
+                (Field {unField = "data"},
+                 TwoElim
+                   (LocalVar (Index {unIndex = 0}))
+                   (LocalVar (Index {unIndex = 1}))
+                   (RecType (fromList [])))])))
+      (Declare
+         Obj
+         (Rigid
+            (RNameIntro
+               (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+         (ObjFunType
+            Unification
+            (Rigid (TypeType Obj))
+            (ObjFunElim
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Maybe") Obj (Id {unId = 0})))
+                  False)
+               (LocalVar (Index {unIndex = 0}))))
+         (Declare
+            Obj
+            (Rigid
+               (RNameIntro
+                  (UserName "<PLACEHOLDER>") Obj (Id {unId = 2})))
+            (ObjFunType
+               Unification
+               (Rigid (TypeType Obj))
+               (ObjFunType
+                  Explicit
+                  (LocalVar (Index {unIndex = 0}))
+                  (ObjFunElim
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "Maybe") Obj (Id {unId = 0})))
+                        False)
+                     (LocalVar (Index {unIndex = 1})))))
+            (Declare
+               Obj
+               (Rigid
+                  (RNameIntro
+                     (UserName "<PLACEHOLDER>") Obj (Id {unId = 3})))
+               (ObjFunType
+                  Explicit
+                  (Rigid (TypeType Obj))
+                  (ObjFunType
+                     Explicit
+                     (ObjFunType
+                        Explicit
+                        (LocalVar (Index {unIndex = 0}))
+                        (LocalVar (Index {unIndex = 1})))
+                     (ObjFunType
+                        Explicit
+                        (ObjFunElim
+                           (GlobalVar
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "Maybe") Obj (Id {unId = 0})))
+                              False)
+                           (LocalVar (Index {unIndex = 1})))
+                        (ObjFunElim
+                           (GlobalVar
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "Maybe") Obj (Id {unId = 0})))
+                              False)
+                           (LocalVar (Index {unIndex = 2}))))))
+               (Define
+                  (Rigid
+                     (RNameIntro
+                        (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+                  (ObjFunIntro
+                     (RecIntro
+                        (fromList
+                           [(Field {unField = "tag"}, Rigid TwoIntro1),
+                            (Field {unField = "data"},
+                             RecIntro (fromList []))])))
+                  (Define
+                     (Rigid
+                        (RNameIntro
+                           (UserName "<PLACEHOLDER>") Obj (Id {unId = 2})))
+                     (ObjFunIntro
+                        (ObjFunIntro
+                           (RecIntro
+                              (fromList
+                                 [(Field {unField = "tag"}, Rigid TwoIntro0),
+                                  (Field {unField = "data"},
+                                   LocalVar (Index {unIndex = 1}))]))))
+                     (Define
+                        (Rigid
+                           (RNameIntro
+                              (UserName "<PLACEHOLDER>") Obj (Id {unId = 3})))
+                        (ObjFunIntro
+                           (ObjFunIntro
+                              (ObjFunIntro
+                                 (TwoElim
+                                    (RecElim
+                                       (LocalVar (Index {unIndex = 0}))
+                                       (Field {unField = "tag"}))
+                                    (ObjFunElim
+                                       (ObjFunElim
+                                          (GlobalVar
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "just")
+                                                   Obj
+                                                   (Id {unId = 2})))
+                                             False)
+                                          (TwoElim
+                                             (RecElim
+                                                (LocalVar (Index {unIndex = 0}))
+                                                (Field {unField = "tag"}))
+                                             (LocalVar (Index {unIndex = 2}))
+                                             (RecType (fromList []))))
+                                       (RecElim
+                                          (LocalVar (Index {unIndex = 0}))
+                                          (Field {unField = "data"})))
+                                    (ObjFunElim
+                                       (GlobalVar
+                                          (Rigid
+                                             (RNameIntro
+                                                (UserName "nothing")
+                                                Obj
+                                                (Id {unId = 1})))
+                                          False)
+                                       (LocalVar (Index {unIndex = 2})))))))
+                        (Rigid (TypeType Obj))))))))))

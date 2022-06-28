@@ -1,79 +1,4 @@
-((fromList
-    [(UVGlobal 1000,
-      Just
-        (UVSol
-           ((Neutral
-               _
-               (GlobalVar
-                  (Rigid
-                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-                  False))))),
-     (UVGlobal 1001,
-      Just
-        (UVSol
-           ((RecType
-               fromList
-               [(Field {unField = "tag"},
-                 Clo
-                   fromList
-                   [(LocalVar Level {unLevel = 0})]
-                   (UniVar (UVGlobal 1002))),
-                (Field {unField = "data"},
-                 Clo
-                   fromList
-                   [(LocalVar Level {unLevel = 1}),
-                    (LocalVar Level {unLevel = 0})]
-                   (UniVar (UVGlobal 1003)))])))),
-     (UVGlobal 1002, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1003,
-      Just
-        (UVSol
-           ((Neutral
-               _
-               (TwoElim
-                  (LocalVar Level {unLevel = 0})
-                  (RecType fromList [])
-                  (Neutral
-                     _
-                     (GlobalVar
-                        (Rigid
-                           (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-                        False))))))),
-     (UVGlobal 1004,
-      Just
-        (UVSol
-           ((Neutral
-               _
-               (GlobalVar
-                  (Rigid
-                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-                  False))))),
-     (UVGlobal 1005,
-      Just
-        (UVSol
-           ((Neutral
-               _
-               (GlobalVar
-                  (Rigid
-                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-                  False))))),
-     (UVGlobal 1006, Nothing)],
-  fromList
-    [(UVGlobal 1000, UVGlobal 1003),
-     (UVGlobal 1003, UVGlobal 1000),
-     (UVGlobal 1005, UVGlobal 1006),
-     (UVGlobal 1006, UVGlobal 1005)],
-  fromList
-    [(SourcePos
-        {sourceName = "<TODO>",
-         sourceLine = Pos 40,
-         sourceColumn = Pos 13},
-      ExpectedRecordType (UniVar (UVGlobal 1004))),
-     (SourcePos
-        {sourceName = "<TODO>",
-         sourceLine = Pos 37,
-         sourceColumn = Pos 10},
-      ExpectedRecordType (UniVar (UVGlobal 1004)))]),
+((fromList [], fromList [], fromList []),
  Declare
    Obj
    (Rigid
@@ -165,7 +90,9 @@
                         (ObjFunIntro
                            (ObjFunIntro
                               (TwoElim
-                                 (Rigid ElabError)
+                                 (RecElim
+                                    (LocalVar (Index {unIndex = 1}))
+                                    (Field {unField = "tag"}))
                                  (LocalVar (Index {unIndex = 0}))
                                  (ObjFunElim
                                     (ObjFunElim
@@ -176,6 +103,8 @@
                                                 Obj
                                                 (Id {unId = 3})))
                                           False)
-                                       (Rigid ElabError))
+                                       (RecElim
+                                          (LocalVar (Index {unIndex = 1}))
+                                          (Field {unField = "data"})))
                                     (LocalVar (Index {unIndex = 0}))))))
                         (Rigid (TypeType Obj))))))))))

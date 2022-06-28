@@ -1,18 +1,4 @@
-((fromList
-    [(UVGlobal 1000, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1001, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1002,
-      Just
-        (UVSol ((Rigid (SingIntro (Rigid (TwoType))))))),
-     (UVGlobal 1003,
-      Just
-        (UVSol ((Rigid (SingIntro (Rigid (TwoType)))))))],
-  fromList
-    [(UVGlobal 1000, UVGlobal 1001),
-     (UVGlobal 1001, UVGlobal 1000),
-     (UVGlobal 1002, UVGlobal 1003),
-     (UVGlobal 1003, UVGlobal 1002)],
-  fromList []),
+((fromList [], fromList [], fromList []),
  Declare
    Obj
    (Rigid

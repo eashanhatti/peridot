@@ -1,38 +1,11 @@
 ((fromList
     [(UVGlobal 1000, Just (UVSol ((Rigid (TwoType))))),
      (UVGlobal 1001, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1002, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1002, Just (UVSol ((Rigid (TwoIntro0))))),
      (UVGlobal 1003, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1004, Nothing),
-     (UVGlobal 1005, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1006, Just (UVSol ((Rigid (TwoType)))))],
+     (UVGlobal 1004, Just (UVSol ((Rigid (TwoType)))))],
   fromList [],
-  fromList
-    [(SourcePos
-        {sourceName = "<TODO>",
-         sourceLine = Pos 11,
-         sourceColumn = Pos 5},
-      FailedUnify
-        (ObjFunType
-           Explicit
-           (Rigid TwoType)
-           (TwoElim
-              (LocalVar (Index {unIndex = 0}))
-              (Rigid TwoType)
-              (Rigid
-                 (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro0)))))
-        (ObjFunType
-           Explicit (Rigid TwoType) (Rigid TwoType))),
-     (SourcePos
-        {sourceName = "<TODO>",
-         sourceLine = Pos 15,
-         sourceColumn = Pos 9},
-      FailedUnify
-        (Rigid TwoType)
-        (Rigid
-           (ObjIdType
-              (UniVar (UVGlobal 1004))
-              (UniVar (UVGlobal 1004)))))]),
+  fromList []),
  Declare
    Obj
    (Rigid
@@ -54,5 +27,5 @@
          (TwoElim
             (LocalVar (Index {unIndex = 0}))
             (Rigid TwoIntro0)
-            (Rigid (ObjIdIntro (UniVar (UVGlobal 1004))))))
+            (Rigid (ObjIdIntro (Rigid TwoIntro0)))))
       (Rigid (TypeType Obj))))
