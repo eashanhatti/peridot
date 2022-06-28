@@ -15,36 +15,30 @@ axiom func: MetaFun(CType, Text, CType, CStmt) -> CDecl
 
 axiom CompileTerm: MetaFun(inf A: CType, CTerm(A), Text) -> MetaType
 axiom compile_add:
-  Forall(e1: CTerm(Int), e2: CTerm(Int), t1: Text, t2: Text),
-  Implies(
-    CompileTerm(e1, t1),
-    Implies(
-      CompileTerm(e2, t2),
-      CompileTerm(add(e1, e2), "(" ++ t1 ++ " + " ++ t2 ++ ")")))
+  CompileTerm(add(`e1, `e2), "(" ++ `t1 ++ " + " ++ `t2 ++ ")")
+  :- CompileTerm(`e1, `t1)
+  ,  CompileTerm(`e2, `t2)
 axiom compile_zero: CompileTerm(zero, "0")
 axiom compile_one: CompileTerm(one, "1")
 axiom compile_var: Forall(t: Text), CompileTerm(var(t), t)
 
 axiom CompileDecl: MetaFun(CDecl, Text) -> MetaType
 axiom compile_func:
-  Forall(x: Text, inTy: CType, cInTy: Text, outTy: CType, cOutTy: Text, body: CStmt, cBody: Text),
-  Implies(
-    CompileType(inTy, cInTy),
-    Implies(
-      CompileType(outTy, cOutTy),
-      Implies(
-        CompileStmt(body, cBody),
-        CompileDecl(func(inTy, x, outTy, body), cOutTy ++ " f(" ++ cInTy ++ " " ++ x ++ ") { " ++ cBody ++ " }"))))
+  CompileDecl(
+    func(
+      `inTy, `x, `outTy, `body),
+      `cOutTy ++ " f(" ++ `cInTy ++ " " ++ `x ++ ") { " ++ `cBody ++ " }")
+  :- CompileType(`inTy, `cInTy)
+  ,  CompileType(`outTy, cOutTy)
+  ,  CompileStmt(`body, `cBody)
 
 axiom CompileType: MetaFun(CType, Text) -> MetaType
 axiom compile_int: CompileType(Int, "int")
 
 axiom CompileStmt: MetaFun(CStmt, Text) -> MetaType
 axiom compile_return:
-  Forall(x: CTerm(Int), t: Text),
-  Implies(
-    CompileTerm(x, t),
-    CompileStmt(return(x), "return " ++ t ++ ";"))
+  CompileStmt(return(`x), "return " ++ `t ++ ";")
+  :- CompileTerm(`x, `t)
 
 metavar t: Text
 prove CompileDecl(func(Int, "x", Int, return(add(one, var("x")))), t)

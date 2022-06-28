@@ -1,1 +1,1 @@
-axiom b: p :- q & c
+def id: Fun(`a) -> `a = fun(x) => x

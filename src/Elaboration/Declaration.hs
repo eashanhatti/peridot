@@ -3,7 +3,7 @@ module Elaboration.Declaration where
 import Syntax.Surface
 import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
-import Syntax.Common hiding(Declaration(..), Universe(..))
+import Syntax.Common hiding(Declaration(..), Universe(..), NameType)
 import Elaboration.Effect
 import Control.Effect.Reader
 import Control.Effect.State
@@ -11,7 +11,7 @@ import Control.Carrier.NonDet.Church hiding(Empty)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import {-# SOURCE #-} Elaboration.Term qualified as EE
-import Normalization hiding(eval)
+import Normalization hiding(eval, readback)
 import Control.Monad
 import Control.Monad.Extra
 import Data.Foldable(toList, foldl')
@@ -22,6 +22,7 @@ import Search(Substitution, concatSubsts)
 import Prelude hiding(traverse, map, zip, concat, filter, mapWithIndex)
 import Debug.Trace
 import Extra
+import Data.Bifunctor
 
 check :: HasCallStack => Query sig m => Id -> m C.Term
 check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
@@ -102,11 +103,64 @@ withPos' act pd = act pd
 declType :: HasCallStack => Query sig m => Id -> m (C.Term, N.Universe)
 declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl -> asType
   case decl of
-    PDDecl (DeclAst (ObjTerm name sig def) _) -> EE.checkObjType sig
-    PDDecl (DeclAst (MetaTerm name sig def) _) -> EE.checkMetaType sig
-    PDDecl (DeclAst (Axiom name sig) _) -> EE.checkMetaType sig
-    PDDecl (DeclAst (Prove sig) _) -> EE.checkMetaType sig
+    PDDecl (DeclAst (ObjTerm name sig def) _) ->
+      withImVars (Set.toList . imVars $ sig) (EE.checkObjType sig)
+    PDDecl (DeclAst (MetaTerm name sig def) _) ->
+      withImVars (Set.toList . imVars $ sig) (EE.checkMetaType sig)
+    PDDecl (DeclAst (Axiom (NameAst name) sig) _) ->
+      withImVars (Set.toList . imVars $ sig) (EE.checkMetaType sig)
+    PDDecl (DeclAst (Prove sig) _) ->
+      withImVars (Set.toList . imVars $ sig) (EE.checkMetaType sig)
     PDDecl (DeclAst (Fresh name sig) (Id n)) -> do
-      modify (\st -> st { unLogvarNames = Map.insert (UVGlobal n) (unName name) (unLogvarNames st) })
-      EE.checkMetaType sig
+      modify (\st -> st
+        { unLogvarNames = Map.insert (UVGlobal n) (unName name) (unLogvarNames st) })
+      withImVars (Set.toList . imVars $ sig) (EE.checkMetaType sig)
     PDDecl (DeclAst (Output _ _) _) -> pure (C.Rigid C.Dummy, N.Meta)
+
+withImVars :: forall sig m. Elab sig m => [Name] -> m (C.Term, N.Universe) -> m (C.Term, N.Universe)
+withImVars names act = go names (const id) where
+  go :: Elab sig m => [Name] -> (N.Universe -> C.Term -> C.Term) -> m (C.Term, N.Universe)
+  go [] f = do
+    (cTerm, univ) <- act
+    pure (f univ cTerm, univ)
+  go (name:names) f = do
+    ty <- freshTypeUV
+    cTy <- readback ty
+    bindLocal name ty (go names (\u e -> sel cTy u (f u e)))
+
+  sel ty = \case
+    N.Obj -> C.ObjFunType Unification ty
+    N.Meta -> C.MetaFunType Unification ty
+
+imVars :: TermAst -> Set.Set Name
+imVars (SourcePos ast _) = imVars ast
+imVars (TermAst term) = case term of
+  MetaPi _ _ inTy outTy -> imVars inTy <> imVars outTy
+  MetaLam _ body -> imVars body
+  ObjPi _ _ inTy outTy -> imVars inTy <> imVars outTy
+  ObjLam _ body -> imVars body
+  App lam args ->
+    imVars lam <>
+    (concat . fmap snd . fmap (second imVars) $ args)
+  Var Im name -> Set.singleton name
+  LiftObj ty -> imVars ty
+  QuoteObj code -> imVars code
+  SpliceObj quote -> imVars quote
+  ImplProp p q -> imVars p <> imVars q
+  ConjProp p q -> imVars p <> imVars q
+  DisjProp p q -> imVars p <> imVars q
+  ForallProp _ ty p -> imVars ty <> imVars p
+  Case scr body1 body2 -> imVars scr <> imVars body1 <> imVars body2
+  Equal x y -> imVars x <> imVars y
+  Sig tys ->
+    concat . fmap snd . fmap (second imVars) $ tys
+  Struct defs -> concat . fmap snd . fmap (second imVars) $ defs
+  Select str _ -> imVars str
+  Patch str defs ->
+    imVars str <>
+    (concat . fmap snd . fmap (second imVars) $ defs)
+  Declare name ty cont -> imVars name <> imVars ty <> imVars cont
+  Define name def cont -> imVars name <> imVars def <> imVars cont
+  NameType _ ty -> imVars ty
+  TextAppend t1 t2 -> imVars t1 <> imVars t2
+  _ -> mempty

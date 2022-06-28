@@ -50,6 +50,9 @@ data Declaration
   | Output FilePath TermAst
   deriving (Show)
 
+data Quantification = Ex | Im
+  deriving (Show)
+
 type TermAst = Ast Term
 data Term
   = MetaPi PassMethod NameAst TermAst TermAst
@@ -57,7 +60,7 @@ data Term
   | ObjPi PassMethod NameAst TermAst TermAst
   | ObjLam (Seq (PassMethod, NameAst)) TermAst
   | App TermAst (Seq (PassMethod, TermAst))
-  | Var Name
+  | Var Quantification Name
   | OUniv
   | MUniv
   | Let (Seq DeclarationAst) TermAst

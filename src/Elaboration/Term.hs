@@ -184,7 +184,7 @@ infer term = case term of
       checkArgs args ty = do
         cTy <- readback ty
         throwError (TooManyArgs cTy)
-  TermAst (Var name) -> do
+  TermAst (Var _ name) -> do
     binding <- lookupBinding name
     case binding of
       Just (BLocal ix ty) -> pure (C.LocalVar ix, ty)

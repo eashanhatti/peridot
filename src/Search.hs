@@ -66,6 +66,9 @@ prove ctx (Rigid (SomeType (MetaFunIntro p))) = do
   prove ctx vP
 prove ctx (Rigid (ImplType p q)) =
   prove (p <| ctx) q
+prove ctx (MetaFunType _ _ p) = do
+  vP <- evalClosure p
+  prove ctx vP
 prove ctx (Rigid (AllType (MetaFunIntro p))) = do
   vP <- evalClosure p
   prove ctx vP
@@ -97,6 +100,10 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
         pure (concatSubsts (fmap (\(Subst ts eqs) -> (ts, eqs)) substs))
       Nothing -> empty
 search ctx goal (Rigid (AllType (MetaFunIntro p))) = do
+  uv <- freshUV
+  vP <- appClosure p uv
+  search ctx goal vP
+search ctx goal (MetaFunType _ _ p) = do
   uv <- freshUV
   vP <- appClosure p uv
   search ctx goal vP

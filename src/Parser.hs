@@ -155,11 +155,18 @@ app = do
   char ')'
   pure (App lam' (fromList args))
 
+quant = do
+  r <- optional (char '`')
+  case r of
+    Just _ -> pure Im
+    Nothing -> pure Ex
+
 var :: Parser Term
 var = do
+  q <- quant
   n <- some nameChar
   when (elem n keywords) empty
-  pure (App (TermAst . Var . UserName . pack $ n) mempty)
+  pure (App (TermAst . Var q . UserName . pack $ n) mempty)
 
 objUniv :: Parser Term
 objUniv = do
@@ -484,9 +491,8 @@ decl = do
     try proof <|>
     try fresh <|>
     try output <|>
-    rel
-    -- try rel <|>
-    -- axiom
+    try rel <|>
+    axiom
   pure (SourcePos (DeclAst d did) pos)
 
 define :: Parser Declaration
@@ -516,11 +522,12 @@ rel = do
   char ':'; ws
   hd <- prec0; ws
   string ":-"; ws
-  a:as <- sepBy1
+  as <- sepBy1
     prec0
-    (notFollowedBy (ws *> (void (try keyword) <|> eof)) *> ampWs)
-  let aAs = foldl' (\acc a -> TermAst (DisjProp a acc)) a as
-  pure (Axiom n (TermAst (ImplProp aAs hd)))
+    (notFollowedBy (ws *> (void (try keyword) <|> eof)) *> commaWs)
+  let p = foldl' (\acc q -> TermAst (ImplProp q acc)) hd as
+  -- let !_ = tracePretty p
+  pure (Axiom n p)
 
 axiom :: Parser Declaration
 axiom = do
