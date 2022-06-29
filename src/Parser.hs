@@ -539,7 +539,7 @@ axiom = do
 
 proof :: Parser Declaration
 proof = do
-  string "prove"; ws
+  string "?-"; ws
   ty <- prec0
   pure (Prove ty)
 

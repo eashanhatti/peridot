@@ -1,24 +1,21 @@
 axiom List: MetaFun(MetaType) -> MetaType
-axiom nil: MetaFun(inf A: MetaType) -> List(A)
-axiom cons: MetaFun(inf A: MetaType, A, List(A)) -> List(A)
+axiom nil: List(`A)
+axiom cons: MetaFun(`A, List(`A)) -> List(`A)
 
-axiom Append: MetaFun(inf A: MetaType, List(A), List(A), List(A)) -> MetaType
+axiom Append: MetaFun(List(`A), List(`A), List(`A)) -> MetaType
 axiom append_nil:
-  Forall(A: MetaType), Forall(xs: List(A)),
-  Append(nil, xs, xs)
+  Append(nil, `xs, `xs)
 axiom append_cons:
-  Forall(A: MetaType), Forall(x: A, ys: List(A), zs: List(A), ws: List(A)),
-  Implies(
-    Append(ys, zs, ws),
-    Append(cons(x, ys), zs, cons(x, ws)))
+  Append(cons(`x, `ys), `zs, cons(`x, `ws))
+  :- Append(`ys, `zs, `ws)
 
 axiom Unit: MetaType
 axiom unit: Unit
 
 metavar xs: List(Unit)
-prove Append(nil, nil, xs)
+?- Append(nil, nil, xs)
 /*
 metavar ys: List(Unit)
-prove Append(cons(unit, nil), cons(unit, nil), ys)
-prove Append(cons(unit, nil), cons(unit, nil), cons(unit, cons(unit, nil)))
+?- Append(cons(unit, nil), cons(unit, nil), ys)
+?- Append(cons(unit, nil), cons(unit, nil), cons(unit, cons(unit, nil)))
 */

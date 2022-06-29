@@ -25,9 +25,8 @@ axiom compile_var: Forall(t: Text), CompileTerm(var(t), t)
 axiom CompileDecl: MetaFun(CDecl, Text) -> MetaType
 axiom compile_func:
   CompileDecl(
-    func(
-      `inTy, `x, `outTy, `body),
-      `cOutTy ++ " f(" ++ `cInTy ++ " " ++ `x ++ ") { " ++ `cBody ++ " }")
+    func(`inTy, `x, `outTy, `body),
+    `cOutTy ++ " f(" ++ `cInTy ++ " " ++ `x ++ ") { " ++ `cBody ++ " }")
   :- CompileType(`inTy, `cInTy)
   ,  CompileType(`outTy, cOutTy)
   ,  CompileStmt(`body, `cBody)
@@ -41,5 +40,5 @@ axiom compile_return:
   :- CompileTerm(`x, `t)
 
 metavar t: Text
-prove CompileDecl(func(Int, "x", Int, return(add(one, var("x")))), t)
+?- CompileDecl(func(Int, "x", Int, return(add(one, var("x")))), t)
 #output OUTPUT.c t

@@ -18,7 +18,7 @@ def Maybe
 /* Constructing dependent structs */
 def nothing
   : Fun(inf A: Type) -> Maybe(A)
-  = struct {
+  = fun() => struct {
       tag = false,
       data = struct {}
     }

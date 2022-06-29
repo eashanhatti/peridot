@@ -100,7 +100,7 @@ pretty term =
         , intercalate ", " . toList <$> traverse pretty args, pure ")"]
     CodeObjElim quote -> combine [pure "~", pretty quote]
     CodeCElim quote -> combine [pure "c~", pretty quote]
-    LocalVar ix -> (Map.! ix) . unLocals <$> ask
+    LocalVar ix -> (! ix) . unLocals <$> ask
     GlobalVar (Rigid (RNameIntro (UserName name) _ did)) _ -> pure name
     GlobalVar name _ -> combine [pure "GLOBAL(", pretty name, pure ")"]
     UniVar (unGlobal -> n) ->
