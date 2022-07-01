@@ -415,7 +415,7 @@ textTy = do
 text :: Parser Term
 text = do
   char '"'
-  s <- many (notFollowedBy "\"" *> (anySingle <|> (string "\\n" *> pure '\n')))
+  s <- many (notFollowedBy "\"" *> ((string "\\n" *> pure '\n') <|> anySingle))
   char '"'
   pure (TextLiteral (pack s))
 
@@ -575,7 +575,7 @@ decls = do
     afp <- ask
     s <- liftIO (TIO.readFile (afp <> p))
     ndid <- get
-    r <- liftIO (parse' ndid decls p s)
+    r <- liftIO (parse' ndid decls (afp <> p) s)
     case r of
       Right (tl, ndid') -> put ndid' *> pure tl
       Left e -> fail e

@@ -1,0 +1,49 @@
+import list.per
+
+axiom CType: MetaType
+axiom Int: CType
+
+axiom CTerm: MetaFun(CType) -> MetaType
+axiom zero: CTerm(Int)
+axiom one: CTerm(Int)
+axiom add: MetaFun(CTerm(Int), CTerm(Int)) -> CTerm(Int)
+axiom var: MetaFun(Text) -> CTerm(Int)
+
+axiom CStmt: MetaType
+axiom return: MetaFun(CTerm(Int)) -> CStmt
+
+axiom CDecl: MetaType
+axiom func: MetaFun(CType, Text, Text, CType, CStmt) -> CDecl
+
+axiom CompileTerm: MetaFun(inf A: CType, CTerm(A), Text) -> MetaType
+axiom compile_add:
+  CompileTerm(add(`e1, `e2), "(" ++ `t1 ++ " + " ++ `t2 ++ ")")
+  :- CompileTerm(`e1, `t1)
+  ,  CompileTerm(`e2, `t2)
+axiom compile_zero: CompileTerm(zero, "0")
+axiom compile_one: CompileTerm(one, "1")
+axiom compile_var: Forall(t: Text), CompileTerm(var(t), t)
+
+axiom CompileDecl: MetaFun(CDecl, Text) -> MetaType
+axiom compile_func:
+  CompileDecl(
+    func(`inTy, `f, `x, `outTy, `body),
+    `cOutTy ++ " " ++ `f ++ "(" ++ `cInTy ++ " " ++ `x ++ ") { " ++ `cBody ++ " }")
+  :- CompileType(`inTy, `cInTy)
+  ,  CompileType(`outTy, cOutTy)
+  ,  CompileStmt(`body, `cBody)
+
+axiom CompileType: MetaFun(CType, Text) -> MetaType
+axiom compile_int: CompileType(Int, "int")
+
+axiom CompileStmt: MetaFun(CStmt, Text) -> MetaType
+axiom compile_return:
+  CompileStmt(return(`x), "return " ++ `t ++ ";")
+  :- CompileTerm(`x, `t)
+
+axiom CompileDecls: MetaFun(List(CDecl), Text) -> MetaType
+axiom compile_decls_nil: CompileDecls(nil, "")
+axiom compile_decls_cons:
+  CompileDecls(cons(`d, `ds), `dt ++ "\n" ++ `dst)
+  :- CompileDecl(`d, `dt)
+  ,  CompileDecls(`ds, `dst)

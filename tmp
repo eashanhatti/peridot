@@ -1,2 +1,1 @@
-def id: Fun(`a) -> `a = fun(x) => x
-def const: Fun(`a, `b) -> `b = fun(x, y) => x
+output OUTPUT.c "c\nc"

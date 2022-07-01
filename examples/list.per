@@ -1,0 +1,10 @@
+axiom List: MetaFun(MetaType) -> MetaType
+axiom nil: List(`A)
+axiom cons: MetaFun(`A, List(`A)) -> List(`A)
+
+axiom Append: MetaFun(List(`A), List(`A), List(`A)) -> MetaType
+axiom append_nil:
+  Append(nil, `xs, `xs)
+axiom append_cons:
+  Append(cons(`x, `ys), `zs, cons(`x, `ws))
+  :- Append(`ys, `zs, `ws)
