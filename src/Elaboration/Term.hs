@@ -209,8 +209,10 @@ infer term = case term of
           (\did -> (did ,) <$> ED.declType did)
           (declsIds decls)
       graph <- unDepGraph <$> get
+      pddecls <- unPredecls <$> get
       (cBody, bodyTy) <- infer body
       let
+        names = fmap (unPDDeclName . snd) pddecls
         ordering ::
           Set (Some Key) ->
           Seq (Set (Some Key))
@@ -236,13 +238,13 @@ infer term = case term of
               (\key acc -> case key of
                 Some (CheckDecl did) ->
                   C.Define
-                    (C.Rigid (C.RNameIntro (UserName "<PLACEHOLDER>") (snd (cDeclTys Map.! did)) did))
+                    (C.Rigid (C.RNameIntro (names ! did) (snd (cDeclTys ! did)) did))
                     (cDecls Map.! did)
                     acc
                 Some (DeclType did) ->
                   C.Declare
                     (snd (cDeclTys Map.! did))
-                    (C.Rigid (C.RNameIntro (UserName "<PLACEHOLDER>") (snd (cDeclTys Map.! did)) did))
+                    (C.Rigid (C.RNameIntro (names ! did) (snd (cDeclTys ! did)) did))
                     (fst (cDeclTys Map.! did))
                     acc)
               cont

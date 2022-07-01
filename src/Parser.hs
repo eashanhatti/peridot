@@ -12,10 +12,13 @@ import Data.Text.IO as TIO
 import Control.Monad.Combinators
 import Data.Foldable
 import Control.Monad.State
+import Control.Monad.Reader
 import Data.Sequence hiding(empty)
 import Data.Maybe
 import Extra
 import Data.List qualified as L
+import System.Directory
+import System.FilePath
 
 keywords =
   [ "Fun", "fun", "Type", "let", "in", "Bool", "true", "false"
@@ -70,7 +73,7 @@ semiWs = void (ws *> char ';' *> ws)
 
 nameChar = (try alphaNumChar <|> char '_')
 
-type Parser a = ParsecT Void Text (StateT Id IO) a
+type Parser a = ParsecT Void Text (StateT Id (ReaderT FilePath IO)) a
 
 name :: Parser NameAst
 name = do
@@ -553,7 +556,10 @@ fresh = do
   pure (Fresh n ty)
 
 path :: Parser String
-path = L.intercalate "/" <$> sepBy1 (some (nameChar <|> char '.')) (char '/')
+path = L.intercalate "/" <$>
+  sepBy1
+    (some (nameChar <|> char '.'))
+    (char '/')
 
 output :: Parser Declaration
 output = do
@@ -564,15 +570,17 @@ output = do
 
 decls :: Parser (Seq DeclarationAst)
 decls = do
-  ps <- many include
+  ps <- many (include <* ws)
   dss <- forM ps \p -> do
-    s <- liftIO (TIO.readFile p)
-    tl <- liftIO (parse decls p s)
-    case tl of
-      Right tl -> pure tl
+    afp <- ask
+    s <- liftIO (TIO.readFile (afp <> p))
+    ndid <- get
+    r <- liftIO (parse' ndid decls p s)
+    case r of
+      Right (tl, ndid') -> put ndid' *> pure tl
       Left e -> fail e
   ds <- many (decl <* ws)
-  pure (foldl' (<>) mempty dss <> fromList ds)
+  pure (fromList ds <> foldl' (<>) mempty dss)
 
 toplevel :: Parser TermAst
 toplevel = do
@@ -581,13 +589,23 @@ toplevel = do
 
 include :: Parser FilePath
 include = do
-  string "#include"; ws
-  path
+  string "#include"
+  many (char ' ')
+  char '"'
+  p <- path
+  char '"'
+  pure p
 
-parse :: Parser a -> String -> Text -> IO (Either String a)
-parse p fn text = do
-  r <-
-    flip evalStateT 0 .
+
+parse :: Parser a -> FilePath -> Text -> IO (Either String a)
+parse p fn text = fmap (fmap fst) (parse' 0 p fn text)
+
+parse' :: Id -> Parser a -> FilePath -> Text -> IO (Either String (a, Id))
+parse' idid p fn text = do
+  afn <- makeAbsolute fn
+  (r, did) <-
+    flip runReaderT (dropFileName afn) .
+    flip runStateT idid .
     runParserT
       (do
         ws
@@ -598,5 +616,5 @@ parse p fn text = do
       fn $
     text
   pure case r of
-    Right term -> Right term
+    Right term -> Right (term, did)
     Left err -> Left (errorBundlePretty err)

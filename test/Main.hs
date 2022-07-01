@@ -15,6 +15,7 @@ import Parser qualified as P
 import Data.String(fromString)
 import Shower
 import Data.Maybe
+import Syntax.Surface qualified as S
 
 main :: IO ()
 main = goldenTests >>= defaultMain
@@ -26,17 +27,21 @@ goldenTests = do
     [ goldenVsString
         (takeBaseName konFile)
         goldenFile
-        (testSurfaceToCore <$> BL.readFile konFile)
+        (do
+          bs <- BL.readFile konFile
+          let t = T.decodeUtf8 . B.concat . BL.toChunks $ bs
+          r <- P.parse P.toplevel "<TODO>" t
+          pure (testSurfaceToCore r))
     | konFile <- konFiles
     , let
         goldenFile =
           dropFileName konFile </>
           "golden_files" </>
           takeFileName (replaceExtension konFile ".golden") ])
-
-testSurfaceToCore :: BL.ByteString -> BL.ByteString
-testSurfaceToCore bs =
-  case P.parse P.toplevel "<TODO>" . T.decodeUtf8 . B.concat . BL.toChunks $ bs of
+--P.parse P.toplevel "<TODO>" . T.decodeUtf8 . B.concat . BL.toChunks . BL.readFile $ konFile
+testSurfaceToCore :: Either String S.TermAst -> BL.ByteString
+testSurfaceToCore r =
+  case r of
     Right term -> fromString . shower $ elaborate' term
     Left err -> fromString err
 

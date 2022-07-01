@@ -192,6 +192,9 @@ data ElabContext = ElabContext
 data Predeclaration = PDDecl DeclarationAst
   deriving (Show)
 
+unPDDeclName :: Predeclaration -> Name
+unPDDeclName (PDDecl decl) = unDeclName decl
+
 unPDDeclId :: Predeclaration -> Id
 unPDDeclId (PDDecl (DeclAst _ did)) = did
 unPDDeclId (PDDecl (SourcePos (DeclAst _ did) _)) = did
