@@ -85,6 +85,11 @@ force act = do
   ctx <- ask
   pure (run . runReader ctx $ act)
 
+-- delay :: Norm sig m => ReaderC NormContext Identity a -> m (ReaderC NormContext Identity a)
+-- delay act = do
+--   ctx <- ask
+--   pure (local (\ctx' -> ctx { unTypeUVs = unTypeUVs ctx' }) act)
+
 unfold :: Norm sig m => N.Term -> m N.Term
 unfold n@(N.Neutral term redex) = do
   term <- force term
@@ -217,9 +222,9 @@ eval (C.TextElimCat t1 t2) = do
   vT2 <- eval t2
   let
     reded = do
-      -- !_ <- tracePretty . N.unLocals . unEnv <$> ask
-      -- vT1 <- eval (tracePrettyS "T1" t1)
-      -- vT2 <- eval (tracePrettyS "T2" t2)
+      -- vT1' <- eval t1
+      -- vT2' <- eval t2
+      -- Just <$> go vT1' vT2'
       Just <$> go vT1 vT2
   pure (N.Neutral reded (N.TextElimCat vT1 vT2))
   where

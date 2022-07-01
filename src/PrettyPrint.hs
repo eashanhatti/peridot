@@ -164,8 +164,8 @@ pretty term =
         , indent <$> pretty cont
         , pure " ]"]
     Rigid TextType -> pure "Text"
-    TextElimCat t1 t2 -> combine [pretty t1, pure " ++ ", pretty t2]
     (textIntro -> Just s) -> combine [pure "\"", pure . pack $ s, pure "\""]
+    TextElimCat t1 t2 -> combine [pretty t1, pure " ++ ", pretty t2]
     Rigid TextIntroNil -> pure "\"\""
     Rigid (TextIntroCons c t) -> combine [pure . pack $ '\"':c:"\" ++ ", pretty t]
     e -> pure . pack . show $ e
@@ -182,6 +182,7 @@ lookupUV n = do
 
 textIntro (Rigid TextIntroNil) = Just []
 textIntro (Rigid (TextIntroCons c t)) = (c:) <$> textIntro t
+textIntro (TextElimCat t1 t2) = (<>) <$> textIntro t1 <*> textIntro t2
 textIntro _ = Nothing
 
 con :: Print sig m => Text -> [m Text] -> m Text
