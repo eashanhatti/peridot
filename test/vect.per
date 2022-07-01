@@ -1,29 +1,4 @@
-def Nat
-  : Type
-  = Struct {
-      tag: Bool,
-      data:
-        if tag {
-          Struct {}
-        } else {
-          Nat
-        }
-    }
-
-def zero
-  : Nat
-  = struct {
-      tag = true,
-      data = struct {}
-    }
-
-def succ
-  : Fun(Nat) -> Nat
-  = fun(n) =>
-      struct {
-        tag = false,
-        data = n
-      }
+import nat.per
 
 def Vect
   : Fun(Nat, Type) -> Type

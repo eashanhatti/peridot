@@ -1,4 +1,29 @@
-((fromList [], fromList [], fromList []),
+((fromList [],
+  fromList [],
+  fromList
+    [(SourcePos
+        {sourceName = "./test/three_variant.per",
+         sourceLine = Pos 11,
+         sourceColumn = Pos 18},
+      ExpectedRecordType (Rigid ElabError)),
+     (SourcePos
+        {sourceName = "./test/three_variant.per",
+         sourceLine = Pos 11,
+         sourceColumn = Pos 18},
+      ExpectedRecordType
+        (GlobalVar
+           (Rigid
+              (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
+           False)),
+     (SourcePos
+        {sourceName = "./test/three_variant.per",
+         sourceLine = Pos 9,
+         sourceColumn = Pos 12},
+      ExpectedRecordType
+        (GlobalVar
+           (Rigid
+              (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
+           False))]),
  Declare
    Obj
    (Rigid
@@ -7,7 +32,7 @@
    (Declare
       Obj
       (Rigid
-         (RNameIntro (UserName "Foo") Obj (Id {unId = 1})))
+         (RNameIntro (UserName "Foo") Obj (Id {unId = 5})))
       (Rigid (TypeType Obj))
       (Define
          (Rigid
@@ -25,7 +50,7 @@
                       False))]))
          (Define
             (Rigid
-               (RNameIntro (UserName "Foo") Obj (Id {unId = 1})))
+               (RNameIntro (UserName "Foo") Obj (Id {unId = 5})))
             (RecType
                (fromList
                   [(Field {unField = "tag"},
@@ -35,9 +60,7 @@
                       False),
                    (Field {unField = "data"},
                     TwoElim
-                      (RecElim
-                         (LocalVar (Index {unIndex = 0}))
-                         (Field {unField = "tag"}))
+                      (Rigid ElabError)
                       (RecType
                          (fromList
                             [(Field {unField = "data"},
@@ -47,15 +70,97 @@
                                       (UserName "Nat") Obj (Id {unId = 0})))
                                 False)]))
                       (TwoElim
-                         (RecElim
-                            (RecElim
-                               (LocalVar (Index {unIndex = 0}))
-                               (Field {unField = "data"}))
-                            (Field {unField = "tag"}))
+                         (Rigid ElabError)
                          (RecType
                             (fromList [(Field {unField = "a"}, Rigid TwoType)]))
                          (RecType
                             (fromList
                                [(Field {unField = "data"},
                                  Rigid TwoType)]))))]))
-            (Rigid (TypeType Obj))))))
+            (Declare
+               Obj
+               (Rigid
+                  (RNameIntro (UserName "zero") Obj (Id {unId = 1})))
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
+                  False)
+               (Declare
+                  Obj
+                  (Rigid
+                     (RNameIntro (UserName "succ") Obj (Id {unId = 2})))
+                  (ObjFunType
+                     Explicit
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
+                        False)
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
+                        False))
+                  (Declare
+                     Obj
+                     (Rigid
+                        (RNameIntro (UserName "add") Obj (Id {unId = 3})))
+                     (ObjFunType
+                        Explicit
+                        (GlobalVar
+                           (Rigid
+                              (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
+                           False)
+                        (ObjFunType
+                           Explicit
+                           (GlobalVar
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "Nat") Obj (Id {unId = 0})))
+                              False)
+                           (GlobalVar
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "Nat") Obj (Id {unId = 0})))
+                              False)))
+                     (Define
+                        (Rigid
+                           (RNameIntro (UserName "zero") Obj (Id {unId = 1})))
+                        (RecIntro
+                           (fromList
+                              [(Field {unField = "tag"}, Rigid TwoIntro0),
+                               (Field {unField = "data"},
+                                RecIntro (fromList []))]))
+                        (Define
+                           (Rigid
+                              (RNameIntro
+                                 (UserName "succ") Obj (Id {unId = 2})))
+                           (ObjFunIntro
+                              (RecIntro
+                                 (fromList
+                                    [(Field {unField = "tag"}, Rigid TwoIntro1),
+                                     (Field {unField = "data"},
+                                      LocalVar (Index {unIndex = 1}))])))
+                           (Define
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "add") Obj (Id {unId = 3})))
+                              (ObjFunIntro
+                                 (ObjFunIntro
+                                    (TwoElim
+                                       (RecElim
+                                          (LocalVar (Index {unIndex = 1}))
+                                          (Field {unField = "tag"}))
+                                       (LocalVar (Index {unIndex = 0}))
+                                       (ObjFunElim
+                                          (ObjFunElim
+                                             (GlobalVar
+                                                (Rigid
+                                                   (RNameIntro
+                                                      (UserName "add")
+                                                      Obj
+                                                      (Id {unId = 3})))
+                                                False)
+                                             (RecElim
+                                                (LocalVar (Index {unIndex = 1}))
+                                                (Field {unField = "data"})))
+                                          (LocalVar (Index {unIndex = 0}))))))
+                              (Rigid (TypeType Obj))))))))))))

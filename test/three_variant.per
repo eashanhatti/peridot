@@ -1,15 +1,4 @@
-/* The natural number datatype. See `nat.per` */
-def Nat
-  : Type
-  = Struct {
-      tag: Bool,
-      data:
-        if tag {
-          Struct {}
-        } else {
-          Nat
-        }
-    }
+import nat.per
 
 /* A `Bool` is not sufficient to describe a datatype with more than two variants, so here we use a `Nat` */
 def Foo

@@ -559,7 +559,7 @@ path :: Parser String
 path = L.intercalate "/" <$>
   sepBy1
     (some (nameChar <|> char '.'))
-    (char '/')
+    (notFollowedBy (char '\n') *> char '/')
 
 output :: Parser Declaration
 output = do
@@ -589,12 +589,9 @@ toplevel = do
 
 include :: Parser FilePath
 include = do
-  string "#include"
+  string "import"
   many (char ' ')
-  char '"'
-  p <- path
-  char '"'
-  pure p
+  path
 
 
 parse :: Parser a -> FilePath -> Text -> IO (Either String a)
