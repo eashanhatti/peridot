@@ -48,6 +48,7 @@ data Declaration
   | Prove TermAst
   | Fresh NameAst TermAst
   | Output FilePath TermAst
+  | Import FilePath NameAst
   deriving (Show)
 
 data Quantification = Ex | Im

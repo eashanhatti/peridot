@@ -79,8 +79,8 @@ eval term =
   runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) $
   Norm.eval term
 
-infer :: String -> Text -> Either String (QueryState, C.Term, C.Term)
-infer fn s = fmap infer' (parse prec0 fn s)
+infer :: String -> Text -> IO (Either String (QueryState, C.Term, C.Term))
+infer fn s = parse prec0 fn s >>= pure . fmap infer'
 
 elaborate' :: S.TermAst -> (QueryState, C.Term)
 elaborate' term =
@@ -118,4 +118,5 @@ swap (x, y) = (y, x)
 elaborateFile' :: String -> IO (Either String (C.Term, QueryState))
 elaborateFile' f = do
   s <- pack <$> readFile f
-  pure (fmap (swap . elaborate') (parse toplevel f s))
+  ast <- parse toplevel f s
+  pure (fmap (swap . elaborate') ast)

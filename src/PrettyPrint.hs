@@ -115,11 +115,11 @@ pretty term =
     Rigid TwoIntro1 -> pure "false"
     Rigid (SingType ty x) ->
       combine
-        [ pure "[ "
+        [ pure "["
         , pretty ty
         , pure " | "
         , pretty x
-        , pure " ]" ]
+        , pure "]" ]
     Rigid (SingIntro x) -> pretty x
     Rigid (ObjIdType x y) -> con "Equal" [pretty x, pretty y]
     Rigid (ObjIdIntro _) -> pure "refl"

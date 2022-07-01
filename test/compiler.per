@@ -41,4 +41,4 @@ axiom compile_return:
 
 metavar t: Text
 ?- CompileDecl(func(Int, "x", Int, return(add(one, var("x")))), t)
-#output OUTPUT.c t
+output OUTPUT.c t

@@ -1,6 +1,6 @@
 module Parser where
 
-import Text.Megaparsec hiding(State, SourcePos)
+import Text.Megaparsec hiding(State, SourcePos, parse)
 import Text.Megaparsec.Char
 import Text.Megaparsec.Error
 import Syntax.Surface
@@ -8,6 +8,7 @@ import Syntax.Common hiding(CStatement(..), RigidTerm(..), Declaration(..))
 import Syntax.Common qualified as Cm
 import Data.Void
 import Data.Text hiding(singleton, empty, foldr, foldl')
+import Data.Text.IO as TIO
 import Control.Monad.Combinators
 import Data.Foldable
 import Control.Monad.State
@@ -69,7 +70,7 @@ semiWs = void (ws *> char ';' *> ws)
 
 nameChar = (try alphaNumChar <|> char '_')
 
-type Parser a = ParsecT Void Text (State Id) a
+type Parser a = ParsecT Void Text (StateT Id IO) a
 
 name :: Parser NameAst
 name = do
@@ -556,30 +557,46 @@ path = L.intercalate "/" <$> sepBy1 (some (nameChar <|> char '.')) (char '/')
 
 output :: Parser Declaration
 output = do
-  string "#output"; ws
+  string "output"; ws
   n <- path; ws
   e <- prec0
   pure (Output n e)
 
+decls :: Parser (Seq DeclarationAst)
+decls = do
+  ps <- many include
+  dss <- forM ps \p -> do
+    s <- liftIO (TIO.readFile p)
+    tl <- liftIO (parse decls p s)
+    case tl of
+      Right tl -> pure tl
+      Left e -> fail e
+  ds <- many (decl <* ws)
+  pure (foldl' (<>) mempty dss <> fromList ds)
+
 toplevel :: Parser TermAst
 toplevel = do
-  ds <- many (decl <* ws)
-  pure (TermAst (Let (fromList ds) (TermAst OUniv)))
+  ds <- decls
+  pure (TermAst (Let ds (TermAst OUniv)))
 
-parse :: Parser a -> String -> Text -> Either String a
-parse p fn text =
-  case
-      fst .
-      flip runState 0 .
-      runParserT
-        (do
-          ws
-          e <- p
-          ws
-          eof
-          pure e)
-        fn $
-      text
-    of
+include :: Parser FilePath
+include = do
+  string "#include"; ws
+  path
+
+parse :: Parser a -> String -> Text -> IO (Either String a)
+parse p fn text = do
+  r <-
+    flip evalStateT 0 .
+    runParserT
+      (do
+        ws
+        e <- p
+        ws
+        eof
+        pure e)
+      fn $
+    text
+  pure case r of
     Right term -> Right term
     Left err -> Left (errorBundlePretty err)

@@ -160,7 +160,7 @@ loop = do
           TIO.putStrLn "  \ESC[32mBye\ESC[0m."
           pure ()
         _ -> do
-          let r = infer "REPL" input
+          r <- infer "REPL" input
           case r of
             Right (qs, term, ty) -> do
               let eqs' = rmGlobals (unUVEqs qs)
