@@ -30,7 +30,7 @@ goldenTests = do
         (do
           bs <- BL.readFile konFile
           let t = T.decodeUtf8 . B.concat . BL.toChunks $ bs
-          r <- P.parse P.toplevel "<TODO>" t
+          r <- P.parse P.toplevel konFile t
           pure (testSurfaceToCore r))
     | konFile <- konFiles
     , let

@@ -717,54 +717,43 @@
  Declare
    Meta
    (Rigid
-      (RNameIntro
-         (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+      (RNameIntro (UserName "CType") Meta (Id {unId = 0})))
    (Rigid (TypeType Meta))
    (Declare
       Meta
       (Rigid
-         (RNameIntro
-            (UserName "<PLACEHOLDER>") Meta (Id {unId = 7})))
+         (RNameIntro (UserName "CStmt") Meta (Id {unId = 7})))
       (Rigid (TypeType Meta))
       (Declare
          Meta
          (Rigid
-            (RNameIntro
-               (UserName "<PLACEHOLDER>") Meta (Id {unId = 9})))
+            (RNameIntro (UserName "CDecl") Meta (Id {unId = 9})))
          (Rigid (TypeType Meta))
          (Declare
             Meta
             (Rigid
-               (RNameIntro
-                  (UserName "<PLACEHOLDER>") Meta (Id {unId = 22})))
+               (RNameIntro (UserName "t") Meta (Id {unId = 22})))
             (Rigid TextType)
             (Declare
                Meta
                (Rigid
-                  (RNameIntro
-                     (UserName "<PLACEHOLDER>") Meta (Id {unId = 24})))
+                  (RNameIntro (MachineName 24) Meta (Id {unId = 24})))
                (Rigid Dummy)
                (Define
                   (Rigid
-                     (RNameIntro
-                        (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+                     (RNameIntro (UserName "CType") Meta (Id {unId = 0})))
                   (Rigid (MetaConstIntro (Id {unId = 0})))
                   (Define
                      (Rigid
-                        (RNameIntro
-                           (UserName "<PLACEHOLDER>") Meta (Id {unId = 7})))
+                        (RNameIntro (UserName "CStmt") Meta (Id {unId = 7})))
                      (Rigid (MetaConstIntro (Id {unId = 7})))
                      (Define
                         (Rigid
-                           (RNameIntro
-                              (UserName "<PLACEHOLDER>") Meta (Id {unId = 9})))
+                           (RNameIntro (UserName "CDecl") Meta (Id {unId = 9})))
                         (Rigid (MetaConstIntro (Id {unId = 9})))
                         (Define
                            (Rigid
-                              (RNameIntro
-                                 (UserName "<PLACEHOLDER>")
-                                 Meta
-                                 (Id {unId = 22})))
+                              (RNameIntro (UserName "t") Meta (Id {unId = 22})))
                            (TextElimCat
                               (TextElimCat
                                  (TextElimCat
@@ -889,17 +878,13 @@
                            (Define
                               (Rigid
                                  (RNameIntro
-                                    (UserName "<PLACEHOLDER>")
-                                    Meta
-                                    (Id {unId = 24})))
+                                    (MachineName 24) Meta (Id {unId = 24})))
                               (Rigid Dummy)
                               (Declare
                                  Meta
                                  (Rigid
                                     (RNameIntro
-                                       (UserName "<PLACEHOLDER>")
-                                       Meta
-                                       (Id {unId = 1})))
+                                       (UserName "Int") Meta (Id {unId = 1})))
                                  (GlobalVar
                                     (Rigid
                                        (RNameIntro
@@ -911,7 +896,7 @@
                                     Meta
                                     (Rigid
                                        (RNameIntro
-                                          (UserName "<PLACEHOLDER>")
+                                          (UserName "CTerm")
                                           Meta
                                           (Id {unId = 2})))
                                     (MetaFunType
@@ -928,7 +913,7 @@
                                        Meta
                                        (Rigid
                                           (RNameIntro
-                                             (UserName "<PLACEHOLDER>")
+                                             (UserName "func")
                                              Meta
                                              (Id {unId = 10})))
                                        (MetaFunType
@@ -972,7 +957,7 @@
                                           Meta
                                           (Rigid
                                              (RNameIntro
-                                                (UserName "<PLACEHOLDER>")
+                                                (UserName "CompileDecl")
                                                 Meta
                                                 (Id {unId = 16})))
                                           (MetaFunType
@@ -992,7 +977,7 @@
                                              Meta
                                              (Rigid
                                                 (RNameIntro
-                                                   (UserName "<PLACEHOLDER>")
+                                                   (UserName "CompileType")
                                                    Meta
                                                    (Id {unId = 18})))
                                              (MetaFunType
@@ -1012,7 +997,7 @@
                                                 Meta
                                                 (Rigid
                                                    (RNameIntro
-                                                      (UserName "<PLACEHOLDER>")
+                                                      (UserName "CompileStmt")
                                                       Meta
                                                       (Id {unId = 20})))
                                                 (MetaFunType
@@ -1031,8 +1016,7 @@
                                                 (Define
                                                    (Rigid
                                                       (RNameIntro
-                                                         (UserName
-                                                            "<PLACEHOLDER>")
+                                                         (UserName "Int")
                                                          Meta
                                                          (Id {unId = 1})))
                                                    (Rigid
@@ -1041,8 +1025,7 @@
                                                    (Define
                                                       (Rigid
                                                          (RNameIntro
-                                                            (UserName
-                                                               "<PLACEHOLDER>")
+                                                            (UserName "CTerm")
                                                             Meta
                                                             (Id {unId = 2})))
                                                       (Rigid
@@ -1051,8 +1034,7 @@
                                                       (Define
                                                          (Rigid
                                                             (RNameIntro
-                                                               (UserName
-                                                                  "<PLACEHOLDER>")
+                                                               (UserName "func")
                                                                Meta
                                                                (Id
                                                                   {unId = 10})))
@@ -1064,7 +1046,7 @@
                                                             (Rigid
                                                                (RNameIntro
                                                                   (UserName
-                                                                     "<PLACEHOLDER>")
+                                                                     "CompileDecl")
                                                                   Meta
                                                                   (Id
                                                                      {unId =
@@ -1078,7 +1060,7 @@
                                                                (Rigid
                                                                   (RNameIntro
                                                                      (UserName
-                                                                        "<PLACEHOLDER>")
+                                                                        "CompileType")
                                                                      Meta
                                                                      (Id
                                                                         {unId =
@@ -1092,7 +1074,7 @@
                                                                   (Rigid
                                                                      (RNameIntro
                                                                         (UserName
-                                                                           "<PLACEHOLDER>")
+                                                                           "CompileStmt")
                                                                         Meta
                                                                         (Id
                                                                            {unId =
@@ -1107,7 +1089,7 @@
                                                                      (Rigid
                                                                         (RNameIntro
                                                                            (UserName
-                                                                              "<PLACEHOLDER>")
+                                                                              "zero")
                                                                            Meta
                                                                            (Id
                                                                               {unId =
@@ -1138,7 +1120,7 @@
                                                                         (Rigid
                                                                            (RNameIntro
                                                                               (UserName
-                                                                                 "<PLACEHOLDER>")
+                                                                                 "one")
                                                                               Meta
                                                                               (Id
                                                                                  {unId =
@@ -1169,7 +1151,7 @@
                                                                            (Rigid
                                                                               (RNameIntro
                                                                                  (UserName
-                                                                                    "<PLACEHOLDER>")
+                                                                                    "add")
                                                                                  Meta
                                                                                  (Id
                                                                                     {unId =
@@ -1246,7 +1228,7 @@
                                                                               (Rigid
                                                                                  (RNameIntro
                                                                                     (UserName
-                                                                                       "<PLACEHOLDER>")
+                                                                                       "var")
                                                                                     Meta
                                                                                     (Id
                                                                                        {unId =
@@ -1281,7 +1263,7 @@
                                                                                  (Rigid
                                                                                     (RNameIntro
                                                                                        (UserName
-                                                                                          "<PLACEHOLDER>")
+                                                                                          "return")
                                                                                        Meta
                                                                                        (Id
                                                                                           {unId =
@@ -1324,7 +1306,7 @@
                                                                                     (Rigid
                                                                                        (RNameIntro
                                                                                           (UserName
-                                                                                             "<PLACEHOLDER>")
+                                                                                             "CompileTerm")
                                                                                           Meta
                                                                                           (Id
                                                                                              {unId =
@@ -1370,7 +1352,7 @@
                                                                                        (Rigid
                                                                                           (RNameIntro
                                                                                              (UserName
-                                                                                                "<PLACEHOLDER>")
+                                                                                                "compile_func")
                                                                                              Meta
                                                                                              (Id
                                                                                                 {unId =
@@ -1601,7 +1583,7 @@
                                                                                           (Rigid
                                                                                              (RNameIntro
                                                                                                 (UserName
-                                                                                                   "<PLACEHOLDER>")
+                                                                                                   "compile_int")
                                                                                                 Meta
                                                                                                 (Id
                                                                                                    {unId =
@@ -1643,7 +1625,7 @@
                                                                                              (Rigid
                                                                                                 (RNameIntro
                                                                                                    (UserName
-                                                                                                      "<PLACEHOLDER>")
+                                                                                                      "zero")
                                                                                                    Meta
                                                                                                    (Id
                                                                                                       {unId =
@@ -1657,7 +1639,7 @@
                                                                                                 (Rigid
                                                                                                    (RNameIntro
                                                                                                       (UserName
-                                                                                                         "<PLACEHOLDER>")
+                                                                                                         "one")
                                                                                                       Meta
                                                                                                       (Id
                                                                                                          {unId =
@@ -1671,7 +1653,7 @@
                                                                                                    (Rigid
                                                                                                       (RNameIntro
                                                                                                          (UserName
-                                                                                                            "<PLACEHOLDER>")
+                                                                                                            "add")
                                                                                                          Meta
                                                                                                          (Id
                                                                                                             {unId =
@@ -1685,7 +1667,7 @@
                                                                                                       (Rigid
                                                                                                          (RNameIntro
                                                                                                             (UserName
-                                                                                                               "<PLACEHOLDER>")
+                                                                                                               "var")
                                                                                                             Meta
                                                                                                             (Id
                                                                                                                {unId =
@@ -1699,7 +1681,7 @@
                                                                                                          (Rigid
                                                                                                             (RNameIntro
                                                                                                                (UserName
-                                                                                                                  "<PLACEHOLDER>")
+                                                                                                                  "return")
                                                                                                                Meta
                                                                                                                (Id
                                                                                                                   {unId =
@@ -1713,7 +1695,7 @@
                                                                                                             (Rigid
                                                                                                                (RNameIntro
                                                                                                                   (UserName
-                                                                                                                     "<PLACEHOLDER>")
+                                                                                                                     "CompileTerm")
                                                                                                                   Meta
                                                                                                                   (Id
                                                                                                                      {unId =
@@ -1727,7 +1709,7 @@
                                                                                                                (Rigid
                                                                                                                   (RNameIntro
                                                                                                                      (UserName
-                                                                                                                        "<PLACEHOLDER>")
+                                                                                                                        "compile_func")
                                                                                                                      Meta
                                                                                                                      (Id
                                                                                                                         {unId =
@@ -1741,7 +1723,7 @@
                                                                                                                   (Rigid
                                                                                                                      (RNameIntro
                                                                                                                         (UserName
-                                                                                                                           "<PLACEHOLDER>")
+                                                                                                                           "compile_int")
                                                                                                                         Meta
                                                                                                                         (Id
                                                                                                                            {unId =
@@ -1756,7 +1738,7 @@
                                                                                                                      (Rigid
                                                                                                                         (RNameIntro
                                                                                                                            (UserName
-                                                                                                                              "<PLACEHOLDER>")
+                                                                                                                              "compile_add")
                                                                                                                            Meta
                                                                                                                            (Id
                                                                                                                               {unId =
@@ -1962,7 +1944,7 @@
                                                                                                                         (Rigid
                                                                                                                            (RNameIntro
                                                                                                                               (UserName
-                                                                                                                                 "<PLACEHOLDER>")
+                                                                                                                                 "compile_zero")
                                                                                                                               Meta
                                                                                                                               (Id
                                                                                                                                  {unId =
@@ -2010,7 +1992,7 @@
                                                                                                                            (Rigid
                                                                                                                               (RNameIntro
                                                                                                                                  (UserName
-                                                                                                                                    "<PLACEHOLDER>")
+                                                                                                                                    "compile_one")
                                                                                                                                  Meta
                                                                                                                                  (Id
                                                                                                                                     {unId =
@@ -2058,7 +2040,7 @@
                                                                                                                               (Rigid
                                                                                                                                  (RNameIntro
                                                                                                                                     (UserName
-                                                                                                                                       "<PLACEHOLDER>")
+                                                                                                                                       "compile_var")
                                                                                                                                     Meta
                                                                                                                                     (Id
                                                                                                                                        {unId =
@@ -2113,7 +2095,7 @@
                                                                                                                                  (Rigid
                                                                                                                                     (RNameIntro
                                                                                                                                        (UserName
-                                                                                                                                          "<PLACEHOLDER>")
+                                                                                                                                          "compile_return")
                                                                                                                                        Meta
                                                                                                                                        (Id
                                                                                                                                           {unId =
@@ -2243,8 +2225,8 @@
                                                                                                                                     Meta
                                                                                                                                     (Rigid
                                                                                                                                        (RNameIntro
-                                                                                                                                          (UserName
-                                                                                                                                             "<PLACEHOLDER>")
+                                                                                                                                          (MachineName
+                                                                                                                                             23)
                                                                                                                                           Meta
                                                                                                                                           (Id
                                                                                                                                              {unId =
@@ -2363,7 +2345,7 @@
                                                                                                                                        (Rigid
                                                                                                                                           (RNameIntro
                                                                                                                                              (UserName
-                                                                                                                                                "<PLACEHOLDER>")
+                                                                                                                                                "compile_add")
                                                                                                                                              Meta
                                                                                                                                              (Id
                                                                                                                                                 {unId =
@@ -2377,7 +2359,7 @@
                                                                                                                                           (Rigid
                                                                                                                                              (RNameIntro
                                                                                                                                                 (UserName
-                                                                                                                                                   "<PLACEHOLDER>")
+                                                                                                                                                   "compile_zero")
                                                                                                                                                 Meta
                                                                                                                                                 (Id
                                                                                                                                                    {unId =
@@ -2391,7 +2373,7 @@
                                                                                                                                              (Rigid
                                                                                                                                                 (RNameIntro
                                                                                                                                                    (UserName
-                                                                                                                                                      "<PLACEHOLDER>")
+                                                                                                                                                      "compile_one")
                                                                                                                                                    Meta
                                                                                                                                                    (Id
                                                                                                                                                       {unId =
@@ -2405,7 +2387,7 @@
                                                                                                                                                 (Rigid
                                                                                                                                                    (RNameIntro
                                                                                                                                                       (UserName
-                                                                                                                                                         "<PLACEHOLDER>")
+                                                                                                                                                         "compile_var")
                                                                                                                                                       Meta
                                                                                                                                                       (Id
                                                                                                                                                          {unId =
@@ -2419,7 +2401,7 @@
                                                                                                                                                    (Rigid
                                                                                                                                                       (RNameIntro
                                                                                                                                                          (UserName
-                                                                                                                                                            "<PLACEHOLDER>")
+                                                                                                                                                            "compile_return")
                                                                                                                                                          Meta
                                                                                                                                                          (Id
                                                                                                                                                             {unId =
@@ -2432,8 +2414,8 @@
                                                                                                                                                    (Define
                                                                                                                                                       (Rigid
                                                                                                                                                          (RNameIntro
-                                                                                                                                                            (UserName
-                                                                                                                                                               "<PLACEHOLDER>")
+                                                                                                                                                            (MachineName
+                                                                                                                                                               23)
                                                                                                                                                             Meta
                                                                                                                                                             (Id
                                                                                                                                                                {unId =

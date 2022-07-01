@@ -2,19 +2,17 @@
   fromList [],
   fromList
     [(SourcePos
-        {sourceName = "<TODO>",
+        {sourceName = "./test/uv_eq.per",
          sourceLine = Pos 1,
          sourceColumn = Pos 20},
       InferredFunType (RecType (fromList [])))]),
  Declare
    Obj
    (Rigid
-      (RNameIntro
-         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+      (RNameIntro (UserName "x") Obj (Id {unId = 0})))
    (RecType (fromList []))
    (Define
       (Rigid
-         (RNameIntro
-            (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+         (RNameIntro (UserName "x") Obj (Id {unId = 0})))
       (Rigid ElabError)
       (Rigid (TypeType Obj))))

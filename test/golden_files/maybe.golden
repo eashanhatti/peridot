@@ -19,16 +19,14 @@
  Declare
    Obj
    (Rigid
-      (RNameIntro
-         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+      (RNameIntro (UserName "Maybe") Obj (Id {unId = 0})))
    (ObjFunType
       Explicit
       (Rigid (TypeType Obj))
       (Rigid (TypeType Obj)))
    (Define
       (Rigid
-         (RNameIntro
-            (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+         (RNameIntro (UserName "Maybe") Obj (Id {unId = 0})))
       (ObjFunIntro
          (RecType
             (fromList
@@ -42,7 +40,7 @@
          Obj
          (Rigid
             (RNameIntro
-               (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+               (UserName "nothing") Obj (Id {unId = 1})))
          (ObjFunType
             Unification
             (Rigid (TypeType Obj))
@@ -55,8 +53,7 @@
          (Declare
             Obj
             (Rigid
-               (RNameIntro
-                  (UserName "<PLACEHOLDER>") Obj (Id {unId = 2})))
+               (RNameIntro (UserName "just") Obj (Id {unId = 2})))
             (ObjFunType
                Unification
                (Rigid (TypeType Obj))
@@ -72,8 +69,7 @@
             (Declare
                Obj
                (Rigid
-                  (RNameIntro
-                     (UserName "<PLACEHOLDER>") Obj (Id {unId = 3})))
+                  (RNameIntro (UserName "map") Obj (Id {unId = 3})))
                (ObjFunType
                   Explicit
                   (Rigid (TypeType Obj))
@@ -102,7 +98,7 @@
                (Define
                   (Rigid
                      (RNameIntro
-                        (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+                        (UserName "nothing") Obj (Id {unId = 1})))
                   (ObjFunIntro
                      (RecIntro
                         (fromList
@@ -111,8 +107,7 @@
                              RecIntro (fromList []))])))
                   (Define
                      (Rigid
-                        (RNameIntro
-                           (UserName "<PLACEHOLDER>") Obj (Id {unId = 2})))
+                        (RNameIntro (UserName "just") Obj (Id {unId = 2})))
                      (ObjFunIntro
                         (ObjFunIntro
                            (RecIntro
@@ -122,8 +117,7 @@
                                    LocalVar (Index {unIndex = 1}))]))))
                      (Define
                         (Rigid
-                           (RNameIntro
-                              (UserName "<PLACEHOLDER>") Obj (Id {unId = 3})))
+                           (RNameIntro (UserName "map") Obj (Id {unId = 3})))
                         (ObjFunIntro
                            (ObjFunIntro
                               (ObjFunIntro

@@ -279,8 +279,7 @@
  Declare
    Meta
    (Rigid
-      (RNameIntro
-         (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+      (RNameIntro (UserName "List") Meta (Id {unId = 0})))
    (MetaFunType
       Explicit
       (Rigid (TypeType Meta))
@@ -288,24 +287,20 @@
    (Declare
       Meta
       (Rigid
-         (RNameIntro
-            (UserName "<PLACEHOLDER>") Meta (Id {unId = 6})))
+         (RNameIntro (UserName "Unit") Meta (Id {unId = 6})))
       (Rigid (TypeType Meta))
       (Define
          (Rigid
-            (RNameIntro
-               (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+            (RNameIntro (UserName "List") Meta (Id {unId = 0})))
          (Rigid (MetaConstIntro (Id {unId = 0})))
          (Define
             (Rigid
-               (RNameIntro
-                  (UserName "<PLACEHOLDER>") Meta (Id {unId = 6})))
+               (RNameIntro (UserName "Unit") Meta (Id {unId = 6})))
             (Rigid (MetaConstIntro (Id {unId = 6})))
             (Declare
                Meta
                (Rigid
-                  (RNameIntro
-                     (UserName "<PLACEHOLDER>") Meta (Id {unId = 1})))
+                  (RNameIntro (UserName "nil") Meta (Id {unId = 1})))
                (MetaFunType
                   Unification
                   (Rigid (TypeType Meta))
@@ -318,8 +313,7 @@
                (Declare
                   Meta
                   (Rigid
-                     (RNameIntro
-                        (UserName "<PLACEHOLDER>") Meta (Id {unId = 2})))
+                     (RNameIntro (UserName "cons") Meta (Id {unId = 2})))
                   (MetaFunType
                      Unification
                      (Rigid (TypeType Meta))
@@ -346,7 +340,7 @@
                      Meta
                      (Rigid
                         (RNameIntro
-                           (UserName "<PLACEHOLDER>") Meta (Id {unId = 3})))
+                           (UserName "Append") Meta (Id {unId = 3})))
                      (MetaFunType
                         Unification
                         (Rigid (TypeType Meta))
@@ -385,8 +379,7 @@
                      (Declare
                         Meta
                         (Rigid
-                           (RNameIntro
-                              (UserName "<PLACEHOLDER>") Meta (Id {unId = 7})))
+                           (RNameIntro (UserName "unit") Meta (Id {unId = 7})))
                         (GlobalVar
                            (Rigid
                               (RNameIntro
@@ -395,10 +388,7 @@
                         (Declare
                            Meta
                            (Rigid
-                              (RNameIntro
-                                 (UserName "<PLACEHOLDER>")
-                                 Meta
-                                 (Id {unId = 8})))
+                              (RNameIntro (UserName "xs") Meta (Id {unId = 8})))
                            (MetaFunElim
                               (GlobalVar
                                  (Rigid
@@ -413,35 +403,31 @@
                            (Define
                               (Rigid
                                  (RNameIntro
-                                    (UserName "<PLACEHOLDER>")
-                                    Meta
-                                    (Id {unId = 1})))
+                                    (UserName "nil") Meta (Id {unId = 1})))
                               (Rigid (MetaConstIntro (Id {unId = 1})))
                               (Define
                                  (Rigid
                                     (RNameIntro
-                                       (UserName "<PLACEHOLDER>")
-                                       Meta
-                                       (Id {unId = 2})))
+                                       (UserName "cons") Meta (Id {unId = 2})))
                                  (Rigid (MetaConstIntro (Id {unId = 2})))
                                  (Define
                                     (Rigid
                                        (RNameIntro
-                                          (UserName "<PLACEHOLDER>")
+                                          (UserName "Append")
                                           Meta
                                           (Id {unId = 3})))
                                     (Rigid (MetaConstIntro (Id {unId = 3})))
                                     (Define
                                        (Rigid
                                           (RNameIntro
-                                             (UserName "<PLACEHOLDER>")
+                                             (UserName "unit")
                                              Meta
                                              (Id {unId = 7})))
                                        (Rigid (MetaConstIntro (Id {unId = 7})))
                                        (Define
                                           (Rigid
                                              (RNameIntro
-                                                (UserName "<PLACEHOLDER>")
+                                                (UserName "xs")
                                                 Meta
                                                 (Id {unId = 8})))
                                           (UniVar (UVGlobal 8))
@@ -449,7 +435,7 @@
                                              Meta
                                              (Rigid
                                                 (RNameIntro
-                                                   (UserName "<PLACEHOLDER>")
+                                                   (UserName "append_nil")
                                                    Meta
                                                    (Id {unId = 4})))
                                              (MetaFunType
@@ -501,7 +487,7 @@
                                                 Meta
                                                 (Rigid
                                                    (RNameIntro
-                                                      (UserName "<PLACEHOLDER>")
+                                                      (UserName "append_cons")
                                                       Meta
                                                       (Id {unId = 5})))
                                                 (MetaFunType
@@ -654,8 +640,7 @@
                                                    Meta
                                                    (Rigid
                                                       (RNameIntro
-                                                         (UserName
-                                                            "<PLACEHOLDER>")
+                                                         (MachineName 9)
                                                          Meta
                                                          (Id {unId = 9})))
                                                    (MetaFunElim
@@ -721,7 +706,7 @@
                                                       (Rigid
                                                          (RNameIntro
                                                             (UserName
-                                                               "<PLACEHOLDER>")
+                                                               "append_nil")
                                                             Meta
                                                             (Id {unId = 4})))
                                                       (Rigid
@@ -731,7 +716,7 @@
                                                          (Rigid
                                                             (RNameIntro
                                                                (UserName
-                                                                  "<PLACEHOLDER>")
+                                                                  "append_cons")
                                                                Meta
                                                                (Id {unId = 5})))
                                                          (Rigid
@@ -740,8 +725,8 @@
                                                          (Define
                                                             (Rigid
                                                                (RNameIntro
-                                                                  (UserName
-                                                                     "<PLACEHOLDER>")
+                                                                  (MachineName
+                                                                     9)
                                                                   Meta
                                                                   (Id
                                                                      {unId =

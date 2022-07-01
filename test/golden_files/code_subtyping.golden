@@ -6,24 +6,20 @@
  Declare
    Meta
    (Rigid
-      (RNameIntro
-         (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+      (RNameIntro (UserName "foo") Meta (Id {unId = 0})))
    (Rigid (CodeObjType (Rigid (TypeType Obj))))
    (Declare
       Obj
       (Rigid
-         (RNameIntro
-            (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+         (RNameIntro (UserName "bar") Obj (Id {unId = 1})))
       (Rigid (TypeType Obj))
       (Define
          (Rigid
-            (RNameIntro
-               (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+            (RNameIntro (UserName "foo") Meta (Id {unId = 0})))
          (Rigid (CodeObjIntro (Rigid (TypeType Obj))))
          (Define
             (Rigid
-               (RNameIntro
-                  (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+               (RNameIntro (UserName "bar") Obj (Id {unId = 1})))
             (CodeObjElim
                (Rigid (CodeObjIntro (Rigid (TypeType Obj)))))
             (Rigid (TypeType Obj))))))

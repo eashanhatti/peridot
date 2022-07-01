@@ -12,7 +12,7 @@
   fromList [],
   fromList
     [(SourcePos
-        {sourceName = "<TODO>",
+        {sourceName = "./test/bool_eq.per",
          sourceLine = Pos 5,
          sourceColumn = Pos 29},
       FailedUnify
@@ -25,25 +25,21 @@
  Declare
    Obj
    (Rigid
-      (RNameIntro
-         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+      (RNameIntro (UserName "p") Obj (Id {unId = 0})))
    (Rigid
       (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro0)))
    (Declare
       Obj
       (Rigid
-         (RNameIntro
-            (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+         (RNameIntro (UserName "q") Obj (Id {unId = 1})))
       (Rigid
          (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro1)))
       (Define
          (Rigid
-            (RNameIntro
-               (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+            (RNameIntro (UserName "p") Obj (Id {unId = 0})))
          (Rigid (ObjIdIntro (Rigid TwoIntro0)))
          (Define
             (Rigid
-               (RNameIntro
-                  (UserName "<PLACEHOLDER>") Obj (Id {unId = 1})))
+               (RNameIntro (UserName "q") Obj (Id {unId = 1})))
             (Rigid (ObjIdIntro (UniVar (UVGlobal 1005))))
             (Rigid (TypeType Obj))))))

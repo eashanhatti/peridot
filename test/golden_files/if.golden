@@ -10,7 +10,7 @@
    Obj
    (Rigid
       (RNameIntro
-         (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+         (UserName "example") Obj (Id {unId = 0})))
    (ObjFunType
       Explicit
       (Rigid TwoType)
@@ -22,7 +22,7 @@
    (Define
       (Rigid
          (RNameIntro
-            (UserName "<PLACEHOLDER>") Obj (Id {unId = 0})))
+            (UserName "example") Obj (Id {unId = 0})))
       (ObjFunIntro
          (TwoElim
             (LocalVar (Index {unIndex = 0}))

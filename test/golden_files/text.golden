@@ -2,19 +2,16 @@
  Declare
    Meta
    (Rigid
-      (RNameIntro
-         (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+      (RNameIntro (UserName "foo") Meta (Id {unId = 0})))
    (Rigid TextType)
    (Declare
       Meta
       (Rigid
-         (RNameIntro
-            (UserName "<PLACEHOLDER>") Meta (Id {unId = 1})))
+         (RNameIntro (UserName "_") Meta (Id {unId = 1})))
       (Rigid TextType)
       (Define
          (Rigid
-            (RNameIntro
-               (UserName "<PLACEHOLDER>") Meta (Id {unId = 0})))
+            (RNameIntro (UserName "foo") Meta (Id {unId = 0})))
          (Rigid
             (TextIntroCons
                'a'
@@ -24,8 +21,7 @@
                      (Rigid (TextIntroCons 'c' (Rigid TextIntroNil)))))))
          (Define
             (Rigid
-               (RNameIntro
-                  (UserName "<PLACEHOLDER>") Meta (Id {unId = 1})))
+               (RNameIntro (UserName "_") Meta (Id {unId = 1})))
             (TextElimCat
                (GlobalVar
                   (Rigid
