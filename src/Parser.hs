@@ -580,7 +580,7 @@ decls = do
       Right (tl, ndid') -> put ndid' *> pure tl
       Left e -> fail e
   ds <- many (decl <* ws)
-  pure (fromList ds <> foldl' (<>) mempty dss)
+  pure (foldl' (<>) mempty dss <> fromList ds)
 
 toplevel :: Parser TermAst
 toplevel = do

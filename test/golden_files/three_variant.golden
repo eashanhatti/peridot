@@ -1,29 +1,4 @@
-((fromList [],
-  fromList [],
-  fromList
-    [(SourcePos
-        {sourceName = "./test/three_variant.per",
-         sourceLine = Pos 11,
-         sourceColumn = Pos 18},
-      ExpectedRecordType (Rigid ElabError)),
-     (SourcePos
-        {sourceName = "./test/three_variant.per",
-         sourceLine = Pos 11,
-         sourceColumn = Pos 18},
-      ExpectedRecordType
-        (GlobalVar
-           (Rigid
-              (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-           False)),
-     (SourcePos
-        {sourceName = "./test/three_variant.per",
-         sourceLine = Pos 9,
-         sourceColumn = Pos 12},
-      ExpectedRecordType
-        (GlobalVar
-           (Rigid
-              (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-           False))]),
+((fromList [], fromList [], fromList []),
  Declare
    Obj
    (Rigid
@@ -60,7 +35,9 @@
                       False),
                    (Field {unField = "data"},
                     TwoElim
-                      (Rigid ElabError)
+                      (RecElim
+                         (LocalVar (Index {unIndex = 0}))
+                         (Field {unField = "tag"}))
                       (RecType
                          (fromList
                             [(Field {unField = "data"},
@@ -70,7 +47,11 @@
                                       (UserName "Nat") Obj (Id {unId = 0})))
                                 False)]))
                       (TwoElim
-                         (Rigid ElabError)
+                         (RecElim
+                            (RecElim
+                               (LocalVar (Index {unIndex = 0}))
+                               (Field {unField = "data"}))
+                            (Field {unField = "tag"}))
                          (RecType
                             (fromList [(Field {unField = "a"}, Rigid TwoType)]))
                          (RecType

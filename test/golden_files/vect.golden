@@ -35,10 +35,7 @@
                   (Rigid
                      (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
                   False))))),
-     (UVGlobal 1004, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1005,
-      Just (UVSol ((RecType fromList [])))),
-     (UVGlobal 1006,
+     (UVGlobal 1004,
       Just
         (UVSol
            ((Neutral
@@ -47,7 +44,7 @@
                   (Rigid
                      (RNameIntro (UserName "zero") Obj (Id {unId = 1})))
                   False))))),
-     (UVGlobal 1007,
+     (UVGlobal 1005,
       Just
         (UVSol
            ((Neutral
@@ -61,21 +58,7 @@
                         False))
                   (LocalVar Level {unLevel = 1}))))))],
   fromList [],
-  fromList
-    [(SourcePos
-        {sourceName = "nat.per",
-         sourceLine = Pos 19,
-         sourceColumn = Pos 5},
-      FailedUnify
-        (GlobalVar
-           (Rigid
-              (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-           False)
-        (RecType
-           (fromList
-              [(Field {unField = "tag"}, Rigid TwoType),
-               (Field {unField = "data"},
-                RecType (fromList []))])))]),
+  fromList []),
  Declare
    Obj
    (Rigid
