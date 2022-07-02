@@ -13,9 +13,9 @@ axiom Unit: MetaType
 axiom unit: Unit
 
 metavar xs: List(Unit)
-?- Append(nil, nil, xs)
+query Append(nil, nil, xs)
 /*
 metavar ys: List(Unit)
-?- Append(cons(unit, nil), cons(unit, nil), ys)
-?- Append(cons(unit, nil), cons(unit, nil), cons(unit, cons(unit, nil)))
+query Append(cons(unit, nil), cons(unit, nil), ys)
+query Append(cons(unit, nil), cons(unit, nil), cons(unit, cons(unit, nil)))
 */

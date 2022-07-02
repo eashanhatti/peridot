@@ -24,7 +24,7 @@ keywords =
   [ "Fun", "fun", "Type", "let", "in", "Bool", "true", "false"
   , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
   , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text", "def"
-  , "metadef", "axiom", "#output", "prove", "metavar", "Code" ]
+  , "metadef", "axiom", "output", "query", "metavar", "Code" ]
 
 keyword :: Parser ()
 keyword = do
@@ -543,7 +543,7 @@ axiom = do
 
 proof :: Parser Declaration
 proof = do
-  string "?-"; ws
+  string "query"; ws
   ty <- prec0
   pure (Prove ty)
 

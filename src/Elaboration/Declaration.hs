@@ -51,7 +51,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             (ty, _) <- declType gDid
             eval ty)
           gDids
-      -- let !_ = tracePretty gTys
+      pure (C.Rigid C.ElabError)
       substs <- proveDet gTys vSig
       case substs of
         Nothing -> do

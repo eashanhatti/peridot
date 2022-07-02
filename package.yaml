@@ -76,7 +76,7 @@ library:
   source-dirs: src
 
 executables:
-  peridot-exe:
+  peridot:
     main:                Main.hs
     source-dirs:         app
     ghc-options:

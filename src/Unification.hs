@@ -60,11 +60,14 @@ instance Semigroup Substitution where
 instance Monoid Substitution where
   mempty = Subst mempty mempty
 
+data UnifyContext = UnifyContext
+  { unIsSearch :: Bool }
+
 type Unify sig m =
   ( Norm sig m
   , Has (Error ()) sig m
   , Has (State Substitution) sig m
-  , Has (Reader (Set Global)) sig m )
+  , Has (Reader UnifyContext) sig m )
 
 putTypeSolExp :: Unify sig m => Global -> Term -> m (Coercion sig m)
 putTypeSolExp gl sol = do
@@ -98,14 +101,6 @@ bind2 f act1 act2 = do
   x <- act1
   y <- act2
   f x y
-
-withVisited :: Unify sig m => Global -> m a -> m a
-withVisited gl act = do
-  visited <- ask
-  if Set.member gl visited then
-    throwError ()
-  else
-    local (Set.insert gl) act
 
 unifyRedexes :: Unify sig m => Redex -> Redex -> m ()
 unifyRedexes (TextElimCat t11 t12) (TextElimCat t21 t22) = do
@@ -203,9 +198,17 @@ unifyRigid (NameType univ1 ty1) (NameType univ2 ty2)
 unifyRigid (NameIntro univ1 did1) (NameIntro univ2 did2)
   | univ1 == univ2 && did1 == did2
   = pure noop
-unifyRigid ElabError _ = pure noop
-unifyRigid _ ElabError = pure noop
+unifyRigid ElabError _ = errorU
+unifyRigid _ ElabError = errorU
 unifyRigid term1 term2 = throwError ()
+
+errorU :: Unify sig m => m (Coercion sig m)
+errorU = do
+  b <- unIsSearch <$> ask
+  if b then
+    throwError ()
+  else
+    pure noop
 
 occurs :: Unify sig m => Set Id -> Global -> Term -> m ()
 occurs vis gl term = case term of
@@ -245,8 +248,8 @@ unify' term1 term2 =
   simple term1 term2 `catchError` (\() -> complex term1 term2)
   where
     simple :: Unify sig m => Term -> Term -> m (Coercion sig m)
-    simple (Rigid ElabError) _ = pure noop
-    simple _ (Rigid ElabError) = pure noop
+    simple (Rigid ElabError) _ = errorU
+    simple _ (Rigid ElabError) = errorU
     simple nterm1@(Neutral term1 redex1) nterm2@(Neutral term2 redex2) =
       catchError (unifyRedexes redex1 redex2 *> pure noop) (\() -> go)
       where
@@ -322,12 +325,12 @@ unify' term1 term2 =
     complex term1 (Neutral term2 (GlobalVar _ True)) = do
       term2 <- fromJust <$> force term2
       unify' term1 term2
-    complex (Neutral prevSol (UniVar gl)) term = withVisited gl do
+    complex (Neutral prevSol (UniVar gl)) term = do
       prevSol <- force prevSol
       case prevSol of
         Just prevSol -> unify' prevSol term
         Nothing -> putTypeSolInf gl term
-    complex term (Neutral prevSol (UniVar gl)) = withVisited gl do
+    complex term (Neutral prevSol (UniVar gl)) = do
       prevSol <- force prevSol
       case prevSol of
         Just prevSol -> unify' term prevSol
@@ -375,11 +378,19 @@ unify ::
   Term ->
   m (Maybe (Substitution, C.Term))
 unify e term1 term2 = do
-  r <- runError @() . runReader (mempty :: Set Global) . runState mempty $ unify' term1 term2
+  r <-
+    runError @() .
+    runReader (UnifyContext False) .
+    runState mempty $
+    unify' term1 term2
   case r of
     Right (subst, Coe Nothing) -> pure (Just (subst, e))
     Right (subst1, Coe (Just coe)) -> do
-      e' <- runError @() . runReader (mempty :: Set Global) . runState subst1 $ coe e
+      e' <-
+        runError @() .
+        runReader (UnifyContext False) .
+        runState subst1 $
+        coe e
       case e' of
         Right (subst2, e') -> pure (Just (subst2 <> subst1, e'))
         Left _ -> pure Nothing
@@ -387,7 +398,23 @@ unify e term1 term2 = do
 
 unifyR :: HasCallStack => Norm sig m => Term -> Term -> m (Maybe Substitution)
 unifyR term1 term2 = do
-  r <- runError @() . runReader (mempty :: Set Global) . runState mempty $ unify' term1 term2
+  r <-
+    runError @() .
+    runReader (UnifyContext False) .
+    runState mempty $
+    unify' term1 term2
+  case r of
+    Right (subst, Coe Nothing) -> pure (Just subst)
+    Right (_, Coe (Just _)) -> pure Nothing
+    Left _ -> pure Nothing
+
+unifyRS :: HasCallStack => Norm sig m => Term -> Term -> m (Maybe Substitution)
+unifyRS term1 term2 = do
+  r <-
+    runError @() .
+    runReader (UnifyContext True) .
+    runState mempty $
+    unify' term1 term2
   case r of
     Right (subst, Coe Nothing) -> pure (Just subst)
     Right (_, Coe (Just _)) -> pure Nothing

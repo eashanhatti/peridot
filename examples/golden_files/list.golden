@@ -1,0 +1,441 @@
+((fromList
+    [(UVGlobal 1000,
+      Just (UVSol ((Rigid (TypeType Meta))))),
+     (UVGlobal 1001,
+      Just (UVSol ((Rigid (TypeType Meta))))),
+     (UVGlobal 1002,
+      Just (UVSol ((Rigid (TypeType Meta))))),
+     (UVGlobal 1003,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (MetaFunElim
+                  (Neutral
+                     _
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+                        False))
+                  (Neutral _ (UniVar (UVGlobal 1005)))))))),
+     (UVGlobal 1004,
+      Just (UVSol ((Rigid (TypeType Meta))))),
+     (UVGlobal 1005, Nothing),
+     (UVGlobal 1006,
+      Just (UVSol ((Rigid (TypeType Meta))))),
+     (UVGlobal 1007, Nothing),
+     (UVGlobal 1008,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (MetaFunElim
+                  (Neutral
+                     _
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+                        False))
+                  (Neutral _ (UniVar (UVGlobal 1013)))))))),
+     (UVGlobal 1009, Nothing),
+     (UVGlobal 1010,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (MetaFunElim
+                  (Neutral
+                     _
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+                        False))
+                  (Neutral _ (UniVar (UVGlobal 1013)))))))),
+     (UVGlobal 1011,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (MetaFunElim
+                  (Neutral
+                     _
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+                        False))
+                  (Neutral _ (UniVar (UVGlobal 1013)))))))),
+     (UVGlobal 1012,
+      Just (UVSol ((Rigid (TypeType Meta))))),
+     (UVGlobal 1013, Nothing),
+     (UVGlobal 1014, Nothing),
+     (UVGlobal 1015,
+      Just (UVSol ((Rigid (TypeType Meta))))),
+     (UVGlobal 1016, Nothing),
+     (UVGlobal 1017, Nothing),
+     (UVGlobal 1018,
+      Just (UVSol ((Rigid (TypeType Meta))))),
+     (UVGlobal 1019,
+      Just (UVSol ((Rigid (TypeType Meta))))),
+     (UVGlobal 1020,
+      Just (UVSol ((Rigid (TypeType Meta))))),
+     (UVGlobal 1021,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (MetaFunElim
+                  (Neutral
+                     _
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+                        False))
+                  (Neutral _ (UniVar (UVGlobal 1022)))))))),
+     (UVGlobal 1022, Nothing),
+     (UVGlobal 1023, Nothing),
+     (UVGlobal 1024,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (MetaFunElim
+                  (Neutral
+                     _
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+                        False))
+                  (Neutral _ (UniVar (UVGlobal 1028)))))))),
+     (UVGlobal 1025, Nothing),
+     (UVGlobal 1026,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (MetaFunElim
+                  (Neutral
+                     _
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+                        False))
+                  (Neutral _ (UniVar (UVGlobal 1028)))))))),
+     (UVGlobal 1027,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (MetaFunElim
+                  (Neutral
+                     _
+                     (GlobalVar
+                        (Rigid
+                           (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+                        False))
+                  (Neutral _ (UniVar (UVGlobal 1028)))))))),
+     (UVGlobal 1028, Nothing),
+     (UVGlobal 1029, Nothing),
+     (UVGlobal 1030, Nothing),
+     (UVGlobal 1031, Nothing)],
+  fromList
+    [(UVGlobal 1005, UVGlobal 1005),
+     (UVGlobal 1007, UVGlobal 1005),
+     (UVGlobal 1009, UVGlobal 1017),
+     (UVGlobal 1013, UVGlobal 1017),
+     (UVGlobal 1014, UVGlobal 1017),
+     (UVGlobal 1016, UVGlobal 1014),
+     (UVGlobal 1017, UVGlobal 1014),
+     (UVGlobal 1022, UVGlobal 1022),
+     (UVGlobal 1023, UVGlobal 1022),
+     (UVGlobal 1025, UVGlobal 1031),
+     (UVGlobal 1028, UVGlobal 1031),
+     (UVGlobal 1029, UVGlobal 1031),
+     (UVGlobal 1030, UVGlobal 1029),
+     (UVGlobal 1031, UVGlobal 1029)],
+  fromList []),
+ Declare
+   Meta
+   (Rigid
+      (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+   (MetaFunType
+      Explicit
+      (Rigid (TypeType Meta))
+      (Rigid (TypeType Meta)))
+   (Define
+      (Rigid
+         (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+      (Rigid (MetaConstIntro (Id {unId = 0})))
+      (Declare
+         Meta
+         (Rigid
+            (RNameIntro (UserName "nil") Meta (Id {unId = 1})))
+         (MetaFunType
+            Unification
+            (Rigid (TypeType Meta))
+            (MetaFunElim
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "List") Meta (Id {unId = 0})))
+                  False)
+               (LocalVar (Index {unIndex = 0}))))
+         (Declare
+            Meta
+            (Rigid
+               (RNameIntro (UserName "cons") Meta (Id {unId = 2})))
+            (MetaFunType
+               Unification
+               (Rigid (TypeType Meta))
+               (MetaFunType
+                  Explicit
+                  (LocalVar (Index {unIndex = 0}))
+                  (MetaFunType
+                     Explicit
+                     (MetaFunElim
+                        (GlobalVar
+                           (Rigid
+                              (RNameIntro
+                                 (UserName "List") Meta (Id {unId = 0})))
+                           False)
+                        (LocalVar (Index {unIndex = 1})))
+                     (MetaFunElim
+                        (GlobalVar
+                           (Rigid
+                              (RNameIntro
+                                 (UserName "List") Meta (Id {unId = 0})))
+                           False)
+                        (LocalVar (Index {unIndex = 2}))))))
+            (Declare
+               Meta
+               (Rigid
+                  (RNameIntro
+                     (UserName "Append") Meta (Id {unId = 3})))
+               (MetaFunType
+                  Unification
+                  (Rigid (TypeType Meta))
+                  (MetaFunType
+                     Explicit
+                     (MetaFunElim
+                        (GlobalVar
+                           (Rigid
+                              (RNameIntro
+                                 (UserName "List") Meta (Id {unId = 0})))
+                           False)
+                        (LocalVar (Index {unIndex = 0})))
+                     (MetaFunType
+                        Explicit
+                        (MetaFunElim
+                           (GlobalVar
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "List") Meta (Id {unId = 0})))
+                              False)
+                           (LocalVar (Index {unIndex = 1})))
+                        (MetaFunType
+                           Explicit
+                           (MetaFunElim
+                              (GlobalVar
+                                 (Rigid
+                                    (RNameIntro
+                                       (UserName "List") Meta (Id {unId = 0})))
+                                 False)
+                              (LocalVar (Index {unIndex = 2})))
+                           (Rigid (TypeType Meta))))))
+               (Define
+                  (Rigid
+                     (RNameIntro (UserName "nil") Meta (Id {unId = 1})))
+                  (Rigid (MetaConstIntro (Id {unId = 1})))
+                  (Define
+                     (Rigid
+                        (RNameIntro (UserName "cons") Meta (Id {unId = 2})))
+                     (Rigid (MetaConstIntro (Id {unId = 2})))
+                     (Define
+                        (Rigid
+                           (RNameIntro
+                              (UserName "Append") Meta (Id {unId = 3})))
+                        (Rigid (MetaConstIntro (Id {unId = 3})))
+                        (Declare
+                           Meta
+                           (Rigid
+                              (RNameIntro
+                                 (UserName "append_nil") Meta (Id {unId = 4})))
+                           (MetaFunType
+                              Unification
+                              (MetaFunElim
+                                 (GlobalVar
+                                    (Rigid
+                                       (RNameIntro
+                                          (UserName "List")
+                                          Meta
+                                          (Id {unId = 0})))
+                                    False)
+                                 (UniVar (UVGlobal 1022)))
+                              (MetaFunElim
+                                 (MetaFunElim
+                                    (MetaFunElim
+                                       (MetaFunElim
+                                          (GlobalVar
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "Append")
+                                                   Meta
+                                                   (Id {unId = 3})))
+                                             False)
+                                          (UniVar (UVGlobal 1022)))
+                                       (MetaFunElim
+                                          (GlobalVar
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "nil")
+                                                   Meta
+                                                   (Id {unId = 1})))
+                                             False)
+                                          (UniVar (UVGlobal 1023))))
+                                    (LocalVar (Index {unIndex = 0})))
+                                 (LocalVar (Index {unIndex = 0}))))
+                           (Declare
+                              Meta
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "append_cons")
+                                    Meta
+                                    (Id {unId = 5})))
+                              (MetaFunType
+                                 Unification
+                                 (MetaFunElim
+                                    (GlobalVar
+                                       (Rigid
+                                          (RNameIntro
+                                             (UserName "List")
+                                             Meta
+                                             (Id {unId = 0})))
+                                       False)
+                                    (UniVar (UVGlobal 1028)))
+                                 (MetaFunType
+                                    Unification
+                                    (MetaFunElim
+                                       (GlobalVar
+                                          (Rigid
+                                             (RNameIntro
+                                                (UserName "List")
+                                                Meta
+                                                (Id {unId = 0})))
+                                          False)
+                                       (UniVar (UVGlobal 1028)))
+                                    (MetaFunType
+                                       Unification
+                                       (UniVar (UVGlobal 1025))
+                                       (MetaFunType
+                                          Unification
+                                          (MetaFunElim
+                                             (GlobalVar
+                                                (Rigid
+                                                   (RNameIntro
+                                                      (UserName "List")
+                                                      Meta
+                                                      (Id {unId = 0})))
+                                                False)
+                                             (UniVar (UVGlobal 1028)))
+                                          (Rigid
+                                             (ImplType
+                                                (MetaFunElim
+                                                   (MetaFunElim
+                                                      (MetaFunElim
+                                                         (MetaFunElim
+                                                            (GlobalVar
+                                                               (Rigid
+                                                                  (RNameIntro
+                                                                     (UserName
+                                                                        "Append")
+                                                                     Meta
+                                                                     (Id
+                                                                        {unId =
+                                                                           3})))
+                                                               False)
+                                                            (UniVar
+                                                               (UVGlobal 1028)))
+                                                         (LocalVar
+                                                            (Index
+                                                               {unIndex = 1})))
+                                                      (LocalVar
+                                                         (Index {unIndex = 0})))
+                                                   (LocalVar
+                                                      (Index {unIndex = 3})))
+                                                (MetaFunElim
+                                                   (MetaFunElim
+                                                      (MetaFunElim
+                                                         (MetaFunElim
+                                                            (GlobalVar
+                                                               (Rigid
+                                                                  (RNameIntro
+                                                                     (UserName
+                                                                        "Append")
+                                                                     Meta
+                                                                     (Id
+                                                                        {unId =
+                                                                           3})))
+                                                               False)
+                                                            (UniVar
+                                                               (UVGlobal 1029)))
+                                                         (MetaFunElim
+                                                            (MetaFunElim
+                                                               (MetaFunElim
+                                                                  (GlobalVar
+                                                                     (Rigid
+                                                                        (RNameIntro
+                                                                           (UserName
+                                                                              "cons")
+                                                                           Meta
+                                                                           (Id
+                                                                              {unId =
+                                                                                 2})))
+                                                                     False)
+                                                                  (UniVar
+                                                                     (UVGlobal
+                                                                        1030)))
+                                                               (LocalVar
+                                                                  (Index
+                                                                     {unIndex =
+                                                                        2})))
+                                                            (LocalVar
+                                                               (Index
+                                                                  {unIndex =
+                                                                     1}))))
+                                                      (LocalVar
+                                                         (Index {unIndex = 0})))
+                                                   (MetaFunElim
+                                                      (MetaFunElim
+                                                         (MetaFunElim
+                                                            (GlobalVar
+                                                               (Rigid
+                                                                  (RNameIntro
+                                                                     (UserName
+                                                                        "cons")
+                                                                     Meta
+                                                                     (Id
+                                                                        {unId =
+                                                                           2})))
+                                                               False)
+                                                            (UniVar
+                                                               (UVGlobal 1031)))
+                                                         (LocalVar
+                                                            (Index
+                                                               {unIndex = 2})))
+                                                      (LocalVar
+                                                         (Index
+                                                            {unIndex =
+                                                               3}))))))))))
+                              (Define
+                                 (Rigid
+                                    (RNameIntro
+                                       (UserName "append_nil")
+                                       Meta
+                                       (Id {unId = 4})))
+                                 (Rigid (MetaConstIntro (Id {unId = 4})))
+                                 (Define
+                                    (Rigid
+                                       (RNameIntro
+                                          (UserName "append_cons")
+                                          Meta
+                                          (Id {unId = 5})))
+                                    (Rigid (MetaConstIntro (Id {unId = 5})))
+                                    (Rigid (TypeType Obj))))))))))))))

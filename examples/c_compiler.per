@@ -22,7 +22,7 @@ axiom compile_add:
   ,  CompileTerm(`e2, `t2)
 axiom compile_zero: CompileTerm(zero, "0")
 axiom compile_one: CompileTerm(one, "1")
-axiom compile_var: Forall(t: Text), CompileTerm(var(t), t)
+axiom compile_var: CompileTerm(var(`t), `t)
 
 axiom CompileDecl: MetaFun(CDecl, Text) -> MetaType
 axiom compile_func:

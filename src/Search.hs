@@ -73,7 +73,7 @@ prove ctx (Rigid (AllType (MetaFunIntro p))) = do
   vP <- evalClosure p
   prove ctx vP
 prove ctx (Rigid (PropIdType x y)) = do
-  r <- unifyR x y
+  r <- unifyRS x y
   case r of
     Just (Subst ts eqs) -> pure (ts, eqs)
     Nothing -> empty
@@ -89,11 +89,11 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
     substs <-
       traverse
-        (\(dArg, gArg) -> unifyR gArg dArg)
+        (\(dArg, gArg) -> unifyRS gArg dArg)
         (zip dArgs gArgs)
     -- let !_ = tracePrettyS "DEF" d
     -- let !_ = tracePrettyS "GOAL" g
-    substs <- ((<| substs) <$> unifyR gHead dHead)
+    substs <- ((<| substs) <$> unifyRS gHead dHead)
     -- let !_ = tracePrettyS "SUBSTS" substs
     case allJustOrNothing substs of
       Just substs ->

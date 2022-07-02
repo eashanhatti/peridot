@@ -1,8 +1,8 @@
 import c_compiler.per
 
-metadef f1: CDecl = func(Int, "f", "x", Int, return(add(1, var("x"))))
+metadef f1: CDecl = func(Int, "f", "x", Int, return(add(one, var("x"))))
 metadef f2: CDecl = func(Int, "g", "x", Int, return(var("x")))
 
 metavar t: Text
-?- CompileDecls(cons(f1, cons(f2, nil)), t)
+query CompileDecls(cons(f1, cons(f2, nil)), t)
 output OUTPUT.c t
