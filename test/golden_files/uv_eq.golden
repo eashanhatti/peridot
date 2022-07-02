@@ -2,7 +2,7 @@
   fromList [],
   fromList
     [(SourcePos
-        {sourceName = "./test/uv_eq.per",
+        {sourceName = "test//uv_eq.per",
          sourceLine = Pos 1,
          sourceColumn = Pos 20},
       InferredFunType (RecType (fromList [])))]),

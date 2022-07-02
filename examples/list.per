@@ -2,7 +2,7 @@ axiom List: MetaFun(MetaType) -> MetaType
 axiom nil: List(`A)
 axiom cons: MetaFun(`A, List(`A)) -> List(`A)
 
-axiom Append: MetaFun(List(`A), List(`A), List(`A)) -> MetaType
+prop Append(List(`A), List(`A), List(`A))
 axiom append_nil:
   Append(nil, `xs, `xs)
 axiom append_cons:

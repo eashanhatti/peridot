@@ -1,4 +1,8 @@
 import list.per
+import pair.per
+
+metadef Compiler: MetaFun(MetaType) -> MetaType
+  = metafun(ty) => MetaFun(ty, Text) -> MetaType
 
 axiom CType: MetaType
 axiom Int: CType
@@ -13,9 +17,9 @@ axiom CStmt: MetaType
 axiom return: MetaFun(CTerm(Int)) -> CStmt
 
 axiom CDecl: MetaType
-axiom func: MetaFun(CType, Text, Text, CType, CStmt) -> CDecl
+axiom func: MetaFun(CType, Text, List(Pair(CType, Text)), CStmt) -> CDecl
 
-axiom CompileTerm: MetaFun(inf A: CType, CTerm(A), Text) -> MetaType
+prop CompileTerm(inf A: CType, CTerm(A), Text)
 axiom compile_add:
   CompileTerm(add(`e1, `e2), "(" ++ `t1 ++ " + " ++ `t2 ++ ")")
   :- CompileTerm(`e1, `t1)
@@ -24,24 +28,34 @@ axiom compile_zero: CompileTerm(zero, "0")
 axiom compile_one: CompileTerm(one, "1")
 axiom compile_var: CompileTerm(var(`t), `t)
 
-axiom CompileDecl: MetaFun(CDecl, Text) -> MetaType
+prop CompileDecl(CDecl, Text)
 axiom compile_func:
   CompileDecl(
-    func(`inTy, `f, `x, `outTy, `body),
-    `cOutTy ++ " " ++ `f ++ "(" ++ `cInTy ++ " " ++ `x ++ ") { " ++ `cBody ++ " }")
+    func(`outTy, `f, `ps, `body),
+    `cOutTy ++ " " ++ `f ++ "(" ++ `tps ++ ") { " ++ `cBody ++ " }")
   :- CompileType(`inTy, `cInTy)
   ,  CompileType(`outTy, cOutTy)
   ,  CompileStmt(`body, `cBody)
+  ,  CompileParams(`ps, `tps)
 
-axiom CompileType: MetaFun(CType, Text) -> MetaType
+axiom CompileParams(List(Pair(CType, Text)), Text)
+axiom compile_ps_single:
+  CompileParams(cons(pair(`ty, `name), nil), `tty ++ " " ++ `name)
+  :- CompileType(`ty, `tty)
+axiom compile_ps_cons:
+  CompileParams(cons(pair(`ty, `name), `ps), `tty ++ " " ++ `name ++ ", " ++ `tps)
+  :- CompileType(`ty, `tty)
+  ,  CompileParams(`ps, `tps)
+
+axiom CompileType(CType, Text)
 axiom compile_int: CompileType(Int, "int")
 
-axiom CompileStmt: MetaFun(CStmt, Text) -> MetaType
+axiom CompileStmt(CStmt, Text)
 axiom compile_return:
   CompileStmt(return(`x), "return " ++ `t ++ ";")
   :- CompileTerm(`x, `t)
 
-axiom CompileDecls: MetaFun(List(CDecl), Text) -> MetaType
+axiom CompileDecls(List(CDecl), Text)
 axiom compile_decls_nil: CompileDecls(nil, "")
 axiom compile_decls_cons:
   CompileDecls(cons(`d, `ds), `dt ++ "\n" ++ `dst)

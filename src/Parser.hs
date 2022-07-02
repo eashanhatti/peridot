@@ -24,7 +24,8 @@ keywords =
   [ "Fun", "fun", "Type", "let", "in", "Bool", "true", "false"
   , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
   , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text", "def"
-  , "metadef", "axiom", "output", "query", "metavar", "Code" ]
+  , "metadef", "axiom", "output", "query", "metavar", "Code", "Prop"
+  , "prop" ]
 
 keyword :: Parser ()
 keyword = do
@@ -119,6 +120,31 @@ piE s c = do
       c pm (fromMaybe (NameAst Unbound) name) inTy outTy
     go ((pm, name, inTy) : inTys) =
       c pm (fromMaybe (NameAst Unbound) name) inTy (TermAst (go inTys))
+  pure (go inTys)
+
+propE :: Parser Term
+propE = do
+  string "Prop"; ws
+  char '('; ws
+  inTys <-
+    sepBy1
+      (try (do
+        pm <- optional passMethod; ws
+        n <- name; ws
+        char ':'; ws
+        ty <- prec0
+        pure (fromMaybe Explicit pm, Just n, ty))
+      <|> (do
+        ty <- prec0
+        pure (Explicit, Nothing, ty)))
+      commaWs
+  char ')'; ws
+  let
+    go :: [(PassMethod, Maybe NameAst, TermAst)] -> Term
+    go [(pm, name, inTy)] =
+      MetaPi pm (fromMaybe (NameAst Unbound) name) inTy (TermAst MUniv)
+    go ((pm, name, inTy) : inTys) =
+      MetaPi pm (fromMaybe (NameAst Unbound) name) inTy (TermAst (go inTys))
   pure (go inTys)
 
 lam ::
@@ -471,6 +497,7 @@ prec0 =
       try tAppend <|>
       try (piE "Fun" ObjPi) <|>
       try (piE "MetaFun" MetaPi) <|>
+      try propE <|>
       try forallProp <|>
       -- try existsProp <|>
       try quoteObj <|>
@@ -494,6 +521,7 @@ decl = do
     try metadefine <|>
     try proof <|>
     try fresh <|>
+    try prop <|>
     try output <|>
     try rel <|>
     axiom
@@ -532,6 +560,32 @@ rel = do
   let p = foldl' (\acc q -> TermAst (ImplProp q acc)) hd as
   -- let !_ = tracePretty p
   pure (Axiom n p)
+
+prop :: Parser Declaration
+prop = do
+  string "prop"; ws
+  n <- name; ws
+  char '('
+  inTys <-
+    sepBy1
+      (try (do
+        pm <- optional passMethod; ws
+        n <- name; ws
+        char ':'; ws
+        ty <- prec0
+        pure (fromMaybe Explicit pm, Just n, ty))
+      <|> (do
+        ty <- prec0
+        pure (Explicit, Nothing, ty)))
+      commaWs
+  char ')'; ws
+  let
+    go :: [(PassMethod, Maybe NameAst, TermAst)] -> Term
+    go [(pm, name, inTy)] =
+      MetaPi pm (fromMaybe (NameAst Unbound) name) inTy (TermAst MUniv)
+    go ((pm, name, inTy) : inTys) =
+      MetaPi pm (fromMaybe (NameAst Unbound) name) inTy (TermAst (go inTys))
+  pure (Axiom n (TermAst (go inTys)))
 
 axiom :: Parser Declaration
 axiom = do

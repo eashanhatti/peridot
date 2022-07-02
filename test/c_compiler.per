@@ -13,7 +13,7 @@ axiom return: MetaFun(CTerm(Int)) -> CStmt
 axiom CDecl: MetaType
 axiom func: MetaFun(CType, Text, Text, CType, CStmt) -> CDecl
 
-axiom CompileTerm: MetaFun(inf A: CType, CTerm(A), Text) -> MetaType
+prop CompileTerm(inf A: CType, CTerm(A), Text)
 axiom compile_add:
   CompileTerm(add(`e1, `e2), "(" ++ `t1 ++ " + " ++ `t2 ++ ")")
   :- CompileTerm(`e1, `t1)
@@ -22,7 +22,7 @@ axiom compile_zero: CompileTerm(zero, "0")
 axiom compile_one: CompileTerm(one, "1")
 axiom compile_var: Forall(t: Text), CompileTerm(var(t), t)
 
-axiom CompileDecl: MetaFun(CDecl, Text) -> MetaType
+prop CompileDecl: MetaFun(CDecl, Text)
 axiom compile_func:
   CompileDecl(
     func(`inTy, `f, `x, `outTy, `body),
@@ -31,10 +31,10 @@ axiom compile_func:
   ,  CompileType(`outTy, cOutTy)
   ,  CompileStmt(`body, `cBody)
 
-axiom CompileType: MetaFun(CType, Text) -> MetaType
+prop CompileType: MetaFun(CType, Text)
 axiom compile_int: CompileType(Int, "int")
 
-axiom CompileStmt: MetaFun(CStmt, Text) -> MetaType
+prop CompileStmt: MetaFun(CStmt, Text)
 axiom compile_return:
   CompileStmt(return(`x), "return " ++ `t ++ ";")
   :- CompileTerm(`x, `t)

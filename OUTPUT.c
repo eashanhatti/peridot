@@ -1,2 +1,1 @@
-int f(int x) { return (1 + x); }
-int g(int x) { return x; }
+int plus(int x, int y) { return (x + y); }

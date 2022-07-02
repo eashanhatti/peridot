@@ -12,7 +12,7 @@
   fromList [],
   fromList
     [(SourcePos
-        {sourceName = "./test/bool_eq.per",
+        {sourceName = "test//bool_eq.per",
          sourceLine = Pos 5,
          sourceColumn = Pos 29},
       FailedUnify
