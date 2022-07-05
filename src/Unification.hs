@@ -126,10 +126,6 @@ unifyRedexes (SingElim term1) (SingElim term2) =
   unifyS' term1 term2
 unifyRedexes (RecElim str1 name1) (RecElim str2 name2) | name1 == name2 =
   unifyS' str1 str2
-unifyRedexes (UniVar gl1) (UniVar gl2) = equateUVs gl1 gl2
-  -- putTypeSolInf gl1 (Neutral (uvRedex gl2) (UniVar gl2))
-  -- putTypeSolExp gl2 (Neutral (uvRedex gl1) (UniVar gl1))
-  -- pure ()
 unifyRedexes (Declare univ1 name1 ty1 cont1) (Declare univ2 name2 ty2 cont2) | univ1 == univ2 = do
   unifyS' name1 name2
   unifyS' ty1 ty2
@@ -138,6 +134,7 @@ unifyRedexes (Define name1 def1 cont1) (Define name2 def2 cont2) = do
   unifyS' name1 name2
   unifyS' def1 def2
   unifyS' cont1 cont2
+unifyRedexes (UniVar _) (UniVar _) = error "BUG: Unification"
 unifyRedexes _ _ = throwError ()
 
 unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m (Coercion sig m)
@@ -250,6 +247,12 @@ unify' term1 term2 =
     simple :: Unify sig m => Term -> Term -> m (Coercion sig m)
     simple (Rigid ElabError) _ = errorU
     simple _ (Rigid ElabError) = errorU
+    simple (Neutral term1 (UniVar gl1)) (Neutral term2 (UniVar gl2)) = do
+      term1 <- force term1
+      term2 <- force term2
+      case (term1, term2) of
+        (Just term1, Just term2) -> unify' term1 term2
+        _ -> equateUVs gl1 gl2 *> pure noop
     simple nterm1@(Neutral term1 redex1) nterm2@(Neutral term2 redex2) =
       catchError (unifyRedexes redex1 redex2 *> pure noop) (\() -> go)
       where

@@ -8,3 +8,26 @@ axiom append_nil:
 axiom append_cons:
   Append(cons(`x, `ys), `zs, cons(`x, `ws))
   :- Append(`ys, `zs, `ws)
+
+prop Intersperse(`A, List(`A), List(`A))
+axiom intersperse_nil: Intersperse(`_, nil, nil)
+axiom intersperse_cons:
+  Intersperse(`a, cons(`x, `xs), cons(`x, `ys))
+  :- Prepend(`a, `xs, `ys)
+
+prop Prepend(`A, List(`A), List(`A))
+axiom prepend_nil: Prepend(`_, nil, nil)
+axiom prepend_cons:
+  Prepend(`a, cons(`x, `xs), cons(`a, cons(`x, `ys)))
+  :- Prepend(`a, `xs, `ys)
+
+prop ConcatTexts(List(Text), Text)
+axiom concat_nil: ConcatTexts(nil, "")
+axiom concat_cons:
+  ConcatTexts(cons(`t, `ts), `t ++ `tt)
+  :- ConcatTexts(`ts, `tt)
+
+metavar xs: List(Text)
+query Intersperse(",", cons("a", cons("b", cons("c", nil))), xs)
+metavar t: Text
+query ConcatTexts(xs, t)
