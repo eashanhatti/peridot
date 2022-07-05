@@ -252,7 +252,9 @@ unify' term1 term2 =
       term2 <- force term2
       case (term1, term2) of
         (Just term1, Just term2) -> unify' term1 term2
-        _ -> equateUVs gl1 gl2 *> pure noop
+        (Just _, Nothing) -> throwError ()
+        (Nothing, Just _) -> throwError ()
+        (Nothing, Nothing) -> equateUVs gl1 gl2 *> pure noop
     simple nterm1@(Neutral term1 redex1) nterm2@(Neutral term2 redex2) =
       catchError (unifyRedexes redex1 redex2 *> pure noop) (\() -> go)
       where
