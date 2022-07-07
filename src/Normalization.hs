@@ -236,6 +236,7 @@ eval (C.TextElimCat t1 t2) = do
         Nothing -> pure (N.Neutral (pure Nothing) (N.TextElimCat t1 t2))
     go (N.Rigid (N.TextIntroCons c t1)) t2 = N.Rigid . N.TextIntroCons c <$> go t1 t2
     go (N.Rigid N.TextIntroNil) t2 = pure t2
+    go e1 e2 = pure (N.Neutral (pure Nothing) (N.TextElimCat e1 e2))
 eval (C.SingElim scr) = do
   vScr <- eval scr
   let

@@ -69,14 +69,14 @@ data Error
   | WrongAppArity Natural Natural
   | FailedUnify C.Term C.Term
   | UnboundVariable Name
-  | ExpectedCFunType N.Term
   | ExpectedRecordType C.Term
   | MissingField Name
   | FailedProve C.Term N.Term (Seq N.Term)
   | AmbiguousProve C.Term (Seq (Map.Map Global UVSolution, Map.Map Global Global))
-  | CLamFormCheck
   | InferredFunType C.Term
+  | ExpectedFunType C.Term
   | CannotInfer TermAst
+  | AmbiguousCallUniv
   deriving (Show)
 
 type Query sig m = 

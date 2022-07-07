@@ -21,7 +21,7 @@ import Normalization hiding(eval, readback, zonk)
 import Data.Foldable(foldl', foldr, foldrM, find, toList)
 import Debug.Trace
 import Data.Sequence
-import Prelude hiding(zip, concatMap, head, tail, length, unzip)
+import Prelude hiding(zip, concatMap, head, tail, length, unzip, null)
 import Shower
 import Data.Bifunctor
 import Data.Text qualified as Text
@@ -82,6 +82,18 @@ check (TermAst (Case scr body1 body2)) goal = do
   cBody1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (check body1 goal1)
   cBody2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (check body2 goal2)
   pure (C.TwoElim cScr cBody1 cBody2)
+check (TermAst (App lam args)) N.MetaTypeType = do
+  (cLam, lamTy) <- infer lam
+  r <- runThrow @Error $ checkArgs (N.MetaFunType Explicit) args lamTy
+  case r of
+    Right (cArgs, outTy) -> pure (foldl' (\lam arg -> C.MetaFunElim lam arg) cLam cArgs)
+    Left err -> report err *> pure (C.Rigid C.ElabError)
+check (TermAst (App lam args)) N.ObjTypeType = do
+  (cLam, lamTy) <- infer lam
+  r <- runThrow @Error $ checkArgs (N.ObjFunType Explicit) args lamTy
+  case r of
+    Right (cArgs, outTy) -> pure (foldl' (\lam arg -> C.ObjFunElim lam arg) cLam cArgs)
+    Left err -> report err *> pure (C.Rigid C.ElabError)
 check term goal = checkBase term goal
 
 checkBase :: Elab sig m => TermAst -> N.Term -> m C.Term
@@ -146,44 +158,36 @@ infer term = case term of
     pure (C.ObjFunType pm cInTy cOutTy, N.ObjTypeType)
   TermAst (App lam args) -> do
     (cLam, lamTy) <- infer lam
-    r <- scopeUVState do
-      x <- freshTypeUV
-      y <- freshTypeUV >>= readback >>= closureOf
-      (||) <$> -- FIXME: Kind of a hack
-        convertible (N.ObjFunType Explicit x y) lamTy <*>
-        convertible (N.ObjFunType Unification x y) lamTy
-    let elim = if r then C.ObjFunElim else C.MetaFunElim
-    r <- runThrow @Error $ checkArgs args lamTy
-    case r of
-      Right (cArgs, outTy) -> pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
+    cs <- scopeUVState do
+      inTy <- freshTypeUV
+      outTy <- freshTypeUV >>= readback >>= closureOf
+      r1 <- (||) <$>
+        convertible (N.ObjFunType Unification inTy outTy) lamTy <*>
+        convertible (N.ObjFunType Explicit inTy outTy) lamTy
+      r2 <- (||) <$>
+        convertible (N.MetaFunType Unification inTy outTy) lamTy <*>
+        convertible (N.MetaFunType Explicit inTy outTy) lamTy
+      case (r1, r2) of
+        (True, True) ->
+          if null args then
+            pure (Right (error "Unreachable", error "Unreachable"))
+          else
+            pure (Left AmbiguousCallUniv)
+        (True, False) -> pure (Right (C.ObjFunElim, N.ObjFunType Explicit))
+        (False, True) -> pure (Right (C.MetaFunElim, N.MetaFunType Explicit))
+        (False, False) ->
+          if null args then
+            pure (Right (error "Unreachable", error "Unreachable"))
+          else do
+            cLamTy <- zonk lamTy
+            pure (Left (ExpectedFunType cLamTy))
+    case cs of
+      Right (elim, tyc) -> do
+        r <- runThrow @Error $ checkArgs tyc args lamTy
+        case r of
+          Right (cArgs, outTy) -> pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
+          Left err -> errorTerm err
       Left err -> errorTerm err
-    where
-      checkArgs ::
-        (Has (Throw Error) sig m, Elab sig m) =>
-        Seq (PassMethod, TermAst) ->
-        N.Term ->
-        m (Seq C.Term, N.Term)
-      checkArgs _ outTy@(N.viewFunType -> Nothing) = pure (Empty, outTy)
-      checkArgs args (N.Neutral ty redex) = do
-        ty <- force ty
-        case ty of
-          Just ty -> checkArgs args ty
-          Nothing -> error $ shower redex
-      checkArgs ((pm1, arg) :<| args) (N.FunType pm2 inTy outTy)
-        | pm1 == pm2
-        = do
-          cArg <- check arg inTy
-          vArg <- eval cArg
-          (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs args
-          pure (cArg <| cArgs, outTy')
-      checkArgs args (N.FunType Unification inTy outTy) = do
-        arg <- freshTypeUV
-        cArg <- readback arg
-        (cArgs, outTy') <- appClosure outTy arg >>= checkArgs args
-        pure (cArg <| cArgs, outTy')
-      checkArgs args ty = do
-        cTy <- readback ty
-        throwError (TooManyArgs cTy)
   TermAst (Var _ name) -> do
     binding <- lookupBinding name
     case binding of
@@ -418,6 +422,44 @@ infer term = case term of
     cT2 <- check t2 (N.Rigid N.TextType)
     pure (C.TextElimCat cT1 cT2, N.Rigid N.TextType)
   _ -> errorTerm (CannotInfer term)
+
+checkArgs ::
+  (Has (Throw Error) sig m, Elab sig m) =>
+  (N.Term -> N.Closure -> N.Term) ->
+  Seq (PassMethod, TermAst) ->
+  N.Term ->
+  m (Seq C.Term, N.Term)
+-- checkArgs Empty outTy@(N.viewImFunType -> Nothing) = pure (Empty, outTy)
+checkArgs tyc ((pm1, arg) :<| args) (N.FunType pm2 inTy outTy)
+  | pm1 == pm2
+  = do
+    cArg <- check arg inTy
+    vArg <- eval cArg
+    (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs tyc args
+    pure (cArg <| cArgs, outTy')
+checkArgs tyc args (N.FunType Unification inTy outTy) = do
+  arg <- freshTypeUV
+  cArg <- readback arg
+  (cArgs, outTy') <- appClosure outTy arg >>= checkArgs tyc args
+  pure (cArg <| cArgs, outTy')
+checkArgs tyc Empty ty = pure (Empty, ty)
+checkArgs tyc args nty@(N.Neutral ty redex) = do
+  ty <- force ty
+  case ty of
+    Just ty -> checkArgs tyc args ty
+    Nothing -> do
+      inTy <- freshTypeUV
+      outTy <- freshTypeUV >>= readback >>= closureOf
+      r <- convertible (tyc inTy outTy) nty
+      if r then do
+        unifyR (tyc inTy outTy) nty
+        checkArgs tyc args (tyc inTy outTy)
+      else do
+        cNty <- readback nty
+        throwError (ExpectedFunType cNty)
+checkArgs tyc args ty = do
+  cTy <- readback ty
+  throwError (TooManyArgs cTy)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Universe)
 checkMetaType term =

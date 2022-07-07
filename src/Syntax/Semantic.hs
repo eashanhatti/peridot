@@ -107,6 +107,11 @@ viewFunType (MetaFunType pm inTy outTy) = Just (pm, inTy, outTy)
 viewFunType (ObjFunType pm inTy outTy) = Just (pm, inTy, outTy)
 viewFunType _ = Nothing
 
+viewImFunType :: Term -> Maybe (Term, Closure)
+viewImFunType (MetaFunType Unification inTy outTy) = Just (inTy, outTy)
+viewImFunType (ObjFunType Unification inTy outTy) = Just (inTy, outTy)
+viewImFunType _ = Nothing
+
 pattern FunType pm inTy outTy <- (viewFunType -> Just (pm, inTy, outTy))
 
 viewMetaFunElims :: Term -> Maybe (Term, Seq Term)

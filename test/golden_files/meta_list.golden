@@ -148,10 +148,26 @@
                            (RNameIntro (UserName "List") Meta (Id {unId = 0})))
                         False))
                   (Neutral _ (UniVar (UVGlobal 1034)))))))),
-     (UVGlobal 1034, Nothing),
+     (UVGlobal 1034,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Unit") Meta (Id {unId = 6})))
+                  False))))),
      (UVGlobal 1035,
       Just (UVSol ((Rigid (TypeType Meta))))),
-     (UVGlobal 1036, Nothing),
+     (UVGlobal 1036,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Unit") Meta (Id {unId = 6})))
+                  False))))),
      (UVGlobal 1037,
       Just (UVSol ((Rigid (TypeType Meta))))),
      (UVGlobal 1038,
@@ -254,16 +270,16 @@
      (UVGlobal 1014, UVGlobal 1017),
      (UVGlobal 1016, UVGlobal 1014),
      (UVGlobal 1017, UVGlobal 1014),
-     (UVGlobal 1019, UVGlobal 1034),
-     (UVGlobal 1021, UVGlobal 1036),
+     (UVGlobal 1019, UVGlobal 1022),
+     (UVGlobal 1021, UVGlobal 1019),
      (UVGlobal 1022, UVGlobal 1019),
      (UVGlobal 1025, UVGlobal 1032),
      (UVGlobal 1028, UVGlobal 1032),
      (UVGlobal 1029, UVGlobal 1032),
      (UVGlobal 1031, UVGlobal 1029),
      (UVGlobal 1032, UVGlobal 1029),
-     (UVGlobal 1034, UVGlobal 1019),
-     (UVGlobal 1036, UVGlobal 1021),
+     (UVGlobal 1034, UVGlobal 1034),
+     (UVGlobal 1036, UVGlobal 1034),
      (UVGlobal 2018, UVGlobal 2018),
      (UVGlobal 2019, UVGlobal 2018),
      (UVGlobal 2021, UVGlobal 2027),

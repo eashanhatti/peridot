@@ -9,6 +9,13 @@ axiom append_cons:
   Append(cons(`x, `ys), `zs, cons(`x, `ws))
   :- Append(`ys, `zs, `ws)
 
+prop Map(Prop(`A, `B), List(`A), List(`B))
+axiom map_nil: Map(`_, nil, nil)
+axiom map_cons:
+  Map(`f, cons(`x, `xs), cons(`y, `ys))
+  :- Map(`f, `xs, `ys)
+  ,  `f(`x, `y)
+
 prop Intersperse(`A, List(`A), List(`A))
 axiom intersperse_nil: Intersperse(`_, nil, nil)
 axiom intersperse_cons:
@@ -26,8 +33,3 @@ axiom concat_nil: ConcatTexts(nil, "")
 axiom concat_cons:
   ConcatTexts(cons(`t, `ts), `t ++ `tt)
   :- ConcatTexts(`ts, `tt)
-
-metavar xs: List(Text)
-query Intersperse(",", cons("a", cons("b", cons("c", nil))), xs)
-metavar t: Text
-query ConcatTexts(xs, t)

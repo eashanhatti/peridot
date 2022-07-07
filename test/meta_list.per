@@ -9,13 +9,8 @@ axiom append_cons:
   Append(cons(`x, `ys), `zs, cons(`x, `ws))
   :- Append(`ys, `zs, `ws)
 
-axiom Unit: MetaType
-axiom unit: Unit
-
-metavar xs: List(Unit)
+metavar xs: List(Text)
 query Append(nil, nil, xs)
-/*
-metavar ys: List(Unit)
-query Append(cons(unit, nil), cons(unit, nil), ys)
-query Append(cons(unit, nil), cons(unit, nil), cons(unit, cons(unit, nil)))
-*/
+metavar ys: List(Text)
+query Append(cons("a", nil), cons("b", nil), ys)
+query Append(cons("a", nil), cons("b", nil), cons("a", cons("b", nil)))

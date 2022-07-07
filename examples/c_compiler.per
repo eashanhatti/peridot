@@ -1,9 +1,6 @@
 import list.per
 import pair.per
 
-metadef Compiler: MetaFun(MetaType) -> MetaType
-  = metafun(ty) => MetaFun(ty, Text) -> MetaType
-
 axiom CType: MetaType
 axiom Int: CType
 
@@ -38,24 +35,27 @@ axiom compile_func:
   ,  CompileStmt(`body, `cBody)
   ,  CompileParams(`ps, `tps)
 
-axiom CompileParams(List(Pair(CType, Text)), Text)
-axiom compile_ps_single:
-  CompileParams(cons(pair(`ty, `name), nil), `tty ++ " " ++ `name)
-  :- CompileType(`ty, `tty)
-axiom compile_ps_cons:
-  CompileParams(cons(pair(`ty, `name), `ps), `tty ++ " " ++ `name ++ ", " ++ `tps)
-  :- CompileType(`ty, `tty)
-  ,  CompileParams(`ps, `tps)
+prop CompileParams(List(Pair(CType, Text)), Text)
+axiom compile_params:
+  CompileParams(`ps, `t)
+  :- Map(CompileParam, `ps, `tps)
+  ,  Intersperse(", ", `tps, `tps2)
+  ,  ConcatTexts(`tps2, `t)
 
-axiom CompileType(CType, Text)
+prop CompileParam(Pair(CType, Text), Text)
+axiom compile_param:
+  CompileParam(pair(`ty, `n), `tty ++ " " ++ `n)
+  :- CompileType(`ty, `tty)
+
+prop CompileType(CType, Text)
 axiom compile_int: CompileType(Int, "int")
 
-axiom CompileStmt(CStmt, Text)
+prop CompileStmt(CStmt, Text)
 axiom compile_return:
   CompileStmt(return(`x), "return " ++ `t ++ ";")
   :- CompileTerm(`x, `t)
 
-axiom CompileDecls(List(CDecl), Text)
+prop CompileDecls(List(CDecl), Text)
 axiom compile_decls_nil: CompileDecls(nil, "")
 axiom compile_decls_cons:
   CompileDecls(cons(`d, `ds), `dt ++ "\n" ++ `dst)
