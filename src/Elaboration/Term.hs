@@ -170,14 +170,14 @@ infer term = case term of
       case (r1, r2) of
         (True, True) ->
           if null args then
-            pure (Right (error "Unreachable", error "Unreachable"))
+            pure (Right (error "Unreachable 1", error "Unreachable 2"))
           else
             pure (Left AmbiguousCallUniv)
         (True, False) -> pure (Right (C.ObjFunElim, N.ObjFunType Explicit))
         (False, True) -> pure (Right (C.MetaFunElim, N.MetaFunType Explicit))
         (False, False) ->
           if null args then
-            pure (Right (error "Unreachable", error "Unreachable"))
+            pure (Right (error "Unreachable 3", error "Unreachable 4"))
           else do
             cLamTy <- zonk lamTy
             pure (Left (ExpectedFunType cLamTy))

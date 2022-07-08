@@ -13,6 +13,7 @@ import Control.Monad.Combinators
 import Data.Foldable
 import Control.Monad.State
 import Control.Monad.Reader
+import Data.Set qualified as Set
 import Data.Sequence hiding(empty)
 import Data.Maybe
 import Extra
@@ -74,7 +75,11 @@ semiWs = void (ws *> char ';' *> ws)
 
 nameChar = (try alphaNumChar <|> char '_')
 
-type Parser a = ParsecT Void Text (StateT Id (ReaderT FilePath IO)) a
+data ParseState = ParseState
+  { unNextId :: Id
+  , unImported :: Set.Set FilePath }
+
+type Parser a = ParsecT Void Text (StateT ParseState (ReaderT FilePath IO)) a
 
 name :: Parser NameAst
 name = do
@@ -83,8 +88,8 @@ name = do
 
 freshId :: Parser Id
 freshId = do
-  did <- get
-  modify (+1)
+  did <- unNextId <$> get
+  modify (\st -> st { unNextId = unNextId st + 1 })
   pure did
 
 passMethod :: Parser PassMethod
@@ -626,13 +631,22 @@ decls :: Parser (Seq DeclarationAst)
 decls = do
   ps <- many (include <* ws)
   dss <- forM ps \p -> do
+    imported <- unImported <$> get
     afp <- ask
-    s <- liftIO (TIO.readFile (afp <> p))
-    ndid <- get
-    r <- liftIO (parse' ndid decls (afp <> p) s)
-    case r of
-      Right (tl, ndid') -> put ndid' *> pure tl
-      Left e -> fail e
+    let fullPath = afp <> p
+    if Set.member fullPath imported then
+      pure mempty
+    else do
+      s <- liftIO (TIO.readFile fullPath)
+      ndid <- unNextId <$> get
+      r <- liftIO (parse' ndid decls fullPath s)
+      case r of
+        Right (tl, ndid') -> do
+          modify (\st -> st
+            { unNextId = ndid'
+            , unImported = Set.insert fullPath (unImported st) })
+          pure tl
+        Left e -> fail e
   ds <- many (decl <* ws)
   pure (foldl' (<>) mempty dss <> fromList ds)
 
@@ -654,9 +668,9 @@ parse p fn text = fmap (fmap fst) (parse' 0 p fn text)
 parse' :: Id -> Parser a -> FilePath -> Text -> IO (Either String (a, Id))
 parse' idid p fn text = do
   afn <- makeAbsolute fn
-  (r, did) <-
+  (r, ParseState did _) <-
     flip runReaderT (dropFileName afn) .
-    flip runStateT idid .
+    flip runStateT (ParseState idid mempty) .
     runParserT
       (do
         ws
