@@ -12,6 +12,7 @@ import Control.Algebra(Has, run)
 import Normalization
 import Unification hiding(Substitution, unUVEqs)
 import Data.Map qualified as Map
+import Data.Set qualified as Set
 import Syntax.Common(Global(..))
 import Numeric.Natural
 import Data.Sequence hiding(empty)
@@ -26,6 +27,7 @@ import PrettyPrint hiding(unUVEqs)
 import Data.Set qualified as Set
 import Data.Tree
 import Syntax.Core qualified as C
+import Data.Maybe
 
 data SearchState = SearchState
   { unNextUV :: Natural
@@ -41,7 +43,7 @@ type Search sig m =
 
 type Substitution = (Map.Map Global UVSolution, Map.Map Global Global)
 
-withSubst :: Search sig m => Substitution -> m Substitution -> m Substitution
+withSubst :: Search sig m => Substitution -> m a -> m a
 withSubst (subst, eqs) =
   local
     (\ctx -> ctx
@@ -57,11 +59,11 @@ unionSubsts (ts1, eqs1) (ts2, eqs2) = (ts1 <> ts2, eqs1 <> eqs2)
 prove :: forall sig m. Search sig m => Seq Term -> Term -> m Substitution
 prove ctx goal@(Neutral p _) = do
   def <- oneOf ctx
-  search ctx goal def <|> do
+  snd <$> search ctx goal def <|> do
     p <- force p
     case p of
       Just p -> prove ctx p
-      Nothing -> empty
+      Nothing -> failSearch
 prove ctx (Rigid (ConjType p q)) = do
   subst <- prove ctx p
   withSubst subst (prove ctx q)
@@ -83,10 +85,10 @@ prove ctx (Rigid (PropIdType x y)) = do
   r <- unifyRS x y
   case r of
     Just (Subst ts eqs) -> pure (ts, eqs)
-    Nothing -> empty
-prove _ goal = empty
+    Nothing -> failSearch
+prove _ goal = failSearch
 
-search :: Search sig m => Seq Term -> Term -> Term -> m Substitution
+search :: Search sig m => Seq Term -> Term -> Term -> m (Natural, Substitution)
 search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
@@ -112,8 +114,8 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
       Nothing -> pure undefined
     case allJustOrNothing substs of
       Just substs ->
-        pure (concatSubsts (fmap (\(Subst ts eqs) -> (ts, eqs)) substs))
-      Nothing -> empty
+        pure (tid, concatSubsts (fmap (\(Subst ts eqs) -> (ts, eqs)) substs))
+      Nothing -> failSearch
 search ctx goal (Rigid (AllType (MetaFunIntro p))) = do
   uv <- freshUV
   vP <- appClosure p uv
@@ -123,15 +125,15 @@ search ctx goal (MetaFunType _ _ p) = do
   vP <- appClosure p uv
   search ctx goal vP
 search ctx goal (Rigid (ImplType p q)) = do
-  qSubst <- search ctx goal q
-  pSubst <- withSubst qSubst (prove ctx p)
-  pure (qSubst `unionSubsts` pSubst)
+  (tid, qSubst) <- search ctx goal q
+  pSubst <- withId tid (prove ctx p)
+  pure (tid, qSubst `unionSubsts` pSubst)
 search ctx goal (Neutral p _) = do
   p <- force p
   case p of
     Just p -> search ctx goal p
-    Nothing -> empty
-search _ g d = empty
+    Nothing -> failSearch
+search _ g d = failSearch
 
 freshUV :: Search sig m => m Term
 freshUV = do
