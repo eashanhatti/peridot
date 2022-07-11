@@ -32,6 +32,13 @@ packages:
       sha256: aadc335cee4b3fceaab0e00db0a2e29447af2015608b431558faa167381e9bd9
   original:
     hackage: haskell-stack-trace-plugin-0.1.3.0
+- completed:
+    hackage: tree-render-text-0.4.0.0@sha256:8229625b2cd4fba6739b7c0d34868f48ebea20a9e4b6b12ac6fb23c919564734,979
+    pantry-tree:
+      size: 302
+      sha256: 3118c7f8553ea160525586ef678e8cc3adf679df29f16367e530d1de64f2c3a3
+  original:
+    hackage: tree-render-text-0.4.0.0
 snapshots:
 - completed:
     size: 587821

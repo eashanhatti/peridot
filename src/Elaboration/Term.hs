@@ -126,7 +126,7 @@ infer term = case term of
       checkBody ((name, inTy) :<| params) outTy =
         bindLocal name inTy (checkBody params outTy)
   TermAst (ObjLam (fmap (second unName) -> names) body) -> do
-    let !_ = tracePretty names
+    -- let !_ = tracePretty names
     inTys <- traverse (const freshTypeUV) names
     cInTys <- traverse readback inTys
     outTy <- freshTypeUV

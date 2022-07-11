@@ -41,6 +41,7 @@ import Data.Sequence
 import Control.Monad.Fix
 import Data.Bifunctor
 import Search qualified
+import Data.Tree
 
 data QueryContext = QueryContext
   { unCurQuery :: Maybe (Some Key) }
@@ -57,10 +58,11 @@ data QueryState = QueryState
   , unLogvarNames :: Map Global Name
   , unLogvars :: Set Id
   , unOutputs :: Seq (FilePath, N.Term)
-  , unNextLogUV :: Natural }
+  , unNextLogUV :: Natural
+  , unSearchTrees :: Seq (Tree Search.SearchNode) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs eqs errs _ _ _ _ _) =
+  show (QueryState _ _ _ tuvs eqs errs _ _ _ _ _ _) =
     show (tuvs, eqs, errs)
 
 data Error
@@ -461,15 +463,19 @@ zonk = readback' Zonk
 readback :: Elab sig m => N.Term -> m C.Term
 readback = readback' None
 
-proveDet :: Elab sig m => Seq N.Term -> N.Term -> m (Maybe (Seq Search.Substitution))
+proveDet ::
+  Elab sig m =>
+  Seq N.Term ->
+  N.Term ->
+  m (Tree Search.SearchNode, Maybe (Seq Search.Substitution))
 proveDet ctx goal = do
   nextUV <- unNextLogUV <$> get
   typeUVs <- unTypeUVs <$> get
   eqs <- unUVEqs <$> get
-  (nextUV', r) <-
+  (tree, nextUV', r) <-
     local (\ctx -> ctx
       { Norm.unTypeUVs = justs typeUVs
       , Norm.unUVEqs = eqs })
       (Search.proveDet ctx goal nextUV)
   modify (\st -> st { unNextUV = nextUV' })
-  pure r
+  pure (tree, r)

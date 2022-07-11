@@ -1,5 +1,6 @@
 module Search where
 
+import Data.Maybe
 import Syntax.Semantic
 import Control.Effect.NonDet(NonDet, Alternative, empty, (<|>), oneOf)
 import Control.Effect.State(State, get, put, modify)
@@ -18,18 +19,24 @@ import Extra
 import Debug.Trace
 import Control.Applicative
 import Shower
-import Prelude hiding(length, zip, concatMap, concat, filter, null)
+import Prelude hiding(length, zip, concatMap, concat, filter, null, head, tail)
 import Data.Bifunctor
 import Data.Foldable(foldl')
 import PrettyPrint hiding(unUVEqs)
+import Data.Set qualified as Set
+import Data.Tree
+import Syntax.Core qualified as C
 
 data SearchState = SearchState
-  { unNextUV :: Natural }
+  { unNextUV :: Natural
+  , unNextId :: Natural
+  , unTree :: Map.Map Natural (SearchNode, Set.Set Natural) }
 
 type Search sig m =
   ( Alternative m
   , Has NonDet sig m
   , Norm sig m
+  , Has (Reader Natural) sig m
   , Has (State SearchState) sig m )
 
 type Substitution = (Map.Map Global UVSolution, Map.Map Global Global)
@@ -95,6 +102,14 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     -- let !_ = tracePrettyS "GOAL" g
     substs <- ((<| substs) <$> unifyRS gHead dHead)
     -- let !_ = tracePrettyS "SUBSTS" substs
+    tid <- case head substs of
+      Just _ -> do
+        cG <- zonk g
+        tid <- addNode (Atom cG)
+        case allJustOrNothing (tail substs) of
+          Just _ -> pure tid
+          Nothing -> withId tid (addNode Fail) *> pure undefined
+      Nothing -> pure undefined
     case allJustOrNothing substs of
       Just substs ->
         pure (concatSubsts (fmap (\(Subst ts eqs) -> (ts, eqs)) substs))
@@ -128,18 +143,65 @@ freshUV = do
     LVGlobal $
     unNextUV state)
 
+freshId :: Search sig m => m Natural
+freshId = do
+  tid <- unNextId <$> get
+  modify (\st -> st { unNextId = unNextId st + 1 })
+  pure tid
+
+addNode :: Search sig m => SearchNode -> m Natural
+addNode node = do
+  tid <- freshId
+  tid' <- ask
+  modify (\st -> st
+    { unTree =
+        Map.insert
+          tid
+          (node, fromMaybe mempty (Set.insert tid' . snd <$> Map.lookup tid (unTree st)))
+          (unTree st) })
+  pure tid
+
+withId :: Search sig m => Natural -> m a -> m a
+withId tid = local (const tid)
+
 isAtomic :: Term -> Bool
 isAtomic (MetaFunElims _ _) = True
 isAtomic _ = False
 
-proveDet :: Norm sig m => Seq Term -> Term -> Natural -> m (Natural, Maybe (Seq Substitution))
+proveDet ::
+  Norm sig m =>
+  Seq Term ->
+  Term ->
+  Natural ->
+  m (Tree SearchNode, Natural, Maybe (Seq Substitution))
 proveDet ctx goal uv = do
+  cGoal <- readback goal
   (ss, substs) <-
-    runState (SearchState uv) .
+    runReader (0 :: Natural) .
+    runState (SearchState uv 1 (Map.singleton 0 (Atom cGoal, mempty))) .
     runNonDetA $
     prove ctx goal
-  (unNextUV ss, ) <$>
+  -- let trees = makeTrees 0 (unTree ss)
+  (Node (Atom cGoal) [], unNextUV ss, ) <$>
     if null substs then
       pure Nothing
     else
       pure (Just substs)
+
+data SearchNode
+  = Atom C.Term
+  | Fail
+
+failSearch :: Search sig m => m a
+failSearch = freshId >>= \tid -> withId tid (addNode Fail) *> empty
+
+makeTrees :: Natural -> Map.Map Natural (SearchNode, Set.Set Natural)-> [Tree SearchNode]
+makeTrees tid m =
+  if Map.size m == 0 then
+    []
+  else
+    let m' = Map.filter (\(_, cs) -> Set.member tid cs) m
+    in
+      fmap
+        (\(tid, (tree, cs)) -> Node tree (makeTrees tid m))
+        (Map.toList m')

@@ -20,10 +20,12 @@ import System.IO
 import Data.IORef
 import Data.Map qualified as Map
 import Data.Set qualified as Set
-import "peridot" Extra
 import Data.Sequence((<|))
 import Data.Bifunctor
 import Numeric.Natural
+import Data.Tree.Render.Text
+import Search(SearchNode(..))
+import "peridot" Extra
 
 prettyError :: Map.Map Natural Natural -> Error -> Text
 prettyError _ TooManyParams = "Too many parameters."
@@ -132,6 +134,21 @@ loop = do
                       _ -> TIO.putStrLn ("    " <> name <> " = " <> prettyPure eqs' sol)
                   TIO.putStrLn ""
                   pure ()
+                else
+                  pure ()
+                if not . null . unSearchTrees $ qs then do
+                  TIO.putStrLn "  \ESC[32mSearch Trees\ESC[0m:"
+                  forM_ (unSearchTrees qs) \tree -> do
+                    let
+                      ttree =
+                        pack .
+                        renderTree (tracedRenderOptions id) .
+                        fmap
+                          (\case
+                            Atom goal -> unpack . prettyPure (rmGlobals eqs) $ goal
+                            Fail -> "fail") $
+                        tree
+                    TIO.putStrLn (indent . indent $ ttree)
                 else
                   pure ()
                 forM_ (unOutputs qs) \(path, term) -> do

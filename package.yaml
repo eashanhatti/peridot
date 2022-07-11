@@ -71,6 +71,7 @@ dependencies:
 - parser-combinators
 - haskell-stack-trace-plugin
 - directory
+- tree-render-text
 
 library:
   source-dirs: src
