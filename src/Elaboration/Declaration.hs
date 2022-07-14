@@ -105,33 +105,49 @@ declType :: HasCallStack => Query sig m => Id -> m (C.Term, N.Universe)
 declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl -> asType
   case decl of
     PDDecl (DeclAst (ObjTerm name sig def) _) ->
-      withImVars (Set.toList . imVars $ sig) (EE.checkObjType sig)
+      withImVars
+        (Set.toList . imVars $ sig)
+        (C.ObjFunType Unification)
+        (EE.checkObjType sig)
     PDDecl (DeclAst (MetaTerm name sig def) _) ->
-      withImVars (Set.toList . imVars $ sig) (EE.checkMetaType sig)
+      withImVars
+        (Set.toList . imVars $ sig)
+        (C.MetaFunType Unification)
+        (EE.checkMetaType sig)
     PDDecl (DeclAst (Axiom (NameAst name) sig) _) ->
-      withImVars (Set.toList . imVars $ sig) (EE.checkMetaType sig)
+      withImVars
+        (Set.toList . imVars $ sig)
+        (C.MetaFunType Unification)
+        (EE.checkMetaType sig)
     PDDecl (DeclAst (Prove sig) _) ->
-      withImVars (Set.toList . imVars $ sig) (EE.checkMetaType sig)
+      withImVars
+        (Set.toList . imVars $ sig)
+        (C.MetaFunType Unification)
+        (EE.checkMetaType sig)
     PDDecl (DeclAst (Fresh name sig) (Id n)) -> do
       modify (\st -> st
         { unLogvarNames = Map.insert (UVGlobal n) (unName name) (unLogvarNames st) })
-      withImVars (Set.toList . imVars $ sig) (EE.checkMetaType sig)
+      withImVars
+        (Set.toList . imVars $ sig)
+        (C.MetaFunType Unification)
+        (EE.checkMetaType sig)
     PDDecl (DeclAst (Output _ _) _) -> pure (C.Rigid C.Dummy, N.Meta)
 
-withImVars :: forall sig m. Elab sig m => [Name] -> m (C.Term, N.Universe) -> m (C.Term, N.Universe)
-withImVars names act = go names (const id) where
-  go :: Elab sig m => [Name] -> (N.Universe -> C.Term -> C.Term) -> m (C.Term, N.Universe)
+withImVars ::
+  forall sig m. Elab sig m =>
+  [Name] ->
+  (C.Term -> C.Term -> C.Term) ->
+  m (C.Term, N.Universe) ->
+  m (C.Term, N.Universe)
+withImVars names con act = go names id where
+  go :: Elab sig m => [Name] -> (C.Term -> C.Term) -> m (C.Term, N.Universe)
   go [] f = do
     (cTerm, univ) <- act
-    pure (f univ cTerm, univ)
+    pure (f cTerm, univ)
   go (name:names) f = do
     ty <- freshTypeUV
     cTy <- readback ty
-    bindLocal name ty (go names (\u e -> sel cTy u (f u e)))
-
-  sel ty = \case
-    N.Obj -> C.ObjFunType Unification ty
-    N.Meta -> C.MetaFunType Unification ty
+    bindLocal name ty (go names (con cTy . f))
 
 imVars :: TermAst -> Set.Set Name
 imVars (SourcePos ast _) = imVars ast

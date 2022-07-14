@@ -21,8 +21,9 @@ import Debug.Trace
 import Control.Applicative
 import Shower
 import Prelude hiding(length, zip, concatMap, concat, filter, null, head, tail)
+import Prelude qualified as Pre
 import Data.Bifunctor
-import Data.Foldable(foldl')
+import Data.Foldable(foldl', toList)
 import PrettyPrint hiding(unUVEqs)
 import Data.Set qualified as Set
 import Data.Tree
@@ -54,33 +55,36 @@ concatSubsts Empty = mempty
 concatSubsts ((ts, eqs) :<| substs) =
   let (ts', eqs') = concatSubsts substs
   in (ts <> ts', eqs <> eqs')
+
 unionSubsts (ts1, eqs1) (ts2, eqs2) = (ts1 <> ts2, eqs1 <> eqs2)
 
 prove :: forall sig m. Search sig m => Seq Term -> Term -> m Substitution
-prove ctx goal@(Neutral p _) = do
-  def <- oneOf ctx
-  snd <$> search ctx goal def <|> do
+prove ctx goal@(Neutral p _) =
+  (do
+    def <- oneOf ctx
+    snd <$> search ctx goal def) <|>
+  (do
     p <- force p
     case p of
       Just p -> prove ctx p
-      Nothing -> failSearch
+      Nothing -> failSearch)
 prove ctx (Rigid (ConjType p q)) = do
   subst <- prove ctx p
   withSubst subst (prove ctx q)
 prove ctx (Rigid (DisjType p q)) =
   prove ctx p <|> prove ctx q
-prove ctx (Rigid (SomeType (MetaFunIntro p))) = do
-  uv <- freshUV
-  vP <- appClosure p uv
-  prove ctx vP
+-- prove ctx (Rigid (SomeType (MetaFunIntro p))) = trace "PROVE 4" do
+--   uv <- freshUV
+--   vP <- appClosure p uv
+--   prove ctx vP
 prove ctx (Rigid (ImplType p q)) =
   prove (p <| ctx) q
 prove ctx (MetaFunType _ _ p) = do
   vP <- evalClosure p
   prove ctx vP
-prove ctx (Rigid (AllType (MetaFunIntro p))) = do
-  vP <- evalClosure p
-  prove ctx vP
+-- prove ctx (Rigid (AllType (MetaFunIntro p))) = trace "PROVE 7" do
+--   vP <- evalClosure p
+--   prove ctx vP
 prove ctx (Rigid (PropIdType x y)) = do
   r <- unifyRS x y
   case r of
@@ -110,23 +114,23 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
         tid <- addNode (Atom cG)
         case allJustOrNothing (tail substs) of
           Just _ -> pure tid
-          Nothing -> withId tid (addNode Fail) *> pure undefined
-      Nothing -> pure undefined
+          Nothing -> withId tid (addNode Fail) *> pure 0
+      Nothing -> pure 0
     case allJustOrNothing substs of
       Just substs ->
         pure (tid, concatSubsts (fmap (\(Subst ts eqs) -> (ts, eqs)) substs))
       Nothing -> failSearch
-search ctx goal (Rigid (AllType (MetaFunIntro p))) = do
-  uv <- freshUV
-  vP <- appClosure p uv
-  search ctx goal vP
+-- search ctx goal (Rigid (AllType (MetaFunIntro p))) = trace "SEARCH 2" do
+--   uv <- freshUV
+--   vP <- appClosure p uv
+--   search ctx goal vP
 search ctx goal (MetaFunType _ _ p) = do
   uv <- freshUV
   vP <- appClosure p uv
   search ctx goal vP
 search ctx goal (Rigid (ImplType p q)) = do
   (tid, qSubst) <- search ctx goal q
-  pSubst <- withId tid (prove ctx p)
+  pSubst <- withId tid . withSubst qSubst $ prove ctx p
   pure (tid, qSubst `unionSubsts` pSubst)
 search ctx goal (Neutral p _) = do
   p <- force p
@@ -197,13 +201,10 @@ data SearchNode
 failSearch :: Search sig m => m a
 failSearch = freshId >>= \tid -> withId tid (addNode Fail) *> empty
 
-makeTrees :: Natural -> Map.Map Natural (SearchNode, Set.Set Natural)-> [Tree SearchNode]
+makeTrees :: Natural -> Map.Map Natural (SearchNode, Set.Set Natural) -> [Tree SearchNode]
 makeTrees tid m =
-  if Map.size m == 0 then
-    []
-  else
-    let m' = Map.filter (\(_, cs) -> Set.member tid cs) m
-    in
-      fmap
-        (\(tid, (tree, cs)) -> Node tree (makeTrees tid m))
-        (Map.toList m')
+  let m' = Map.filter (\(_, cs) -> Set.member tid cs) m
+  in
+    fmap
+      (\(tid', (tree, cs)) -> Node tree (makeTrees tid' m))
+      (Map.toList m')
