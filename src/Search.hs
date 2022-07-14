@@ -33,7 +33,7 @@ import Data.Maybe
 data SearchState = SearchState
   { unNextUV :: Natural
   , unNextId :: Natural
-  , unTree :: Map.Map Natural (SearchNode, Set.Set Natural) }
+  , unTree :: Map.Map Natural (SearchNode, Natural) }
 
 type Search sig m =
   ( Alternative m
@@ -163,7 +163,7 @@ addNode node = do
     { unTree =
         Map.insert
           tid
-          (node, fromMaybe mempty (Set.insert tid' . snd <$> Map.lookup tid (unTree st)))
+          (node, tid')
           (unTree st) })
   pure tid
 
@@ -184,11 +184,11 @@ proveDet ctx goal uv = do
   cGoal <- readback goal
   (ss, substs) <-
     runReader (0 :: Natural) .
-    runState (SearchState uv 1 (Map.singleton 0 (Atom cGoal, mempty))) .
+    runState (SearchState uv 1 mempty) .
     runNonDetA $
     prove ctx goal
-  -- let trees = makeTrees 0 (unTree ss)
-  (Node (Atom cGoal) [], unNextUV ss, ) <$>
+  let trees = makeTrees 0 (unTree ss)
+  (Node (Atom cGoal) trees, unNextUV ss, ) <$>
     if null substs then
       pure Nothing
     else
@@ -201,9 +201,9 @@ data SearchNode
 failSearch :: Search sig m => m a
 failSearch = freshId >>= \tid -> withId tid (addNode Fail) *> empty
 
-makeTrees :: Natural -> Map.Map Natural (SearchNode, Set.Set Natural) -> [Tree SearchNode]
+makeTrees :: Natural -> Map.Map Natural (SearchNode, Natural) -> [Tree SearchNode]
 makeTrees tid m =
-  let m' = Map.filter (\(_, cs) -> Set.member tid cs) m
+  let m' = Map.filter (\(_, tid') -> tid == tid') m
   in
     fmap
       (\(tid', (tree, cs)) -> Node tree (makeTrees tid' m))

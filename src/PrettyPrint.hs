@@ -105,11 +105,11 @@ pretty term =
     GlobalVar name _ -> combine [pure "GLOBAL(", pretty name, pure ")"]
     UniVar (unGlobal -> n) ->
       lookupUV n >>= \case
-        Just name -> pure name
+        Just name -> pure ("`" <> name)
         Nothing -> do
           name <- freshName
-          modify(\st -> st { unUVNames = Map.insert n name (unUVNames st) })
-          pure name
+          modify (\st -> st { unUVNames = Map.insert n name (unUVNames st) })
+          pure ("`" <> name)
     Rigid TwoType -> pure "Bool"
     Rigid TwoIntro0 -> pure "true"
     Rigid TwoIntro1 -> pure "false"
@@ -221,14 +221,4 @@ prettyPure eqs term =
       runState (PrintState 97 mempty) .
       runReader (PrintContext mempty eqs) $
       pretty term
-  in
-    if null (unUVNames st) then
-      t
-    else
-      let sep = if Data.Text.length t < 20 then " " else "\n  "
-      in
-        "forall " <>
-        intercalate " " (fmap snd . Map.toList $  unUVNames st) <>
-        "," <>
-        sep <>
-        t
+  in t
