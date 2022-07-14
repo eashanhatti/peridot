@@ -51,7 +51,6 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             (ty, _) <- declType gDid
             eval ty)
           gDids
-      pure (C.Rigid C.ElabError)
       (tree, substs) <- proveDet gTys vSig
       modify (\st -> st { unSearchTrees = tree <| unSearchTrees st })
       case substs of

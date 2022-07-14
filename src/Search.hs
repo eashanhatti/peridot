@@ -110,8 +110,8 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     -- let !_ = tracePrettyS "SUBSTS" substs
     tid <- case head substs of
       Just _ -> do
-        cG <- zonk g
-        tid <- addNode (Atom cG)
+        cD <- zonk d
+        tid <- addNode (Atom cD)
         case allJustOrNothing (tail substs) of
           Just _ -> pure tid
           Nothing -> withId tid (addNode Fail) *> pure 0
