@@ -80,6 +80,7 @@ rmGlobals = Map.mapKeys unGlobal . fmap unGlobal
 
 loop = do
   prev <- newIORef []
+  showSearch <- newIORef False
   let
     go :: IO ()
     go = do
@@ -93,6 +94,8 @@ loop = do
     cmd :: Text -> [Text] -> IO ()
     cmd input args =
       case args of
+        [":set", "show_search_trees", "true"] -> writeIORef showSearch True *> go
+        [":set", "show_search_trees", "false"] -> writeIORef showSearch False *> go
         [":typecheck", filename] -> do
           let sFilename = unpack filename
           r <- doesFileExist sFilename
@@ -136,7 +139,8 @@ loop = do
                   pure ()
                 else
                   pure ()
-                if not . null . unSearchTrees $ qs then do
+                b <- readIORef showSearch
+                if b && (not . null . unSearchTrees $ qs) then do
                   TIO.putStrLn "  \ESC[32mSearch Trees\ESC[0m:"
                   forM_ (unSearchTrees qs) \tree -> do
                     let
