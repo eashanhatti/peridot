@@ -171,12 +171,7 @@ loop = do
             TIO.putStrLn "  \ESC[31mFile not found.\ESC[0m"
           writeIORef prev args
           go
-        [":help"] -> do
-          TIO.putStrLn "  :typecheck    Typechecks a file"
-          TIO.putStrLn "  :quit         Quit the REPL"
-          TIO.putStrLn "  :help         Display this menu"
-          TIO.putStrLn "  :             Run the previous command again"
-          go
+        [":help"] -> showCmds *> go
         [":quit"] -> do
           TIO.putStrLn "  \ESC[32mBye\ESC[0m."
           pure ()
@@ -202,11 +197,15 @@ loop = do
           go
   go
 
+showCmds = do
+  TIO.putStrLn "\ESC[32mCommands\ESC[0m:"
+  TIO.putStrLn "  :typecheck                    Typechecks a file"
+  TIO.putStrLn "  :quit                         Quit the REPL"
+  TIO.putStrLn "  :help                         Display this menu"
+  TIO.putStrLn "  :set show_search_trees true   Show search trees after typechecking"
+  TIO.putStrLn "  :set show_search_trees false  Don't show search trees after typechecking"
+
 main = do
   hSetEncoding stdout utf8
-  TIO.putStrLn "\ESC[32mCommands\ESC[0m:"
-  TIO.putStrLn "  :typecheck    Typechecks a file"
-  TIO.putStrLn "  :quit         Quit the REPL"
-  TIO.putStrLn "  :help         Display this menu"
-  TIO.putStrLn "  :             Run the previous command again"
+  showCmds
   loop
