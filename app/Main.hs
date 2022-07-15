@@ -23,7 +23,7 @@ import Data.Set qualified as Set
 import Data.Sequence((<|))
 import Data.Bifunctor
 import Numeric.Natural
-import Data.Tree.Render.Text
+import Data.Tree.View
 import Search(SearchNode(..))
 import "peridot" Extra
 
@@ -146,7 +146,7 @@ loop = do
                     let
                       ttree =
                         pack .
-                        renderTree (tracedRenderOptions id) .
+                        showTree .
                         fmap
                           (\case
                             Atom goal -> unpack . prettyPure (rmGlobals eqs) $ goal

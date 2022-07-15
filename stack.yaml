@@ -47,7 +47,6 @@ extra-deps:
 - fused-effects-1.1.1.1
 - shower-0.2.0.2
 - haskell-stack-trace-plugin-0.1.3.0
-- tree-render-text-0.4.0.0
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

@@ -93,7 +93,7 @@ library
     , tasty
     , tasty-golden
     , text
-    , tree-render-text
+    , tree-view
   default-language: Haskell2010
 
 executable peridot
@@ -155,7 +155,7 @@ executable peridot
     , tasty
     , tasty-golden
     , text
-    , tree-render-text
+    , tree-view
   default-language: Haskell2010
 
 test-suite peridot-test
@@ -218,5 +218,5 @@ test-suite peridot-test
     , tasty
     , tasty-golden
     , text
-    , tree-render-text
+    , tree-view
   default-language: Haskell2010
