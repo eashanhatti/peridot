@@ -1,0 +1,16 @@
+import list.per
+import pair.per
+
+metadef Map
+: MetaFun(MetaType, MetaType) -> MetaType
+= metafun(K, V) => List(Pair(K, V))
+
+metadef insert
+: MetaFun(Map(`K, `V), `K, `V) -> Map(`K, `V)
+= metafun(m, k, v) => cons(pair(k, v), m)
+
+prop Lookup(Map(`K, `V), `K, `V)
+axiom lookup_find: Lookup(insert(`m, `k, `v), `k, `v)
+axiom lookup_pass:
+	Lookup(insert(`m, `_, `_), `k, `v)
+	:- Lookup(`m, `k, `v)

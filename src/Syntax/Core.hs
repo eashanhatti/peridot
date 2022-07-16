@@ -48,7 +48,7 @@ viewObjFunTys e = (mempty, e)
 
 viewMetaFunTys :: Term -> (Seq (PassMethod, Term), Term)
 viewMetaFunTys (MetaFunType pm inTy outTy) =
-  let (inTys, outTy') = viewObjFunTys outTy
+  let (inTys, outTy') = viewMetaFunTys outTy
   in ((pm, inTy) <| inTys, outTy')
 viewMetaFunTys e = (mempty, e)
 

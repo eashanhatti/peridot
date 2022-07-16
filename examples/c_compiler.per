@@ -16,22 +16,22 @@ axiom return: MetaFun(CTerm(Int)) -> CStmt
 axiom CDecl: MetaType
 axiom func: MetaFun(CType, Text, List(Pair(CType, Text)), CStmt) -> CDecl
 
-prop CompileTerm(inf A: CType, CTerm(A), Text)
+prop CompileCTerm(CTerm(`A), Text)
 axiom compile_add:
-  CompileTerm(add(`e1, `e2), "(" ++ `t1 ++ " + " ++ `t2 ++ ")")
-  :- CompileTerm(`e1, `t1)
-  ,  CompileTerm(`e2, `t2)
-axiom compile_zero: CompileTerm(zero, "0")
-axiom compile_one: CompileTerm(one, "1")
-axiom compile_var: CompileTerm(var(`t), `t)
+  CompileCTerm(add(`e1, `e2), "(" ++ `t1 ++ " + " ++ `t2 ++ ")")
+  :- CompileCTerm(`e1, `t1)
+  ,  CompileCTerm(`e2, `t2)
+axiom compile_zero: CompileCTerm(zero, "0")
+axiom compile_one: CompileCTerm(one, "1")
+axiom compile_var: CompileCTerm(var(`t), `t)
 
 prop CompileDecl(CDecl, Text)
 axiom compile_func:
   CompileDecl(
     func(`outTy, `f, `ps, `body),
     `cOutTy ++ " " ++ `f ++ "(" ++ `tps ++ ") { " ++ `cBody ++ " }")
-  :- CompileType(`inTy, `cInTy)
-  ,  CompileType(`outTy, cOutTy)
+  :- CompileCType(`inTy, `cInTy)
+  ,  CompileCType(`outTy, cOutTy)
   ,  CompileStmt(`body, `cBody)
   ,  CompileParams(`ps, `tps)
 
@@ -45,15 +45,15 @@ axiom compile_params:
 prop CompileParam(Pair(CType, Text), Text)
 axiom compile_param:
   CompileParam(pair(`ty, `n), `tty ++ " " ++ `n)
-  :- CompileType(`ty, `tty)
+  :- CompileCType(`ty, `tty)
 
-prop CompileType(CType, Text)
-axiom compile_int: CompileType(Int, "int")
+prop CompileCType(CType, Text)
+axiom compile_int: CompileCType(Int, "int")
 
 prop CompileStmt(CStmt, Text)
 axiom compile_return:
   CompileStmt(return(`x), "return " ++ `t ++ ";")
-  :- CompileTerm(`x, `t)
+  :- CompileCTerm(`x, `t)
 
 prop CompileDecls(List(CDecl), Text)
 axiom compile_decls_nil: CompileDecls(nil, "")

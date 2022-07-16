@@ -6,13 +6,13 @@ import Control.Carrier.Reader
 import Control.Effect.State(State, get, put, modify)
 import Control.Carrier.State.Strict
 import Syntax.Core
-import Data.Text hiding(zip, foldl', null)
+import Data.Text hiding(zip, foldl', null, take)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import Syntax.Common(Id(..), Index(..))
 import Data.Char
 import Control.Monad
-import Prelude hiding(zip, foldl', intercalate, words, lines, unlines)
+import Prelude hiding(zip, foldl', intercalate, words, lines, unlines, take)
 import Data.Foldable
 import Data.Sequence hiding(singleton, foldl', replicateM, null)
 import Extra
@@ -44,16 +44,20 @@ pretty term =
     (viewObjFunTys -> (inTys@(_:<|_), outTy)) -> do
       names <- traverse (const freshName) inTys
       params <-
-        traverse
-          (\(name, (pm, inTy)) -> ((prettyPPm pm <> name <> ": ") <>) <$> pretty inTy)
+        traverseWithIndex
+          (\i (name, (pm, inTy)) ->
+            ((prettyPPm pm <> name <> ": ") <>) <$>
+              bindManyLocals (take i names) (pretty inTy))
           (zip names inTys)
       tOutTy <- bindManyLocals names (pretty outTy)
       pure ("Fun(" <> intercalate ", " (toList params) <> ") -> " <> tOutTy)
     (viewMetaFunTys -> (inTys@(_:<|_), outTy)) -> do
       names <- traverse (const freshName) inTys
       params <-
-        traverse
-          (\(name, (pm, inTy)) -> ((prettyPPm pm <> name <> ": ") <>) <$> pretty inTy)
+        traverseWithIndex
+          (\i (name, (pm, inTy)) ->
+            ((prettyPPm pm <> name <> ": ") <>) <$>
+              bindManyLocals (take i names) (pretty inTy))
           (zip names inTys)
       tOutTy <- bindManyLocals names (pretty outTy)
       pure ("MetaFun(" <> intercalate ", " (toList params) <> ") -> " <> tOutTy)
