@@ -107,7 +107,7 @@ pretty term =
     LocalVar ix -> (! ix) . unLocals <$> ask
     GlobalVar (Rigid (RNameIntro (UserName name) _ did)) _ -> pure name
     GlobalVar name _ -> combine [pure "GLOBAL(", pretty name, pure ")"]
-    UniVar (unGlobal -> n) ->
+    UniVar (unGlobal -> n) _ ->
       lookupUV n >>= \case
         Just name -> pure ("`" <> name)
         Nothing -> do

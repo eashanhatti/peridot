@@ -38,8 +38,8 @@ check (TermAst (ObjLam (fmap (second unName) -> names) body)) goal =
       case ty of
         Just ty -> checkBody names ty
         Nothing -> do
-          inTy <- freshTypeUV
-          outTy <- freshTypeUV >>= readback >>= closureOf
+          inTy <- freshTypeUV N.ObjTypeType
+          outTy <- freshTypeUV N.ObjTypeType >>= readback >>= closureOf
           r <- convertibleO nty (N.ObjFunType Explicit inTy outTy) -- TODO: Infer implicit arguments
           if r then
             checkBody names (N.ObjFunType Explicit inTy outTy)
@@ -89,13 +89,13 @@ check (TermAst (Case scr body1 body2)) goal = do
   cBody1 <- bindDefEq vScr (N.Rigid N.TwoIntro0) (check body1 goal1)
   cBody2 <- bindDefEq vScr (N.Rigid N.TwoIntro1) (check body2 goal2)
   pure (C.TwoElim cScr cBody1 cBody2)
-check (TermAst (App lam args)) N.MetaTypeType = do
+check (TermAst (App lam args)) (N.tmUniv -> Just N.Meta) = do
   (cLam, lamTy) <- infer lam
   r <- runThrow @Error $ checkArgs (N.MetaFunType Explicit) args lamTy
   case r of
     Right (cArgs, outTy) -> pure (foldl' (\lam arg -> C.MetaFunElim lam arg) cLam cArgs)
     Left err -> report err *> pure (C.Rigid C.ElabError)
-check (TermAst (App lam args)) N.ObjTypeType = do
+check (TermAst (App lam args)) (N.tmUniv -> Just N.Obj) = do
   (cLam, lamTy) <- infer lam
   r <- runThrow @Error $ checkArgs (N.ObjFunType Explicit) args lamTy
   case r of
@@ -113,9 +113,9 @@ infer :: Elab sig m => TermAst -> m (C.Term, N.Term)
 infer term = case term of
   SourcePos term pos -> withPos pos (infer term)
   TermAst (MetaLam (fmap unName -> names) body) -> do
-    inTys <- traverse (const freshTypeUV) names
+    inTys <- traverse (const (freshTypeUV N.MetaTypeType)) names
     cInTys <- traverse readback inTys
-    outTy <- freshTypeUV
+    outTy <- freshTypeUV N.MetaTypeType
     cOutTy <- readback outTy
     let
       ty =
@@ -134,9 +134,9 @@ infer term = case term of
         bindLocal name inTy (checkBody params outTy)
   TermAst (ObjLam (fmap (second unName) -> names) body) -> do
     -- let !_ = tracePretty names
-    inTys <- traverse (const freshTypeUV) names
+    inTys <- traverse (const (freshTypeUV N.ObjTypeType)) names
     cInTys <- traverse readback inTys
-    outTy <- freshTypeUV
+    outTy <- freshTypeUV N.ObjTypeType
     cOutTy <- readback outTy
     let
       ty =
@@ -166,14 +166,16 @@ infer term = case term of
   TermAst (App lam args) -> do
     (cLam, lamTy) <- infer lam
     cs <- scopeUVState do
-      inTy <- freshTypeUV
-      outTy <- freshTypeUV >>= readback >>= closureOf
+      inTy1 <- freshTypeUV N.ObjTypeType
+      outTy1 <- freshTypeUV N.ObjTypeType >>= readback >>= closureOf
+      inTy2 <- freshTypeUV N.MetaTypeType
+      outTy2 <- freshTypeUV N.MetaTypeType >>= readback >>= closureOf
       r1 <- (||) <$>
-        convertible (N.ObjFunType Unification inTy outTy) lamTy <*>
-        convertible (N.ObjFunType Explicit inTy outTy) lamTy
+        convertible (N.ObjFunType Unification inTy1 outTy1) lamTy <*>
+        convertible (N.ObjFunType Explicit inTy1 outTy1) lamTy
       r2 <- (||) <$>
-        convertible (N.MetaFunType Unification inTy outTy) lamTy <*>
-        convertible (N.MetaFunType Explicit inTy outTy) lamTy
+        convertible (N.MetaFunType Unification inTy2 outTy2) lamTy <*>
+        convertible (N.MetaFunType Explicit inTy2 outTy2) lamTy
       case (r1, r2) of
         (True, True) ->
           if null args then
@@ -266,11 +268,11 @@ infer term = case term of
     cTy <- checkObjType' ty
     pure (C.Rigid (C.CodeObjType cTy), N.MetaTypeType)
   TermAst (QuoteObj term) -> do
-    ty <- freshTypeUV
+    ty <- freshTypeUV N.ObjTypeType
     cTerm <- check term ty
     pure (C.Rigid (C.CodeObjIntro cTerm), N.Rigid (N.CodeObjType ty))
   TermAst (SpliceObj quote) -> do
-    ty <- freshTypeUV
+    ty <- freshTypeUV N.MetaTypeType
     cQuote <- check quote (N.Rigid (N.CodeObjType ty))
     pure (C.CodeObjElim cQuote, ty)
   TermAst (ImplProp p q) -> do
@@ -291,7 +293,7 @@ infer term = case term of
     cBody <- bindLocal name vTy (check body N.MetaTypeType)
     pure (C.Rigid (C.AllType (C.MetaFunIntro cBody)), N.MetaTypeType)
   TermAst (EqualProp x y) -> do
-    ty <- freshTypeUV
+    ty <- freshTypeUV N.MetaTypeType
     cX <- check x ty
     cY <- check y ty
     pure (C.Rigid (C.PropIdType cX cY), N.MetaTypeType)
@@ -299,11 +301,12 @@ infer term = case term of
   TermAst BTrue -> pure (C.Rigid C.TwoIntro0, N.Rigid N.TwoType)
   TermAst BFalse -> pure (C.Rigid C.TwoIntro1, N.Rigid N.TwoType)
   TermAst (Equal term1 term2) -> do
-    cTerm1 <- freshTypeUV >>= check term1
-    cTerm2 <- freshTypeUV >>= check term2
+    cTerm1 <- freshTypeUV N.ObjTypeType >>= check term1
+    cTerm2 <- freshTypeUV N.ObjTypeType >>= check term2
     pure (C.Rigid (C.ObjIdType cTerm1 cTerm2), N.ObjTypeType)
   TermAst Refl -> do
-    term <- freshTypeUV
+    ty <- freshTypeUV N.ObjTypeType
+    term <- freshTypeUV ty
     cTerm <- readback term
     pure (C.Rigid (C.ObjIdIntro cTerm), N.Rigid (N.ObjIdType term term))
   TermAst (Sig tys) -> do
@@ -327,7 +330,7 @@ infer term = case term of
         m (Seq ((Field, C.Term), (Field, N.Closure)))
       go Empty = pure Empty
       go ((NameAst name, fd) :<| fds) = do
-        ty <- freshTypeUV
+        ty <- freshTypeUV N.ObjTypeType
         cFd <- check fd ty
         cFds <- bindLocal name ty (go fds)
         tyClo <- readback ty >>= closureOf
@@ -407,14 +410,14 @@ infer term = case term of
     cTy <- check ty N.ObjTypeType
     vTy <- eval cTy
     cName <- check name (N.Rigid (N.NameType N.Obj vTy))
-    contTy <- freshTypeUV
+    contTy <- freshTypeUV N.ObjTypeType
     cCont <- check cont contTy
     pure (C.Declare N.Obj cName cTy cCont, contTy)
   TermAst (Define name def cont) -> do
-    ty <- freshTypeUV
+    ty <- freshTypeUV N.ObjTypeType
     cName <- check name (N.Rigid (N.NameType N.Obj ty))
     cDef <- check def ty
-    contTy <- freshTypeUV
+    contTy <- freshTypeUV N.ObjTypeType
     cCont <- check cont contTy
     pure (C.Define cName cDef cCont, contTy)
   TermAst (NameType univ ty) -> do
@@ -445,21 +448,24 @@ checkArgs tyc ((pm1, arg) :<| args) (N.FunType pm2 inTy outTy)
     (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs tyc args
     pure (cArg <| cArgs, outTy')
 checkArgs tyc args (N.FunType Unification inTy outTy) = do
-  arg <- freshTypeUV
+  arg <- freshTypeUV inTy
   cArg <- readback arg
   (cArgs, outTy') <- appClosure outTy arg >>= checkArgs tyc args
   pure (cArg <| cArgs, outTy')
 checkArgs tyc Empty ty = pure (Empty, ty)
 checkArgs tyc args nty@(N.Neutral ty redex) = do
   ty <- force ty
+  let
+    u = case tyc undefined undefined of
+      N.MetaFunType _ _ _ -> N.MetaTypeType
+      N.ObjFunType _ _ _ -> N.ObjTypeType
   case ty of
     Just ty -> checkArgs tyc args ty
     Nothing -> do
-      inTy <- freshTypeUV
-      outTy <- freshTypeUV >>= readback >>= closureOf
-      r <- convertible (tyc inTy outTy) nty
-      if r then do
-        unifyR (tyc inTy outTy) nty
+      inTy <- freshTypeUV u
+      outTy <- freshTypeUV u >>= readback >>= closureOf
+      r <- convertibleO (tyc inTy outTy) nty
+      if r then
         checkArgs tyc args (tyc inTy outTy)
       else do
         cNty <- readback nty

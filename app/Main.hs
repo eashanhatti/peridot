@@ -130,9 +130,9 @@ loop = do
                     -- let !_ = tracePretty (tuvs, eqs)
                     let
                       UserName name = unLogvarNames qs ! gl
-                      sol = zonk (eval (C.UniVar gl)) tuvs eqs
+                      sol = zonk (eval (C.UniVar gl undefined)) tuvs eqs
                     case sol of
-                      C.UniVar _ ->
+                      C.UniVar _ _ ->
                         TIO.putStrLn ("    \ESC[33mNo solution for\ESC[0m " <> name)
                       _ -> TIO.putStrLn ("    " <> name <> " = " <> prettyPure eqs' sol)
                   TIO.putStrLn ""

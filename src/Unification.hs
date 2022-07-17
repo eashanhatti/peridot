@@ -60,8 +60,11 @@ instance Semigroup Substitution where
 instance Monoid Substitution where
   mempty = Subst mempty mempty
 
+data UnifyOption = IsSearch | IsUntyped
+  deriving (Eq, Ord)
+
 data UnifyContext = UnifyContext
-  { unIsSearch :: Bool }
+  { unOpts :: Set.Set UnifyOption }
 
 type Unify sig m =
   ( Norm sig m
@@ -114,8 +117,6 @@ unifyRedexes (ObjFunElim lam1 arg1) (ObjFunElim lam2 arg2) = do
   unifyS' arg1 arg2
 unifyRedexes (CodeObjElim quote1) (CodeObjElim quote2) =
   unifyS' quote1 quote2
-unifyRedexes (CodeCElim quote1) (CodeCElim quote2) =
-  unifyS' quote1 quote2
 unifyRedexes (GlobalVar did1 _) (GlobalVar did2 _) =
   unifyS' did1 did2
 unifyRedexes (TwoElim scr1 body11 body21) (TwoElim scr2 body12 body22) = do
@@ -134,7 +135,7 @@ unifyRedexes (Define name1 def1 cont1) (Define name2 def2 cont2) = do
   unifyS' name1 name2
   unifyS' def1 def2
   unifyS' cont1 cont2
-unifyRedexes (UniVar _) (UniVar _) = error "BUG: Unification"
+unifyRedexes (UniVar _ _) (UniVar _ _) = error "BUG: Unification"
 unifyRedexes _ _ = throwError ()
 
 unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m (Coercion sig m)
@@ -201,7 +202,7 @@ unifyRigid term1 term2 = throwError ()
 
 errorU :: Unify sig m => m (Coercion sig m)
 errorU = do
-  b <- unIsSearch <$> ask
+  b <- Set.member IsSearch . unOpts <$> ask
   if b then
     throwError ()
   else
@@ -223,7 +224,8 @@ occurs vis gl term = case term of
     void (traverse (\def -> evalClosure def >>= occurs vis gl) (fmap snd defs))
   LocalVar _ -> pure ()
   Rigid rterm -> void (traverse (occurs vis gl) rterm)
-  Neutral _ (UniVar gl') -> do
+  Neutral _ (UniVar gl' ty) -> do
+    traverse (occurs vis gl) ty
     eq <- Map.lookup gl' . Norm.unUVEqs <$> ask
     if gl' == gl || eq == Just gl then
       throwError ()
@@ -247,7 +249,12 @@ unify' term1 term2 =
     simple :: Unify sig m => Term -> Term -> m (Coercion sig m)
     simple (Rigid ElabError) _ = errorU
     simple _ (Rigid ElabError) = errorU
-    simple (Neutral term1 (UniVar gl1)) (Neutral term2 (UniVar gl2)) = do
+    simple (Neutral term1 (UniVar gl1 ty1)) (Neutral term2 (UniVar gl2 ty2)) = do
+      b <- Set.member IsUntyped . unOpts <$> ask
+      when (not b) (case (ty1, ty2) of
+        (Just ty1, Just ty2) -> unifyS' ty1 ty2
+        (Nothing, Nothing) -> pure ()
+        _ -> throwError ())
       term1 <- force term1
       term2 <- force term2
       case (term1, term2) of
@@ -330,12 +337,12 @@ unify' term1 term2 =
     complex term1 (Neutral term2 (GlobalVar _ True)) = do
       term2 <- fromJust <$> force term2
       unify' term1 term2
-    complex (Neutral prevSol (UniVar gl)) term = do
+    complex (Neutral prevSol (UniVar gl _)) term = do
       prevSol <- force prevSol
       case prevSol of
         Just prevSol -> unify' prevSol term
         Nothing -> putTypeSolInf gl term
-    complex term (Neutral prevSol (UniVar gl)) = do
+    complex term (Neutral prevSol (UniVar gl _)) = do
       prevSol <- force prevSol
       case prevSol of
         Just prevSol -> unify' term prevSol
@@ -385,7 +392,7 @@ unify ::
 unify e term1 term2 = do
   r <-
     runError @() .
-    runReader (UnifyContext False) .
+    runReader (UnifyContext mempty) .
     runState mempty $
     unify' term1 term2
   case r of
@@ -393,7 +400,7 @@ unify e term1 term2 = do
     Right (subst1, Coe (Just coe)) -> do
       e' <-
         runError @() .
-        runReader (UnifyContext False) .
+        runReader (UnifyContext mempty) .
         runState subst1 $
         coe e
       case e' of
@@ -405,7 +412,7 @@ unifyR :: HasCallStack => Norm sig m => Term -> Term -> m (Maybe Substitution)
 unifyR term1 term2 = do
   r <-
     runError @() .
-    runReader (UnifyContext False) .
+    runReader (UnifyContext mempty) .
     runState mempty $
     unify' term1 term2
   case r of
@@ -417,7 +424,7 @@ unifyRS :: HasCallStack => Norm sig m => Term -> Term -> m (Maybe Substitution)
 unifyRS term1 term2 = do
   r <-
     runError @() .
-    runReader (UnifyContext True) .
+    runReader (UnifyContext (Set.fromList [IsSearch, IsUntyped])) .
     runState mempty $
     unify' term1 term2
   case r of

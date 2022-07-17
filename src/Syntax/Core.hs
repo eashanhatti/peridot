@@ -31,7 +31,7 @@ data Term
   -- Other
   | LocalVar Index
   | GlobalVar Term Bool
-  | UniVar Global
+  | UniVar Global (Maybe Term)
   | Rigid (RigidTerm Term)
   | Declare Universe Term Term Term -- univ, name, ty, cont
   | Define Term Term Term -- name, def, cont

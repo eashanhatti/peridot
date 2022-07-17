@@ -414,8 +414,8 @@ freshBareTypeUV = do
     , unNextUV = unNextUV state + 1 })
   pure (UVGlobal (unNextUV state))
 
-freshTypeUV :: Elab sig m => m N.Term
-freshTypeUV = do
+freshTypeUV :: Elab sig m => N.Term -> m N.Term
+freshTypeUV ty = do
   state <- get
   put (state
     { unTypeUVs = insert (UVGlobal (unNextUV state)) Nothing (unTypeUVs state)
@@ -423,7 +423,18 @@ freshTypeUV = do
   pure
     (N.Neutral
       (uvRedex (UVGlobal (unNextUV state)))
-      (N.UniVar (UVGlobal (unNextUV state))))
+      (N.UniVar (UVGlobal (unNextUV state)) (Just ty)))
+
+freshUnivUV :: Elab sig m => m N.Term
+freshUnivUV = do
+  state <- get
+  put (state
+    { unTypeUVs = insert (UVGlobal (unNextUV state)) Nothing (unTypeUVs state)
+    , unNextUV = unNextUV state + 1 })
+  pure
+    (N.Neutral
+      (uvRedex (UVGlobal (unNextUV state)))
+      (N.UniVar (UVGlobal (unNextUV state)) Nothing))
 
 scopeUVState :: Elab sig m => m a -> m a
 scopeUVState act = do

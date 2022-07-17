@@ -86,7 +86,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             [(x, y) | (i1, x) <- substs', (i2, y) <- substs', i1 /= i2]
     PDDecl (DeclAst (Fresh name _) did@(Id n)) -> do
       modify (\st -> st { unLogvars = Set.insert did (unLogvars st) })
-      pure (C.UniVar (UVGlobal n))
+      pure (C.UniVar (UVGlobal n) (Just cSig))
     PDDecl (DeclAst (Output path text) _) -> do
       cText <- EE.check text (N.Rigid N.TextType)
       vText <- eval cText
@@ -144,7 +144,7 @@ withImVars names con act = go names id where
     (cTerm, univ) <- act
     pure (f cTerm, univ)
   go (name:names) f = do
-    ty <- freshTypeUV
+    ty <- freshUnivUV >>= freshTypeUV
     cTy <- readback ty
     bindLocal name ty (go names (con cTy . f))
 

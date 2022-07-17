@@ -183,7 +183,9 @@ eval (C.GlobalVar did sunf) = do
       N.Env _ ((Map.lookup did') -> def) <- unEnv <$> ask
       pure (N.Neutral (pure def) (N.GlobalVar vDid sunf))
     Nothing -> pure (N.Neutral (pure Nothing) (N.GlobalVar vDid sunf))
-eval (C.UniVar gl) = pure (N.Neutral (uvRedex gl) (N.UniVar gl))
+eval (C.UniVar gl ty) = do
+  vTy <- traverse eval ty
+  pure (N.Neutral (uvRedex gl) (N.UniVar gl vTy))
 eval (C.CodeObjElim term) = do
   vTerm <- eval term
   let
@@ -349,7 +351,7 @@ readback' opt (N.LocalVar (Level lvl)) = do
 readback' opt e@(N.Neutral sol redex) = do
   vSol <- force sol
   case (opt, vSol, redex) of
-    (notNone -> True, Just vSol, N.UniVar gl) -> do
+    (notNone -> True, Just vSol, N.UniVar gl _) -> do
       sol <- findUVSol gl
       case sol of
         Just (unCtx -> lCtx) ->
@@ -400,9 +402,8 @@ readbackRedex opt (N.ObjFunElim lam arg) =
     readback' opt lam <*>
     readback' opt arg
 readbackRedex opt (N.CodeObjElim quote) = C.CodeObjElim <$> readback' opt quote
-readbackRedex opt (N.CodeCElim quote) = C.CodeCElim <$> readback' opt quote
 readbackRedex opt (N.GlobalVar did sunf) = flip C.GlobalVar sunf <$> readback' opt did
-readbackRedex opt (N.UniVar gl) = pure (C.UniVar gl)
+readbackRedex opt (N.UniVar gl ty) = C.UniVar gl <$> traverse (readback' opt) ty
 readbackRedex opt (N.TwoElim scr body1 body2) =
   C.TwoElim <$>
     readback' opt scr <*>

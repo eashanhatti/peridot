@@ -91,9 +91,8 @@ data RedexF a
   = MetaFunElim a a
   | ObjFunElim a a
   | CodeObjElim a
-  | CodeCElim a
   | GlobalVar a Bool
-  | UniVar Global
+  | UniVar Global (Maybe Term)
   | TwoElim a a a
   | RecElim a Field
   | SingElim a
@@ -136,3 +135,28 @@ pattern MetaFunElims lam args <- (viewMetaFunElims -> Just (lam, args))
 
 pattern ObjTypeType = Rigid (TypeType Obj)
 pattern MetaTypeType = Rigid (TypeType Meta)
+
+tmUniv :: Term -> Maybe Universe
+tmUniv (ObjFunType _ _ _) = Just Obj
+tmUniv (RecType _) = Just Obj
+tmUniv (MetaFunType _ _ _) = Just Meta
+tmUniv (Rigid TwoType) = Just Obj
+tmUniv (Rigid (SingType _ _)) = Just Obj
+tmUniv (Rigid (ObjIdType _ _)) = Just Obj
+tmUniv (Rigid (NameType _ _)) = Just Meta
+tmUniv (Rigid (CodeObjType _)) = Just Obj
+tmUniv (Rigid TextType) = Just Meta
+tmUniv (Rigid (ImplType _ _)) = Just Meta
+tmUniv (Rigid (ConjType _ _)) = Just Meta
+tmUniv (Rigid (DisjType _ _)) = Just Meta
+tmUniv (Rigid (TypeType u)) = Just u
+tmUniv (Neutral _ (MetaFunElim _ _)) = Just Meta
+tmUniv (Neutral _ (ObjFunElim _ _)) = Just Obj
+tmUniv (Neutral _ (CodeObjElim _)) = Just Obj
+tmUniv (Neutral _ (UniVar _ (Just MetaTypeType))) = Just Meta
+tmUniv (Neutral _ (UniVar _ (Just ObjTypeType))) = Just Obj
+tmUniv (Neutral _ (TwoElim _ _ _)) = Just Obj
+tmUniv (Neutral _ (RecElim _ _)) = Just Obj
+tmUniv (Neutral _ (SingElim _)) = Just Obj
+tmUniv (Neutral _ (TextElimCat _ _)) = Just Meta
+tmUniv _ = Nothing

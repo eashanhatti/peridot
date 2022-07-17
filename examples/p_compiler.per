@@ -1,5 +1,8 @@
 import c_compiler.per
 import list.per
+import pair.per
+import sigma.per
 
-prop CompilePTerm(Code(`A), Context, List(CDecl))
-axiom compile_lam(fun(dontcare x) => e, )
+prop CompilePTerm(Code(`A), List(Pair(Sigma(MetaType, metafun(t) => Name(t)), Text)), List(CDecl))
+axiom compile_ex_lam:
+	CompilePTerm(<fun(x) => ~`f(x)>, `b, `a)
