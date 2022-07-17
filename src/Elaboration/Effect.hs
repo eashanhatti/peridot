@@ -284,6 +284,32 @@ convertible term1 term2 = do
       })
     (isJust <$> Uni.unifyR term1 term2)
 
+convertibleO :: Elab sig m => N.Term -> N.Term -> m Bool
+convertibleO term1 term2 = do
+  vDefs <- allDefs
+  typeUVs <- unTypeUVs <$> get
+  eqs <- unUVEqs <$> get
+  ctx@(unEnv -> N.Env locals globals) <- ask
+  subst <-
+    local
+      (\ctx -> ctx
+        { unEnv = N.Env locals (globals <> vDefs)
+        , Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
+        , Norm.unUVEqs = eqs
+        })
+      (Uni.unifyR term1 term2)
+  case subst of
+    Just (Uni.Subst ts eqs) -> do
+      modify (\st -> st
+        { unTypeUVs = fmap Just ts <> unTypeUVs st
+        , unUVEqs = eqs <> unUVEqs st })
+      pure True
+    Nothing -> do
+      cTerm1 <- zonk term1
+      cTerm2 <- zonk term2
+      report (FailedUnify cTerm1 cTerm2)
+      pure False
+
 putTypeUVSols :: Elab sig m => Map Global UVSolution -> m ()
 putTypeUVSols sols =
   modify (\st -> st { unTypeUVs = fmap Just sols <> unTypeUVs st })

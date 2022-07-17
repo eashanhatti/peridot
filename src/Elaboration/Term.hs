@@ -33,11 +33,18 @@ check (TermAst (ObjLam (fmap (second unName) -> names) body)) goal =
   where
     checkBody :: Elab sig m => Seq (PassMethod, Name) -> N.Term -> m C.Term
     checkBody Empty outTy@(N.viewFunType -> Nothing) = check body outTy
-    checkBody names (N.Neutral ty redex) = do
+    checkBody names nty@(N.Neutral ty redex) = do
       ty <- force ty
       case ty of
         Just ty -> checkBody names ty
-        Nothing -> error $ shower (names, redex)
+        Nothing -> do
+          inTy <- freshTypeUV
+          outTy <- freshTypeUV >>= readback >>= closureOf
+          r <- convertibleO nty (N.ObjFunType Explicit inTy outTy) -- TODO: Infer implicit arguments
+          if r then
+            checkBody names (N.ObjFunType Explicit inTy outTy)
+          else do
+            pure (C.Rigid C.ElabError)
     checkBody ((pm1, name) :<| names) (N.ObjFunType pm2 inTy outTy)
       | pm1 == pm2
       = do

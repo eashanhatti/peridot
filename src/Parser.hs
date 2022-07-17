@@ -26,7 +26,7 @@ keywords =
   , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
   , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text", "def"
   , "metadef", "axiom", "output", "query", "metavar", "Code", "Prop"
-  , "prop" ]
+  , "prop", "Name" ]
 
 keyword :: Parser ()
 keyword = do
