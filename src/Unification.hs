@@ -196,6 +196,9 @@ unifyRigid (NameType univ1 ty1) (NameType univ2 ty2)
 unifyRigid (NameIntro univ1 did1) (NameIntro univ2 did2)
   | univ1 == univ2 && did1 == did2
   = pure noop
+unifyRigid (HOASObjFunIntro f1) (HOASObjFunIntro f2) = do
+  unifyS' f1 f2
+  pure noop
 unifyRigid ElabError _ = errorU
 unifyRigid _ ElabError = errorU
 unifyRigid term1 term2 = throwError ()
@@ -294,6 +297,18 @@ unify' term1 term2 =
           (True, True) -> pure noop
     simple (ObjFunIntro body1) (ObjFunIntro body2) = do
       bind2 unifyS' (evalClosure body1) (evalClosure body2)
+      pure noop
+    simple (Rigid (CodeObjIntro (ObjFunIntro body))) (Rigid (HOASObjFunIntro f)) = do
+      l <- level
+      body' <- appClosure body (Neutral (pure Nothing) (CodeObjElim (LocalVar l)))
+      bodyClo' <- bind (readback body') >>= closureOf
+      unifyS' (MetaFunIntro bodyClo') f
+      pure noop
+    simple (Rigid (HOASObjFunIntro f)) (Rigid (CodeObjIntro (ObjFunIntro body))) = do
+      l <- level
+      body' <- appClosure body (Neutral (pure Nothing) (CodeObjElim (LocalVar l))) 
+      bodyClo' <- bind (readback body') >>= closureOf
+      unifyS' f (MetaFunIntro bodyClo')
       pure noop
     simple (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure noop
     simple (RecType tys1) (RecType tys2) | length tys1 == length tys2 = do

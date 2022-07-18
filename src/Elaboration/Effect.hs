@@ -69,7 +69,7 @@ data Error
   = TooManyParams
   | TooManyArgs C.Term
   | WrongAppArity Natural Natural
-  | FailedUnify C.Term C.Term
+  | FailedUnify C.Term C.Term C.Term
   | UnboundVariable Name
   | ExpectedRecordType C.Term
   | MissingField Name
@@ -244,7 +244,7 @@ unify e term1 term2 = do
     Nothing -> do
       cTerm1 <- zonk term1
       cTerm2 <- zonk term2
-      report (FailedUnify cTerm1 cTerm2)
+      report (FailedUnify e cTerm1 cTerm2)
       pure e
 
 unifyR :: Elab sig m => N.Term -> N.Term -> m ()
@@ -269,7 +269,7 @@ unifyR term1 term2 = do
     Nothing -> do
       cTerm1 <- zonk term1
       cTerm2 <- zonk term2
-      report (FailedUnify cTerm1 cTerm2)
+      report (FailedUnify (C.Rigid C.Dummy) cTerm1 cTerm2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
 convertible term1 term2 = do
@@ -308,7 +308,7 @@ convertibleO term1 term2 = do
     Nothing -> do
       cTerm1 <- zonk term1
       cTerm2 <- zonk term2
-      report (FailedUnify cTerm1 cTerm2)
+      report (FailedUnify (C.Rigid C.Dummy) cTerm1 cTerm2)
       pure False
 
 putTypeUVSols :: Elab sig m => Map Global UVSolution -> m ()

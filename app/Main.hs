@@ -31,11 +31,13 @@ prettyError :: Map.Map Natural Natural -> Error -> Text
 prettyError _ TooManyParams = "Too many parameters."
 prettyError _ (UnboundVariable (UserName name)) =
   "\ESC[33mUnbound variable\ESC[0m " <> name <> "."
-prettyError eqs (FailedUnify expTy infTy) =
+prettyError eqs (FailedUnify e expTy infTy) =
   "\ESC[33mMismatched types.\nExpected type\ESC[0m:\n" <>
   (indent . prettyPure eqs $ expTy) <>
   "\ESC[33mActual type\ESC[0m:\n" <>
-  (indent . prettyPure eqs $ infTy)
+  (indent . prettyPure eqs $ infTy) <>
+  "\ESC[33mTerm\ESC[0m:\n" <>
+  (indent . prettyPure eqs $ e)
 prettyError eqs (ExpectedRecordType infTy) =
   "\ESC[33mExpected a record\ESC[0m.\n\ESC[33mGot a value of type\ESC[0m:\n" <>
   (indent . prettyPure eqs $ infTy)
@@ -80,7 +82,7 @@ rmGlobals = Map.mapKeys unGlobal . fmap unGlobal
 
 loop = do
   prev <- newIORef []
-  showSearch <- newIORef False
+  showSearch <- newIORef True
   let
     go :: IO ()
     go = do

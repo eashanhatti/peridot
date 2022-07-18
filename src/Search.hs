@@ -99,8 +99,6 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     normCtx <- ask
     let _ = unTypeUVs normCtx
     -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
-    -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-    -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
     substs <-
       traverse
         (\(dArg, gArg) -> unifyRS gArg dArg)
@@ -108,11 +106,13 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     -- let !_ = tracePrettyS "DEF" d
     -- let !_ = tracePrettyS "GOAL" g
     substs <- ((<| substs) <$> unifyRS gHead dHead)
-    -- let !_ = tracePrettyS "SUBSTS" substs
     tid <- case head substs of
       Just _ -> do
         cD <- zonk d
         tid <- addNode (Atom cD)
+        -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+        -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
+        -- let !_ = tracePrettyS "SUBSTS" substs
         case allJustOrNothing (tail substs) of
           Just _ -> pure tid
           Nothing -> withId tid (addNode Fail) *> pure 0

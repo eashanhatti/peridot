@@ -61,6 +61,7 @@ data Term
   | MetaLam (Seq NameAst) TermAst
   | ObjPi PassMethod NameAst TermAst TermAst
   | ObjLam (Seq (PassMethod, NameAst)) TermAst
+  | HOASObjLam PassMethod TermAst
   | App TermAst (Seq (PassMethod, TermAst))
   | Var Quantification Name
   | OUniv

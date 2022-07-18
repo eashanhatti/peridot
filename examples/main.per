@@ -1,7 +1,8 @@
 import c_compiler.per
 import p_compiler.per
 
-metadef code: Code(Struct {}) = <fun(x) => x>
+metadef code: Code(Fun(Struct {}) -> Struct {}) = <fun(x) => x>
 
 metavar tm: CTerm
-query CompilePTerm(code, nil, tm, nil)
+query Lookup(cons(pair("a", "c"), cons(pair("b", "d"), nil)), "b", "d")
+/*query CompilePTerm(<fun(x) => x>, nil, tm, init_state)*/

@@ -442,6 +442,14 @@ infer term = case term of
     u <- freshUnivUV
     ty <- freshTypeUV u >>= readback
     pure (ty, u)
+  TermAst (HOASObjLam pm f) -> do
+    inTy' <- freshTypeUV N.ObjTypeType
+    outTy' <- freshTypeUV N.ObjTypeType
+    outTyClo' <- readback outTy' >>= closureOf
+    let inTy = N.Rigid (N.CodeObjType inTy')
+    outTy <- readback (N.Rigid (N.CodeObjType outTy')) >>= closureOf
+    cF <- check f (N.MetaFunType pm inTy outTy)
+    pure (C.Rigid (C.HOASObjFunIntro cF), N.Rigid (N.CodeObjType (N.ObjFunType pm inTy' outTyClo')))
   _ -> errorTerm (CannotInfer term)
 
 checkArgs ::

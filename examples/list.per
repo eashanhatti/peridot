@@ -39,5 +39,5 @@ axiom concat_cons:
 prop Lookup(List(Pair(`K, `V)), `K, `V)
 axiom lookup_find: Lookup(cons(pair(`k, `v), `m), `k, `v)
 axiom lookup_pass:
-  Lookup(cons(pair(`k, `v), `m), `k, `v)
+  Lookup(cons(`_, `m), `k, `v)
   :- Lookup(`m, `k, `v)

@@ -26,7 +26,7 @@ keywords =
   , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
   , "MetaType", "forall", "Exists", "Implies", "And", "Or", "Text", "def"
   , "metadef", "axiom", "output", "query", "metavar", "Code", "Prop"
-  , "prop", "Name" ]
+  , "prop", "Name", "minffun", "mfun" ]
 
 keyword :: Parser ()
 keyword = do
@@ -170,6 +170,14 @@ lam s c = do
   string "=>"; ws
   body <- prec0
   pure (c (fromList ns) body)
+
+hoasLam :: Parser Term
+hoasLam = do
+  string "mfun"
+  char '('; ws
+  f <- prec0; ws
+  char ')'
+  pure (HOASObjLam Explicit f)
 
 app :: Parser Term
 app = do
@@ -404,27 +412,6 @@ disjProp = do
   char ')'
   pure (DisjProp p q)
 
-forallProp :: Parser Term
-forallProp = do
-  string "forall"; ws
-  char '('; ws
-  ns <-
-    sepBy1
-        ((do
-          n <- name; ws
-          char ':'; ws
-          ty <- prec0
-          pure (n, ty)) <|>
-        (do
-          n <- name
-          pure (n, TermAst Hole)))
-      commaWs; ws
-  char ')'; ws
-  string "=>"; ws
-  p <- prec0
-  let TermAst e = foldr (\(n, ty) acc -> TermAst (ForallProp n ty acc)) p ns
-  pure e
-
 objNameTy :: Parser Term
 objNameTy = do
   string "Name"; ws
@@ -511,10 +498,10 @@ prec0 =
       try tAppend <|>
       try (piE "Fun" ObjPi) <|>
       try (piE "MetaFun" MetaPi) <|>
+      try (piE "forall" MetaPi) <|>
       try propE <|>
-      try forallProp <|>
-      -- try existsProp <|>
       try quoteObj <|>
+      try hoasLam <|>
       try (lam "fun" ObjLam) <|>
       try (lam "metafun" (\ps -> MetaLam (fmap snd ps))) <|>
       try app <|>

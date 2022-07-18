@@ -61,6 +61,7 @@ data RigidTerm a
   | TextType
   | TextIntroNil
   | TextIntroCons Char a
+  | HOASObjFunIntro a
   -- Propositions
   | PropConstIntro Id
   | ImplType a a

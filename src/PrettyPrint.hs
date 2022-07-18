@@ -141,6 +141,7 @@ pretty term =
     Rigid (SomeType (MetaFunIntro body)) -> do
       name <- freshName
       combine [pure ("Exists "  <> name <> ", "), bindLocal name (pretty body)]
+    Rigid (HOASObjFunIntro f) -> combine [pure "mfun ", pretty f]
     MetaTypeType -> pure "MetaType"
     ObjTypeType -> pure "Type"
     Rigid ElabError -> pure "<error>"
