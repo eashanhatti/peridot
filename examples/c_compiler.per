@@ -4,19 +4,19 @@ import pair.per
 axiom CType: MetaType
 axiom Int: CType
 
-axiom CTerm: MetaFun(CType) -> MetaType
-axiom zero: CTerm(Int)
-axiom one: CTerm(Int)
-axiom add: MetaFun(CTerm(Int), CTerm(Int)) -> CTerm(Int)
-axiom var: MetaFun(Text) -> CTerm(Int)
+axiom CTerm: MetaType
+axiom zero: CTerm
+axiom one: CTerm
+axiom add: MetaFun(CTerm, CTerm) -> CTerm
+axiom var: MetaFun(Text) -> CTerm
 
 axiom CStmt: MetaType
-axiom return: MetaFun(CTerm(Int)) -> CStmt
+axiom return: MetaFun(CTerm) -> CStmt
 
 axiom CDecl: MetaType
 axiom func: MetaFun(CType, Text, List(Pair(CType, Text)), CStmt) -> CDecl
 
-prop CompileCTerm(CTerm(`A), Text)
+prop CompileCTerm(CTerm, Text)
 axiom compile_add:
   CompileCTerm(add(`e1, `e2), "(" ++ `t1 ++ " + " ++ `t2 ++ ")")
   :- CompileCTerm(`e1, `t1)

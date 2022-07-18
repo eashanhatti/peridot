@@ -7,3 +7,4 @@ remove nary records from core language - elaborate surface records to pairs
 make neutral redex part lazy
 separate metavar norm context from env norm context
 account for globals in a better way
+fix type synonyms

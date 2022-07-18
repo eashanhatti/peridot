@@ -6,7 +6,7 @@ import Data.Maybe
 import Data.Sequence
 import Debug.Trace
 import Data.Functor.Identity
-import Prelude hiding(concatMap, concat)
+import Prelude hiding(concatMap, concat, filter, null, length)
 
 fromRight :: Either () a -> a
 fromRight (Right x) = x
@@ -25,6 +25,11 @@ concat (x :<| xs) = x <> concat xs
 concatMapM :: (Monad m, Monoid b) => (a -> m b) -> Seq a -> m b
 concatMapM f Empty = pure mempty
 concatMapM f (x :<| xs) = (<>) <$> f x <*> concatMapM f xs
+
+duplicates :: forall a. Show a =>Eq a => Seq a -> Seq a
+duplicates xs = filter go xs where
+  go :: a -> Bool
+  go x = (>2) . length . filter (==x) $ xs
 
 concatMap :: Monoid b => (a -> b) -> Seq a -> b
 concatMap f = runIdentity . concatMapM (Identity . f)

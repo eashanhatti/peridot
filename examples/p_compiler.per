@@ -3,6 +3,11 @@ import list.per
 import pair.per
 import sigma.per
 
-prop CompilePTerm(Code(`A), List(Pair(Sigma(MetaType, metafun(t) => Name(t)), Text)), List(CDecl))
-axiom compile_ex_lam:
-	CompilePTerm(<fun(x) => ~`f(x)>, `b, `a)
+prop CompilePTerm
+	( Code(`A)
+	, List(Pair(Sigma(Code(Type), metafun(t) => Code(t)), Text))
+	, CTerm
+	, List(CDecl))
+axiom compile_var_p:
+	CompilePTerm(`x, `ctx, var(`t), `d)
+	:- Lookup(`ctx, `x, `t)

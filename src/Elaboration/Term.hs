@@ -194,7 +194,8 @@ infer term = case term of
       Right (elim, tyc) -> do
         r <- runThrow @Error $ checkArgs tyc args lamTy
         case r of
-          Right (cArgs, outTy) -> pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
+          Right (cArgs, outTy) ->
+            pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
           Left err -> errorTerm err
       Left err -> errorTerm err
   TermAst (Var _ name) -> do
@@ -211,59 +212,65 @@ infer term = case term of
       Nothing -> errorTerm (UnboundVariable name)
   TermAst OUniv -> pure (C.ObjTypeType, N.ObjTypeType)
   TermAst MUniv -> pure (C.MetaTypeType, N.MetaTypeType)
-  TermAst (Let decls body) ->
-    withDecls decls do
-      cDecls <-
-        Map.fromList . toList <$> traverse
-          (\did -> (did ,) <$> ED.check did)
-          (declsIds decls)
-      cDeclTys <-
-        Map.fromList . toList <$> traverse
-          (\did -> (did ,) <$> ED.declType did)
-          (declsIds decls)
-      graph <- unDepGraph <$> get
-      pddecls <- unPredecls <$> get
-      (cBody, bodyTy) <- infer body
-      let
-        names = fmap (unPDDeclName . snd) pddecls
-        ordering ::
-          Set (Some Key) ->
-          Seq (Set (Some Key))
-        ordering available =
-          if available == Map.keysSet graph then
-            mempty
-          else
-            let
-              nowAvailable =
-                Map.keysSet .
-                Map.filter (\ds -> ds `Set.isSubsetOf` available) $
-                graph
-            in
-              (<|)
-                (nowAvailable `Set.difference` available)
-                (ordering (nowAvailable <> available))
-        construct :: Seq (Set (Some Key)) -> C.Term
-        construct Empty = cBody
-        construct (keys :<| order) =
-          let cont = construct order
-          in
-            foldr
-              (\key acc -> case key of
-                Some (CheckDecl did) ->
-                  C.Define
-                    (C.Rigid (C.RNameIntro (names ! did) (snd (cDeclTys ! did)) did))
-                    (cDecls Map.! did)
-                    acc
-                Some (DeclType did) ->
-                  C.Declare
-                    (snd (cDeclTys Map.! did))
-                    (C.Rigid (C.RNameIntro (names ! did) (snd (cDeclTys ! did)) did))
-                    (fst (cDeclTys Map.! did))
-                    acc)
-              cont
-              keys
-      let order = ordering mempty
-      pure (construct order, bodyTy)
+  TermAst (Let decls body) -> do
+    let dups = duplicates (fmap unDeclName decls)
+    case dups of
+      Empty ->
+        withDecls decls do
+          cDecls <-
+            Map.fromList . toList <$> traverse
+              (\did -> (did ,) <$> ED.check did)
+              (declsIds decls)
+          cDeclTys <-
+            Map.fromList . toList <$> traverse
+              (\did -> (did ,) <$> ED.declType did)
+              (declsIds decls)
+          graph <- unDepGraph <$> get
+          pddecls <- unPredecls <$> get
+          (cBody, bodyTy) <- infer body
+          let
+            names = fmap (unPDDeclName . snd) pddecls
+            ordering ::
+              Set (Some Key) ->
+              Seq (Set (Some Key))
+            ordering available =
+              if available == Map.keysSet graph then
+                mempty
+              else
+                let
+                  nowAvailable =
+                    Map.keysSet .
+                    Map.filter (\ds -> ds `Set.isSubsetOf` available) $
+                    graph
+                in
+                  (<|)
+                    (nowAvailable `Set.difference` available)
+                    (ordering (nowAvailable <> available))
+            construct :: Seq (Set (Some Key)) -> C.Term
+            construct Empty = cBody
+            construct (keys :<| order) =
+              let cont = construct order
+              in
+                foldr
+                  (\key acc -> case key of
+                    Some (CheckDecl did) ->
+                      C.Define
+                        (C.Rigid (C.RNameIntro (names ! did) (snd (cDeclTys ! did)) did))
+                        (cDecls Map.! did)
+                        acc
+                    Some (DeclType did) ->
+                      C.Declare
+                        (snd (cDeclTys Map.! did))
+                        (C.Rigid (C.RNameIntro (names ! did) (snd (cDeclTys ! did)) did))
+                        (fst (cDeclTys Map.! did))
+                        acc)
+                  cont
+                  keys
+          let order = ordering mempty
+          pure (construct order, bodyTy)
+      _ -> do
+        forM dups \name -> report (DuplicatedLetBind name)
+        pure (C.Rigid C.ElabError, N.Rigid N.ElabError)
   TermAst (LiftObj ty) -> do
     cTy <- checkObjType' ty
     pure (C.Rigid (C.CodeObjType cTy), N.MetaTypeType)

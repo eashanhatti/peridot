@@ -570,7 +570,7 @@ prop :: Parser Declaration
 prop = do
   string "prop"; ws
   n <- name; ws
-  char '('
+  char '('; ws
   inTys <-
     sepBy1
       (try (do
@@ -634,17 +634,17 @@ decls = do
     imported <- unImported <$> get
     afp <- ask
     let fullPath = afp <> p
-    if Set.member fullPath imported then
+    if Set.member fullPath imported then do
       pure mempty
     else do
       s <- liftIO (TIO.readFile fullPath)
       ndid <- unNextId <$> get
-      r <- liftIO (parse' ndid decls fullPath s)
+      r <- liftIO (parse' ndid decls fullPath (Set.insert fullPath imported) s)
       case r of
-        Right (tl, ndid') -> do
+        Right (tl, ndid', is) -> do
           modify (\st -> st
             { unNextId = ndid'
-            , unImported = Set.insert fullPath (unImported st) })
+            , unImported = Set.insert fullPath is })
           pure tl
         Left e -> fail e
   ds <- many (decl <* ws)
@@ -663,14 +663,14 @@ include = do
 
 
 parse :: Parser a -> FilePath -> Text -> IO (Either String a)
-parse p fn text = fmap (fmap fst) (parse' 0 p fn text)
+parse p fn text = fmap (fmap (\(x, _, _) -> x)) (parse' 0 p fn mempty text)
 
-parse' :: Id -> Parser a -> FilePath -> Text -> IO (Either String (a, Id))
-parse' idid p fn text = do
+parse' :: Id -> Parser a -> FilePath -> Set.Set FilePath -> Text -> IO (Either String (a, Id, Set.Set FilePath))
+parse' idid p fn iis text = do
   afn <- makeAbsolute fn
-  (r, ParseState did _) <-
+  (r, ParseState did is) <-
     flip runReaderT (dropFileName afn) .
-    flip runStateT (ParseState idid mempty) .
+    flip runStateT (ParseState idid iis) .
     runParserT
       (do
         ws
@@ -681,5 +681,5 @@ parse' idid p fn text = do
       fn $
     text
   pure case r of
-    Right term -> Right (term, did)
+    Right term -> Right (term, did, is)
     Left err -> Left (errorBundlePretty err)

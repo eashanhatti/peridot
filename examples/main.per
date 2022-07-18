@@ -1,9 +1,7 @@
 import c_compiler.per
+import p_compiler.per
 
-metadef f: CDecl =
-	func(Int, "plus", cons(pair(Int, "x"), cons(pair(Int, "y"), nil)),
-		return(add(var("x"), var("y"))))
+metadef code: Code(Struct {}) = struct {}
 
-metavar t: Text
-query CompileDecl(f, t)
-output OUTPUT.c t
+metavar tm: CTerm
+query CompilePTerm(<struct {}>, cons(pair(sigma(<Struct {}>, <struct {}>), "x"), nil), tm, nil)

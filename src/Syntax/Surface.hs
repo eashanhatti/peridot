@@ -13,13 +13,14 @@ data Ast a where
   DeclAst :: Declaration -> Id -> DeclarationAst
   SourcePos :: Ast a -> SourcePos -> Ast a
 deriving instance Show (Ast a)
+deriving instance Eq (Ast a)
 
 unName :: NameAst -> Name
 unName (NameAst name) = name
 
 -- For declarations
 data Universe = Obj | Meta | Prop
-  deriving (Show)
+  deriving (Show, Eq)
 
 unDeclName :: DeclarationAst -> Name
 unDeclName (DeclAst (MetaTerm (NameAst name) _ _) _) = name
@@ -49,10 +50,10 @@ data Declaration
   | Fresh NameAst TermAst
   | Output FilePath TermAst
   | Import FilePath NameAst
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Quantification = Ex | Im
-  deriving (Show)
+  deriving (Show, Eq)
 
 type TermAst = Ast Term
 data Term
@@ -90,4 +91,4 @@ data Term
   | Text
   | TextLiteral Text
   | TextAppend TermAst TermAst
-  deriving (Show)
+  deriving (Show, Eq)

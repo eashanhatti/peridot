@@ -145,7 +145,7 @@ freshUV = do
   put (state { unNextUV = unNextUV state + 1 })
   pure
     (Neutral (uvRedex . LVGlobal $ unNextUV state) .
-    flip UniVar undefined .
+    flip UniVar (Just (Rigid Dummy)) .
     LVGlobal $
     unNextUV state)
 

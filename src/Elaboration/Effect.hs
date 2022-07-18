@@ -79,6 +79,7 @@ data Error
   | ExpectedFunType C.Term
   | CannotInfer TermAst
   | AmbiguousCallUniv
+  | DuplicatedLetBind Name
   deriving (Show)
 
 type Query sig m = 
