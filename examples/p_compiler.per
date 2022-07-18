@@ -11,3 +11,6 @@ prop CompilePTerm
 axiom compile_var_p:
 	CompilePTerm(`x, `ctx, var(`t), `d)
 	:- Lookup(`ctx, `x, `t)
+axiom compile_exfun_p:
+	CompilePTerm(<fun(x) => ~`f(<x>)>, `ctx, `tm, `ds)
+	:- forall(x: Code(?)) => CompilePTerm(~`f(x), cons(pair(sigma(?, x), "x")))

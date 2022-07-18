@@ -24,7 +24,7 @@ import System.FilePath
 keywords =
   [ "Fun", "fun", "Type", "let", "in", "Bool", "true", "false"
   , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
-  , "MetaType", "Forall", "Exists", "Implies", "And", "Or", "Text", "def"
+  , "MetaType", "forall", "Exists", "Implies", "And", "Or", "Text", "def"
   , "metadef", "axiom", "output", "query", "metavar", "Code", "Prop"
   , "prop", "Name" ]
 
@@ -406,18 +406,21 @@ disjProp = do
 
 forallProp :: Parser Term
 forallProp = do
-  string "Forall"; ws
+  string "forall"; ws
   char '('; ws
   ns <-
     sepBy1
-      (do
-        n <- name; ws
-        char ':'; ws
-        ty <- prec0
-        pure (n, ty))
+        ((do
+          n <- name; ws
+          char ':'; ws
+          ty <- prec0
+          pure (n, ty)) <|>
+        (do
+          n <- name
+          pure (n, TermAst Hole)))
       commaWs; ws
-  char ')'
-  char ','; ws
+  char ')'; ws
+  string "=>"; ws
   p <- prec0
   let TermAst e = foldr (\(n, ty) acc -> TermAst (ForallProp n ty acc)) p ns
   pure e
@@ -456,6 +459,11 @@ tAppend = do
   es <- some (ws *> string "++" *> ws *> prec1)
   pure (foldl' (\acc e -> TextAppend (TermAst acc) e) e es)
 
+hole :: Parser Term
+hole = do
+  char '?'
+  pure Hole
+
 prec2 :: Parser TermAst
 prec2 = do
   pos <- getSourcePos
@@ -477,6 +485,7 @@ prec2 = do
     try declare <|>
     try textTy <|>
     try text <|>
+    try hole <|>
     (do
       char '('; ws
       SourcePos (TermAst e) pos <- prec0; ws

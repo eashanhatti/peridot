@@ -1,7 +1,7 @@
 import c_compiler.per
 import p_compiler.per
 
-metadef code: Code(Struct {}) = struct {}
+metadef code: Code(Struct {}) = <fun(x) => x>
 
 metavar tm: CTerm
-query CompilePTerm(<struct {}>, cons(pair(sigma(<Struct {}>, <struct {}>), "x"), nil), tm, nil)
+query CompilePTerm(code, nil, tm, nil)

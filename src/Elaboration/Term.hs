@@ -438,6 +438,10 @@ infer term = case term of
     cT1 <- check t1 (N.Rigid N.TextType)
     cT2 <- check t2 (N.Rigid N.TextType)
     pure (C.TextElimCat cT1 cT2, N.Rigid N.TextType)
+  TermAst Hole -> do
+    u <- freshUnivUV
+    ty <- freshTypeUV u >>= readback
+    pure (ty, u)
   _ -> errorTerm (CannotInfer term)
 
 checkArgs ::

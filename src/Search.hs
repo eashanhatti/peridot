@@ -96,7 +96,8 @@ search :: Search sig m => Seq Term -> Term -> Term -> m (Natural, Substitution)
 search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    -- normCtx <- ask
+    normCtx <- ask
+    let _ = unTypeUVs normCtx
     -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
     -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
     -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
@@ -127,7 +128,7 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
 search ctx goal (MetaFunType _ _ p) = do
   uv <- freshUV
   vP <- appClosure p uv
-  search ctx goal vP
+  define uv (search ctx goal vP)
 search ctx goal (Rigid (ImplType p q)) = do
   (tid, qSubst) <- search ctx goal q
   pSubst <- withId tid . withSubst qSubst $ prove ctx p

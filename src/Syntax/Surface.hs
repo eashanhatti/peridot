@@ -91,4 +91,5 @@ data Term
   | Text
   | TextLiteral Text
   | TextAppend TermAst TermAst
+  | Hole
   deriving (Show, Eq)
