@@ -41,3 +41,5 @@ axiom lookup_find: Lookup(cons(pair(`k, `v), `m), `k, `v)
 axiom lookup_pass:
   Lookup(cons(`_, `m), `k, `v)
   :- Lookup(`m, `k, `v)
+
+query Lookup(cons(pair("a", "b"), cons(pair("c", "d"), nil)), "a", "d")

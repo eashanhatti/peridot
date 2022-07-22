@@ -1,8 +1,5 @@
 import c_compiler.per
-import p_compiler.per
+import closure_convert.per
 
-metadef code: Code(Fun(Struct {}) -> Struct {}) = <fun(x) => x>
-
-metavar tm: CTerm
-query Lookup(cons(pair("a", "c"), cons(pair("b", "d"), nil)), "b", "d")
-/*query CompilePTerm(<fun(x) => x>, nil, tm, init_state)*/
+metavar tm: Code(?)
+query Substitute(cons(sigma(<Bool>, pair(<true>, <false>)), nil), <true>, <true>)

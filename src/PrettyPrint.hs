@@ -18,6 +18,7 @@ import Data.Sequence hiding(singleton, foldl', replicateM, null)
 import Extra
 import Prelude qualified as P
 import Numeric.Natural
+import Data.Maybe
 
 data PrintContext = PrintContext
   { unLocals :: Map.Map Index Text
@@ -76,7 +77,8 @@ pretty term =
         , pure " { "
         , pretty body1
         , pure " } else { "
-        , pretty body2 ]
+        , pretty body2
+        , pure "}" ]
     RecType tys -> do
       tTys <- traverse (\(fd, ty) -> ((unField fd <> ": ") <>) <$> pretty ty) tys
       if null tTys then
@@ -101,10 +103,11 @@ pretty term =
       combine
         [ pure tLam'
         , pure "("
-        , intercalate ", " . toList <$> traverse pretty args, pure ")"]
+        , intercalate ", " . toList <$> traverse pretty args
+        , pure ")"]
     CodeObjElim quote -> combine [pure "~", pretty quote]
     CodeCElim quote -> combine [pure "c~", pretty quote]
-    LocalVar ix -> (! ix) . unLocals <$> ask
+    LocalVar ix -> fromMaybe "_" . (Map.lookup ix) . unLocals <$> ask
     GlobalVar (Rigid (RNameIntro (UserName name) _ did)) _ -> pure name
     GlobalVar name _ -> combine [pure "GLOBAL(", pretty name, pure ")"]
     UniVar (unGlobal -> n) _ ->
@@ -141,7 +144,7 @@ pretty term =
     Rigid (SomeType (MetaFunIntro body)) -> do
       name <- freshName
       combine [pure ("Exists "  <> name <> ", "), bindLocal name (pretty body)]
-    Rigid (HOASObjFunIntro f) -> combine [pure "mfun ", pretty f]
+    Rigid (HOASObjFunIntro f) -> combine [pure "mfun(", pretty f, pure ")"]
     MetaTypeType -> pure "MetaType"
     ObjTypeType -> pure "Type"
     Rigid ElabError -> pure "<error>"

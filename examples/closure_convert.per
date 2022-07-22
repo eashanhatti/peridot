@@ -1,0 +1,62 @@
+import list.per
+import pair.per
+import sigma.per
+
+prop LookupVar
+	( inf A: Code(Type)
+	, List(Sigma(Code(Type), metafun(ty) => Code(~ty)))
+	, Code(~A))
+axiom lookupvar_find: LookupVar(cons(sigma(`_, `x), `_), `x)
+axiom lookupvar_pass:
+	LookupVar(cons(`_, `ctx), `x)
+	:- LookupVar(`ctx, `x)
+
+prop LookupSubst
+	( inf A: Code(Type)
+	, inf B: Code(Type)
+	, List(Sigma(Code(Type), metafun(ty) => Pair(Code(~ty), Code(~ty))))
+	, Code(~A)
+	, Code(~B))
+axiom lookupsubst_find: LookupSubst(cons(sigma(`_, pair(`x, `y)), `subst), `x, `y)
+axiom lookupsubst_pass:
+	LookupSubst(cons(`_, `subst), `x, `y)
+	:- LookupSubst(`subst, `x, `y)
+
+prop CreateEnvironment
+	( List(Sigma(Code(Type), metafun(ty) => Code(~ty)))
+	, A: Code(Type)
+	, Code(~A))
+
+prop ClosureConvert
+	( inf A: Code(Type)
+	, B: Code(Type)
+	, List(Sigma(Code(Type), metafun(ty) => Code(~ty)))
+	, Code(~A)
+	, Code(~B))
+axiom cc_fun:
+	ClosureConvert(`ctx, mfun(`f), <(fun(env, x) => `body)(`env)>)
+	:- forall(x: Code(?)) -> FreeVars(`ctx, `f(x), `fv)
+
+prop Substitute
+	(	inf A: Code(Type)
+	, List(Sigma(Code(Type), metafun(ty) => Pair(Code(~ty), Code(~ty))))
+	, Code(~A)
+	, Code(~A))
+axiom subst_var:
+	Substitute(`subst, `x, `y)
+	:- LookupSubst(`subst, `x, `y)
+axiom subst_fun:
+	Substitute(`subst, mfun(`f), <fun(x) => `e>)
+	:- forall(x: Code(?)) -> Substitute(`subst, `f(x), `e)
+
+prop FreeVars
+	( inf A: Code(Type)
+	, List(Sigma(Code(Type), metafun(ty) => Code(~ty)))
+	, Code(~A)
+	, List(Sigma(Code(Type), metafun(ty) => Code(~ty))))
+axiom free_vars_var:
+	FreeVars(`ctx, `tm, cons(sigma(`_, `tm), `ctx))
+	:- LookupVar(`ctx, `tm)
+axiom free_vars_fun:
+	FreeVars(`ctx, mfun(`f), `fv)
+	:- forall(x: Code(?)) -> FreeVars(`ctx, `f(x), `fv)

@@ -151,7 +151,9 @@ loop = do
                         showTree .
                         fmap
                           (\case
-                            Atom goal -> unpack . prettyPure (rmGlobals eqs) $ goal
+                            Atom def goal ->
+                              unpack $
+                              prettyPure (rmGlobals eqs) def
                             Fail -> "fail") $
                         tree
                     TIO.putStrLn (indent . indent $ ttree)

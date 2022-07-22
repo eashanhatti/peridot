@@ -23,6 +23,7 @@ import Prelude hiding(traverse, map, zip, concat, filter, mapWithIndex)
 import Debug.Trace
 import Extra
 import Data.Bifunctor
+import Data.Maybe
 
 check :: HasCallStack => Query sig m => Id -> m C.Term
 check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
@@ -62,7 +63,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             report (AmbiguousProve cSig substs)
             pure (C.Rigid C.ElabError)
           else do
-            let (ts, eqs) = concatSubsts substs
+            (ts, eqs) <- fromJust <$> concatSubsts substs
             putTypeUVSols ts
             putUVEqs eqs
             pure (C.Rigid (C.MetaConstIntro did))
@@ -144,7 +145,7 @@ withImVars names con act = go names id where
     (cTerm, univ) <- act
     pure (f cTerm, univ)
   go (name:names) f = do
-    ty <- freshUnivUV >>= freshTypeUV
+    ty <- freshTypeUV N.MetaTypeType
     cTy <- readback ty
     bindLocal name ty (go names (con cTy . f))
 

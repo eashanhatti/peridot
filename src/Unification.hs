@@ -300,13 +300,17 @@ unify' term1 term2 =
       pure noop
     simple (Rigid (CodeObjIntro (ObjFunIntro body))) (Rigid (HOASObjFunIntro f)) = do
       l <- level
-      body' <- appClosure body (Neutral (pure Nothing) (CodeObjElim (LocalVar l)))
-      bodyClo' <- bind (readback body') >>= closureOf
+      body' <-
+        -- Rigid . CodeObjIntro <$>
+          appClosure body (Neutral (pure Nothing) (CodeObjElim (LocalVar l))) 
+      bodyClo' <- C.Rigid . CodeObjIntro <$> bind (readback body') >>= closureOf
       unifyS' (MetaFunIntro bodyClo') f
       pure noop
     simple (Rigid (HOASObjFunIntro f)) (Rigid (CodeObjIntro (ObjFunIntro body))) = do
       l <- level
-      body' <- appClosure body (Neutral (pure Nothing) (CodeObjElim (LocalVar l))) 
+      body' <-
+        -- Rigid . CodeObjIntro <$>
+          appClosure body (Neutral (pure Nothing) (CodeObjElim (LocalVar l))) 
       bodyClo' <- bind (readback body') >>= closureOf
       unifyS' f (MetaFunIntro bodyClo')
       pure noop
