@@ -44,7 +44,7 @@ type Search sig m =
   , Has (Reader Natural) sig m
   , Has (State SearchState) sig m )
 
-type Substitution = (Map.Map Global UVSolution, Map.Map Global Global)
+type Substitution = (Map.Map Global UVSolution, Map.Map Global (Set.Set Global))
 
 withSubst :: Search sig m => Substitution -> m a -> m a
 withSubst subst act = do
@@ -67,9 +67,9 @@ concatSubsts' ((ts, eqs) :<| substs) = do
         Just (unTerm -> sol') -> isNothing <$> unifyRS sol sol'
         Nothing -> pure False
   if fmap fst overlap /= mempty then
-    traceShow overlap $ throwError ()
+    throwError ()
   else
-    pure (ts <> ts', eqs <> eqs')
+    pure (ts <> ts', Map.unionWith (<>) eqs eqs')
 
 concatSubsts'' :: Search sig m => Seq Substitution -> m (Maybe Substitution)
 concatSubsts'' ss = do

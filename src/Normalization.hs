@@ -21,12 +21,13 @@ import Shower
 import Debug.Trace
 import Data.Sequence hiding(length, take)
 import Prelude hiding(length)
+import Data.Maybe
 
 data NormContext = NormContext
   { unEnv :: N.Environment
   , unVisited :: Set.Set Global
   , unTypeUVs :: Map.Map Global UVSolution
-  , unUVEqs :: Map.Map Global Global -- FIXME? `Map Global (Set Global)`
+  , unUVEqs :: Map.Map Global (Set.Set Global)
   , unDefEqs :: Seq (N.Term, N.Term) }
   deriving (Show)
 
@@ -113,7 +114,11 @@ uvRedex gl = do
           Nothing -> do
             eqs <- unUVEqs <$> ask
             case Map.lookup gl eqs of
-              Just gl' -> uvRedex gl'
+              Just gls -> do
+                rs <- traverse uvRedex (Set.toList gls)
+                case map fromJust . Prelude.filter isJust $ rs of
+                  [e] -> pure (Just e)
+                  _ -> pure Nothing
               Nothing -> pure Nothing
 
 findUVSol :: Norm sig m => Global -> m (Maybe UVSolution)
@@ -131,7 +136,11 @@ findUVSol gl = do
           Nothing -> do
             eqs <- unUVEqs <$> ask
             case Map.lookup gl eqs of
-              Just gl' -> findUVSol gl'
+              Just gls -> do
+                sols <- traverse findUVSol (Set.toList gls)
+                case map fromJust . Prelude.filter isJust $ sols of
+                  [sol] -> pure (Just sol)
+                  _ -> pure Nothing
               Nothing -> pure Nothing
 
 -- gvRedex :: Norm sig m => Id -> m (Maybe N.Term)

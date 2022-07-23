@@ -50,12 +50,12 @@ isNoop _ = False
 
 data Substitution = Subst
   { unTypeSols :: Map Global UVSolution
-  , unUVEqs :: Map Global Global }
+  , unUVEqs :: Map Global (Set Global) }
   deriving (Show)
 
 instance Semigroup Substitution where
   Subst ts1 eqs1 <> Subst ts2 eqs2 =
-    Subst (ts1 <> ts2) (eqs1 <> eqs2)
+    Subst (ts1 <> ts2) (Map.unionWith (<>) eqs1 eqs2)
 
 instance Monoid Substitution where
   mempty = Subst mempty mempty
@@ -97,7 +97,11 @@ putTypeSolInf gl sol = do
 equateUVs :: Unify sig m => Global -> Global -> m ()
 equateUVs gl1 gl2 =
   modify (\st -> st
-    { unUVEqs = Map.fromList [(gl1, gl2), (gl2, gl1)] <> unUVEqs st })
+    { unUVEqs =
+        Map.unionWith
+          (<>)
+          (Map.fromList [(gl1, Set.singleton gl2), (gl2, Set.singleton gl1)])
+          (unUVEqs st) })
 
 bind2 :: Monad m => (a -> b -> m c) -> m a -> m b -> m c
 bind2 f act1 act2 = do
@@ -230,7 +234,7 @@ occurs vis gl term = case term of
   Neutral _ (UniVar gl' ty) -> do
     traverse (occurs vis gl) ty
     eq <- Map.lookup gl' . Norm.unUVEqs <$> ask
-    if gl' == gl || eq == Just gl then
+    if gl' == gl || fmap (Set.member gl) eq == Just True then
       throwError ()
     else
       pure ()

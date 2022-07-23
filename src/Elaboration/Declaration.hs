@@ -65,7 +65,6 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             pure (C.Rigid C.ElabError)
           else do
             r <- runError @() $ concatSubsts' substs
-            let !_ = tracePretty r
             case r of
               Right (ts, eqs) -> do
                 putTypeUVSols ts

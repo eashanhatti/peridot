@@ -78,7 +78,7 @@ outputToText term = pack <$> go term where
     Just (t1 <> t2)
   go _ = Nothing
 
-rmGlobals = Map.mapKeys unGlobal . fmap unGlobal
+rmGlobals = Map.mapKeys unGlobal . fmap unGlobal . fmap ((!! 0) . Set.toList)
 
 loop = do
   prev <- newIORef []

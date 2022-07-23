@@ -52,7 +52,7 @@ data QueryState = QueryState
   , unPredecls :: Map Id (AllState, Predeclaration)
   , unNextUV :: Natural
   , unTypeUVs :: Map Global (Maybe UVSolution)
-  , unUVEqs :: Map Global Global
+  , unUVEqs :: Map Global (Set Global)
   , unErrors :: Seq (SourcePos, Error)
   , unDepGraph :: Map (Some Key) (Set (Some Key))
   , unLogvarNames :: Map Global Name
@@ -74,7 +74,7 @@ data Error
   | ExpectedRecordType C.Term
   | MissingField Name
   | FailedProve C.Term N.Term (Seq N.Term)
-  | AmbiguousProve C.Term (Seq (Map.Map Global UVSolution, Map.Map Global Global))
+  | AmbiguousProve C.Term (Seq (Map.Map Global UVSolution, Map.Map Global (Set.Set Global)))
   | InferredFunType C.Term
   | ExpectedFunType C.Term
   | CannotInfer TermAst
@@ -239,7 +239,7 @@ unify e term1 term2 = do
     Just (Uni.Subst ts eqs, e') -> do
       modify (\st -> st
         { unTypeUVs = fmap Just ts <> unTypeUVs st
-        , unUVEqs = eqs <> unUVEqs st })
+        , unUVEqs = Map.unionWith (<>) eqs (unUVEqs st) })
       pure e'
     Nothing -> do
       cTerm1 <- zonk term1
@@ -265,7 +265,7 @@ unifyR term1 term2 = do
     Just (Uni.Subst ts eqs) ->
       modify (\st -> st
         { unTypeUVs = fmap Just ts <> unTypeUVs st
-        , unUVEqs = eqs <> unUVEqs st })
+        , unUVEqs = Map.unionWith (<>) eqs (unUVEqs st) })
     Nothing -> do
       cTerm1 <- zonk term1
       cTerm2 <- zonk term2
@@ -303,7 +303,7 @@ convertibleO term1 term2 = do
     Just (Uni.Subst ts eqs) -> do
       modify (\st -> st
         { unTypeUVs = fmap Just ts <> unTypeUVs st
-        , unUVEqs = eqs <> unUVEqs st })
+        , unUVEqs = Map.unionWith (<>) eqs (unUVEqs st) })
       pure True
     Nothing -> do
       cTerm1 <- zonk term1
@@ -315,9 +315,9 @@ putTypeUVSols :: Elab sig m => Map Global UVSolution -> m ()
 putTypeUVSols sols =
   modify (\st -> st { unTypeUVs = fmap Just sols <> unTypeUVs st })
 
-putUVEqs :: Elab sig m => Map Global Global -> m ()
+putUVEqs :: Elab sig m => Map Global (Set Global) -> m ()
 putUVEqs eqs =
-  modify (\st -> st { unUVEqs = eqs <> unUVEqs st })
+  modify (\st -> st { unUVEqs = Map.unionWith (<>) eqs (unUVEqs st) })
 
 bindLocal :: Elab sig m => Name -> N.Term -> m a -> m a
 bindLocal name ty act =

@@ -12,6 +12,7 @@ import Control.Carrier.Reader
 import Control.Carrier.State.Strict
 import Control.Carrier.Throw.Either
 import Data.Map qualified as Map
+import Data.Set qualified as Set
 import Extras
 import Syntax.Common
 import Text.Megaparsec.Pos
@@ -55,13 +56,13 @@ infer' term =
       (Norm.eval >=> Norm.normalize) term'
   in (qs, term'', ty')
 
-normalize :: N.Term -> Map.Map Global UVSolution -> Map.Map Global Global -> C.Term
+normalize :: N.Term -> Map.Map Global UVSolution -> Map.Map Global (Set.Set Global) -> C.Term
 normalize term sols eqs =
   run .
   runReader (NormContext (N.Env mempty mempty) mempty sols eqs mempty) $
   Norm.normalize term
 
-zonk :: N.Term -> Map.Map Global UVSolution -> Map.Map Global Global -> C.Term
+zonk :: N.Term -> Map.Map Global UVSolution -> Map.Map Global (Set.Set Global) -> C.Term
 zonk term sols eqs =
   run .
   runReader (NormContext (N.Env mempty mempty) mempty sols eqs mempty) $
