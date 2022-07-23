@@ -16,7 +16,7 @@ import Data.Functor.Identity
 import Data.Foldable.Extra
 import Numeric.Natural
 import GHC.Stack
-import Extra
+import Extras
 import Shower
 import Debug.Trace
 import Data.Sequence hiding(length, take)

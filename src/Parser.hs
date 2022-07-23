@@ -16,7 +16,7 @@ import Control.Monad.Reader
 import Data.Set qualified as Set
 import Data.Sequence hiding(empty)
 import Data.Maybe
-import Extra
+import Extras
 import Data.List qualified as L
 import System.Directory
 import System.FilePath

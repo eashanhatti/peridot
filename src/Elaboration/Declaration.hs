@@ -22,7 +22,7 @@ import Data.Sequence
 import Search(Substitution, concatSubsts')
 import Prelude hiding(traverse, map, zip, concat, filter, mapWithIndex)
 import Debug.Trace
-import Extra
+import Extras
 import Data.Bifunctor
 import Data.Maybe
 
@@ -65,6 +65,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             pure (C.Rigid C.ElabError)
           else do
             r <- runError @() $ concatSubsts' substs
+            let !_ = tracePretty r
             case r of
               Right (ts, eqs) -> do
                 putTypeUVSols ts

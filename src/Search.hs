@@ -17,7 +17,7 @@ import Data.Set qualified as Set
 import Syntax.Common(Global(..))
 import Numeric.Natural
 import Data.Sequence hiding(empty)
-import Extra
+import Extras
 import Debug.Trace
 import Control.Applicative
 import Control.Monad
@@ -71,12 +71,19 @@ concatSubsts' ((ts, eqs) :<| substs) = do
   else
     pure (ts <> ts', eqs <> eqs')
 
+concatSubsts'' :: Search sig m => Seq Substitution -> m (Maybe Substitution)
+concatSubsts'' ss = do
+  r <- runError @() $ concatSubsts' ss
+  case r of
+    Right r -> pure (Just r)
+    Left _ -> pure Nothing
+
 concatSubsts :: Search sig m => Seq Substitution -> m Substitution
 concatSubsts ss = do
   r <- runError @() $ concatSubsts' ss
   case r of
     Right r -> pure r
-    Left _ -> failSearch
+    Left _ -> empty
 
 unionSubsts subst1 subst2 = concatSubsts (fromList [subst1, subst2])
 
@@ -89,7 +96,7 @@ prove ctx goal@(Neutral p _) =
     p <- force p
     case p of
       Just p -> prove ctx p
-      Nothing -> failSearch)
+      Nothing -> empty)
 prove ctx (Rigid (ConjType p q)) = do
   subst <- prove ctx p
   withSubst subst (prove ctx q)
@@ -104,8 +111,8 @@ prove ctx (Rigid (PropIdType x y)) = do
   r <- unifyRS x y
   case r of
     Just (Subst ts eqs) -> pure (ts, eqs)
-    Nothing -> failSearch
-prove _ goal = failSearch
+    Nothing -> empty
+prove _ goal = empty
 
 search :: Search sig m => Seq Term -> Term -> Term -> m (Natural, Substitution)
 search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
@@ -113,7 +120,6 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   = do
     normCtx <- ask
     let _ = unTypeUVs normCtx
-    -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
     substs <-
       traverse
         (\(dArg, gArg) -> unifyRS gArg dArg)
@@ -126,9 +132,6 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
         cD <- zonk d
         cG <- zonk g
         tid <- addNode (Atom cD cG)
-        -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-        -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
-        -- let !_ = tracePrettyS "SUBSTS" substs
         case allJustOrNothing (tail substs) of
           Just _ -> pure tid
           Nothing -> withId tid (addNode Fail) *> pure 0
@@ -136,23 +139,29 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     case allJustOrNothing substs of
       Just substs ->
         (tid ,) <$>
-          concatSubsts (fmap (\(Subst ts eqs) -> (ts, eqs)) substs)
-      Nothing -> failSearch
+          (concatSubsts'' (fmap (\(Subst ts eqs) -> (ts, eqs)) substs) >>= \case
+            Just r -> do
+              -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
+              -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+              -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
+              -- let !_ = tracePrettyS "SUBSTS" substs
+              pure r
+            Nothing -> withId tid failSearch)
+      Nothing -> empty
 search ctx goal (MetaFunType _ _ p) = do
   uv <- freshUV
   vP <- appClosure p uv
   define uv (search ctx goal vP)
 search ctx goal (Rigid (ImplType p q)) = do
   (tid, qSubst) <- search ctx goal q
-  p' <- withSubst qSubst (zonk p >>= eval)
-  pSubst <- withId tid . withSubst qSubst $ prove ctx p'
+  pSubst <- withId tid . withSubst qSubst $ prove ctx p
   (tid ,) <$> qSubst `unionSubsts` pSubst
 search ctx goal (Neutral p _) = do
   p <- force p
   case p of
     Just p -> search ctx goal p
-    Nothing -> failSearch
-search _ g d = failSearch
+    Nothing -> empty
+search _ g d = empty
 
 freshUV :: Search sig m => m Term
 freshUV = do
@@ -214,7 +223,7 @@ data SearchNode
   | Fail
 
 failSearch :: Search sig m => m a
-failSearch = freshId >>= \tid -> withId tid (addNode Fail) *> empty
+failSearch = ask >>= \tid -> withId tid (addNode Fail) *> empty
 
 makeTrees :: Natural -> Map.Map Natural (SearchNode, Natural) -> [Tree SearchNode]
 makeTrees tid m =

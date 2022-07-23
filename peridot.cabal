@@ -28,7 +28,7 @@ library
       Elaboration.Declaration
       Elaboration.Effect
       Elaboration.Term
-      Extra
+      Extras
       Normalization
       Parser
       PrettyPrint

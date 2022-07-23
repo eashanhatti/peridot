@@ -1,4 +1,4 @@
-module Extra where
+module Extras where
 
 import Data.Map qualified as Map
 import Shower
@@ -7,6 +7,7 @@ import Data.Sequence
 import Debug.Trace
 import Data.Functor.Identity
 import Prelude hiding(concatMap, concat, filter, null, length)
+import Data.Set qualified as Set
 
 fromRight :: Either () a -> a
 fromRight (Right x) = x

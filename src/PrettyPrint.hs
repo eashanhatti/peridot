@@ -15,7 +15,7 @@ import Control.Monad
 import Prelude hiding(zip, foldl', intercalate, words, lines, unlines, take)
 import Data.Foldable
 import Data.Sequence hiding(singleton, foldl', replicateM, null)
-import Extra
+import Extras
 import Prelude qualified as P
 import Numeric.Natural
 import Data.Maybe

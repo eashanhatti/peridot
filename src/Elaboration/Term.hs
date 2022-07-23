@@ -13,7 +13,7 @@ import Data.Set qualified as Set
 import Data.Map(Map)
 import Data.Map qualified as Map
 import Data.Some
-import Extra
+import Extras
 import Elaboration.Effect
 import Elaboration.Declaration qualified as ED
 import Control.Monad

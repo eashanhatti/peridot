@@ -12,7 +12,7 @@ import Control.Carrier.Reader
 import Control.Carrier.State.Strict
 import Control.Carrier.Throw.Either
 import Data.Map qualified as Map
-import Extra
+import Extras
 import Syntax.Common
 import Text.Megaparsec.Pos
 import Data.Text(pack, Text)

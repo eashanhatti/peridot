@@ -34,7 +34,7 @@ import Data.Foldable(toList, foldl', foldlM)
 import Prelude hiding(lookup, zip, filter)
 import Prelude qualified as Pre
 import GHC.Stack
-import Extra
+import Extras
 import Text.Megaparsec(SourcePos)
 import Debug.Trace
 import Data.Sequence
