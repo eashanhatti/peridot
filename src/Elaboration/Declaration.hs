@@ -6,6 +6,7 @@ import Syntax.Semantic qualified as N
 import Syntax.Common hiding(Declaration(..), Universe(..), NameType)
 import Elaboration.Effect
 import Control.Effect.Reader
+import Control.Carrier.Error.Either
 import Control.Effect.State
 import Control.Carrier.NonDet.Church hiding(Empty)
 import Data.Map qualified as Map
@@ -18,7 +19,7 @@ import Data.Foldable(toList, foldl')
 import Data.Traversable
 import GHC.Stack
 import Data.Sequence
-import Search(Substitution, concatSubsts)
+import Search(Substitution, concatSubsts')
 import Prelude hiding(traverse, map, zip, concat, filter, mapWithIndex)
 import Debug.Trace
 import Extra
@@ -63,10 +64,12 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             report (AmbiguousProve cSig substs)
             pure (C.Rigid C.ElabError)
           else do
-            (ts, eqs) <- fromJust <$> concatSubsts substs
-            putTypeUVSols ts
-            putUVEqs eqs
-            pure (C.Rigid (C.MetaConstIntro did))
+            r <- runError @() $ concatSubsts' substs
+            case r of
+              Right (ts, eqs) -> do
+                putTypeUVSols ts
+                putUVEqs eqs
+                pure (C.Rigid (C.MetaConstIntro did))
       where
         isAmbiguous :: Seq Substitution -> Bool
         isAmbiguous substs =

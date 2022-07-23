@@ -42,4 +42,5 @@ axiom lookup_pass:
   Lookup(cons(`_, `m), `k, `v)
   :- Lookup(`m, `k, `v)
 
-query Lookup(cons(pair("a", "b"), cons(pair("c", "d"), nil)), "a", "d")
+metavar t: Text
+query Lookup(cons(pair("a", "b"), cons(pair("c", "d"), nil)), "c", t)

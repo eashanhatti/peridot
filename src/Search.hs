@@ -7,7 +7,8 @@ import Control.Effect.State(State, get, put, modify)
 import Control.Carrier.NonDet.Church hiding(Empty)
 import Control.Carrier.State.Strict
 import Control.Carrier.Reader
-import Control.Effect.Throw
+import Control.Carrier.Error.Either
+import Control.Effect.Error
 import Control.Algebra(Has, run)
 import Normalization
 import Unification hiding(Substitution, unUVEqs)
@@ -19,6 +20,7 @@ import Data.Sequence hiding(empty)
 import Extra
 import Debug.Trace
 import Control.Applicative
+import Control.Monad
 import Shower
 import Prelude hiding(length, zip, concatMap, concat, filter, null, head, tail)
 import Prelude qualified as Pre
@@ -45,18 +47,38 @@ type Search sig m =
 type Substitution = (Map.Map Global UVSolution, Map.Map Global Global)
 
 withSubst :: Search sig m => Substitution -> m a -> m a
-withSubst (subst, eqs) =
+withSubst subst act = do
+  tuvs <- unTypeUVs <$> ask
+  eqs <- unUVEqs <$> ask
+  (tuvs', eqs') <- concatSubsts (fromList [(tuvs, eqs), subst])
   local
     (\ctx -> ctx
-      { unTypeUVs = subst <> unTypeUVs ctx
-      , unUVEqs = eqs <> unUVEqs ctx})
+      { unTypeUVs = tuvs'
+      , unUVEqs = eqs' })
+    act
 
-concatSubsts Empty = mempty
-concatSubsts ((ts, eqs) :<| substs) =
-  let (ts', eqs') = concatSubsts substs
-  in (ts <> ts', eqs <> eqs')
+concatSubsts' :: (Has (Error ()) sig m, Norm sig m) => Seq Substitution -> m Substitution
+concatSubsts' Empty = pure mempty
+concatSubsts' ((ts, eqs) :<| substs) = do
+  (ts', eqs') <- concatSubsts' substs
+  overlap <-
+    flip filterM (Map.toList ts) \(gl, unTerm -> sol) ->
+      case Map.lookup gl ts' of
+        Just (unTerm -> sol') -> isNothing <$> unifyRS sol sol'
+        Nothing -> pure False
+  if fmap fst overlap /= mempty then
+    traceShow overlap $ throwError ()
+  else
+    pure (ts <> ts', eqs <> eqs')
 
-unionSubsts (ts1, eqs1) (ts2, eqs2) = (ts1 <> ts2, eqs1 <> eqs2)
+concatSubsts :: Search sig m => Seq Substitution -> m Substitution
+concatSubsts ss = do
+  r <- runError @() $ concatSubsts' ss
+  case r of
+    Right r -> pure r
+    Left _ -> failSearch
+
+unionSubsts subst1 subst2 = concatSubsts (fromList [subst1, subst2])
 
 prove :: forall sig m. Search sig m => Seq Term -> Term -> m Substitution
 prove ctx goal@(Neutral p _) =
@@ -73,18 +95,11 @@ prove ctx (Rigid (ConjType p q)) = do
   withSubst subst (prove ctx q)
 prove ctx (Rigid (DisjType p q)) =
   prove ctx p <|> prove ctx q
--- prove ctx (Rigid (SomeType (MetaFunIntro p))) = trace "PROVE 4" do
---   uv <- freshUV
---   vP <- appClosure p uv
---   prove ctx vP
 prove ctx (Rigid (ImplType p q)) =
   prove (p <| ctx) q
 prove ctx (MetaFunType _ _ p) = do
   vP <- evalClosure p
   prove ctx vP
--- prove ctx (Rigid (AllType (MetaFunIntro p))) = trace "PROVE 7" do
---   vP <- evalClosure p
---   prove ctx vP
 prove ctx (Rigid (PropIdType x y)) = do
   r <- unifyRS x y
   case r of
@@ -109,7 +124,8 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     tid <- case head substs of
       Just _ -> do
         cD <- zonk d
-        tid <- addNode (Atom cD)
+        cG <- zonk g
+        tid <- addNode (Atom cD cG)
         -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
         -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
         -- let !_ = tracePrettyS "SUBSTS" substs
@@ -119,20 +135,18 @@ search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
       Nothing -> pure 0
     case allJustOrNothing substs of
       Just substs ->
-        pure (tid, concatSubsts (fmap (\(Subst ts eqs) -> (ts, eqs)) substs))
+        (tid ,) <$>
+          concatSubsts (fmap (\(Subst ts eqs) -> (ts, eqs)) substs)
       Nothing -> failSearch
--- search ctx goal (Rigid (AllType (MetaFunIntro p))) = trace "SEARCH 2" do
---   uv <- freshUV
---   vP <- appClosure p uv
---   search ctx goal vP
 search ctx goal (MetaFunType _ _ p) = do
   uv <- freshUV
   vP <- appClosure p uv
   define uv (search ctx goal vP)
 search ctx goal (Rigid (ImplType p q)) = do
   (tid, qSubst) <- search ctx goal q
-  pSubst <- withId tid . withSubst qSubst $ prove ctx p
-  pure (tid, qSubst `unionSubsts` pSubst)
+  p' <- withSubst qSubst (zonk p >>= eval)
+  pSubst <- withId tid . withSubst qSubst $ prove ctx p'
+  (tid ,) <$> qSubst `unionSubsts` pSubst
 search ctx goal (Neutral p _) = do
   p <- force p
   case p of
@@ -189,14 +203,14 @@ proveDet ctx goal uv = do
     runNonDetA $
     prove ctx goal
   let trees = makeTrees 0 (unTree ss)
-  (Node (Atom cGoal) trees, unNextUV ss, ) <$>
+  (Node (Atom cGoal (C.Rigid C.Dummy)) trees, unNextUV ss, ) <$>
     if null substs then
       pure Nothing
     else
       pure (Just substs)
 
 data SearchNode
-  = Atom C.Term
+  = Atom C.Term C.Term
   | Fail
 
 failSearch :: Search sig m => m a
