@@ -4,6 +4,8 @@ An experimental language for exploring the practical applications of two level t
 
 Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/jFZ8JyUNtn) in the #peridot channel.
 
+**Note**: Peridot is a research language and not intended for real-world use.
+
 ### References and Inspiration
 
 * [REFERENCES.md](./REFERENCES.md): A list of prior art that have influenced Peridot's design and implementation in major ways
