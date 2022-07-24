@@ -174,10 +174,11 @@ lam s c = do
 hoasLam :: Parser Term
 hoasLam = do
   string "mfun"
+  n <- some digitChar
   char '('; ws
   f <- prec0; ws
   char ')'
-  pure (HOASObjLam Explicit f)
+  pure (HOASObjLam Explicit (read n) f)
 
 app :: Parser Term
 app = do
