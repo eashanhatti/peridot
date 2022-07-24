@@ -29,11 +29,13 @@ This is a list of prior art that have influenced Peridot's design and implementa
 
 ### Elaboration
 
-[Elaborating dependent (co)pattern matching](https://dl.acm.org/doi/pdf/10.1145/3236770)
-> We present an algorithm elaborating definitions by dependent copattern matching to a core language with inductive datatypes, coinductive record types, an identity type, and constants defined by well-typed case trees.
-
 [Elaboration Zoo](https://github.com/AndrasKovacs/elaboration-zoo)
 > Minimal implementations for dependent type checking and elaboration
+
+### Logic Programming
+
+[A Higher-Order Abstract Syntax Approach to Verified Transformations on Functional Programs](https://arxiv.org/pdf/1509.03705.pdf)
+> We describe an approach to the verified implementation of transformations on functional programs that exploits the higher-order representation of syntax. In this approach, transformations are specified using the logic of hereditary Harrop formulas. On the one hand, these specifications serve directly as implementations, being programs in the language Lambda Prolog
 
 ### Other
 
