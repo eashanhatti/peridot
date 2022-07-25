@@ -183,5 +183,4 @@ imVars (TermAst term) = case term of
   Define name def cont -> imVars name <> imVars def <> imVars cont
   NameType _ ty -> imVars ty
   TextAppend t1 t2 -> imVars t1 <> imVars t2
-  HOASObjLam _ _ f -> imVars f
   _ -> mempty

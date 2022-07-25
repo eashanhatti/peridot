@@ -442,30 +442,6 @@ infer term = case term of
     u <- freshUnivUV
     ty <- freshTypeUV u >>= readback
     pure (ty, u)
-  TermAst (HOASObjLam pm n f) -> do
-    inTys <- Control.Monad.replicateM (fromIntegral n) (freshTypeUV N.ObjTypeType >>= readback)
-    outTy <- freshTypeUV N.ObjTypeType >>= readback
-    mty <-
-      eval
-        (foldl'
-          (\acc inTy -> C.MetaFunType pm (C.Rigid (C.CodeObjType inTy)) acc)
-          (C.Rigid (C.CodeObjType outTy))
-          inTys)
-    oty <-
-      eval
-        (foldl'
-          (\acc inTy -> C.ObjFunType pm inTy acc)
-          outTy
-          inTys)
-    cF <- check f mty
-    pure (C.Rigid (C.HOASObjFunIntro cF), N.Rigid (N.CodeObjType oty))
-    -- inTy' <- freshTypeUV N.ObjTypeType
-    -- outTy' <- freshTypeUV N.ObjTypeType
-    -- outTyClo' <- readback outTy' >>= closureOf
-    -- let inTy = N.Rigid (N.CodeObjType inTy')
-    -- outTy <- readback (N.Rigid (N.CodeObjType outTy')) >>= closureOf
-    -- cF <- check f (N.MetaFunType pm inTy outTy)
-    -- pure (C.Rigid (C.HOASObjFunIntro cF), N.Rigid (N.CodeObjType (N.ObjFunType pm inTy' outTyClo')))
   _ -> errorTerm (CannotInfer term)
 
 checkArgs ::

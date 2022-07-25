@@ -171,15 +171,6 @@ lam s c = do
   body <- prec0
   pure (c (fromList ns) body)
 
-hoasLam :: Parser Term
-hoasLam = do
-  string "mfun"
-  n <- some digitChar
-  char '('; ws
-  f <- prec0; ws
-  char ')'
-  pure (HOASObjLam Explicit (read n) f)
-
 app :: Parser Term
 app = do
   lam <- prec1; ws
@@ -502,7 +493,6 @@ prec0 =
       try (piE "forall" MetaPi) <|>
       try propE <|>
       try quoteObj <|>
-      try hoasLam <|>
       try (lam "fun" ObjLam) <|>
       try (lam "metafun" (\ps -> MetaLam (fmap snd ps))) <|>
       try app <|>

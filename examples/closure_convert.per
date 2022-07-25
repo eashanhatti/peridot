@@ -2,9 +2,6 @@ import list.per
 import pair.per
 import sigma.per
 
-metadef Substitution: MetaType =
-  List(Sigma(Code(Type), metafun(ty) => Pair(Code(~ty), Code(~ty))))
-
 metadef Context: MetaType =
   List(Sigma(Code(Type), metafun(ty) => Code(~ty)))
 
@@ -16,57 +13,6 @@ axiom lookupvar_find: LookupVar(cons(sigma(`_, `x), `_), `x)
 axiom lookupvar_pass:
   LookupVar(cons(`_, `ctx), `x)
   :- LookupVar(`ctx, `x)
-
-prop LookupSubst
-  ( inf A: Code(Type)
-  , inf B: Code(Type)
-  , Substitution
-  , Code(~A)
-  , Code(~B))
-axiom lookupsubst_find: LookupSubst(cons(sigma(`_, pair(`x, `y)), `subst), `x, `y)
-axiom lookupsubst_pass:
-  LookupSubst(cons(`_, `subst), `x, `y)
-  :- LookupSubst(`subst, `x, `y)
-
-prop CreateEnvironment
-  ( Context
-  , A: Code(Type)
-  , Code(~A))
-
-prop ClosureConvert
-  ( inf A: Code(Type)
-  , B: Code(Type)
-  , Context
-  , Code(~A)
-  , Code(~B))
-axiom cc_fun:
-  ClosureConvert
-    ( <Struct
-        { env: ~`EnvTy
-        , fn: Fun(`EnvTy, ?) -> ? }>
-    , `ctx
-    , mfun1(`f)
-    , <struct
-        { env = ~`env
-        , fn = fun(env, x) => ? }>)
-  :- forall(x: Code(?)) -> FreeVars(`ctx, `f(x), `fv)
-  ,  forall(x: Code(?)) -> ClosureConvert(?, cons(sigma(?, x), `ctx), `f(x), `body)
-  ,  CreateEnvironment(`fv, `EnvTy, `env)
-axiom cc_var:
-  ClosureConvert(?, `ctx, `x, `x)
-  :- LookupVar(`ctx, `x)
-
-prop Substitute
-  ( inf A: Code(Type)
-  , Substitution
-  , Code(~A)
-  , Code(~A))
-axiom subst_var:
-  Substitute(`subst, `x, `y)
-  :- LookupSubst(`subst, `x, `y)
-axiom subst_fun:
-  Substitute(`subst, mfun1(`f), <fun(x) => `e>)
-  :- forall(x: Code(?)) -> Substitute(`subst, `f(x), `e)
 
 prop FreeVars
   ( inf A: Code(Type)

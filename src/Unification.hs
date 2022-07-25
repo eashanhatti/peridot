@@ -200,9 +200,6 @@ unifyRigid (NameType univ1 ty1) (NameType univ2 ty2)
 unifyRigid (NameIntro univ1 did1) (NameIntro univ2 did2)
   | univ1 == univ2 && did1 == did2
   = pure noop
-unifyRigid (HOASObjFunIntro f1) (HOASObjFunIntro f2) = do
-  unifyS' f1 f2
-  pure noop
 unifyRigid ElabError _ = errorU
 unifyRigid _ ElabError = errorU
 unifyRigid term1 term2 = throwError ()
@@ -302,22 +299,6 @@ unify' term1 term2 =
     simple (ObjFunIntro body1) (ObjFunIntro body2) = do
       bind2 unifyS' (evalClosure body1) (evalClosure body2)
       pure noop
-    simple (Rigid (CodeObjIntro (ObjFunIntro body))) (Rigid (HOASObjFunIntro f)) = do
-      l <- level
-      body' <-
-        -- Rigid . CodeObjIntro <$>
-          appClosure body (Neutral (pure Nothing) (CodeObjElim (LocalVar l))) 
-      bodyClo' <- C.Rigid . CodeObjIntro <$> bind (readback body') >>= closureOf
-      unifyS' (MetaFunIntro bodyClo') f
-      pure noop
-    simple (Rigid (HOASObjFunIntro f)) (Rigid (CodeObjIntro (ObjFunIntro body))) = do
-      l <- level
-      body' <-
-        -- Rigid . CodeObjIntro <$>
-          appClosure body (Neutral (pure Nothing) (CodeObjElim (LocalVar l))) 
-      bodyClo' <- bind (readback body') >>= closureOf
-      unifyS' f (MetaFunIntro bodyClo')
-      pure noop
     simple (LocalVar lvl1) (LocalVar lvl2) | lvl1 == lvl2 = pure noop
     simple (RecType tys1) (RecType tys2) | length tys1 == length tys2 = do
       coes <- goFields Empty unify' (zip tys1 tys2)
@@ -370,23 +351,23 @@ unify' term1 term2 =
       case prevSol of
         Just prevSol -> unify' term prevSol
         Nothing -> putTypeSolExp gl term
-    complex (Rigid (SingType _ term)) _ =
-      pure (liftCoe \e -> do
-        vE <- eval e
-        unifyS' term vE
-        pure (C.Rigid (C.SingIntro e)))
-    complex ty1 (Rigid (SingType ty2 _)) =
-      pure (liftCoe \e -> do
-        unifyS' ty1 ty2
-        pure (C.SingElim e))
-    complex (Rigid (CodeObjType ty1)) ty2 =
-      pure (liftCoe \e -> pure (C.Rigid (C.CodeObjIntro e)))
-    complex ty1 (Rigid (CodeObjType ty2)) =
-      pure (liftCoe \e -> pure (C.CodeObjElim e))
-    complex (Neutral _ (CodeObjElim term1)) term2 =
-      unify' term1 (Rigid (CodeObjIntro term2))
-    complex term1 (Neutral _ (CodeObjElim term2)) =
-      unify' (Rigid (CodeObjIntro term1)) term2
+    -- complex (Rigid (SingType _ term)) _ =
+    --   pure (liftCoe \e -> do
+    --     vE <- eval e
+    --     unifyS' term vE
+    --     pure (C.Rigid (C.SingIntro e)))
+    -- complex ty1 (Rigid (SingType ty2 _)) =
+    --   pure (liftCoe \e -> do
+    --     unifyS' ty1 ty2
+    --     pure (C.SingElim e))
+    -- complex (Rigid (CodeObjType ty1)) ty2 =
+    --   pure (liftCoe \e -> pure (C.Rigid (C.CodeObjIntro e)))
+    -- complex ty1 (Rigid (CodeObjType ty2)) =
+    --   pure (liftCoe \e -> pure (C.CodeObjElim e))
+    -- complex (Neutral _ (CodeObjElim term1)) term2 =
+    --   unify' term1 (Rigid (CodeObjIntro term2))
+    -- complex term1 (Neutral _ (CodeObjElim term2)) =
+    --   unify' (Rigid (CodeObjIntro term1)) term2
     complex (Neutral term1 _) term2 = do
       term1 <- force term1
       case term1 of
