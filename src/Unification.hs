@@ -365,10 +365,10 @@ unify' term1 term2 =
     --   pure (liftCoe \e -> pure (C.Rigid (C.CodeObjIntro e)))
     -- complex ty1 (Rigid (CodeObjType ty2)) =
     --   pure (liftCoe \e -> pure (C.CodeObjElim e))
-    -- complex (Neutral _ (CodeObjElim term1)) term2 =
-    --   unify' term1 (Rigid (CodeObjIntro term2))
-    -- complex term1 (Neutral _ (CodeObjElim term2)) =
-    --   unify' (Rigid (CodeObjIntro term1)) term2
+    complex (Neutral _ (CodeObjElim term1)) term2 | tmUniv term2 == Just Obj =
+      unify' term1 (Rigid (CodeObjIntro term2))
+    complex term1 (Neutral _ (CodeObjElim term2)) | tmUniv term1 == Just Obj =
+      unify' (Rigid (CodeObjIntro term1)) term2
     complex (Neutral term1 _) term2 = do
       term1 <- force term1
       case term1 of
