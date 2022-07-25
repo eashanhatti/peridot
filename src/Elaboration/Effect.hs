@@ -16,6 +16,7 @@ import Syntax.Core qualified as C
 import Syntax.Semantic qualified as N
 import Syntax.Surface
 import Syntax.Common hiding(unId, Universe(..))
+import Syntax.Common qualified as Cm
 import Data.Some
 import Data.Maybe
 import Data.Dependent.HashMap qualified as DMap

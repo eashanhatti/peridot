@@ -341,6 +341,7 @@ unify' term1 term2 =
     complex term1 (Neutral term2 (GlobalVar _ True)) = do
       term2 <- fromJust <$> force term2
       unify' term1 term2
+    -- complex (CodeObjElim ())
     complex (Neutral prevSol (UniVar gl _)) term = do
       prevSol <- force prevSol
       case prevSol of

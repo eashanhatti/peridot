@@ -15,6 +15,7 @@ import Text.Megaparsec.Pos
 import Prelude hiding(words, lines, unlines)
 import Prelude qualified as P
 import Data.Sequence(Seq)
+import Data.Sequence qualified as Seq
 import System.Directory
 import System.IO
 import Data.IORef
@@ -25,7 +26,9 @@ import Data.Bifunctor
 import Numeric.Natural
 import Data.Tree.View
 import Search(SearchNode(..))
-import "peridot" Extra
+import Extras
+import Data.Foldable
+import Data.List(nub)
 
 prettyError :: Map.Map Natural Natural -> Error -> Text
 prettyError _ TooManyParams = "Too many parameters."
@@ -78,7 +81,7 @@ outputToText term = pack <$> go term where
     Just (t1 <> t2)
   go _ = Nothing
 
-rmGlobals = Map.mapKeys unGlobal . fmap unGlobal . fmap ((!! 0) . Set.toList)
+rmGlobals = Map.mapKeys unGlobal . fmap (unGlobal . (!! 0) . toList)
 
 loop = do
   prev <- newIORef []
@@ -107,9 +110,11 @@ loop = do
               Right (ct, qs) -> do
                 let
                   tErrs =
-                    prettyErrors
-                      (rmGlobals (unUVEqs qs))
-                      (unErrors qs)
+                    Seq.fromList .
+                    nub .
+                    toList .
+                    prettyErrors (rmGlobals (unUVEqs qs)) $
+                    (unErrors $ qs)
                 let tuvs = justs . unTypeUVs $ qs
                 let eqs = unUVEqs qs
                 let eqs' = rmGlobals eqs

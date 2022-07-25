@@ -23,5 +23,5 @@ axiom free_vars_var:
   FreeVars(`ctx, `tm, cons(sigma(`_, `tm), `ctx))
   :- LookupVar(`ctx, `tm)
 axiom free_vars_fun:
-  FreeVars(`ctx, mfun1(`f), `fv)
+  FreeVars(`ctx, <fun(x) => ~(`f(<x>))>, `fv)
   :- forall(x: Code(?)) -> FreeVars(`ctx, `f(x), `fv)
