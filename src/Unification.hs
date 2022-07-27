@@ -24,7 +24,9 @@ import Data.Maybe
 import Data.Sequence
 import Control.Applicative
 import Prelude hiding(zip, length, filter, elem)
+import Prelude qualified as Pre
 import Extras
+import Shower
 
 -- coerce term of inferred type to term of expected type
 newtype Coercion sig m =
@@ -335,12 +337,16 @@ unify' term1 term2 =
       (coe <|) <$> bind (goFields (LocalVar l <| defs) u tys)
 
     complex :: Unify sig m => Term -> Term -> m (Coercion sig m)
-    complex (Neutral term1 (GlobalVar _ True)) term2 = do
-      term1 <- fromJust <$> force term1
-      unify' term1 term2
-    complex term1 (Neutral term2 (GlobalVar _ True)) = do
-      term2 <- fromJust <$> force term2
-      unify' term1 term2
+    complex (Neutral term1 (GlobalVar did True)) term2 = do
+      term1' <- force term1
+      case term1' of
+        Just term1' -> unify' term1' term2
+        Nothing -> unify' (Neutral term1 (GlobalVar did False)) term2
+    complex term1 (Neutral term2 (GlobalVar did True)) = do
+      term2' <- force term2
+      case term2' of
+        Just term2' -> unify' term1 term2'
+        Nothing -> unify' term1 (Neutral term2 (GlobalVar did False))
     -- complex (CodeObjElim ())
     complex (Neutral prevSol (UniVar gl _)) term = do
       prevSol <- force prevSol
@@ -352,6 +358,14 @@ unify' term1 term2 =
       case prevSol of
         Just prevSol -> unify' term prevSol
         Nothing -> putTypeSolExp gl term
+    complex (Neutral _ (CodeObjElim (viewMetaFunElims -> Just (uv@(Neutral _ (UniVar gl _)), args)))) term
+      | Just lvls <- puValid args
+      , length args > 0
+      = solve uv lvls term False
+    complex term (Neutral _ (CodeObjElim (viewMetaFunElims -> Just (uv@(Neutral _ (UniVar gl _)), args))))
+      | Just lvls <- puValid args
+      , length args > 0
+      = solve uv lvls term True
     -- complex (Rigid (SingType _ term)) _ =
     --   pure (liftCoe \e -> do
     --     vE <- eval e
@@ -380,6 +394,80 @@ unify' term1 term2 =
         Just term2 -> unify' term1 term2
         Nothing -> throwError ()
     complex term1 term2 = throwError ()
+
+    puValid args = go args mempty where
+      go Empty _ = Just mempty
+      go (Rigid (CodeObjIntro (LocalVar lvl)) :<| args) vs = do
+        guard (not (Set.member lvl vs))
+        lvls <- go args (Set.insert lvl vs)
+        Just (lvl : lvls)
+      go (_ :<| _) _ = Nothing
+
+    solve :: Unify sig m => Term -> [Level] -> Term -> Bool -> m (Coercion sig m)
+    solve uv lvls term side = do
+      ren <- invert lvls
+      cTerm <- C.Rigid . C.CodeObjIntro <$> bindN (Pre.length lvls) (rename ren term)
+      vTerm <- eval (foldl' (\acc _ -> C.ObjFunIntro acc) cTerm [1 .. Pre.length lvls])
+      if side then
+        unifyS' vTerm uv
+      else
+        unifyS' uv vTerm
+      pure noop
+
+    invert :: Norm sig m => [Level] -> m (Map.Map Level Level)
+    invert lvls = do
+      l <- level
+      pure (Map.fromList . fmap (\(lvl, i) -> (lvl, i + l)) $ Pre.zip lvls [0..])
+
+    rename :: Unify sig m => Map.Map Level Level -> Term -> m C.Term
+    rename ren = \case
+      ObjFunType pm inTy outTy -> do
+        cInTy <- rename ren inTy
+        vOutTy <- evalClosure outTy
+        cOutTy <- bind (rename ren vOutTy)
+        pure (C.ObjFunType pm cInTy cOutTy)
+      ObjFunIntro body -> do
+        vBody <- evalClosure body
+        cBody <- bind (rename ren vBody)
+        pure (C.ObjFunIntro cBody)
+      RecIntro defs -> do
+        vDefs <- evalFieldClos Empty defs
+        cDefs <-
+          traverseWithIndex
+            (\i (fd, def) -> (fd ,) <$> bindN i (rename ren def))
+            vDefs
+        pure (C.RecIntro cDefs)
+      RecType tys -> do
+        vTys <- evalFieldClos Empty tys
+        cTys <-
+          traverseWithIndex
+            (\i (fd, ty) -> (fd ,) <$> bindN i (rename ren ty))
+            vTys
+        pure (C.RecType cTys)
+      MetaFunType pm inTy outTy -> do
+        cInTy <- rename ren inTy
+        vOutTy <- evalClosure outTy
+        cOutTy <- bind (rename ren vOutTy)
+        pure (C.MetaFunType pm cInTy cOutTy)
+      MetaFunIntro body -> do
+        vBody <- evalClosure body
+        cBody <- bind (rename ren vBody)
+        pure (C.MetaFunIntro cBody)
+      LocalVar lvl -> case Map.lookup lvl ren of
+        Just (Level lvl') -> do
+          Level l <- level
+          pure (C.CodeObjElim (C.LocalVar (Index (l - lvl' - 1))))
+        Nothing -> throwError ()
+      Rigid rterm -> C.Rigid <$> traverse (rename ren) rterm
+      Neutral _ (MetaFunElim lam arg) -> C.MetaFunElim <$> rename ren lam <*> rename ren arg
+      Neutral _ (ObjFunElim lam arg) -> C.ObjFunElim <$> rename ren lam <*> rename ren arg
+      Neutral _ (CodeObjElim quote) -> C.CodeObjElim <$> rename ren quote
+      Neutral _ (UniVar gl ty) -> C.UniVar gl <$> traverse (rename ren) ty
+      Neutral _ (TwoElim scr body1 body2) -> C.TwoElim <$> rename ren scr <*> rename ren body1 <*> rename ren body2
+      Neutral _ (RecElim str fd) -> flip C.RecElim fd <$> rename ren str
+      Neutral _ (Declare u name ty cont) -> C.Declare u <$> rename ren name <*> rename ren ty <*> rename ren cont
+      Neutral _ (Define name def cont) -> C.Define <$> rename ren name <*> rename ren def <*> rename ren cont
+      Neutral _ (TextElimCat t1 t2) -> C.TextElimCat <$> rename ren t1 <*> rename ren t2
 
 unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unifyS' term1 term2 = do

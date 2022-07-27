@@ -92,7 +92,7 @@ data RedexF a
   | ObjFunElim a a
   | CodeObjElim a
   | GlobalVar a Bool
-  | UniVar Global (Maybe Term)
+  | UniVar Global (Maybe a)
   | TwoElim a a a
   | RecElim a Field
   | SingElim a
@@ -144,7 +144,7 @@ tmUniv (Rigid TwoType) = Just Obj
 tmUniv (Rigid (SingType _ _)) = Just Obj
 tmUniv (Rigid (ObjIdType _ _)) = Just Obj
 tmUniv (Rigid (NameType _ _)) = Just Meta
-tmUniv (Rigid (CodeObjType _)) = Just Obj
+tmUniv (Rigid (CodeObjType _)) = Just Meta
 tmUniv (Rigid TextType) = Just Meta
 tmUniv (Rigid (ImplType _ _)) = Just Meta
 tmUniv (Rigid (ConjType _ _)) = Just Meta

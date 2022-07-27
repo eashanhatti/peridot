@@ -90,8 +90,9 @@ unionSubsts subst1 subst2 = concatSubsts (fromList [subst1, subst2])
 prove :: forall sig m. Search sig m => Seq Term -> Term -> m Substitution
 prove ctx goal@(Neutral p _) =
   (do
+    cGoal <- readback goal
     def <- oneOf ctx
-    snd <$> search ctx goal def) <|>
+    snd <$> search ctx cGoal def) <|>
   (do
     p <- force p
     case p of
@@ -106,7 +107,7 @@ prove ctx (Rigid (ImplType p q)) =
   prove (p <| ctx) q
 prove ctx (MetaFunType _ _ p) = do
   vP <- evalClosure p
-  prove ctx vP
+  bind (prove ctx vP)
 prove ctx (Rigid (PropIdType x y)) = do
   r <- unifyRS x y
   case r of
@@ -114,24 +115,25 @@ prove ctx (Rigid (PropIdType x y)) = do
     Nothing -> empty
 prove _ goal = empty
 
-search :: Search sig m => Seq Term -> Term -> Term -> m (Natural, Substitution)
-search ctx g@(MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
+search :: Search sig m => Seq Term -> C.Term -> Term -> m (Natural, Substitution)
+search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
     normCtx <- ask
     let _ = unTypeUVs normCtx
+    vGHead <- eval gHead
+    vGArgs <- traverse eval gArgs
     substs <-
       traverse
         (\(dArg, gArg) -> unifyRS gArg dArg)
-        (zip dArgs gArgs)
+        (zip dArgs vGArgs)
     -- let !_ = tracePrettyS "DEF" d
     -- let !_ = tracePrettyS "GOAL" g
-    substs <- ((<| substs) <$> unifyRS gHead dHead)
+    substs <- ((<| substs) <$> unifyRS vGHead dHead)
     tid <- case head substs of
       Just _ -> do
         cD <- zonk d
-        cG <- zonk g
-        tid <- addNode (Atom cD cG)
+        tid <- addNode (Atom cD g)
         case allJustOrNothing (tail substs) of
           Just _ -> pure tid
           Nothing -> withId tid (addNode Fail) *> pure 0

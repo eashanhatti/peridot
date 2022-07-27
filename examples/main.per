@@ -1,5 +1,5 @@
 import c_compiler.per
 import closure_convert.per
 
-metavar tm: Code(?)
-query Substitute(cons(sigma(<Bool>, pair(<true>, <false>)), nil), <true>, <true>)
+metavar ctx: Context
+query FreeVars(nil, <fun(x) => x>, ctx)

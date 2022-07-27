@@ -72,3 +72,11 @@ viewFunElims (MetaFunElim lam arg) =
   let (lam', args) = viewFunElims lam
   in (lam', args |> arg)
 viewFunElims e = (e, mempty)
+
+viewMetaFunElims :: Term -> (Term, Seq Term)
+viewMetaFunElims (MetaFunElim lam arg) =
+  let (lam', args) = viewMetaFunElims lam
+  in (lam', args |> arg)
+viewMetaFunElims e = (e, mempty)
+
+pattern MetaFunElims lam args <- (viewMetaFunElims -> (lam, args))

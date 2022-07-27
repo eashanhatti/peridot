@@ -95,7 +95,7 @@ check (TermAst (App lam args)) (N.tmUniv -> Just N.Meta) = do
   case r of
     Right (cArgs, outTy) -> pure (foldl' (\lam arg -> C.MetaFunElim lam arg) cLam cArgs)
     Left err -> report err *> pure (C.Rigid C.ElabError)
-check (TermAst (App lam args)) (N.tmUniv -> Just N.Obj) = do
+check (TermAst (App lam args)) u@(N.tmUniv -> Just N.Obj) = do
   (cLam, lamTy) <- infer lam
   r <- runThrow @Error $ checkArgs (N.ObjFunType Explicit) args lamTy
   case r of
@@ -279,7 +279,7 @@ infer term = case term of
     cTerm <- check term ty
     pure (C.Rigid (C.CodeObjIntro cTerm), N.Rigid (N.CodeObjType ty))
   TermAst (SpliceObj quote) -> do
-    ty <- freshTypeUV N.MetaTypeType
+    ty <- freshTypeUV N.ObjTypeType
     cQuote <- check quote (N.Rigid (N.CodeObjType ty))
     pure (C.CodeObjElim cQuote, ty)
   TermAst (ImplProp p q) -> do
