@@ -132,12 +132,11 @@ search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     substs <- ((<| substs) <$> unifyRS vGHead dHead)
     tid <- case head substs of
       Just _ -> do
-        -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
-        ndargs <- traverse (normalize >=> eval) dArgs
-        ngargs <- traverse (normalize >=> eval) vGArgs
-        let !_ = tracePrettyS "DARGS" (dHead <| ndargs)
-        let !_ = tracePrettyS "GARGS" (vGHead <| ngargs)
-        let !_ = tracePrettyS "SUBSTS" substs
+        -- let def = Map.lookup (LVGlobal 2092) (unTypeUVs normCtx)
+        -- !_ <- tracePrettyS "CTX" <$> (traverse (normalize >=> eval) (fmap unTerm def))
+        -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+        -- let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
+        -- let !_ = tracePrettyS "SUBSTS" substs
         cD <- zonk d
         tid <- addNode (Atom cD g)
         case allJustOrNothing (tail substs) of

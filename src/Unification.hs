@@ -349,6 +349,10 @@ unify' term1 term2 =
       unify' term1 term2
     complex (Neutral prevSol (UniVar gl _)) term = do
       prevSol <- force prevSol
+      when (gl == LVGlobal 2092) do
+        let !_ = tracePrettyS "PREVSOL" prevSol
+        let !_ = tracePrettyS "TERM" term
+        pure ()
       case prevSol of
         Just prevSol -> unify' prevSol term
         Nothing -> putTypeSolInf gl term
