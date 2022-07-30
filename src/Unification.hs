@@ -199,11 +199,13 @@ unifyRigid (NameType univ1 ty1) (NameType univ2 ty2)
   = do
     unifyS' ty1 ty2
     pure noop
-unifyRigid (NameIntro univ1 did1) (NameIntro univ2 did2)
+unifyRigid (RNameIntro n1 univ1 did1) (RNameIntro n2 univ2 did2)
   | univ1 == univ2 && did1 == did2
   = pure noop
 unifyRigid ElabError _ = errorU
 unifyRigid _ ElabError = errorU
+unifyRigid Dummy _ = error "BUG: Dummy unify"
+unifyRigid _ Dummy = error "BUG: Dummy unify"
 unifyRigid term1 term2 = throwError ()
 
 errorU :: Unify sig m => m (Coercion sig m)
@@ -253,6 +255,8 @@ unify' term1 term2 =
   simple term1 term2 `catchError` (\() -> complex term1 term2)
   where
     simple :: Unify sig m => Term -> Term -> m (Coercion sig m)
+    simple (Neutral _ (GlobalVar (Rigid (NameIntro _ gl1)) _)) (Rigid (MetaConstIntro gl2)) | gl1 == gl2 = pure noop
+    simple (Rigid (MetaConstIntro gl1)) (Neutral _ (GlobalVar (Rigid (NameIntro _ gl2)) _)) | gl1 == gl2 = pure noop
     simple (Rigid ElabError) _ = errorU
     simple _ (Rigid ElabError) = errorU
     simple (Neutral term1 (UniVar gl1 ty1)) (Neutral term2 (UniVar gl2 ty2)) = do
@@ -337,17 +341,12 @@ unify' term1 term2 =
       (coe <|) <$> bind (goFields (LocalVar l <| defs) u tys)
 
     complex :: Unify sig m => Term -> Term -> m (Coercion sig m)
-    complex (Neutral term1 (GlobalVar did True)) term2 = do
-      term1' <- force term1
-      case term1' of
-        Just term1' -> unify' term1' term2
-        Nothing -> unify' (Neutral term1 (GlobalVar did False)) term2
-    complex term1 (Neutral term2 (GlobalVar did True)) = do
-      term2' <- force term2
-      case term2' of
-        Just term2' -> unify' term1 term2'
-        Nothing -> unify' term1 (Neutral term2 (GlobalVar did False))
-    -- complex (CodeObjElim ())
+    complex (Neutral term1 (GlobalVar name True)) term2 = do
+      term1 <- fromJust <$> force term1
+      unify' term1 term2
+    complex term1 (Neutral term2 (GlobalVar name True)) = do
+      term2 <- fromJust <$> force term2
+      unify' term1 term2
     complex (Neutral prevSol (UniVar gl _)) term = do
       prevSol <- force prevSol
       case prevSol of
@@ -358,6 +357,10 @@ unify' term1 term2 =
       case prevSol of
         Just prevSol -> unify' term prevSol
         Nothing -> putTypeSolExp gl term
+    -- complex (Rigid (CodeObjIntro (Neutral _ (CodeObjElim term1)))) term2 =
+    --   unify' term1 term2
+    -- complex term1 (Rigid (CodeObjIntro (Neutral _ (CodeObjElim term2)))) =
+    --   unify' term1 term2
     complex (Neutral _ (CodeObjElim (viewMetaFunElims -> Just (uv@(Neutral _ (UniVar gl _)), args)))) term
       | Just lvls <- puValid args
       , length args > 0
@@ -407,7 +410,7 @@ unify' term1 term2 =
     solve uv lvls term side = do
       ren <- invert lvls
       cTerm <- C.Rigid . C.CodeObjIntro <$> bindN (Pre.length lvls) (rename ren term)
-      vTerm <- eval (foldl' (\acc _ -> C.ObjFunIntro acc) cTerm [1 .. Pre.length lvls])
+      vTerm <- eval (foldl' (\acc _ -> C.MetaFunIntro acc) cTerm [1 .. Pre.length lvls])
       if side then
         unifyS' vTerm uv
       else

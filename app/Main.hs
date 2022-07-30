@@ -158,8 +158,8 @@ loop = do
                           (\case
                             Atom def goal ->
                               unpack $
-                              prettyPure (rmGlobals eqs) def{- <> " ||| " <>
-                              prettyPure (rmGlobals eqs) goal-}
+                              prettyPure (rmGlobals eqs) def <> " ||| " <>
+                              prettyPure (rmGlobals eqs) goal
                             Fail -> "fail") $
                         tree
                     TIO.putStrLn (indent . indent $ ttree)

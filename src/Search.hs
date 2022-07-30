@@ -132,6 +132,12 @@ search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     substs <- ((<| substs) <$> unifyRS vGHead dHead)
     tid <- case head substs of
       Just _ -> do
+        -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
+        ndargs <- traverse (normalize >=> eval) dArgs
+        ngargs <- traverse (normalize >=> eval) vGArgs
+        let !_ = tracePrettyS "DARGS" (dHead <| ndargs)
+        let !_ = tracePrettyS "GARGS" (vGHead <| ngargs)
+        let !_ = tracePrettyS "SUBSTS" substs
         cD <- zonk d
         tid <- addNode (Atom cD g)
         case allJustOrNothing (tail substs) of
@@ -143,10 +149,6 @@ search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
         (tid ,) <$>
           (concatSubsts'' (fmap (\(Subst ts eqs) -> (ts, eqs)) substs) >>= \case
             Just r -> do
-              -- let !_ = tracePrettyS "CTX" (unTypeUVs normCtx)
-              -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-              -- let !_ = tracePrettyS "GARGS" (dHead <| gArgs)
-              -- let !_ = tracePrettyS "SUBSTS" substs
               pure r
             Nothing -> withId tid failSearch)
       Nothing -> empty

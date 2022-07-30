@@ -9,7 +9,7 @@ prop LookupVar
   ( inf A: Code(Type)
   , Context
   , Code(~A))
-axiom lookupvar_find: LookupVar(cons(sigma(`_, `x), `_), `x)
+axiom lookupvar_find: LookupVar(cons(sigma(`a, `x), `b), `x)
 axiom lookupvar_pass:
   LookupVar(cons(`_, `ctx), `x)
   :- LookupVar(`ctx, `x)
@@ -20,9 +20,8 @@ prop FreeVars
   , Code(~A)
   , Context)
 axiom free_vars_var:
-  FreeVars(`ctx, `x, cons(sigma(?, `x), nil))
+  FreeVars(`ctx, `x, nil)
   :- LookupVar(`ctx, `x)
-axiom free_vars_none: FreeVars(`a, `b, `c)
 axiom free_vars_fun:
   FreeVars(`ctx, <fun(x) => ~(`f(<x>))>, `fv)
   :- forall(x: Code(?)) -> FreeVars(cons(sigma(?, x), `ctx), `f(x), `fv)
