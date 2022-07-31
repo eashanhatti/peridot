@@ -89,9 +89,16 @@ putTypeSolExp gl sol = do
   sols <- get
   case Map.lookup gl (unTypeSols sols) of
     Nothing -> do
+      let !_ = tracePretty "C.10"
+      let !_ = tracePretty gl
+      when (gl == LVGlobal 2301) do
+        pure ()
       occurs mempty gl sol
+      let !_ = tracePretty "C.11"
       ctx <- ask
+      let !_ = tracePretty "C.12"
       put (sols { unTypeSols = Map.insert gl (UVSol ctx sol) (unTypeSols sols) })
+      let !_ = tracePretty "C.13"
       pure noop
     Just (unTerm -> sol') -> unify' sol sol'
 
@@ -251,14 +258,16 @@ occurs vis gl term = case term of
       pure ()
   Neutral term redex -> do
     term <- force term
-    case term of
-      Just term ->
-        let
-          vis' = case redex of
-            GlobalVar (Rigid (NameIntro _ did)) _ -> Set.insert did vis
-            _ -> vis
-        in occurs vis gl term
-      Nothing -> pure ()
+    traverse (occurs vis gl) redex
+    pure ()
+    -- case term of
+    --   Just term ->
+    --     let
+    --       vis' = case redex of
+    --         GlobalVar (Rigid (NameIntro _ did)) _ -> Set.insert did vis
+    --         _ -> vis
+    --     in occurs vis gl term
+    --   Nothing -> occurs 
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m (Coercion sig m)
 unify' term1 term2 =
@@ -300,9 +309,18 @@ unify' term1 term2 =
         unifyS' inTy1 inTy2
         bind2 unifyS' (evalClosure outTy1) (evalClosure outTy2)
         pure noop
-    simple (MetaFunIntro body1) (MetaFunIntro body2) = do
-      bind2 unifyS' (evalClosure body1) (evalClosure body2)
-      pure noop
+    simple (MetaFunIntro body1) (MetaFunIntro body2) =
+      (do
+        bind2 unifyS' (evalClosure body1) (evalClosure body2)
+        pure noop)
+      `catchError` \(es :: Seq ThrowReason) -> do
+        let body1' = contractClo body1
+        let body2' = contractClo body2
+        if length (unLocals . unCloEnv $ body1') == length (unLocals . unCloEnv $ body2') then do
+          bind2 unifyS' (evalClosure body1') (evalClosure body2')
+          pure noop
+        else
+          throwError es
     simple (ObjFunType pm1 inTy1 outTy1) (ObjFunType pm2 inTy2 outTy2)
       | pm1 == pm2 || pm1 == DontCare || pm2 == DontCare
       = do

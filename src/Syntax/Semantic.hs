@@ -16,6 +16,7 @@ import Data.Functor.Identity
 import Data.Text qualified as Text
 import Shower
 import Numeric.Natural
+import Data.Maybe
 
 data Environment = Env
   { unLocals :: Seq Term
@@ -162,3 +163,26 @@ tmUniv (Neutral _ (RecElim _ _)) = Just Obj
 tmUniv (Neutral _ (SingElim _)) = Just Obj
 tmUniv (Neutral _ (TextElimCat _ _)) = Just Meta
 tmUniv _ = Nothing
+
+maxIx :: C.Term -> Index
+maxIx (C.ObjFunType _ inTy outTy) = maximum [maxIx inTy, maxIx outTy]
+maxIx (C.ObjFunIntro body) = maxIx body
+maxIx (C.ObjFunElim lam arg) = maximum [maxIx lam, maxIx arg]
+maxIx (C.TwoElim scr body1 body2) = maximum [maxIx scr, maxIx body1, maxIx body2]
+maxIx (C.RecType tys) = foldr max 0 (fmap (maxIx . snd) tys)
+maxIx (C.RecIntro defs) = foldr max 0 (fmap (maxIx . snd) defs)
+maxIx (C.RecElim str _) = maxIx str
+maxIx (C.MetaFunType _ inTy outTy) = maximum [maxIx inTy, maxIx outTy]
+maxIx (C.MetaFunIntro body) = maxIx body
+maxIx (C.MetaFunElim lam arg) = maximum [maxIx lam, maxIx arg]
+maxIx (C.CodeObjElim quote) = maxIx quote
+maxIx (C.TextElimCat t1 t2) = maximum [maxIx t1, maxIx t2]
+maxIx (C.LocalVar ix) = ix
+maxIx (C.GlobalVar name _) = maxIx name
+maxIx (C.UniVar _ ty) = fromMaybe 0 (fmap maxIx ty)
+maxIx (C.Rigid rterm) = foldr max 0 (fmap maxIx rterm)
+maxIx (C.Declare _ name ty cont) = maximum [maxIx name, maxIx ty, maxIx cont]
+maxIx (C.Define name def cont) = maximum [maxIx name, maxIx def, maxIx cont]
+
+contractClo :: Closure -> Closure
+contractClo (Clo (Env locals globals) body) = Clo (Env (Data.Sequence.take (fromIntegral (maxIx body)) locals) globals) body

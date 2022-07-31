@@ -122,17 +122,31 @@ search :: Search sig m => Seq Term -> C.Term -> Term -> m (Natural, Substitution
 search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    -- normCtx <- ask
-    -- let _ = unTypeUVs normCtx
+    let !_ = tracePretty "A"
+    normCtx <- ask
+    let tuvs = unTypeUVs normCtx
+    let eqs = unUVEqs normCtx
     vGHead <- eval gHead
+    let !_ = tracePretty "B"
     vGArgs <- traverse eval gArgs
+    let !_ = tracePretty "C"
+    let !_ = tracePretty (length dArgs, length vGArgs)
     substs <-
       traverse
-        (\(dArg, gArg) -> eToM <$> unifyRS gArg dArg)
+        (\(dArg, gArg) -> do
+          let !_ = tracePretty "C.1"
+          -- let !_ = tracePretty (Map.lookup (LVGlobal 2186) tuvs)
+          -- let !_ = tracePretty (Map.lookup (LVGlobal 2186) eqs)
+          -- let !_ = tracePretty (gArg, dArg)
+          r <- eToM <$> unifyRS gArg dArg
+          let !_ = tracePretty "C.2"
+          pure r)
         (zip dArgs vGArgs)
+    let !_ = tracePretty "D"
     -- let !_ = tracePrettyS "DEF" d
     -- let !_ = tracePrettyS "GOAL" g
     substs <- ((<| substs) <$> (eToM <$> unifyRS vGHead dHead))
+    let !_ = tracePretty "E"
     tid <- case head substs of
       Just _ -> do
         -- let def = Map.lookup (LVGlobal 2092) (unTypeUVs normCtx)
@@ -146,6 +160,7 @@ search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
           Just _ -> pure tid
           Nothing -> withId tid (addNode Fail) *> pure 0
       Nothing -> pure 0
+    let !_ = tracePretty "F"
     case allJustOrNothing substs of
       Just substs ->
         (tid ,) <$>
