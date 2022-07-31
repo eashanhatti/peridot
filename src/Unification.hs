@@ -68,9 +68,19 @@ data UnifyOption = IsSearch | IsUntyped
 data UnifyContext = UnifyContext
   { unOpts :: Set.Set UnifyOption }
 
+data ThrowReason
+  = UTerm Term Term
+  | RTerm (RigidTerm Term) (RigidTerm Term)
+  | Redex Redex Redex
+  | ErrorU
+  | Occurs Global Global
+  | EscapingVar Level
+  | HasCoe
+  deriving (Show)
+
 type Unify sig m =
   ( Norm sig m
-  , Has (Error ()) sig m
+  , Has (Error (Seq ThrowReason)) sig m
   , Has (State Substitution) sig m
   , Has (Reader UnifyContext) sig m )
 
@@ -142,7 +152,7 @@ unifyRedexes (Define name1 def1 cont1) (Define name2 def2 cont2) = do
   unifyS' def1 def2
   unifyS' cont1 cont2
 unifyRedexes (UniVar _ _) (UniVar _ _) = error "BUG: Unification"
-unifyRedexes _ _ = throwError ()
+unifyRedexes r1 r2 = throwError (singleton (Redex r1 r2))
 
 unifyRigid :: Unify sig m => RigidTerm Term -> RigidTerm Term -> m (Coercion sig m)
 unifyRigid TextType TextType = pure noop
@@ -206,13 +216,13 @@ unifyRigid ElabError _ = errorU
 unifyRigid _ ElabError = errorU
 unifyRigid Dummy _ = error "BUG: Dummy unify"
 unifyRigid _ Dummy = error "BUG: Dummy unify"
-unifyRigid term1 term2 = throwError ()
+unifyRigid term1 term2 = throwError (singleton (RTerm term1 term2))
 
 errorU :: Unify sig m => m (Coercion sig m)
 errorU = do
   b <- Set.member IsSearch . unOpts <$> ask
   if b then
-    throwError ()
+    throwError (singleton ErrorU)
   else
     pure noop
 
@@ -236,7 +246,7 @@ occurs vis gl term = case term of
     traverse (occurs vis gl) ty
     eq <- Map.lookup gl' . Norm.unUVEqs <$> ask
     if gl' == gl || fmap (Set.member gl) eq == Just True then
-      throwError ()
+      throwError (singleton (Occurs gl gl'))
     else
       pure ()
   Neutral term redex -> do
@@ -252,28 +262,30 @@ occurs vis gl term = case term of
 
 unify' :: HasCallStack => Unify sig m => Term -> Term -> m (Coercion sig m)
 unify' term1 term2 =
-  simple term1 term2 `catchError` (\() -> complex term1 term2)
+  simple term1 term2 `catchError`
+    \(es :: Seq ThrowReason) -> complex term1 term2 `catchError`
+      \(es' :: Seq ThrowReason) -> throwError (es <> es')
   where
     simple :: Unify sig m => Term -> Term -> m (Coercion sig m)
-    simple (Neutral _ (GlobalVar (Rigid (NameIntro _ gl1)) _)) (Rigid (MetaConstIntro gl2)) | gl1 == gl2 = pure noop
-    simple (Rigid (MetaConstIntro gl1)) (Neutral _ (GlobalVar (Rigid (NameIntro _ gl2)) _)) | gl1 == gl2 = pure noop
     simple (Rigid ElabError) _ = errorU
     simple _ (Rigid ElabError) = errorU
-    simple (Neutral term1 (UniVar gl1 ty1)) (Neutral term2 (UniVar gl2 ty2)) = do
+    simple nterm1@(Neutral term1 (UniVar gl1 ty1)) nterm2@(Neutral term2 (UniVar gl2 ty2)) = do
       b <- Set.member IsUntyped . unOpts <$> ask
       when (not b) (case (ty1, ty2) of
         (Just ty1, Just ty2) -> unifyS' ty1 ty2
         (Nothing, Nothing) -> pure ()
-        _ -> throwError ())
+        _ -> throwError (singleton (UTerm nterm1 nterm2)))
       term1 <- force term1
       term2 <- force term2
       case (term1, term2) of
         (Just term1, Just term2) -> unify' term1 term2
-        (Just _, Nothing) -> throwError ()
-        (Nothing, Just _) -> throwError ()
+        (Just term1, Nothing) -> throwError (singleton (UTerm term1 nterm2))
+        (Nothing, Just term2) -> throwError (singleton (UTerm nterm1 term2))
         (Nothing, Nothing) -> equateUVs gl1 gl2 *> pure noop
     simple nterm1@(Neutral term1 redex1) nterm2@(Neutral term2 redex2) =
-      catchError (unifyRedexes redex1 redex2 *> pure noop) (\() -> go)
+      (unifyRedexes redex1 redex2 *> pure noop) `catchError`
+        \(es :: Seq ThrowReason) -> go `catchError`
+          \(es' :: Seq ThrowReason) -> throwError (es <> es')
       where
         go :: Unify sig m => m (Coercion sig m)
         go = do
@@ -281,7 +293,7 @@ unify' term1 term2 =
           term2 <- force term2
           case (term1, term2) of
             (Just term1, Just term2) -> unify' term1 term2
-            _ -> throwError ()
+            _ -> throwError (singleton (UTerm nterm1 nterm2))
     simple (MetaFunType pm1 inTy1 outTy1) (MetaFunType pm2 inTy2 outTy2)
       | pm1 == pm2
       = do
@@ -323,7 +335,7 @@ unify' term1 term2 =
     simple (Rigid term1) (Rigid term2) = do
       unifyRigid term1 term2
       pure noop
-    simple _ _ = throwError ()
+    simple e1 e2 = throwError (singleton (UTerm e1 e2))
 
     goFields ::
       Unify sig m =>
@@ -333,7 +345,7 @@ unify' term1 term2 =
       m (Seq (Coercion sig m))
     goFields _ u Empty = pure Empty
     goFields defs u (((fd1, ty1), (fd2, ty2)) :<| tys) = do
-      when (fd1 /= fd2) (throwError ())
+      when (fd1 /= fd2) (throwError (singleton (UTerm (Rigid Dummy) (Rigid Dummy))))
       vTy1 <- appClosureN ty1 defs
       vTy2 <- appClosureN ty2 defs
       coe <- u vTy1 vTy2
@@ -349,10 +361,6 @@ unify' term1 term2 =
       unify' term1 term2
     complex (Neutral prevSol (UniVar gl _)) term = do
       prevSol <- force prevSol
-      when (gl == LVGlobal 2092) do
-        let !_ = tracePrettyS "PREVSOL" prevSol
-        let !_ = tracePrettyS "TERM" term
-        pure ()
       case prevSol of
         Just prevSol -> unify' prevSol term
         Nothing -> putTypeSolInf gl term
@@ -390,17 +398,17 @@ unify' term1 term2 =
       unify' term1 (Rigid (CodeObjIntro term2))
     complex term1 (Neutral _ (CodeObjElim term2)) | tmUniv term1 == Just Obj =
       unify' (Rigid (CodeObjIntro term1)) term2
-    complex (Neutral term1 _) term2 = do
+    complex nterm1@(Neutral term1 _) term2 = do
       term1 <- force term1
       case term1 of
         Just term1 -> unify' term1 term2
-        Nothing -> throwError ()
-    complex term1 (Neutral term2 _) = do
+        Nothing -> throwError (singleton (UTerm nterm1 term2))
+    complex term1 nterm2@(Neutral term2 _) = do
       term2 <- force term2
       case term2 of
         Just term2 -> unify' term1 term2
-        Nothing -> throwError ()
-    complex term1 term2 = throwError ()
+        Nothing -> throwError (singleton (UTerm term1 nterm2))
+    complex term1 term2 = throwError (singleton (UTerm term1 term2))
 
     puValid args = go args mempty where
       go Empty _ = Just mempty
@@ -464,7 +472,7 @@ unify' term1 term2 =
         Just (Level lvl') -> do
           Level l <- level
           pure (C.CodeObjElim (C.LocalVar (Index (l - lvl' - 1))))
-        Nothing -> throwError ()
+        Nothing -> throwError (singleton (EscapingVar lvl))
       Rigid rterm -> C.Rigid <$> traverse (rename ren) rterm
       Neutral _ (MetaFunElim lam arg) -> C.MetaFunElim <$> rename ren lam <*> rename ren arg
       Neutral _ (ObjFunElim lam arg) -> C.ObjFunElim <$> rename ren lam <*> rename ren arg
@@ -480,7 +488,7 @@ unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unifyS' term1 term2 = do
   r <- unify' term1 term2
   case r of
-    Coe (Just _) -> throwError ()
+    Coe (Just _) -> throwError (singleton HasCoe)
     Coe Nothing -> pure ()
 
 unify ::
@@ -491,7 +499,7 @@ unify ::
   m (Maybe (Substitution, C.Term))
 unify e term1 term2 = do
   r <-
-    runError @() .
+    runError @(Seq ThrowReason) .
     runReader (UnifyContext mempty) .
     runState mempty $
     unify' term1 term2
@@ -499,7 +507,7 @@ unify e term1 term2 = do
     Right (subst, Coe Nothing) -> pure (Just (subst, e))
     Right (subst1, Coe (Just coe)) -> do
       e' <-
-        runError @() .
+        runError @(Seq ThrowReason) .
         runReader (UnifyContext mempty) .
         runState subst1 $
         coe e
@@ -511,7 +519,7 @@ unify e term1 term2 = do
 unifyR :: HasCallStack => Norm sig m => Term -> Term -> m (Maybe Substitution)
 unifyR term1 term2 = do
   r <-
-    runError @() .
+    runError @(Seq ThrowReason) .
     runReader (UnifyContext mempty) .
     runState mempty $
     unify' term1 term2
@@ -520,14 +528,14 @@ unifyR term1 term2 = do
     Right (_, Coe (Just _)) -> pure Nothing
     Left _ -> pure Nothing
 
-unifyRS :: HasCallStack => Norm sig m => Term -> Term -> m (Maybe Substitution)
+unifyRS :: HasCallStack => Norm sig m => Term -> Term -> m (Either (Seq ThrowReason) Substitution)
 unifyRS term1 term2 = do
   r <-
-    runError @() .
+    runError @(Seq ThrowReason) .
     runReader (UnifyContext (Set.fromList [IsSearch, IsUntyped])) .
     runState mempty $
     unify' term1 term2
   case r of
-    Right (subst, Coe Nothing) -> pure (Just subst)
-    Right (_, Coe (Just _)) -> pure Nothing
-    Left _ -> pure Nothing
+    Right (subst, Coe Nothing) -> pure (Right subst)
+    Right (_, Coe (Just _)) -> pure (Left (singleton HasCoe))
+    Left es -> pure (Left es)

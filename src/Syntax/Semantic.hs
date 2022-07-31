@@ -34,7 +34,9 @@ envSize (Env locals _) = fromIntegral (length locals)
 instance Show Environment where
   show (Env locals _) = show locals
 
-data Closure = Clo Environment C.Term
+data Closure = Clo
+  { unCloEnv :: Environment
+  , unCloBody :: C.Term }
   deriving (Eq, Show)
 
 type Type = Term

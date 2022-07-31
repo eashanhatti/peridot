@@ -46,6 +46,9 @@ type Search sig m =
 
 type Substitution = (Map.Map Global UVSolution, Map.Map Global (Set.Set Global))
 
+eToM (Right x) = Just x
+eToM (Left _) = Nothing
+
 withSubst :: Search sig m => Substitution -> m a -> m a
 withSubst subst act = do
   tuvs <- unTypeUVs <$> ask
@@ -64,7 +67,7 @@ concatSubsts' ((ts, eqs) :<| substs) = do
   overlap <-
     flip filterM (Map.toList ts) \(gl, unTerm -> sol) ->
       case Map.lookup gl ts' of
-        Just (unTerm -> sol') -> isNothing <$> unifyRS sol sol'
+        Just (unTerm -> sol') -> isNothing . eToM <$> unifyRS sol sol'
         Nothing -> pure False
   if fmap fst overlap /= mempty then
     throwError ()
@@ -109,7 +112,7 @@ prove ctx (MetaFunType _ _ p) = do
   vP <- evalClosure p
   bind (prove ctx vP)
 prove ctx (Rigid (PropIdType x y)) = do
-  r <- unifyRS x y
+  r <- eToM <$> unifyRS x y
   case r of
     Just (Subst ts eqs) -> pure (ts, eqs)
     Nothing -> empty
@@ -119,17 +122,17 @@ search :: Search sig m => Seq Term -> C.Term -> Term -> m (Natural, Substitution
 search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    normCtx <- ask
-    let _ = unTypeUVs normCtx
+    -- normCtx <- ask
+    -- let _ = unTypeUVs normCtx
     vGHead <- eval gHead
     vGArgs <- traverse eval gArgs
     substs <-
       traverse
-        (\(dArg, gArg) -> unifyRS gArg dArg)
+        (\(dArg, gArg) -> eToM <$> unifyRS gArg dArg)
         (zip dArgs vGArgs)
     -- let !_ = tracePrettyS "DEF" d
     -- let !_ = tracePrettyS "GOAL" g
-    substs <- ((<| substs) <$> unifyRS vGHead dHead)
+    substs <- ((<| substs) <$> (eToM <$> unifyRS vGHead dHead))
     tid <- case head substs of
       Just _ -> do
         -- let def = Map.lookup (LVGlobal 2092) (unTypeUVs normCtx)
@@ -208,18 +211,22 @@ proveDet ::
   Natural ->
   m (Tree SearchNode, Natural, Maybe (Seq Substitution))
 proveDet ctx goal uv = do
+  let !_ = tracePretty "1"
   cGoal <- readback goal
+  let !_ = tracePretty "2"
   (ss, substs) <-
     runReader (0 :: Natural) .
     runState (SearchState uv 1 mempty) .
     runNonDetA $
     prove ctx goal
+  let !_ = tracePretty "3"
   let trees = makeTrees 0 (unTree ss)
+  let !_ = tracePretty "4"
   (Node (Atom cGoal (C.Rigid C.Dummy)) trees, unNextUV ss, ) <$>
     if null substs then
-      pure Nothing
+      trace "5.1" $ pure Nothing
     else
-      pure (Just substs)
+      trace "5.2" $ pure (Just substs)
 
 data SearchNode
   = Atom C.Term C.Term
