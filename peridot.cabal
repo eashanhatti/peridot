@@ -88,6 +88,7 @@ library
     , megaparsec
     , mtl
     , parser-combinators
+    , random
     , shower
     , some
     , tasty
@@ -150,6 +151,7 @@ executable peridot
     , mtl
     , parser-combinators
     , peridot
+    , random
     , shower
     , some
     , tasty
@@ -213,6 +215,7 @@ test-suite peridot-test
     , mtl
     , parser-combinators
     , peridot
+    , random
     , shower
     , some
     , tasty

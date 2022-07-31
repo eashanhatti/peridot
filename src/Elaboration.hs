@@ -20,20 +20,19 @@ import Data.Text(pack, Text)
 import Parser
 import Data.Maybe
 import Control.Monad
+import Control.Monad.IO.Class
 
-elaborate = snd . elaborate'
-
-infer' :: S.TermAst -> (QueryState, C.Term, C.Term)
-infer' term =
+infer' :: S.TermAst -> IO(QueryState, C.Term, C.Term)
+infer' term = do
+  (qs, (term', ty)) <-
+    liftIO .
+    runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty mempty 2000 mempty) .
+    runReader (QueryContext Nothing) .
+    evalState ElabState .
+    runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .
+    runReader (ElabContext mempty (initialPos "<TODO>") mempty False) $
+    EE.infer term
   let
-    (qs, (term', ty)) =
-      run .
-      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty mempty 2000 mempty) .
-      runReader (QueryContext Nothing) .
-      evalState ElabState .
-      runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .
-      runReader (ElabContext mempty (initialPos "<TODO>") mempty False) $
-      EE.infer term
     ty' =
       run .
       runReader
@@ -54,7 +53,7 @@ infer' term =
           mempty
           mempty) $
       (Norm.eval >=> Norm.normalize) term'
-  in (qs, term'', ty')
+  pure (qs, term'', ty')
 
 normalize :: N.Term -> Map.Map Global UVSolution -> Map.Map Global (Set.Set Global) -> C.Term
 normalize term sols eqs =
@@ -81,19 +80,19 @@ eval term =
   Norm.eval term
 
 infer :: String -> Text -> IO (Either String (QueryState, C.Term, C.Term))
-infer fn s = parse prec0 fn s >>= pure . fmap infer'
+infer fn s = parse prec0 fn s >>= traverse infer'
 
-elaborate' :: S.TermAst -> (QueryState, C.Term)
-elaborate' term =
+elaborate' :: S.TermAst -> IO (QueryState, C.Term)
+elaborate' term = do
+  (qs, term') <-
+    liftIO .
+    runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty mempty 2000 mempty) .
+    runReader (QueryContext Nothing) .
+    evalState ElabState .
+    runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .
+    runReader (ElabContext mempty (initialPos "<TODO>") mempty False) $
+    EE.check term N.ObjTypeType
   let
-    (qs, term') =
-      run .
-      runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty mempty 2000 mempty) .
-      runReader (QueryContext Nothing) .
-      evalState ElabState .
-      runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .
-      runReader (ElabContext mempty (initialPos "<TODO>") mempty False) $
-      EE.check term N.ObjTypeType
     term'' =
       run $
       runReader
@@ -104,8 +103,7 @@ elaborate' term =
           mempty
           mempty)
       (Norm.eval term' >>= Norm.zonk)
-  in
-    (qs, term'')
+  pure (qs, term'')
 
 elaborateFile :: String -> IO (Either String C.Term)
 elaborateFile f = do
@@ -120,4 +118,4 @@ elaborateFile' :: String -> IO (Either String (C.Term, QueryState))
 elaborateFile' f = do
   s <- pack <$> readFile f
   ast <- parse toplevel f s
-  pure (fmap (swap . elaborate') ast)
+  traverse (\x -> swap <$> elaborate' x) ast

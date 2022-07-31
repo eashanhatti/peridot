@@ -1,5 +1,7 @@
 module Elaboration.Effect where
 
+import Control.Monad.IO.Class
+import Control.Effect.Lift
 import Control.Effect.State(State, get, put)
 import Control.Carrier.State.Strict
 import Control.Effect.Reader(Reader, ask, local)
@@ -85,7 +87,8 @@ data Error
 
 type Query sig m = 
   ( Has (State QueryState) sig m
-  , Has (Reader QueryContext) sig m )
+  , Has (Reader QueryContext) sig m
+  , Has (Lift IO) sig m )
 
 data AllState = AllState ElabState ElabContext NormContext
   deriving (Show)
@@ -145,7 +148,7 @@ instance Hashable (Some Key) where
   hashWithSalt salt (Some (CheckDecl did)) = salt `hashWithSalt` did
   hashWithSalt salt (Some (DeclType did)) = salt `hashWithSalt` (did + 1000000)
 
-type QC a = ReaderC QueryContext (StateC QueryState Identity) a
+type QC a = ReaderC QueryContext (StateC QueryState IO) a
 
 memo :: Query sig m => Key a -> QC a -> m a
 memo key act = do
@@ -158,12 +161,11 @@ memo key act = do
   r <- case DMap.lookup key (unMemoTable state) of
     Just (Identity result) -> pure result
     Nothing -> do
-      let
-        (state', result) =
-          run .
-          runState state .
-          runReader (QueryContext (Just (Some key))) $
-          act
+      (state', result) <-
+        sendIO .
+        runState state .
+        runReader (QueryContext (Just (Some key))) $
+        act
       put (state'
         { unMemoTable = DMap.insert key (Identity result) (unMemoTable state) })
       pure result

@@ -2,6 +2,7 @@ module Search where
 
 import Data.Maybe
 import Syntax.Semantic
+import Control.Effect.Lift
 import Control.Effect.NonDet(NonDet, Alternative, empty, (<|>), oneOf)
 import Control.Effect.State(State, get, put, modify)
 import Control.Carrier.NonDet.Church hiding(Empty)
@@ -31,16 +32,18 @@ import Data.Set qualified as Set
 import Data.Tree
 import Syntax.Core qualified as C
 import Data.Maybe
+import System.Random
 
 data SearchState = SearchState
   { unNextUV :: Natural
   , unNextId :: Natural
-  , unTree :: Map.Map Natural (SearchNode, Natural) }
+  , unTree :: Map.Map Natural (SearchNode, Natural)}
 
 type Search sig m =
   ( Alternative m
   , Has NonDet sig m
   , Norm sig m
+  , Has (Lift IO) sig m
   , Has (Reader Natural) sig m
   , Has (State SearchState) sig m )
 
@@ -122,45 +125,32 @@ search :: Search sig m => Seq Term -> C.Term -> Term -> m (Natural, Substitution
 search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
-    let !_ = tracePretty "A"
     normCtx <- ask
     let tuvs = unTypeUVs normCtx
     let eqs = unUVEqs normCtx
     vGHead <- eval gHead
-    let !_ = tracePretty "B"
     vGArgs <- traverse eval gArgs
-    let !_ = tracePretty "C"
     let !_ = tracePretty (length dArgs, length vGArgs)
     substs <-
       traverse
-        (\(dArg, gArg) -> do
-          let !_ = tracePretty "C.1"
-          -- let !_ = tracePretty (Map.lookup (LVGlobal 2186) tuvs)
-          -- let !_ = tracePretty (Map.lookup (LVGlobal 2186) eqs)
-          -- let !_ = tracePretty (gArg, dArg)
-          r <- eToM <$> unifyRS gArg dArg
-          let !_ = tracePretty "C.2"
-          pure r)
+        (\(dArg, gArg) -> eToM <$> unifyRS gArg dArg)
         (zip dArgs vGArgs)
-    let !_ = tracePretty "D"
     -- let !_ = tracePrettyS "DEF" d
     -- let !_ = tracePrettyS "GOAL" g
     substs <- ((<| substs) <$> (eToM <$> unifyRS vGHead dHead))
-    let !_ = tracePretty "E"
     tid <- case head substs of
       Just _ -> do
         -- let def = Map.lookup (LVGlobal 2092) (unTypeUVs normCtx)
         -- !_ <- tracePrettyS "CTX" <$> (traverse (normalize >=> eval) (fmap unTerm def))
-        -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-        -- let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
-        -- let !_ = tracePrettyS "SUBSTS" substs
+        let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+        let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
+        let !_ = tracePrettyS "SUBSTS" substs
         cD <- zonk d
         tid <- addNode (Atom cD g)
         case allJustOrNothing (tail substs) of
           Just _ -> pure tid
           Nothing -> withId tid (addNode Fail) *> pure 0
       Nothing -> pure 0
-    let !_ = tracePretty "F"
     case allJustOrNothing substs of
       Just substs ->
         (tid ,) <$>
@@ -220,7 +210,7 @@ isAtomic (MetaFunElims _ _) = True
 isAtomic _ = False
 
 proveDet ::
-  Norm sig m =>
+  (Has (Lift IO) sig m, Norm sig m) =>
   Seq Term ->
   Term ->
   Natural ->

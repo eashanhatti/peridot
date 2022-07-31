@@ -72,6 +72,7 @@ dependencies:
 - haskell-stack-trace-plugin
 - directory
 - tree-view
+- random
 
 library:
   source-dirs: src

@@ -89,16 +89,9 @@ putTypeSolExp gl sol = do
   sols <- get
   case Map.lookup gl (unTypeSols sols) of
     Nothing -> do
-      let !_ = tracePretty "C.10"
-      let !_ = tracePretty gl
-      when (gl == LVGlobal 2301) do
-        pure ()
       occurs mempty gl sol
-      let !_ = tracePretty "C.11"
       ctx <- ask
-      let !_ = tracePretty "C.12"
       put (sols { unTypeSols = Map.insert gl (UVSol ctx sol) (unTypeSols sols) })
-      let !_ = tracePretty "C.13"
       pure noop
     Just (unTerm -> sol') -> unify' sol sol'
 
