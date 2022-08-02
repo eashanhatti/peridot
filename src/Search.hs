@@ -116,7 +116,8 @@ prove ctx (Rigid (DisjType p q)) =
 prove ctx (Rigid (ImplType p q)) =
   prove (p <| ctx) q
 prove ctx (MetaFunType _ _ p) = do
-  c <- Rigid . MetaConstIntro . Id . fromIntegral @Int . abs <$> sendIO randomIO
+  n <- freshId
+  let c = Rigid . MetaConstIntro . Id $ n
   vP <- appClosure p c
   define c (prove ctx vP)
 prove ctx (Rigid (PropIdType x y)) = do

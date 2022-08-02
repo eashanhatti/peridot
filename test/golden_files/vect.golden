@@ -1,41 +1,10 @@
 ((fromList
-    [(UVGlobal 1000,
-      Just
-        (UVSol
-           ((Neutral
-               _
-               (GlobalVar
-                  (Rigid
-                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-                  False))))),
-     (UVGlobal 1001,
-      Just
-        (UVSol
-           ((Neutral
-               _
-               (GlobalVar
-                  (Rigid
-                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-                  False))))),
-     (UVGlobal 1002,
-      Just
-        (UVSol
-           ((Neutral
-               _
-               (GlobalVar
-                  (Rigid
-                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-                  False))))),
-     (UVGlobal 1003,
-      Just
-        (UVSol
-           ((Neutral
-               _
-               (GlobalVar
-                  (Rigid
-                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
-                  False))))),
-     (UVGlobal 1004,
+    [(UVGlobal 1000, Nothing),
+     (UVGlobal 1001, Nothing),
+     (UVGlobal 1002, Nothing),
+     (UVGlobal 1003, Nothing),
+     (UVGlobal 1004, Nothing),
+     (UVGlobal 1005,
       Just
         (UVSol
            ((Neutral
@@ -44,7 +13,8 @@
                   (Rigid
                      (RNameIntro (UserName "zero") Obj (Id {unId = 1})))
                   False))))),
-     (UVGlobal 1005,
+     (UVGlobal 1006, Nothing),
+     (UVGlobal 1007,
       Just
         (UVSol
            ((Neutral
@@ -56,7 +26,47 @@
                         (Rigid
                            (RNameIntro (UserName "succ") Obj (Id {unId = 2})))
                         False))
-                  (LocalVar Level {unLevel = 1}))))))],
+                  (LocalVar Level {unLevel = 1})))))),
+     (UVGlobal 1008, Nothing),
+     (UVGlobal 1009, Nothing),
+     (UVGlobal 1010,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
+                  False))))),
+     (UVGlobal 1011, Nothing),
+     (UVGlobal 1012, Nothing),
+     (UVGlobal 1013, Nothing),
+     (UVGlobal 1014,
+      Just (UVSol ((LocalVar Level {unLevel = 0})))),
+     (UVGlobal 1015, Nothing),
+     (UVGlobal 1016,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (RecElim
+                  (Neutral
+                     _
+                     (RecElim
+                        (LocalVar Level {unLevel = 4})
+                        (Field {unField = "data"})))
+                  (Field {unField = "m"})))))),
+     (UVGlobal 1017, Nothing),
+     (UVGlobal 1018, Nothing),
+     (UVGlobal 1019,
+      Just
+        (UVSol
+           ((Neutral
+               _
+               (GlobalVar
+                  (Rigid
+                     (RNameIntro (UserName "Nat") Obj (Id {unId = 0})))
+                  False)))))],
   fromList [],
   fromList []),
  Declare
@@ -348,94 +358,322 @@
                                                    (LocalVar
                                                       (Index
                                                          {unIndex = 3})))))))
-                                    (Define
+                                    (Declare
+                                       Obj
                                        (Rigid
                                           (RNameIntro
-                                             (UserName "nil")
+                                             (UserName "map")
                                              Obj
-                                             (Id {unId = 6})))
-                                       (ObjFunIntro
-                                          (RecIntro
-                                             (fromList
-                                                [(Field {unField = "tag"},
-                                                  Rigid TwoIntro0),
-                                                 (Field {unField = "data"},
-                                                  RecIntro
-                                                    (fromList
-                                                       [(Field
-                                                           {unField = "index"},
-                                                         Rigid
-                                                           (ObjIdIntro
-                                                              (GlobalVar
-                                                                 (Rigid
-                                                                    (RNameIntro
-                                                                       (UserName
-                                                                          "zero")
-                                                                       Obj
-                                                                       (Id
-                                                                          {unId =
-                                                                             1})))
-                                                                 False)))]))])))
+                                             (Id {unId = 8})))
+                                       (ObjFunType
+                                          Unification
+                                          (GlobalVar
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "Nat")
+                                                   Obj
+                                                   (Id {unId = 0})))
+                                             False)
+                                          (ObjFunType
+                                             Unification
+                                             (UniVar
+                                                (UVGlobal 1018)
+                                                (Just (Rigid (TypeType Meta))))
+                                             (ObjFunType
+                                                Unification
+                                                (UniVar
+                                                   (UVGlobal 1017)
+                                                   (Just
+                                                      (Rigid (TypeType Meta))))
+                                                (ObjFunType
+                                                   Explicit
+                                                   (ObjFunType
+                                                      Explicit
+                                                      (LocalVar
+                                                         (Index {unIndex = 2}))
+                                                      (LocalVar
+                                                         (Index {unIndex = 2})))
+                                                   (ObjFunType
+                                                      Explicit
+                                                      (ObjFunElim
+                                                         (ObjFunElim
+                                                            (GlobalVar
+                                                               (Rigid
+                                                                  (RNameIntro
+                                                                     (UserName
+                                                                        "Vect")
+                                                                     Obj
+                                                                     (Id
+                                                                        {unId =
+                                                                           5})))
+                                                               False)
+                                                            (LocalVar
+                                                               (Index
+                                                                  {unIndex =
+                                                                     1})))
+                                                         (LocalVar
+                                                            (Index
+                                                               {unIndex = 3})))
+                                                      (ObjFunElim
+                                                         (ObjFunElim
+                                                            (GlobalVar
+                                                               (Rigid
+                                                                  (RNameIntro
+                                                                     (UserName
+                                                                        "Vect")
+                                                                     Obj
+                                                                     (Id
+                                                                        {unId =
+                                                                           5})))
+                                                               False)
+                                                            (LocalVar
+                                                               (Index
+                                                                  {unIndex =
+                                                                     2})))
+                                                         (LocalVar
+                                                            (Index
+                                                               {unIndex =
+                                                                  3}))))))))
                                        (Define
                                           (Rigid
                                              (RNameIntro
-                                                (UserName "cons")
+                                                (UserName "nil")
                                                 Obj
-                                                (Id {unId = 7})))
+                                                (Id {unId = 6})))
                                           (ObjFunIntro
+                                             (RecIntro
+                                                (fromList
+                                                   [(Field {unField = "tag"},
+                                                     Rigid TwoIntro0),
+                                                    (Field {unField = "data"},
+                                                     RecIntro
+                                                       (fromList
+                                                          [(Field
+                                                              {unField =
+                                                                 "index"},
+                                                            Rigid
+                                                              (ObjIdIntro
+                                                                 (GlobalVar
+                                                                    (Rigid
+                                                                       (RNameIntro
+                                                                          (UserName
+                                                                             "zero")
+                                                                          Obj
+                                                                          (Id
+                                                                             {unId =
+                                                                                1})))
+                                                                    False)))]))])))
+                                          (Define
+                                             (Rigid
+                                                (RNameIntro
+                                                   (UserName "cons")
+                                                   Obj
+                                                   (Id {unId = 7})))
                                              (ObjFunIntro
                                                 (ObjFunIntro
                                                    (ObjFunIntro
-                                                      (RecIntro
-                                                         (fromList
-                                                            [(Field
-                                                                {unField =
-                                                                   "tag"},
-                                                              Rigid TwoIntro1),
-                                                             (Field
-                                                                {unField =
-                                                                   "data"},
-                                                              RecIntro
-                                                                (fromList
-                                                                   [(Field
-                                                                       {unField =
-                                                                          "m"},
-                                                                     LocalVar
-                                                                       (Index
-                                                                          {unIndex =
-                                                                             3})),
-                                                                    (Field
-                                                                       {unField =
-                                                                          "item"},
-                                                                     LocalVar
-                                                                       (Index
-                                                                          {unIndex =
-                                                                             3})),
-                                                                    (Field
-                                                                       {unField =
-                                                                          "index"},
-                                                                     Rigid
-                                                                       (ObjIdIntro
-                                                                          (ObjFunElim
-                                                                             (GlobalVar
-                                                                                (Rigid
-                                                                                   (RNameIntro
-                                                                                      (UserName
-                                                                                         "succ")
-                                                                                      Obj
-                                                                                      (Id
-                                                                                         {unId =
-                                                                                            2})))
-                                                                                False)
-                                                                             (LocalVar
-                                                                                (Index
-                                                                                   {unIndex =
-                                                                                      5}))))),
-                                                                    (Field
-                                                                       {unField =
-                                                                          "next"},
-                                                                     LocalVar
-                                                                       (Index
-                                                                          {unIndex =
-                                                                             4}))]))]))))))
-                                          (Rigid (TypeType Obj))))))))))))))))
+                                                      (ObjFunIntro
+                                                         (RecIntro
+                                                            (fromList
+                                                               [(Field
+                                                                   {unField =
+                                                                      "tag"},
+                                                                 Rigid
+                                                                   TwoIntro1),
+                                                                (Field
+                                                                   {unField =
+                                                                      "data"},
+                                                                 RecIntro
+                                                                   (fromList
+                                                                      [(Field
+                                                                          {unField =
+                                                                             "m"},
+                                                                        LocalVar
+                                                                          (Index
+                                                                             {unIndex =
+                                                                                3})),
+                                                                       (Field
+                                                                          {unField =
+                                                                             "item"},
+                                                                        LocalVar
+                                                                          (Index
+                                                                             {unIndex =
+                                                                                3})),
+                                                                       (Field
+                                                                          {unField =
+                                                                             "index"},
+                                                                        Rigid
+                                                                          (ObjIdIntro
+                                                                             (ObjFunElim
+                                                                                (GlobalVar
+                                                                                   (Rigid
+                                                                                      (RNameIntro
+                                                                                         (UserName
+                                                                                            "succ")
+                                                                                         Obj
+                                                                                         (Id
+                                                                                            {unId =
+                                                                                               2})))
+                                                                                   False)
+                                                                                (LocalVar
+                                                                                   (Index
+                                                                                      {unIndex =
+                                                                                         5}))))),
+                                                                       (Field
+                                                                          {unField =
+                                                                             "next"},
+                                                                        LocalVar
+                                                                          (Index
+                                                                             {unIndex =
+                                                                                4}))]))]))))))
+                                             (Define
+                                                (Rigid
+                                                   (RNameIntro
+                                                      (UserName "map")
+                                                      Obj
+                                                      (Id {unId = 8})))
+                                                (ObjFunIntro
+                                                   (ObjFunIntro
+                                                      (ObjFunIntro
+                                                         (ObjFunIntro
+                                                            (ObjFunIntro
+                                                               (TwoElim
+                                                                  (RecElim
+                                                                     (LocalVar
+                                                                        (Index
+                                                                           {unIndex =
+                                                                              0}))
+                                                                     (Field
+                                                                        {unField =
+                                                                           "tag"}))
+                                                                  (ObjFunElim
+                                                                     (GlobalVar
+                                                                        (Rigid
+                                                                           (RNameIntro
+                                                                              (UserName
+                                                                                 "nil")
+                                                                              Obj
+                                                                              (Id
+                                                                                 {unId =
+                                                                                    6})))
+                                                                        False)
+                                                                     (UniVar
+                                                                        (UVGlobal
+                                                                           1011)
+                                                                        (Just
+                                                                           (Rigid
+                                                                              (TypeType
+                                                                                 Obj)))))
+                                                                  (ObjFunElim
+                                                                     (ObjFunElim
+                                                                        (ObjFunElim
+                                                                           (ObjFunElim
+                                                                              (GlobalVar
+                                                                                 (Rigid
+                                                                                    (RNameIntro
+                                                                                       (UserName
+                                                                                          "cons")
+                                                                                       Obj
+                                                                                       (Id
+                                                                                          {unId =
+                                                                                             7})))
+                                                                                 False)
+                                                                              (UniVar
+                                                                                 (UVGlobal
+                                                                                    1012)
+                                                                                 (Just
+                                                                                    (Rigid
+                                                                                       (TypeType
+                                                                                          Obj)))))
+                                                                           (UniVar
+                                                                              (UVGlobal
+                                                                                 1013)
+                                                                              (Just
+                                                                                 (GlobalVar
+                                                                                    (Rigid
+                                                                                       (RNameIntro
+                                                                                          (UserName
+                                                                                             "Nat")
+                                                                                          Obj
+                                                                                          (Id
+                                                                                             {unId =
+                                                                                                0})))
+                                                                                    False))))
+                                                                        (ObjFunElim
+                                                                           (LocalVar
+                                                                              (Index
+                                                                                 {unIndex =
+                                                                                    1}))
+                                                                           (RecElim
+                                                                              (RecElim
+                                                                                 (LocalVar
+                                                                                    (Index
+                                                                                       {unIndex =
+                                                                                          0}))
+                                                                                 (Field
+                                                                                    {unField =
+                                                                                       "data"}))
+                                                                              (Field
+                                                                                 {unField =
+                                                                                    "item"}))))
+                                                                     (ObjFunElim
+                                                                        (ObjFunElim
+                                                                           (ObjFunElim
+                                                                              (ObjFunElim
+                                                                                 (ObjFunElim
+                                                                                    (GlobalVar
+                                                                                       (Rigid
+                                                                                          (RNameIntro
+                                                                                             (UserName
+                                                                                                "map")
+                                                                                             Obj
+                                                                                             (Id
+                                                                                                {unId =
+                                                                                                   8})))
+                                                                                       False)
+                                                                                    (LocalVar
+                                                                                       (Index
+                                                                                          {unIndex =
+                                                                                             4})))
+                                                                                 (UniVar
+                                                                                    (UVGlobal
+                                                                                       1015)
+                                                                                    (Just
+                                                                                       (UniVar
+                                                                                          (UVGlobal
+                                                                                             1009)
+                                                                                          (Just
+                                                                                             (Rigid
+                                                                                                (TypeType
+                                                                                                   Meta)))))))
+                                                                              (RecElim
+                                                                                 (RecElim
+                                                                                    (LocalVar
+                                                                                       (Index
+                                                                                          {unIndex =
+                                                                                             0}))
+                                                                                    (Field
+                                                                                       {unField =
+                                                                                          "data"}))
+                                                                                 (Field
+                                                                                    {unField =
+                                                                                       "m"})))
+                                                                           (LocalVar
+                                                                              (Index
+                                                                                 {unIndex =
+                                                                                    1})))
+                                                                        (RecElim
+                                                                           (RecElim
+                                                                              (LocalVar
+                                                                                 (Index
+                                                                                    {unIndex =
+                                                                                       0}))
+                                                                              (Field
+                                                                                 {unField =
+                                                                                    "data"}))
+                                                                           (Field
+                                                                              {unField =
+                                                                                 "next"}))))))))))
+                                                (Rigid
+                                                   (TypeType
+                                                      Obj))))))))))))))))))

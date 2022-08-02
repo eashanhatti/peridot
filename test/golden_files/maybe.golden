@@ -12,8 +12,7 @@
                         (Field {unField = "tag"})))
                   (LocalVar Level {unLevel = 0})
                   (RecType fromList [])))))),
-     (UVGlobal 1001,
-      Just (UVSol ((LocalVar Level {unLevel = 0}))))],
+     (UVGlobal 1001, Nothing)],
   fromList [],
   fromList []),
  Declare
@@ -151,5 +150,7 @@
                                                 Obj
                                                 (Id {unId = 1})))
                                           False)
-                                       (LocalVar (Index {unIndex = 2})))))))
+                                       (UniVar
+                                          (UVGlobal 1001)
+                                          (Just (Rigid (TypeType Obj)))))))))
                         (Rigid (TypeType Obj))))))))))

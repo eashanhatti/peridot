@@ -392,19 +392,19 @@ unify' term1 term2 =
       | Just lvls <- puValid args
       , length args > 0
       = solve uv lvls term True
-    -- complex (Rigid (SingType _ term)) _ =
-    --   pure (liftCoe \e -> do
-    --     vE <- eval e
-    --     unifyS' term vE
-    --     pure (C.Rigid (C.SingIntro e)))
-    -- complex ty1 (Rigid (SingType ty2 _)) =
-    --   pure (liftCoe \e -> do
-    --     unifyS' ty1 ty2
-    --     pure (C.SingElim e))
-    -- complex (Rigid (CodeObjType ty1)) ty2 =
-    --   pure (liftCoe \e -> pure (C.Rigid (C.CodeObjIntro e)))
-    -- complex ty1 (Rigid (CodeObjType ty2)) =
-    --   pure (liftCoe \e -> pure (C.CodeObjElim e))
+    complex (Rigid (SingType _ term)) _ =
+      pure (liftCoe \e -> do
+        vE <- eval e
+        unifyS' term vE
+        pure (C.Rigid (C.SingIntro e)))
+    complex ty1 (Rigid (SingType ty2 _)) =
+      pure (liftCoe \e -> do
+        unifyS' ty1 ty2
+        pure (C.SingElim e))
+    complex (Rigid (CodeObjType ty1)) ty2 | tmUniv ty2 == Just Obj =
+      pure (liftCoe \e -> pure (C.Rigid (C.CodeObjIntro e)))
+    complex ty1 (Rigid (CodeObjType ty2)) | tmUniv ty1 == Just Obj =
+      pure (liftCoe \e -> pure (C.CodeObjElim e))
     complex (Neutral _ (CodeObjElim term1)) term2 | tmUniv term2 == Just Obj =
       unify' term1 (Rigid (CodeObjIntro term2))
     complex term1 (Neutral _ (CodeObjElim term2)) | tmUniv term1 == Just Obj =

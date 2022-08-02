@@ -1,9 +1,10 @@
 ((fromList
     [(UVGlobal 1000, Just (UVSol ((Rigid (TwoType))))),
      (UVGlobal 1001, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1002, Just (UVSol ((Rigid (TwoIntro0))))),
-     (UVGlobal 1003, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1004, Just (UVSol ((Rigid (TwoType)))))],
+     (UVGlobal 1002, Nothing),
+     (UVGlobal 1003, Just (UVSol ((Rigid (TwoIntro0))))),
+     (UVGlobal 1004, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1005, Just (UVSol ((Rigid (TwoType)))))],
   fromList [],
   fromList []),
  Declare

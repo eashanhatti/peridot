@@ -9,8 +9,8 @@ axiom append_cons:
   Append(cons(`x, `ys), `zs, cons(`x, `ws))
   :- Append(`ys, `zs, `ws)
 
-metavar xs: List(Text)
-query Append(nil, nil, xs)
-metavar ys: List(Text)
-query Append(cons("a", nil), cons("b", nil), ys)
+metavar list1: List(Text)
+query Append(nil, nil, list1)
+metavar list2: List(Text)
+query Append(cons("a", nil), cons("b", nil), list2)
 query Append(cons("a", nil), cons("b", nil), cons("a", cons("b", nil)))

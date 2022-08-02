@@ -31,18 +31,14 @@ goldenTests = do
           bs <- BL.readFile konFile
           let t = T.decodeUtf8 . B.concat . BL.toChunks $ bs
           r <- P.parse P.toplevel konFile t
-          pure (testSurfaceToCore r))
+          case r of
+            Right term -> fromString . shower <$> elaborate' term
+            Left err -> pure (fromString err))
     | konFile <- konFiles
     , let
         goldenFile =
           dropFileName konFile </>
           "golden_files" </>
           takeFileName (replaceExtension konFile ".golden") ])
---P.parse P.toplevel "<TODO>" . T.decodeUtf8 . B.concat . BL.toChunks . BL.readFile $ konFile
-testSurfaceToCore :: Either String S.TermAst -> BL.ByteString
-testSurfaceToCore r =
-  case r of
-    Right term -> fromString . shower $ elaborate' term
-    Left err -> fromString err
 
 justs = Map.map fromJust . Map.filter isJust

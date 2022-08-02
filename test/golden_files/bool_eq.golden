@@ -1,14 +1,16 @@
 ((fromList
     [(UVGlobal 1000, Just (UVSol ((Rigid (TwoType))))),
      (UVGlobal 1001, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1002, Just (UVSol ((Rigid (TwoIntro0))))),
-     (UVGlobal 1003, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1002, Nothing),
+     (UVGlobal 1003, Just (UVSol ((Rigid (TwoIntro0))))),
      (UVGlobal 1004, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1005, Nothing),
-     (UVGlobal 1006, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1007, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1005, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1006, Nothing),
+     (UVGlobal 1007, Nothing),
      (UVGlobal 1008, Just (UVSol ((Rigid (TwoType))))),
-     (UVGlobal 1009, Just (UVSol ((Rigid (TwoType)))))],
+     (UVGlobal 1009, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1010, Just (UVSol ((Rigid (TwoType))))),
+     (UVGlobal 1011, Just (UVSol ((Rigid (TwoType)))))],
   fromList [],
   fromList
     [(SourcePos
@@ -17,11 +19,27 @@
          sourceColumn = Pos 29},
       FailedUnify
         (Rigid
+           (ObjIdIntro
+              (UniVar
+                 (UVGlobal 1007)
+                 (Just
+                    (UniVar
+                       (UVGlobal 1006) (Just (Rigid (TypeType Obj))))))))
+        (Rigid
            (ObjIdType (Rigid TwoIntro0) (Rigid TwoIntro1)))
         (Rigid
            (ObjIdType
-              (UniVar (UVGlobal 1005))
-              (UniVar (UVGlobal 1005)))))]),
+              (UniVar
+                 (UVGlobal 1007)
+                 (Just
+                    (UniVar
+                       (UVGlobal 1006) (Just (Rigid (TypeType Obj))))))
+              (UniVar
+                 (UVGlobal 1007)
+                 (Just
+                    (UniVar
+                       (UVGlobal 1006)
+                       (Just (Rigid (TypeType Obj)))))))))]),
  Declare
    Obj
    (Rigid
@@ -41,5 +59,11 @@
          (Define
             (Rigid
                (RNameIntro (UserName "q") Obj (Id {unId = 1})))
-            (Rigid (ObjIdIntro (UniVar (UVGlobal 1005))))
+            (Rigid
+               (ObjIdIntro
+                  (UniVar
+                     (UVGlobal 1007)
+                     (Just
+                        (UniVar
+                           (UVGlobal 1006) (Just (Rigid (TypeType Obj))))))))
             (Rigid (TypeType Obj))))))

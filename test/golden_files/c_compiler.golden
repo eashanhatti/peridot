@@ -1,6 +1,6 @@
-test//c_compiler.per:25:1:
+test//c_compiler.per:43:18:
    |
-25 | prop CompileDecl: MetaFun(CDecl, Text)
-   | ^
-unexpected 'p'
-expecting "/*", carriage return, end of input, newline, space, or tab
+43 | query CompileDecl(func(Int, "f", "x", Int, return(var("x"))), output)
+   |                  ^
+unexpected '('
+expecting "/*", "axiom", "def", "metadef", "metavar", "output", "prop", "query", '_', alphanumeric character, carriage return, end of input, newline, space, or tab

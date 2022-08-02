@@ -79,30 +79,11 @@
                         (Define
                            (Rigid
                               (RNameIntro (UserName "baz") Obj (Id {unId = 3})))
-                           (RecIntro
-                              (fromList
-                                 [(Field {unField = "T"},
-                                   Rigid
-                                     (SingIntro
-                                        (RecElim
-                                           (GlobalVar
-                                              (Rigid
-                                                 (RNameIntro
-                                                    (UserName "foo")
-                                                    Obj
-                                                    (Id {unId = 1})))
-                                              False)
-                                           (Field {unField = "T"})))),
-                                  (Field {unField = "f"},
-                                   RecElim
-                                     (GlobalVar
-                                        (Rigid
-                                           (RNameIntro
-                                              (UserName "foo")
-                                              Obj
-                                              (Id {unId = 1})))
-                                        False)
-                                     (Field {unField = "f"}))]))
+                           (GlobalVar
+                              (Rigid
+                                 (RNameIntro
+                                    (UserName "foo") Obj (Id {unId = 1})))
+                              False)
                            (Define
                               (Rigid
                                  (RNameIntro

@@ -46,3 +46,12 @@ def cons
             next = vect
           }
       }
+
+def map
+  : Fun(Fun(`A) -> `B, Vect(`n, `A)) -> Vect(`n, `B)
+  = fun(fn, vect) =>
+      if vect.tag {
+        nil
+      } else {
+        cons(fn(vect.data.item), map(fn, vect.data.next))
+      }

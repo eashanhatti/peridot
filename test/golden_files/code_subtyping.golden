@@ -1,25 +1,30 @@
 ((fromList
     [(UVGlobal 1000,
+      Just (UVSol ((Rigid (TypeType Obj))))),
+     (UVGlobal 1001,
+      Just (UVSol ((Rigid (TypeType Obj))))),
+     (UVGlobal 1002,
       Just (UVSol ((Rigid (TypeType Obj)))))],
   fromList [],
   fromList []),
  Declare
-   Meta
+   Obj
    (Rigid
-      (RNameIntro (UserName "foo") Meta (Id {unId = 0})))
-   (Rigid (CodeObjType (Rigid (TypeType Obj))))
+      (RNameIntro (UserName "foo") Obj (Id {unId = 0})))
+   (Rigid (TypeType Obj))
    (Declare
       Obj
       (Rigid
          (RNameIntro (UserName "bar") Obj (Id {unId = 1})))
-      (Rigid (TypeType Obj))
+      (CodeObjElim
+         (Rigid (CodeObjIntro (Rigid (TypeType Obj)))))
       (Define
          (Rigid
-            (RNameIntro (UserName "foo") Meta (Id {unId = 0})))
-         (Rigid (CodeObjIntro (Rigid (TypeType Obj))))
+            (RNameIntro (UserName "foo") Obj (Id {unId = 0})))
+         (CodeObjElim
+            (Rigid (CodeObjIntro (Rigid (TypeType Obj)))))
          (Define
             (Rigid
                (RNameIntro (UserName "bar") Obj (Id {unId = 1})))
-            (CodeObjElim
-               (Rigid (CodeObjIntro (Rigid (TypeType Obj)))))
+            (Rigid (TypeType Obj))
             (Rigid (TypeType Obj))))))
