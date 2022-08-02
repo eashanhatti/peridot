@@ -160,7 +160,7 @@ loop = do
                               unpack $
                               prettyPure (rmGlobals eqs) def{- <> " ||| " <>
                               prettyPure (rmGlobals eqs) goal-}
-                            Fail -> "fail") $
+                            Fail -> "\ESC[33mfail\ESC[0m") $
                         tree
                     TIO.putStrLn (indent . indent $ ttree)
                 else
