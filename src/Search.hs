@@ -98,7 +98,11 @@ prove ctx goal@(Neutral p _) =
   (do
     cGoal <- readback goal
     def <- oneOf ctx
-    snd <$> search ctx cGoal def) <|>
+    ls <- Syntax.Semantic.unLocals . unEnv <$> ask
+    snd <$> local
+      (\ctx -> ctx
+        { unEnv = Env mempty (Syntax.Semantic.unGlobals . unEnv $ ctx) })
+      (search ctx ls cGoal def)) <|>
   (do
     p <- force p
     case p of
@@ -112,8 +116,9 @@ prove ctx (Rigid (DisjType p q)) =
 prove ctx (Rigid (ImplType p q)) =
   prove (p <| ctx) q
 prove ctx (MetaFunType _ _ p) = do
-  vP <- evalClosure p
-  bind (prove ctx vP)
+  c <- Rigid . MetaConstIntro . Id . fromIntegral @Int . abs <$> sendIO randomIO
+  vP <- appClosure p c
+  define c (prove ctx vP)
 prove ctx (Rigid (PropIdType x y)) = do
   r <- eToM <$> unifyRS x y
   case r of
@@ -121,16 +126,23 @@ prove ctx (Rigid (PropIdType x y)) = do
     Nothing -> empty
 prove _ goal = empty
 
-search :: Search sig m => Seq Term -> C.Term -> Term -> m (Natural, Substitution)
-search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
+search :: Search sig m => Seq Term -> Seq Term -> C.Term -> Term -> m (Natural, Substitution)
+search ctx gEnv g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
   | length dArgs == length gArgs
   = do
     normCtx <- ask
     let tuvs = unTypeUVs normCtx
     let eqs = unUVEqs normCtx
-    vGHead <- eval gHead
-    vGArgs <- traverse eval gArgs
-    let !_ = tracePretty (length dArgs, length vGArgs)
+    vGHead <-
+      local
+        (\ctx -> ctx { unEnv = Env gEnv (unGlobals . unEnv $ ctx) })
+        (eval gHead)
+    vGArgs <-
+      traverse
+        (\arg -> local
+          (\ctx -> ctx { unEnv = Env gEnv (unGlobals . unEnv $ ctx) })
+          (eval arg))
+        gArgs
     substs <-
       traverse
         (\(dArg, gArg) -> eToM <$> unifyRS gArg dArg)
@@ -140,13 +152,17 @@ search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
     substs <- ((<| substs) <$> (eToM <$> unifyRS vGHead dHead))
     tid <- case head substs of
       Just _ -> do
+        -- let !_ = tracePrettyS "CTX" gEnv
+        -- vG <- eval g
+        -- let !_ = tracePrettyS "GOALS" (g, (vGHead, vGArgs))
         -- let def = Map.lookup (LVGlobal 2092) (unTypeUVs normCtx)
         -- !_ <- tracePrettyS "CTX" <$> (traverse (normalize >=> eval) (fmap unTerm def))
-        let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-        let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
-        let !_ = tracePrettyS "SUBSTS" substs
+        -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+        -- let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
+        -- let !_ = tracePrettyS "SUBSTS" substs
         cD <- zonk d
-        tid <- addNode (Atom cD g)
+        g' <- eval g >>= zonk
+        tid <- addNode (Atom cD g')
         case allJustOrNothing (tail substs) of
           Just _ -> pure tid
           Nothing -> withId tid (addNode Fail) *> pure 0
@@ -159,20 +175,25 @@ search ctx g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
               pure r
             Nothing -> withId tid failSearch)
       Nothing -> empty
-search ctx goal (MetaFunType _ _ p) = do
+search ctx gEnv goal (MetaFunType _ _ p) = do
   uv <- freshUV
+  -- case uv of
+  --   Neutral _ (UniVar (LVGlobal 2185) _) -> do
+  --     let !_ = tracePretty p
+  --     pure ()
+  --   _ -> pure ()
   vP <- appClosure p uv
-  define uv (search ctx goal vP)
-search ctx goal (Rigid (ImplType p q)) = do
-  (tid, qSubst) <- search ctx goal q
+  define uv (search ctx (gEnv |> Rigid Dummy) goal vP)
+search ctx gEnv goal (Rigid (ImplType p q)) = do
+  (tid, qSubst) <- search ctx gEnv goal q
   pSubst <- withId tid . withSubst qSubst $ prove ctx p
   (tid ,) <$> qSubst `unionSubsts` pSubst
-search ctx goal (Neutral p _) = do
+search ctx gEnv goal (Neutral p _) = do
   p <- force p
   case p of
-    Just p -> search ctx goal p
+    Just p -> search ctx gEnv goal p
     Nothing -> empty
-search _ g d = empty
+search _ _ _ _ = empty
 
 freshUV :: Search sig m => m Term
 freshUV = do

@@ -380,10 +380,10 @@ unify' term1 term2 =
       case prevSol of
         Just prevSol -> unify' term prevSol
         Nothing -> putTypeSolExp gl term
-    -- complex (Rigid (CodeObjIntro (Neutral _ (CodeObjElim term1)))) term2 =
-    --   unify' term1 term2
-    -- complex term1 (Rigid (CodeObjIntro (Neutral _ (CodeObjElim term2)))) =
-    --   unify' term1 term2
+    complex (Rigid (CodeObjIntro (Neutral _ (CodeObjElim term1)))) term2 =
+      unify' term1 term2
+    complex term1 (Rigid (CodeObjIntro (Neutral _ (CodeObjElim term2)))) =
+      unify' term1 term2
     complex (Neutral _ (CodeObjElim (viewMetaFunElims -> Just (uv@(Neutral _ (UniVar gl _)), args)))) term
       | Just lvls <- puValid args
       , length args > 0

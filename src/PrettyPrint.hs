@@ -144,6 +144,7 @@ pretty term =
     Rigid (SomeType (MetaFunIntro body)) -> do
       name <- freshName
       combine [pure ("Exists "  <> name <> ", "), bindLocal name (pretty body)]
+    Rigid (MetaConstIntro (Id n)) -> pure ("#" <> pack (show n))
     MetaTypeType -> pure "MetaType"
     ObjTypeType -> pure "Type"
     Rigid ElabError -> pure "<error>"
