@@ -376,7 +376,9 @@ withDecls decls act = do
     allState =
       AllState
         elabState
-        (elabContext { unBindings = bindings', unAxioms = axioms' })
+        (elabContext
+          { unBindings = bindings'
+          , unAxioms = axioms' })
         normContext
 
     toAxioms :: Seq DeclarationAst -> Set Id

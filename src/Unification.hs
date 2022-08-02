@@ -365,10 +365,10 @@ unify' term1 term2 =
 
     complex :: Unify sig m => Term -> Term -> m (Coercion sig m)
     complex (Neutral term1 (GlobalVar name True)) term2 = do
-      term1 <- fromJust <$> force term1
+      term1 <- fromMaybe (error (show name)) <$> force term1
       unify' term1 term2
     complex term1 (Neutral term2 (GlobalVar name True)) = do
-      term2 <- fromJust <$> force term2
+      term2 <- fromMaybe (error (show name)) <$> force term2
       unify' term1 term2
     complex (Neutral prevSol (UniVar gl _)) term = do
       prevSol <- force prevSol

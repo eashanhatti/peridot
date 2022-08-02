@@ -238,22 +238,18 @@ proveDet ::
   Natural ->
   m (Tree SearchNode, Natural, Maybe (Seq Substitution))
 proveDet ctx goal uv = do
-  let !_ = tracePretty "1"
   cGoal <- readback goal
-  let !_ = tracePretty "2"
   (ss, substs) <-
     runReader (0 :: Natural) .
     runState (SearchState uv 1 mempty) .
     runNonDetA $
     prove ctx goal
-  let !_ = tracePretty "3"
   let trees = makeTrees 0 (unTree ss)
-  let !_ = tracePretty "4"
   (Node (Atom cGoal (C.Rigid C.Dummy)) trees, unNextUV ss, ) <$>
     if null substs then
-      trace "5.1" $ pure Nothing
+      pure Nothing
     else
-      trace "5.2" $ pure (Just substs)
+      pure (Just substs)
 
 data SearchNode
   = Atom C.Term C.Term

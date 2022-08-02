@@ -39,6 +39,6 @@ axiom compile_return:
   CompileStmt(return(`x), "return " ++ `t ++ ";")
   :- CompileTerm(`x, `t)
 
-metavar output: Text
-query CompileDecl(func(Int, "f", "x", Int, return(var("x"))), output)
-output OUTPUT.c output
+metavar t: Text
+query CompileDecl(func(Int, "f", "x", Int, return(var("x"))), t)
+output OUTPUT.c t

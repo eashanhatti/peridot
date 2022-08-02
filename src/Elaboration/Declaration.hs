@@ -53,7 +53,11 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             (ty, _) <- declType gDid
             eval ty)
           gDids
-      (tree, substs) <- proveDet gTys vSig
+      defs <- allDefs
+      (tree, substs) <-
+        local
+          (\ctx -> ctx { unEnv = N.Env (N.unLocals . unEnv $ ctx) defs })
+          (proveDet gTys vSig)
       modify (\st -> st { unSearchTrees = tree <| unSearchTrees st })
       case substs of
         Nothing -> do

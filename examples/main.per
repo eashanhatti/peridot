@@ -1,4 +1,5 @@
 import c_compiler.per
 import closure_convert.per
 
-query FreeVars(nil, <fun(x) => x>, nil)
+metavar aaa: ?
+query FreeVars(nil, <fun(x) => x>, aaa)
