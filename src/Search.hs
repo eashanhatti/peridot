@@ -162,7 +162,7 @@ search ctx gEnv g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
         -- let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
         -- let !_ = tracePrettyS "SUBSTS" substs
         cD <- zonk d
-        g' <- tracePretty <$> eval g >>= zonk
+        g' <- eval g >>= zonk
         tid <- addNode (Atom cD g')
         case allJustOrNothing (tail substs) of
           Just _ -> pure tid
@@ -245,7 +245,7 @@ proveDet ctx goal uv = do
     runNonDetA $
     prove ctx goal
   let trees = makeTrees 0 (unTree ss)
-  (Node (Atom cGoal (C.Rigid C.Dummy)) trees, unNextUV ss, ) <$>
+  (Node (Atom (C.Rigid C.Dummy) cGoal) trees, unNextUV ss, ) <$>
     if null substs then
       pure Nothing
     else

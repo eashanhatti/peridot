@@ -101,17 +101,14 @@ pretty term =
             _:[] -> tLam
             _:_ -> "(" <> tLam <> ")"
       combine
-        [ pure tLam'
-        , pure "("
-        , intercalate ", " . toList <$>
-            traverse
-              pretty
-              (filterMap
+        (pure tLam' :
+          case (filterMap
                 (\(pm, arg) -> case pm of
                   Explicit -> Just arg
                   _ -> Nothing)
-                args)
-        , pure ")"]
+                args) of
+            Empty -> [pure ""]
+            args -> [pure "(", intercalate ", " . toList <$> traverse pretty args, pure ")"])
     CodeObjElim quote -> combine [pure "~", pretty quote]
     CodeCElim quote -> combine [pure "c~", pretty quote]
     LocalVar ix -> fromMaybe "_" . (Map.lookup ix) . unLocals <$> ask
