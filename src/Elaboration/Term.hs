@@ -93,13 +93,13 @@ check (TermAst (App lam args)) (N.tmUniv -> Just N.Meta) = do
   (cLam, lamTy) <- infer lam
   r <- runThrow @Error $ checkArgs (N.MetaFunType Explicit) args lamTy
   case r of
-    Right (cArgs, outTy) -> pure (foldl' (\lam arg -> C.MetaFunElim lam arg) cLam cArgs)
+    Right (cArgs, outTy) -> pure (foldl' (\lam (pm, arg) -> C.MetaFunElim pm lam arg) cLam cArgs)
     Left err -> report err *> pure (C.Rigid C.ElabError)
 check (TermAst (App lam args)) u@(N.tmUniv -> Just N.Obj) = do
   (cLam, lamTy) <- infer lam
   r <- runThrow @Error $ checkArgs (N.ObjFunType Explicit) args lamTy
   case r of
-    Right (cArgs, outTy) -> pure (foldl' (\lam arg -> C.ObjFunElim lam arg) cLam cArgs)
+    Right (cArgs, outTy) -> pure (foldl' (\lam (pm, arg) -> C.ObjFunElim pm lam arg) cLam cArgs)
     Left err -> report err *> pure (C.Rigid C.ElabError)
 check term goal = checkBase term goal
 
@@ -195,7 +195,7 @@ infer term = case term of
         r <- runThrow @Error $ checkArgs tyc args lamTy
         case r of
           Right (cArgs, outTy) ->
-            pure (foldl' (\lam arg -> elim lam arg) cLam cArgs, outTy)
+            pure (foldl' (\lam (pm, arg) -> elim pm lam arg) cLam cArgs, outTy)
           Left err -> errorTerm err
       Left err -> errorTerm err
   TermAst (Var _ name) -> do
@@ -449,7 +449,7 @@ checkArgs ::
   (N.Term -> N.Closure -> N.Term) ->
   Seq (PassMethod, TermAst) ->
   N.Term ->
-  m (Seq C.Term, N.Term)
+  m (Seq (PassMethod, C.Term), N.Term)
 -- checkArgs Empty outTy@(N.viewImFunType -> Nothing) = pure (Empty, outTy)
 checkArgs tyc ((pm1, arg) :<| args) (N.FunType pm2 inTy outTy)
   | pm1 == pm2
@@ -457,12 +457,12 @@ checkArgs tyc ((pm1, arg) :<| args) (N.FunType pm2 inTy outTy)
     cArg <- check arg inTy
     vArg <- eval cArg
     (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs tyc args
-    pure (cArg <| cArgs, outTy')
+    pure ((pm1, cArg) <| cArgs, outTy')
 checkArgs tyc args (N.FunType Unification inTy outTy) = do
   arg <- freshTypeUV inTy
   cArg <- readback arg
   (cArgs, outTy') <- appClosure outTy arg >>= checkArgs tyc args
-  pure (cArg <| cArgs, outTy')
+  pure ((Unification, cArg) <| cArgs, outTy')
 checkArgs tyc Empty ty = pure (Empty, ty)
 checkArgs tyc args nty@(N.Neutral ty redex) = do
   ty <- force ty

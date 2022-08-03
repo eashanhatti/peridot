@@ -160,7 +160,7 @@ eval (C.MetaFunIntro body) = N.MetaFunIntro <$> closureOf body
 eval (C.ObjFunType pm inTy outTy) =
   N.ObjFunType pm <$> eval inTy <*> closureOf outTy
 eval (C.ObjFunIntro body) = N.ObjFunIntro <$> closureOf body
-eval (C.ObjFunElim lam arg) = do
+eval (C.ObjFunElim pm lam arg) = do
   vLam <- eval lam
   vArg <- eval arg
   let
@@ -173,8 +173,8 @@ eval (C.ObjFunElim lam arg) = do
           case r of
             Just (N.ObjFunIntro body) -> Just <$> appClosure body vArg
             _ -> pure Nothing
-  pure (N.Neutral reded (N.ObjFunElim vLam vArg))
-eval (C.MetaFunElim lam arg) = do
+  pure (N.Neutral reded (N.ObjFunElim pm vLam vArg))
+eval (C.MetaFunElim pm lam arg) = do
   vLam <- eval lam
   -- !_ <- tracePretty . N.unLocals . unEnv <$> ask
   vArg <- eval arg
@@ -188,7 +188,7 @@ eval (C.MetaFunElim lam arg) = do
           case r of
             Just (N.MetaFunIntro body) -> Just <$> appClosure body vArg
             _ -> pure Nothing
-  pure (N.Neutral reded (N.MetaFunElim vLam vArg))
+  pure (N.Neutral reded (N.MetaFunElim pm vLam vArg))
 eval (C.LocalVar ix) = entry ix
 eval (C.GlobalVar did sunf) = do
   vDid <- eval did
@@ -407,12 +407,12 @@ evalFieldClos defs ((fd, ty) :<| tys) = do
   pure ((fd, vTy) <| vTys)
 
 readbackRedex :: HasCallStack => Norm sig m => ReadbackDepth -> N.Redex -> m C.Term
-readbackRedex opt (N.MetaFunElim lam arg) =
-  C.MetaFunElim <$>
+readbackRedex opt (N.MetaFunElim pm lam arg) =
+  C.MetaFunElim pm <$>
     readback' opt lam <*>
     readback' opt arg
-readbackRedex opt (N.ObjFunElim lam arg) =
-  C.ObjFunElim <$>
+readbackRedex opt (N.ObjFunElim pm lam arg) =
+  C.ObjFunElim pm <$>
     readback' opt lam <*>
     readback' opt arg
 readbackRedex opt (N.CodeObjElim quote) = C.CodeObjElim <$> readback' opt quote

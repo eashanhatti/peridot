@@ -4,39 +4,39 @@ axiom List: MetaFun(MetaType) -> MetaType
 axiom nil: List(`A)
 axiom cons: MetaFun(`A, List(`A)) -> List(`A)
 
-prop Append(List(`A), List(`A), List(`A))
+pred Append(List(`A), List(`A), List(`A))
 axiom append_nil:
   Append(nil, `xs, `xs)
 axiom append_cons:
   Append(cons(`x, `ys), `zs, cons(`x, `ws))
   :- Append(`ys, `zs, `ws)
 
-prop Map(Prop(`A, `B), List(`A), List(`B))
+pred Map(Prop(`A, `B), List(`A), List(`B))
 axiom map_nil: Map(`_, nil, nil)
 axiom map_cons:
   Map(`f, cons(`x, `xs), cons(`y, `ys))
   :- Map(`f, `xs, `ys)
   ,  `f(`x, `y)
 
-prop Intersperse(`A, List(`A), List(`A))
+pred Intersperse(`A, List(`A), List(`A))
 axiom intersperse_nil: Intersperse(`_, nil, nil)
 axiom intersperse_cons:
   Intersperse(`a, cons(`x, `xs), cons(`x, `ys))
   :- Prepend(`a, `xs, `ys)
 
-prop Prepend(`A, List(`A), List(`A))
+pred Prepend(`A, List(`A), List(`A))
 axiom prepend_nil: Prepend(`_, nil, nil)
 axiom prepend_cons:
   Prepend(`a, cons(`x, `xs), cons(`a, cons(`x, `ys)))
   :- Prepend(`a, `xs, `ys)
 
-prop ConcatTexts(List(Text), Text)
+pred ConcatTexts(List(Text), Text)
 axiom concat_nil: ConcatTexts(nil, "")
 axiom concat_cons:
   ConcatTexts(cons(`t, `ts), `t ++ `tt)
   :- ConcatTexts(`ts, `tt)
 
-prop Lookup(List(Pair(`K, `V)), `K, `V)
+pred Lookup(List(Pair(`K, `V)), `K, `V)
 axiom lookup_find: Lookup(cons(pair(`k, `v), `m), `k, `v)
 axiom lookup_pass:
   Lookup(cons(`_, `m), `k, `v)

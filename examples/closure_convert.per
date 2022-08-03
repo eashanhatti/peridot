@@ -5,7 +5,7 @@ import sigma.per
 metadef Context: MetaType =
   List(Sigma(Code(Type), metafun(ty) => Code(~ty)))
 
-prop LookupVar
+pred LookupVar
   ( inf A: Code(Type)
   , Context
   , Code(~A))
@@ -14,9 +14,9 @@ axiom lookupvar_pass:
   LookupVar(cons(`_, `ctx), `x)
   :- LookupVar(`ctx, `x)
 
-prop NotFree(inf A: Code(Type), Code(~A))
+pred NotFree(inf A: Code(Type), Code(~A))
 
-prop FreeVars
+pred FreeVars
 	( inf A: Code(Type)
 	, Code(~A)
 	, Context

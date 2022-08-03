@@ -162,7 +162,7 @@ search ctx gEnv g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
         -- let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
         -- let !_ = tracePrettyS "SUBSTS" substs
         cD <- zonk d
-        g' <- eval g >>= zonk
+        g' <- tracePretty <$> eval g >>= zonk
         tid <- addNode (Atom cD g')
         case allJustOrNothing (tail substs) of
           Just _ -> pure tid
@@ -174,7 +174,7 @@ search ctx gEnv g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
           (concatSubsts'' (fmap (\(Subst ts eqs) -> (ts, eqs)) substs) >>= \case
             Just r -> do
               pure r
-            Nothing -> withId tid failSearch)
+            Nothing -> withId tid (addNode Fail) *> empty)
       Nothing -> empty
 search ctx gEnv goal (MetaFunType _ _ p) = do
   uv <- freshUV

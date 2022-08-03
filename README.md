@@ -1,10 +1,6 @@
-![Peridot logo](./logo.png)
-
 An experimental language for exploring the practical applications of two level type theory.
 
 Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/jFZ8JyUNtn) in the #peridot channel.
-
-**Note**: Peridot is a research language and not intended for real-world use.
 
 ### References and Inspiration
 

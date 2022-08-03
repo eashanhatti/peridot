@@ -91,8 +91,8 @@ instance Eq Term where
 type Redex = RedexF Term
 
 data RedexF a
-  = MetaFunElim a a
-  | ObjFunElim a a
+  = MetaFunElim PassMethod a a
+  | ObjFunElim PassMethod a a
   | CodeObjElim a
   | GlobalVar a Bool
   | UniVar Global (Maybe a)
@@ -117,15 +117,15 @@ viewImFunType _ = Nothing
 pattern FunType pm inTy outTy <- (viewFunType -> Just (pm, inTy, outTy))
 
 viewMetaFunElims :: Term -> Maybe (Term, Seq Term)
-viewMetaFunElims (Neutral _ (ObjFunElim _ _)) = Nothing
-viewMetaFunElims (Neutral _ (MetaFunElim lam arg)) = do
+viewMetaFunElims (Neutral _ (ObjFunElim _ _ _)) = Nothing
+viewMetaFunElims (Neutral _ (MetaFunElim _ lam arg)) = do
   (lam', args) <- viewMetaFunElims lam
   pure (lam', args |> arg)
 viewMetaFunElims term = pure (term, mempty)
 
 viewObjFunElims :: Term -> Maybe (Term, Seq Term)
-viewObjFunElims (Neutral _ (MetaFunElim _ _)) = Nothing
-viewObjFunElims (Neutral _ (ObjFunElim lam arg)) = do
+viewObjFunElims (Neutral _ (MetaFunElim _ _ _)) = Nothing
+viewObjFunElims (Neutral _ (ObjFunElim _ lam arg)) = do
   (lam', args) <- viewObjFunElims lam
   pure (lam', args |> arg)
 viewObjFunElims term = pure (term, mempty)
@@ -153,8 +153,8 @@ tmUniv (Rigid (ImplType _ _)) = Just Meta
 tmUniv (Rigid (ConjType _ _)) = Just Meta
 tmUniv (Rigid (DisjType _ _)) = Just Meta
 tmUniv (Rigid (TypeType u)) = Just u
-tmUniv (Neutral _ (MetaFunElim _ _)) = Just Meta
-tmUniv (Neutral _ (ObjFunElim _ _)) = Just Obj
+tmUniv (Neutral _ (MetaFunElim _ _ _)) = Just Meta
+tmUniv (Neutral _ (ObjFunElim _ _ _)) = Just Obj
 tmUniv (Neutral _ (CodeObjElim _)) = Just Obj
 tmUniv (Neutral _ (UniVar _ (Just MetaTypeType))) = Just Meta
 tmUniv (Neutral _ (UniVar _ (Just ObjTypeType))) = Just Obj
@@ -167,14 +167,14 @@ tmUniv _ = Nothing
 maxIx :: C.Term -> Index
 maxIx (C.ObjFunType _ inTy outTy) = maximum [maxIx inTy, maxIx outTy]
 maxIx (C.ObjFunIntro body) = maxIx body
-maxIx (C.ObjFunElim lam arg) = maximum [maxIx lam, maxIx arg]
+maxIx (C.ObjFunElim _ lam arg) = maximum [maxIx lam, maxIx arg]
 maxIx (C.TwoElim scr body1 body2) = maximum [maxIx scr, maxIx body1, maxIx body2]
 maxIx (C.RecType tys) = foldr max 0 (fmap (maxIx . snd) tys)
 maxIx (C.RecIntro defs) = foldr max 0 (fmap (maxIx . snd) defs)
 maxIx (C.RecElim str _) = maxIx str
 maxIx (C.MetaFunType _ inTy outTy) = maximum [maxIx inTy, maxIx outTy]
 maxIx (C.MetaFunIntro body) = maxIx body
-maxIx (C.MetaFunElim lam arg) = maximum [maxIx lam, maxIx arg]
+maxIx (C.MetaFunElim _ lam arg) = maximum [maxIx lam, maxIx arg]
 maxIx (C.CodeObjElim quote) = maxIx quote
 maxIx (C.TextElimCat t1 t2) = maximum [maxIx t1, maxIx t2]
 maxIx (C.LocalVar ix) = ix

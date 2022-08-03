@@ -1,5 +1,4 @@
-import c_compiler.per
 import closure_convert.per
 
 metavar fv: ?
-query FreeVars(<fun(x) => x>, cons(sigma(<Struct {}>, <struct {}>), nil), fv)
+query FreeVars(<fun(x) => x>, nil, fv)

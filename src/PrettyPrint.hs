@@ -103,7 +103,14 @@ pretty term =
       combine
         [ pure tLam'
         , pure "("
-        , intercalate ", " . toList <$> traverse pretty args
+        , intercalate ", " . toList <$>
+            traverse
+              pretty
+              (filterMap
+                (\(pm, arg) -> case pm of
+                  Explicit -> Just arg
+                  _ -> Nothing)
+                args)
         , pure ")"]
     CodeObjElim quote -> combine [pure "~", pretty quote]
     CodeCElim quote -> combine [pure "c~", pretty quote]

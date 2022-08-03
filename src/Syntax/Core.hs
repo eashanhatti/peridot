@@ -15,7 +15,7 @@ data Term
   -- Object level
   = ObjFunType PassMethod Term Term
   | ObjFunIntro Term
-  | ObjFunElim Term Term
+  | ObjFunElim PassMethod Term Term
   | TwoElim Term Term Term
   | RecType (Seq (Field, Term))
   | RecIntro (Seq (Field, Term))
@@ -24,7 +24,7 @@ data Term
   -- Meta level
   | MetaFunType PassMethod Term Term
   | MetaFunIntro Term
-  | MetaFunElim Term Term
+  | MetaFunElim PassMethod Term Term
   | CodeObjElim Term
   | CodeCElim Term
   | TextElimCat Term Term
@@ -64,17 +64,17 @@ viewMetaFunIntros (MetaFunIntro body) =
   in (n + 1, body')
 viewMetaFunIntros e = (0, e)
 
-viewFunElims :: Term -> (Term, Seq Term)
-viewFunElims (ObjFunElim lam arg) =
+viewFunElims :: Term -> (Term, Seq (PassMethod, Term))
+viewFunElims (ObjFunElim pm lam arg) =
   let (lam', args) = viewFunElims lam
-  in (lam', args |> arg)
-viewFunElims (MetaFunElim lam arg) =
+  in (lam', args |> (pm, arg))
+viewFunElims (MetaFunElim pm lam arg) =
   let (lam', args) = viewFunElims lam
-  in (lam', args |> arg)
+  in (lam', args |> (pm, arg))
 viewFunElims e = (e, mempty)
 
 viewMetaFunElims :: Term -> (Term, Seq Term)
-viewMetaFunElims (MetaFunElim lam arg) =
+viewMetaFunElims (MetaFunElim _ lam arg) =
   let (lam', args) = viewMetaFunElims lam
   in (lam', args |> arg)
 viewMetaFunElims e = (e, mempty)

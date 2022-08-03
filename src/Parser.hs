@@ -26,7 +26,7 @@ keywords =
   , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
   , "MetaType", "forall", "Exists", "Implies", "And", "Or", "Text", "def"
   , "metadef", "axiom", "output", "query", "metavar", "Code", "Prop"
-  , "prop", "Name", "minffun", "mfun" ]
+  , "pred", "Name", "minffun", "mfun" ]
 
 keyword :: Parser ()
 keyword = do
@@ -555,7 +555,7 @@ rel = do
 
 prop :: Parser Declaration
 prop = do
-  string "prop"; ws
+  string "pred"; ws
   n <- name; ws
   char '('; ws
   inTys <-

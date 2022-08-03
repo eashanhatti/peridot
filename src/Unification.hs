@@ -125,10 +125,10 @@ unifyRedexes :: Unify sig m => Redex -> Redex -> m ()
 unifyRedexes (TextElimCat t11 t12) (TextElimCat t21 t22) = do
   unifyS' t11 t21
   unifyS' t12 t22
-unifyRedexes (MetaFunElim lam1 arg1) (MetaFunElim lam2 arg2) = do
+unifyRedexes (MetaFunElim _ lam1 arg1) (MetaFunElim _ lam2 arg2) = do
   unifyS' lam1 lam2
   unifyS' arg1 arg2
-unifyRedexes (ObjFunElim lam1 arg1) (ObjFunElim lam2 arg2) = do
+unifyRedexes (ObjFunElim _ lam1 arg1) (ObjFunElim _ lam2 arg2) = do
   unifyS' lam1 lam2
   unifyS' arg1 arg2
 unifyRedexes (CodeObjElim quote1) (CodeObjElim quote2) =
@@ -323,7 +323,7 @@ unify' term1 term2 =
           (False, False) ->
             pure (liftCoe \e -> do
               arg <- applyCoe coe1 (C.LocalVar 0)
-              C.ObjFunIntro <$> applyCoe coe2 (C.ObjFunElim e arg))
+              C.ObjFunIntro <$> applyCoe coe2 (C.ObjFunElim pm1 e arg))
           (True, True) -> pure noop
     simple (ObjFunIntro body1) (ObjFunIntro body2) = do
       bind2 unifyS' (evalClosure body1) (evalClosure body2)
@@ -485,8 +485,8 @@ unify' term1 term2 =
           pure (C.CodeObjElim (C.LocalVar (Index (l - lvl' - 1))))
         Nothing -> throwError (singleton (EscapingVar lvl))
       Rigid rterm -> C.Rigid <$> traverse (rename ren) rterm
-      Neutral _ (MetaFunElim lam arg) -> C.MetaFunElim <$> rename ren lam <*> rename ren arg
-      Neutral _ (ObjFunElim lam arg) -> C.ObjFunElim <$> rename ren lam <*> rename ren arg
+      Neutral _ (MetaFunElim pm lam arg) -> C.MetaFunElim pm <$> rename ren lam <*> rename ren arg
+      Neutral _ (ObjFunElim pm lam arg) -> C.ObjFunElim pm <$> rename ren lam <*> rename ren arg
       Neutral _ (CodeObjElim quote) -> C.CodeObjElim <$> rename ren quote
       Neutral _ (UniVar gl ty) -> C.UniVar gl <$> traverse (rename ren) ty
       Neutral _ (TwoElim scr body1 body2) -> C.TwoElim <$> rename ren scr <*> rename ren body1 <*> rename ren body2
