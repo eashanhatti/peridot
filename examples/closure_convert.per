@@ -14,14 +14,19 @@ axiom lookupvar_pass:
   LookupVar(cons(`_, `ctx), `x)
   :- LookupVar(`ctx, `x)
 
+prop NotFree(inf A: Code(Type), Code(~A))
+
 prop FreeVars
-  ( inf A: Code(Type)
-  , Context
-  , Code(~A)
-  , Context)
-axiom free_vars_var:
-  FreeVars(`ctx, `x, nil)
-  :- LookupVar(`ctx, `x)
-axiom free_vars_fun:
-  FreeVars(`ctx, <fun(x) => ~(`f(<x>))>, `fv)
-  :- forall(x: Code(?)) -> FreeVars(cons(sigma(?, x), `ctx), `f(x), `fv)
+	( inf A: Code(Type)
+	, Code(~A)
+	, Context
+	, Context)
+axiom fv_bound:
+	FreeVars(`x, `_, nil)
+	:- NotFree(`x)
+axiom fv_free:
+	FreeVars(`x, `ctx, cons(sigma(?, `x), nil))
+	:- LookupVar(`x, `ctx)
+axiom fv_fun:
+	FreeVars(<fun(x) => ~(`f(<x>))>, `ctx, `fv)
+	:- forall(x: ?) -> Implies(NotFree(x), FreeVars(`f(x), `ctx, `fv))
