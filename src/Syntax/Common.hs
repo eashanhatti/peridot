@@ -72,5 +72,5 @@ data RigidTerm a
   -- Other
   | TypeType Universe
   | ElabError
-  | Dummy
+  | Dummy Text
   deriving (Eq, Show, Functor, Foldable, Traversable, Generic)

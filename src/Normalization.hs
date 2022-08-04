@@ -22,6 +22,7 @@ import Debug.Trace
 import Data.Sequence hiding(length)
 import Prelude hiding(length, take)
 import Data.Maybe
+import Data.Text(pack)
 
 data NormContext = NormContext
   { unEnv :: N.Environment
@@ -359,7 +360,8 @@ readback' opt (N.ObjFunIntro body) =
 readback' opt (N.LocalVar (Level lvl)) = do
   env <- unEnv <$> ask
   if lvl > N.envSize env || N.envSize env - lvl < 1 then
-    error ("BUG: Local variable readback " ++ show (lvl, N.envSize env, 1))
+    -- error ("BUG: Local variable readback " ++ show (lvl, N.envSize env, 1))
+    pure (C.Rigid (C.Dummy (pack . show $ (lvl, N.envSize env, 1))))
   else
     pure (C.LocalVar (Index (N.envSize env - lvl - 1)))
 readback' opt e@(N.Neutral sol redex) = do

@@ -272,7 +272,7 @@ unifyR term1 term2 = do
     Nothing -> do
       cTerm1 <- zonk term1
       cTerm2 <- zonk term2
-      report (FailedUnify (C.Rigid C.Dummy) cTerm1 cTerm2)
+      report (FailedUnify (C.Rigid (C.Dummy "failedunify")) cTerm1 cTerm2)
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
 convertible term1 term2 = do
@@ -311,7 +311,7 @@ convertibleO term1 term2 = do
     Nothing -> do
       cTerm1 <- zonk term1
       cTerm2 <- zonk term2
-      report (FailedUnify (C.Rigid C.Dummy) cTerm1 cTerm2)
+      report (FailedUnify (C.Rigid (C.Dummy "failedconvertible")) cTerm1 cTerm2)
       pure False
 
 putTypeUVSols :: Elab sig m => Map Global UVSolution -> m ()

@@ -32,7 +32,7 @@ import Data.Set qualified as Set
 import Data.Tree
 import Syntax.Core qualified as C
 import Data.Maybe
-import System.Random
+import Data.Text(pack)
 
 data SearchState = SearchState
   { unNextUV :: Natural
@@ -158,9 +158,9 @@ search ctx gEnv g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
         -- let !_ = tracePrettyS "GOALS" (g, (vGHead, vGArgs))
         -- let def = Map.lookup (LVGlobal 2092) (unTypeUVs normCtx)
         -- !_ <- tracePrettyS "CTX" <$> (traverse (normalize >=> eval) (fmap unTerm def))
-        -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-        -- let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
-        -- let !_ = tracePrettyS "SUBSTS" substs
+        let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+        let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
+        let !_ = tracePrettyS "SUBSTS" substs
         cD <- zonk d
         g' <- eval g >>= zonk
         tid <- addNode (Atom cD g')
@@ -183,8 +183,9 @@ search ctx gEnv goal (MetaFunType _ _ p) = do
   --     let !_ = tracePretty p
   --     pure ()
   --   _ -> pure ()
+  n <- unNextUV <$> get
   vP <- appClosure p uv
-  define uv (search ctx (gEnv |> Rigid Dummy) goal vP)
+  define uv (search ctx (gEnv |> Rigid (Dummy (pack . show $ n))) goal vP)
 search ctx gEnv goal (Rigid (ImplType p q)) = do
   (tid, qSubst) <- search ctx gEnv goal q
   pSubst <- withId tid . withSubst qSubst $ prove ctx p
@@ -202,7 +203,7 @@ freshUV = do
   put (state { unNextUV = unNextUV state + 1 })
   pure
     (Neutral (uvRedex . LVGlobal $ unNextUV state) .
-    flip UniVar (Just (Rigid Dummy)) .
+    flip UniVar (Just (Rigid (Dummy "uvtype"))) .
     LVGlobal $
     unNextUV state)
 
@@ -245,7 +246,7 @@ proveDet ctx goal uv = do
     runNonDetA $
     prove ctx goal
   let trees = makeTrees 0 (unTree ss)
-  (Node (Atom (C.Rigid C.Dummy) cGoal) trees, unNextUV ss, ) <$>
+  (Node (Atom (C.Rigid (C.Dummy "def")) cGoal) trees, unNextUV ss, ) <$>
     if null substs then
       pure Nothing
     else

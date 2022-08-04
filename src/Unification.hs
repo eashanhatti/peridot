@@ -214,8 +214,8 @@ unifyRigid (RNameIntro n1 univ1 did1) (RNameIntro n2 univ2 did2)
   = pure noop
 unifyRigid ElabError _ = errorU
 unifyRigid _ ElabError = errorU
-unifyRigid Dummy _ = error "BUG: Dummy unify"
-unifyRigid _ Dummy = error "BUG: Dummy unify"
+unifyRigid (Dummy _) _ = error "BUG: Dummy unify"
+unifyRigid _ (Dummy _) = error "BUG: Dummy unify"
 unifyRigid term1 term2 = throwError (singleton (RTerm term1 term2))
 
 errorU :: Unify sig m => m (Coercion sig m)
@@ -356,7 +356,7 @@ unify' term1 term2 =
       m (Seq (Coercion sig m))
     goFields _ u Empty = pure Empty
     goFields defs u (((fd1, ty1), (fd2, ty2)) :<| tys) = do
-      when (fd1 /= fd2) (throwError (singleton (UTerm (Rigid Dummy) (Rigid Dummy))))
+      when (fd1 /= fd2) (throwError (singleton (UTerm (Rigid (Dummy "fd1")) (Rigid (Dummy "fd2")))))
       vTy1 <- appClosureN ty1 defs
       vTy2 <- appClosureN ty2 defs
       coe <- u vTy1 vTy2

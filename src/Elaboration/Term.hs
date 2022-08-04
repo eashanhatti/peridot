@@ -217,16 +217,24 @@ infer term = case term of
     case dups of
       Empty ->
         withDecls decls do
+          let dids = declsIds decls
+          let didsSet = Set.fromList . toList $ dids
           cDecls <-
             Map.fromList . toList <$> traverse
               (\did -> (did ,) <$> ED.check did)
-              (declsIds decls)
+              dids
           cDeclTys <-
             Map.fromList . toList <$> traverse
               (\did -> (did ,) <$> ED.declType did)
-              (declsIds decls)
-          graph <- unDepGraph <$> get
+              dids
           pddecls <- unPredecls <$> get
+          graph <-
+            Map.filterWithKey
+              (\k _ -> case k of
+                Some (CheckDecl did) -> Set.member did didsSet
+                Some (DeclType did) -> Set.member did didsSet) .
+            unDepGraph <$>
+            get
           (cBody, bodyTy) <- infer body
           let
             names = fmap (unPDDeclName . snd) pddecls
@@ -256,13 +264,13 @@ infer term = case term of
                     Some (CheckDecl did) ->
                       C.Define
                         (C.Rigid (C.RNameIntro (names ! did) (snd (cDeclTys ! did)) did))
-                        (cDecls Map.! did)
+                        (cDecls ! did)
                         acc
                     Some (DeclType did) ->
                       C.Declare
-                        (snd (cDeclTys Map.! did))
+                        (snd (cDeclTys ! did))
                         (C.Rigid (C.RNameIntro (names ! did) (snd (cDeclTys ! did)) did))
-                        (fst (cDeclTys Map.! did))
+                        (fst (cDeclTys ! did))
                         acc)
                   cont
                   keys

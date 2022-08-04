@@ -99,7 +99,7 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
       cText <- EE.check text (N.Rigid N.TextType)
       vText <- eval cText
       modify (\st -> st { unOutputs = (path, vText) <| unOutputs st })
-      pure (C.Rigid C.Dummy)
+      pure (C.Rigid (C.Dummy "output"))
 
 withPos' ::
   HasCallStack => Elab sig m =>
@@ -138,7 +138,7 @@ declType did = memo (DeclType did) $ withDecl did $ withPos' $ \decl -> asType
         (Set.toList . imVars $ sig)
         (C.MetaFunType Unification)
         (EE.checkMetaType sig)
-    PDDecl (DeclAst (Output _ _) _) -> pure (C.Rigid C.Dummy, N.Meta)
+    PDDecl (DeclAst (Output _ _) _) -> pure (C.Rigid (C.Dummy "outputtype"), N.Meta)
 
 withImVars ::
   forall sig m. Elab sig m =>

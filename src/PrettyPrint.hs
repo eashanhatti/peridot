@@ -151,7 +151,8 @@ pretty term =
     Rigid (MetaConstIntro (Id n)) -> pure ("#" <> pack (show n))
     MetaTypeType -> pure "MetaType"
     ObjTypeType -> pure "Type"
-    Rigid ElabError -> pure "<error>"
+    Rigid ElabError -> pure "\ESC[33melab_error\ESC[0m"
+    Rigid (Dummy e) -> pure ("\ESC[33mdummy_value\ESC[0m(" <> e <> ")")
     Declare univ name ty cont ->
       let
         pre = case univ of
