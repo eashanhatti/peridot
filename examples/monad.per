@@ -1,0 +1,7 @@
+def Monad
+	: Fun(Fun(Type) -> Type) -> Type
+	= fun(M) =>
+			Struct {
+				andThen: Fun(inf A: Type, inf B: Type, M(A), Fun(A) -> M(B)) -> M(B),
+				wrap: Fun(inf A: Type) -> M(A)
+			}

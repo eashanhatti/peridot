@@ -26,7 +26,16 @@ axiom fv_bound:
 	:- NotFree(`x)
 axiom fv_free:
 	FreeVars(`x, `ctx, cons(sigma(?, `x), nil))
-	:- LookupVar(`x, `ctx)
+	:- LookupVar(`ctx, `x)
 axiom fv_fun:
 	FreeVars(<fun(x) => ~(`f(<x>))>, `ctx, `fv)
 	:- forall(x: ?) -> Implies(NotFree(x), FreeVars(`f(x), `ctx, `fv))
+
+pred Foo
+	( inf A: Code(Type)
+	, Code(~A)
+	, Context
+	, Context)
+axiom foo:
+	Foo(<fun(x) => ~(`f(x))>, `ctx, `fv)
+	:- forall(x: ?) -> FreeVars(`f(x), cons(sigma(?, x), `ctx), `fv)

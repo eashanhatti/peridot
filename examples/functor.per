@@ -1,0 +1,6 @@
+def Functor
+	: Fun(Fun(Type) -> Type) -> Type
+	= fun(F) =>
+			Struct {
+				map: Fun(inf A: Type, inf B: Type, Fun(A) -> B, F(A)) -> F(B)
+			}

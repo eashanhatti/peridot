@@ -1,0 +1,27 @@
+import functor.per
+import monad.per
+
+def Free
+	: Fun(Fun(Type) -> Type, Type) -> Type
+	= fun(F, A) =>
+			Struct {
+				tag: Bool,
+				data:
+					if tag {
+						A
+					} else {
+						F(Free(F, A))
+					}
+			}
+
+def Free_Functor
+	: Fun(Functor(`F)) -> Functor(Free(`F))
+	= fun(inf F, functor) =>
+			struct {
+				map =
+					let {
+						def go = fun(fn, free) => ?
+					} in {
+						go
+					}
+			}

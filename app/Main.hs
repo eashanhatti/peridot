@@ -29,6 +29,7 @@ import Search(SearchNode(..))
 import Extras
 import Data.Foldable
 import Data.List(nub)
+import Data.Maybe
 
 prettyError :: Map.Map Natural Natural -> Error -> Text
 prettyError _ TooManyParams = "Too many parameters."
@@ -136,7 +137,7 @@ loop = do
                   flip traverse (Set.toList . Map.keysSet . unLogvarNames $ qs) \gl -> do
                     -- let !_ = tracePretty (tuvs, eqs)
                     let
-                      UserName name = unLogvarNames qs ! gl
+                      UserName name = fromMaybe (UserName "NOTFOUND") (Map.lookup gl (unLogvarNames qs))
                       sol = zonk (eval (C.UniVar gl undefined)) tuvs eqs
                     case sol of
                       C.UniVar _ _ ->

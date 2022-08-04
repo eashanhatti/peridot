@@ -1,4 +1,4 @@
 import closure_convert.per
 
 metavar fv: ?
-query FreeVars(<fun(x) => x>, nil, fv)
+query FreeVars(<fun(x) => fun(y) => x>, nil, fv)

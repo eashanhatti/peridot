@@ -523,8 +523,12 @@ define :: Parser Declaration
 define = do
   string "def"; ws
   n <- name; ws
-  char ':'; ws
-  ty <- prec0; ws
+  ty <-
+    try (do
+      char ':'; ws
+      ty <- prec0; ws
+      pure ty) <|>
+    (pure (TermAst Hole))
   char '='; ws
   def <- prec0
   pure (ObjTerm n ty def)
@@ -533,7 +537,12 @@ metadefine :: Parser Declaration
 metadefine = do
   string "metadef"; ws
   n <- name; ws
-  char ':'; ws
+  ty <-
+    try (do
+      char ':'; ws
+      ty <- prec0; ws
+      pure ty) <|>
+    (pure (TermAst Hole))
   ty <- prec0; ws
   char '='; ws
   def <- prec0
