@@ -2,8 +2,7 @@ import list.per
 import pair.per
 import sigma.per
 
-metadef Context: MetaType =
-  List(Sigma(Code(Type), metafun(ty) => Code(~ty)))
+metadef Context = List(Sigma(Code(Type), metafun(ty) => Code(~ty)))
 
 pred LookupVar
   ( inf A: Code(Type)

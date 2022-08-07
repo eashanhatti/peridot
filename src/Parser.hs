@@ -20,13 +20,14 @@ import Extras
 import Data.List qualified as L
 import System.Directory
 import System.FilePath
+import Debug.Trace
 
 keywords =
   [ "Fun", "fun", "Type", "let", "in", "Bool", "true", "false"
   , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
   , "MetaType", "forall", "Exists", "Implies", "And", "Or", "Text", "def"
   , "metadef", "axiom", "output", "query", "metavar", "Code", "Prop"
-  , "pred", "Name", "minffun", "mfun" ]
+  , "pred", "Name", "for", "with"]
 
 keyword :: Parser ()
 keyword = do
@@ -96,6 +97,13 @@ passMethod :: Parser PassMethod
 passMethod =
   try (string "inf" *> pure Unification) <|>
   string "dontcare" *> pure DontCare
+
+ann :: Parser TermAst
+ann =
+  (do
+    char ':'; ws
+    prec0) <|>
+  pure (TermAst Hole)
 
 piE ::
   Text ->
@@ -202,6 +210,19 @@ var = do
   n <- some nameChar
   when (elem n keywords) empty
   pure (App (TermAst . Var q . UserName . pack $ n) mempty)
+
+iterateE :: Parser Term
+iterateE = do
+  string "with"; ws
+  p <- propF (TermAst MUniv); ws
+  string "for"; ws
+  n <- name; ws
+  string "in"; ws
+  e <- prec0; ws
+  char '{'; ws
+  q <- propF (TermAst MUniv); ws
+  char '}'
+  pure (Iter p e (TermAst (MetaLam (singleton n) q)))
 
 objUniv :: Parser Term
 objUniv = do
@@ -495,6 +516,7 @@ prec0 =
       try quoteObj <|>
       try (lam "fun" ObjLam) <|>
       try (lam "metafun" (\ps -> MetaLam (fmap snd ps))) <|>
+      -- try iterateE <|>
       try app <|>
       try equal <|>
       try liftObj <|>
@@ -523,12 +545,7 @@ define :: Parser Declaration
 define = do
   string "def"; ws
   n <- name; ws
-  ty <-
-    try (do
-      char ':'; ws
-      ty <- prec0; ws
-      pure ty) <|>
-    (pure (TermAst Hole))
+  ty <- ann; ws
   char '='; ws
   def <- prec0
   pure (ObjTerm n ty def)
@@ -537,16 +554,17 @@ metadefine :: Parser Declaration
 metadefine = do
   string "metadef"; ws
   n <- name; ws
-  ty <-
-    try (do
-      char ':'; ws
-      ty <- prec0; ws
-      pure ty) <|>
-    (pure (TermAst Hole))
-  ty <- prec0; ws
+  ty <- ann; ws
   char '='; ws
   def <- prec0
   pure (MetaTerm n ty def)
+
+propF :: TermAst -> Parser TermAst
+propF hd = do
+  as <- sepBy1
+    prec0
+    (notFollowedBy (ws *> (void (try keyword) <|> eof)) *> commaWs)
+  pure (foldl' (\acc q -> TermAst (ImplProp q acc)) hd as)
 
 rel :: Parser Declaration
 rel = do
@@ -555,11 +573,7 @@ rel = do
   char ':'; ws
   hd <- prec0; ws
   string ":-"; ws
-  as <- sepBy1
-    prec0
-    (notFollowedBy (ws *> (void (try keyword) <|> eof)) *> commaWs)
-  let p = foldl' (\acc q -> TermAst (ImplProp q acc)) hd as
-  -- let !_ = tracePretty p
+  p <- propF hd
   pure (Axiom n p)
 
 prop :: Parser Declaration
@@ -606,8 +620,7 @@ fresh :: Parser Declaration
 fresh = do
   string "metavar"; ws
   n <- name; ws
-  char ':'; ws
-  ty <- prec0
+  ty <- ann
   pure (Fresh n ty)
 
 path :: Parser String

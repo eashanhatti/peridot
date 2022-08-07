@@ -132,20 +132,14 @@ loop = do
                   TIO.putStrLn "  \ESC[33mErrors\ESC[0m:"
                   traverse (TIO.putStrLn . indent) tErrs
                   pure ()
-                if not . null . unLogvarNames $ qs then do
+                when (not . null . unLogSols $ qs) do
                   TIO.putStrLn "  \ESC[32mSolutions\ESC[0m:"
-                  flip traverse (Set.toList . Map.keysSet . unLogvarNames $ qs) \gl -> do
-                    -- let !_ = tracePretty (tuvs, eqs)
-                    let
-                      UserName name = fromMaybe (UserName "NOTFOUND") (Map.lookup gl (unLogvarNames qs))
-                      sol = zonk (eval (C.UniVar gl undefined)) tuvs eqs
-                    case sol of
-                      C.UniVar _ _ ->
-                        TIO.putStrLn ("    \ESC[33mNo solution for\ESC[0m " <> name)
-                      _ -> TIO.putStrLn ("    " <> name <> " = " <> prettyPure eqs' sol)
-                  TIO.putStrLn ""
-                  pure ()
-                else
+                  flip Map.traverseWithKey (unLogSols qs) \(UserName name) sols -> do
+                    if null sols then
+                      TIO.putStrLn ("    \ESC[33mNo solutions for\ESC[0m " <> name)
+                    else
+                      forM_ sols \sol ->
+                        TIO.putStrLn ("    " <> name <> " = " <> prettyPure (rmGlobals eqs) sol)
                   pure ()
                 b <- readIORef showSearch
                 if b && (not . null . unSearchTrees $ qs) then do

@@ -1,5 +1,1 @@
-def Foo: Type = Bar
-def Bar: Type = Foo
-
-def x: Foo = y
-def y: Foo = x
+metadef Context = List(Sigma(Code(Type), metafun(ty) => Code(~ty)))

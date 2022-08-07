@@ -26,7 +26,7 @@ infer' :: S.TermAst -> IO(QueryState, C.Term, C.Term)
 infer' term = do
   (qs, (term', ty)) <-
     liftIO .
-    runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty mempty 2000 mempty) .
+    runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty mempty 2000 mempty mempty) .
     runReader (QueryContext Nothing) .
     evalState ElabState .
     runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .
@@ -86,7 +86,7 @@ elaborate' :: S.TermAst -> IO (QueryState, C.Term)
 elaborate' term = do
   (qs, term') <-
     liftIO .
-    runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty mempty 2000 mempty) .
+    runState (QueryState mempty mempty 1000 mempty mempty mempty mempty mempty mempty mempty 2000 mempty mempty) .
     runReader (QueryContext Nothing) .
     evalState ElabState .
     runReader (NormContext (N.Env mempty mempty) mempty mempty mempty mempty) .

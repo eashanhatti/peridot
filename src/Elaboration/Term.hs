@@ -450,6 +450,12 @@ infer term = case term of
     u <- freshUnivUV
     ty <- freshTypeUV u >>= readback
     pure (ty, u)
+  TermAst (Iter p e q) -> do
+    (cE, eTy) <- infer e
+    cP <- check p N.MetaTypeType
+    outTy <- closureOf C.MetaTypeType
+    cQ <- check q (N.MetaFunType Explicit eTy outTy)
+    pure (C.Rigid (C.Iterate cP cE cQ), N.MetaTypeType)
   _ -> errorTerm (CannotInfer term)
 
 checkArgs ::

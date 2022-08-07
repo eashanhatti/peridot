@@ -105,6 +105,21 @@ unfold n@(N.Neutral term redex) = do
     Nothing -> pure n
 unfold term = pure term
 
+uvsEq :: Norm sig m => Global -> Global -> m Bool
+uvsEq gl1 gl2 | gl1 == gl2 = pure True
+uvsEq gl1 gl2 = do
+  visited <- unVisited <$> ask
+  if Set.member gl1 visited then
+    pure False
+  else
+    local
+      (\ctx -> ctx { unVisited = Set.insert gl1 (unVisited ctx) })
+      do
+        eqs <- unUVEqs <$> ask
+        case Map.lookup gl1 eqs of
+          Just gls -> or <$> traverse (\gl -> uvsEq gl gl2) (Set.toList gls)
+          Nothing -> pure False
+
 uvRedex :: Norm sig m => Global -> m (Maybe N.Term)
 uvRedex gl = do
   visited <- unVisited <$> ask

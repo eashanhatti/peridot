@@ -12,7 +12,8 @@ import Control.Carrier.NonDet.Church hiding(Empty)
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import {-# SOURCE #-} Elaboration.Term qualified as EE
-import Normalization hiding(eval, readback)
+import Normalization hiding(eval, readback, zonk)
+import Normalization qualified as Norm
 import Control.Monad
 import Control.Monad.Extra
 import Data.Foldable(toList, foldl')
@@ -63,7 +64,20 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
         Nothing -> do
           report (FailedProve cSig vSig gTys)
           pure (C.Rigid C.ElabError)
-        Just substs ->
+        Just substs -> do
+          lvs <- unLogvarNames <$> get
+          forM substs \(tuvs, eqs) ->
+            local
+              (\ctx -> ctx
+                { Norm.unUVEqs = eqs <> Norm.unUVEqs ctx
+                , Norm.unTypeUVs = tuvs <> Norm.unTypeUVs ctx })
+              (flip Map.traverseWithKey tuvs \gl1 sol ->
+                flip Map.traverseWithKey lvs \gl2 name -> do
+                  b <- uvsEq gl1 gl2
+                  when b do
+                    cSol <- Norm.zonk (unTerm sol)
+                    modify (\st -> st
+                      { unLogSols = Map.adjust (cSol <|) name (unLogSols st)}))
           if isAmbiguous substs then do
             report (AmbiguousProve cSig substs)
             pure (C.Rigid C.ElabError)
@@ -93,7 +107,9 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
             all (uncurry Set.disjoint) $
             [(x, y) | (i1, x) <- substs', (i2, y) <- substs', i1 /= i2]
     PDDecl (DeclAst (Fresh name _) did@(Id n)) -> do
-      modify (\st -> st { unLogvars = Set.insert did (unLogvars st) })
+      modify (\st -> st
+        { unLogvars = Set.insert did (unLogvars st)
+        , unLogSols = Map.insert (unName name) mempty (unLogSols st) })
       pure (C.UniVar (UVGlobal n) (Just cSig))
     PDDecl (DeclAst (Output path text) _) -> do
       cText <- EE.check text (N.Rigid N.TextType)

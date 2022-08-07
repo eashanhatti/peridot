@@ -92,4 +92,5 @@ data Term
   | TextLiteral Text
   | TextAppend TermAst TermAst
   | Hole
+  | Iter TermAst TermAst TermAst
   deriving (Show, Eq)

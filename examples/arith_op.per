@@ -1,0 +1,25 @@
+axiom Int: MetaType
+axiom lit: MetaFun(Text) -> Int
+axiom shl: MetaFun(Int, Int) -> Int
+axiom mul: MetaFun(Int, Int) -> Int
+axiom div: MetaFun(Int, Int) -> Int
+
+axiom Optimize: MetaFun(Int, Int) -> MetaType
+axiom op_lit: Optimize(lit(`t), lit(`t))
+axiom op_cancel:
+	Optimize(div(mul(`x, `y), `y), `z)
+	:- Optimize(`x, `z)
+axiom op_shl:
+	Optimize(mul(`x, lit("2")), shl(`y, lit("1")))
+	:- Optimize(`x, `y)
+axiom op_div:
+	Optimize(div(`x, `y), div(`z, `w))
+	:- Optimize(`x, `z)
+	,  Optimize(`y, `w)
+axiom op_mul:
+	Optimize(mul(`x, `y), mul(`z, `w))
+	:- Optimize(`x, `z)
+	,  Optimize(`y, `w)
+
+metavar x
+query Optimize(div(mul(lit("3"), lit("2")), lit("2")), x)

@@ -69,6 +69,7 @@ data RigidTerm a
   | AllType a
   | SomeType a
   | PropIdType a a
+  | Iterate a a a
   -- Other
   | TypeType Universe
   | ElabError

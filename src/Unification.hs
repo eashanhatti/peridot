@@ -160,6 +160,11 @@ unifyRigid TextIntroNil TextIntroNil = pure noop
 unifyRigid (TextIntroCons c1 t1) (TextIntroCons c2 t2) | c1 == c2 = do
   unifyS' t1 t2
   pure noop
+unifyRigid (Iterate p1 e1 q1) (Iterate p2 e2 q2) = do
+  unifyS' e1 e2
+  unifyS' p1 p2
+  unifyS' q1 q2
+  pure noop
 unifyRigid (MetaConstIntro did1) (MetaConstIntro did2) | did1 == did2 =
   pure noop
 unifyRigid (CodeObjType ty1) (CodeObjType ty2) = do

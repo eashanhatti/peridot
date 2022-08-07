@@ -62,10 +62,11 @@ data QueryState = QueryState
   , unLogvars :: Set Id
   , unOutputs :: Seq (FilePath, N.Term)
   , unNextLogUV :: Natural
-  , unSearchTrees :: Seq (Tree Search.SearchNode) }
+  , unSearchTrees :: Seq (Tree Search.SearchNode)
+  , unLogSols :: Map Name (Seq C.Term) }
 
 instance Show QueryState where
-  show (QueryState _ _ _ tuvs eqs errs _ _ _ _ _ _) =
+  show (QueryState _ _ _ tuvs eqs errs _ _ _ _ _ _ _) =
     show (tuvs, eqs, errs)
 
 data Error

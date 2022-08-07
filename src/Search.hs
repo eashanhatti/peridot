@@ -125,6 +125,24 @@ prove ctx (Rigid (PropIdType x y)) = do
   case r of
     Just (Subst ts eqs) -> pure (ts, eqs)
     Nothing -> empty
+prove ctx (Rigid (Iterate p e (MetaFunIntro q))) = do
+  n <- ask
+  st <- get
+  (ss, substs) <-
+    runReader (n :: Natural) .
+    runState (st :: SearchState) .
+    runNonDetA @[] $
+    prove ctx p
+  (tuvs, eqs) <- oneOf substs
+  local
+    (\ctx -> ctx
+      { unTypeUVs = tuvs
+      , unUVEqs = eqs })
+    do
+      e' <- readback e >>= eval
+      q' <- appClosure q e'
+      prove ctx q'
+prove _ MetaTypeType = pure mempty
 prove _ goal = empty
 
 search :: Search sig m => Seq Term -> Seq Term -> C.Term -> Term -> m (Natural, Substitution)
@@ -158,9 +176,9 @@ search ctx gEnv g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
         -- let !_ = tracePrettyS "GOALS" (g, (vGHead, vGArgs))
         -- let def = Map.lookup (LVGlobal 2092) (unTypeUVs normCtx)
         -- !_ <- tracePrettyS "CTX" <$> (traverse (normalize >=> eval) (fmap unTerm def))
-        let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
-        let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
-        let !_ = tracePrettyS "SUBSTS" substs
+        -- let !_ = tracePrettyS "DARGS" (dHead <| dArgs)
+        -- let !_ = tracePrettyS "GARGS" (vGHead <| vGArgs)
+        -- let !_ = tracePrettyS "SUBSTS" substs
         cD <- zonk d
         g' <- eval g >>= zonk
         tid <- addNode (Atom cD g')
@@ -195,6 +213,7 @@ search ctx gEnv goal (Neutral p _) = do
   case p of
     Just p -> search ctx gEnv goal p
     Nothing -> empty
+search _ _ C.MetaTypeType _ = pure (0, mempty)
 search _ _ _ _ = empty
 
 freshUV :: Search sig m => m Term
