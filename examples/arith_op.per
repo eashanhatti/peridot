@@ -29,6 +29,7 @@ pred Better(Int, Int)
 axiom bet_lit:
   Better(lit(`t1), lit(`t2))
   :- Fail
+axiom bet_mul_shl: Better(mul(`x, `y), shl(`z, `w))
 axiom bet_binop:
   Better(`op1(`x, `y), `op2(`z, `w))
   :- Better(`x, `z)
@@ -43,7 +44,7 @@ metadef tm2 = mul(lit("3"), lit("2"))
 
 metavar x
 query
-  with Optimize(tm1, x)
+  with Optimize(tm2, x)
   for x as i {
     for x as j {
       Better(i, j)
