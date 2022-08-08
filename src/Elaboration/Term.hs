@@ -208,7 +208,7 @@ infer term = case term of
         vTy <- eval ty
         sunf <- Set.member did . unLogvars <$> get
         when isType (void (ED.check did))
-        pure (C.GlobalVar (C.Rigid (C.RNameIntro name univ did)) sunf, vTy)
+        pure (C.GlobalVar (C.Rigid (C.RNameIntro name univ did)) sunf univ, vTy)
       Nothing -> errorTerm (UnboundVariable name)
   TermAst OUniv -> pure (C.ObjTypeType, N.ObjTypeType)
   TermAst MUniv -> pure (C.MetaTypeType, N.MetaTypeType)

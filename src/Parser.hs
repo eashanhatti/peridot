@@ -27,7 +27,7 @@ keywords =
   , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
   , "MetaType", "forall", "Exists", "Implies", "And", "Or", "Text", "def"
   , "metadef", "axiom", "output", "query", "metavar", "Code", "Prop"
-  , "pred", "Name", "for", "with"]
+  , "pred", "Name", "for", "with", "as"]
 
 keyword :: Parser ()
 keyword = do
@@ -213,14 +213,18 @@ var = do
 
 iterateE :: Parser Term
 iterateE = do
-  string "with"; ws
-  p <- propF (TermAst MUniv); ws
+  p <-
+    try (do
+      string "with"; ws
+      p <- prec0{-propF (TermAst MUniv)-}; ws
+      pure p) <|>
+    pure (TermAst MUniv)
   string "for"; ws
-  n <- name; ws
-  string "in"; ws
   e <- prec0; ws
+  string "as"; ws
+  n <- name; ws
   char '{'; ws
-  q <- propF (TermAst MUniv); ws
+  q <- prec0{-propF (TermAst MUniv)-}; ws
   char '}'
   pure (Iter p e (TermAst (MetaLam (singleton n) q)))
 
@@ -516,7 +520,7 @@ prec0 =
       try quoteObj <|>
       try (lam "fun" ObjLam) <|>
       try (lam "metafun" (\ps -> MetaLam (fmap snd ps))) <|>
-      -- try iterateE <|>
+      try iterateE <|>
       try app <|>
       try equal <|>
       try liftObj <|>

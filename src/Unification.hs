@@ -133,7 +133,7 @@ unifyRedexes (ObjFunElim _ lam1 arg1) (ObjFunElim _ lam2 arg2) = do
   unifyS' arg1 arg2
 unifyRedexes (CodeObjElim quote1) (CodeObjElim quote2) =
   unifyS' quote1 quote2
-unifyRedexes (GlobalVar did1 _) (GlobalVar did2 _) =
+unifyRedexes (GlobalVar did1 _ _) (GlobalVar did2 _ _) =
   unifyS' did1 did2
 unifyRedexes (TwoElim scr1 body11 body21) (TwoElim scr2 body12 body22) = do
   unifyS' scr1 scr2
@@ -369,10 +369,10 @@ unify' term1 term2 =
       (coe <|) <$> bind (goFields (LocalVar l <| defs) u tys)
 
     complex :: Unify sig m => Term -> Term -> m (Coercion sig m)
-    complex (Neutral term1 (GlobalVar name True)) term2 = do
+    complex (Neutral term1 (GlobalVar name True _)) term2 = do
       term1 <- fromMaybe (error (show name)) <$> force term1
       unify' term1 term2
-    complex term1 (Neutral term2 (GlobalVar name True)) = do
+    complex term1 (Neutral term2 (GlobalVar name True _)) = do
       term2 <- fromMaybe (error (show name)) <$> force term2
       unify' term1 term2
     complex (Neutral prevSol (UniVar gl _)) term = do

@@ -126,22 +126,21 @@ prove ctx (Rigid (PropIdType x y)) = do
     Just (Subst ts eqs) -> pure (ts, eqs)
     Nothing -> empty
 prove ctx (Rigid (Iterate p e (MetaFunIntro q))) = do
-  n <- ask
-  st <- get
-  (ss, substs) <-
-    runReader (n :: Natural) .
-    runState (st :: SearchState) .
-    runNonDetA @[] $
+  substs <-
+    runNonDetA @Seq $
     prove ctx p
-  (tuvs, eqs) <- oneOf substs
-  local
-    (\ctx -> ctx
-      { unTypeUVs = tuvs
-      , unUVEqs = eqs })
-    do
-      e' <- readback e >>= eval
-      q' <- appClosure q e'
-      prove ctx q'
+  subst <- oneOf substs
+  e' <-
+    local
+      (\ctx -> ctx
+        { unTypeUVs = fst subst <> unTypeUVs ctx
+        , unUVEqs = snd subst <> unUVEqs ctx })
+      (zonk e >>= eval)
+  subst' <- oneOf substs
+  q' <- appClosure q e'
+  subst'' <- withSubst subst' (prove ctx q')
+  unionSubsts subst' subst''
+
 prove _ MetaTypeType = pure mempty
 prove _ goal = empty
 

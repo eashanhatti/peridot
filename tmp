@@ -1,1 +1,16 @@
-metadef Context = List(Sigma(Code(Type), metafun(ty) => Code(~ty)))
+import examples/equal.per
+
+axiom B: MetaType
+axiom t: B
+axiom f: B
+
+axiom C: MetaFun(B) -> MetaType
+axiom c_t: C(t)
+axiom c_f: C(f)
+
+metavar b
+query
+	with C(b)
+	for x in b {
+		Eq(x, t)
+	}

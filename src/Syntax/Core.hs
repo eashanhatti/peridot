@@ -30,7 +30,7 @@ data Term
   | TextElimCat Term Term
   -- Other
   | LocalVar Index
-  | GlobalVar Term Bool
+  | GlobalVar Term Bool Cm.Universe
   | UniVar Global (Maybe Term)
   | Rigid (RigidTerm Term)
   | Declare Universe Term Term Term -- univ, name, ty, cont

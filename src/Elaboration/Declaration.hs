@@ -76,8 +76,12 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
                   b <- uvsEq gl1 gl2
                   when b do
                     cSol <- Norm.zonk (unTerm sol)
-                    modify (\st -> st
-                      { unLogSols = Map.adjust (cSol <|) name (unLogSols st)}))
+                    sols <- unLogSols <$> get
+                    vSols <- traverse eval (sols ! name)
+                    b' <- not . or <$> traverse (convertible (unTerm sol)) vSols
+                    when b'
+                      (modify (\st -> st
+                        { unLogSols = Map.adjust (cSol <|) name (unLogSols st)})))
           if isAmbiguous substs then do
             report (AmbiguousProve cSig substs)
             pure (C.Rigid C.ElabError)

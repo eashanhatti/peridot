@@ -17,6 +17,7 @@ import Data.Text qualified as Text
 import Shower
 import Numeric.Natural
 import Data.Maybe
+import Debug.Trace
 
 data Environment = Env
   { unLocals :: Seq Term
@@ -94,7 +95,7 @@ data RedexF a
   = MetaFunElim PassMethod a a
   | ObjFunElim PassMethod a a
   | CodeObjElim a
-  | GlobalVar a Bool
+  | GlobalVar a Bool Cm.Universe
   | UniVar Global (Maybe a)
   | TwoElim a a a
   | RecElim a Field
@@ -162,6 +163,7 @@ tmUniv (Neutral _ (TwoElim _ _ _)) = Just Obj
 tmUniv (Neutral _ (RecElim _ _)) = Just Obj
 tmUniv (Neutral _ (SingElim _)) = Just Obj
 tmUniv (Neutral _ (TextElimCat _ _)) = Just Meta
+tmUniv (Neutral _ (GlobalVar _ _ u)) = Just u
 tmUniv _ = Nothing
 
 maxIx :: C.Term -> Index
@@ -178,7 +180,7 @@ maxIx (C.MetaFunElim _ lam arg) = maximum [maxIx lam, maxIx arg]
 maxIx (C.CodeObjElim quote) = maxIx quote
 maxIx (C.TextElimCat t1 t2) = maximum [maxIx t1, maxIx t2]
 maxIx (C.LocalVar ix) = ix
-maxIx (C.GlobalVar name _) = maxIx name
+maxIx (C.GlobalVar name _ _) = maxIx name
 maxIx (C.UniVar _ ty) = fromMaybe 0 (fmap maxIx ty)
 maxIx (C.Rigid rterm) = foldr max 0 (fmap maxIx rterm)
 maxIx (C.Declare _ name ty cont) = maximum [maxIx name, maxIx ty, maxIx cont]

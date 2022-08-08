@@ -1,10 +1,12 @@
+import base_preds.per
+
 axiom Int: MetaType
 axiom lit: MetaFun(Text) -> Int
 axiom shl: MetaFun(Int, Int) -> Int
 axiom mul: MetaFun(Int, Int) -> Int
 axiom div: MetaFun(Int, Int) -> Int
 
-axiom Optimize: MetaFun(Int, Int) -> MetaType
+pred Optimize(Int, Int)
 axiom op_lit: Optimize(lit(`t), lit(`t))
 axiom op_cancel:
 	Optimize(div(mul(`x, `y), `y), `z)
@@ -12,14 +14,38 @@ axiom op_cancel:
 axiom op_shl:
 	Optimize(mul(`x, lit("2")), shl(`y, lit("1")))
 	:- Optimize(`x, `y)
-axiom op_div:
-	Optimize(div(`x, `y), div(`z, `w))
+axiom op_binop:
+	Optimize(`op(`x, `y), `op(`z, `w))
 	:- Optimize(`x, `z)
 	,  Optimize(`y, `w)
-axiom op_mul:
-	Optimize(mul(`x, `y), mul(`z, `w))
-	:- Optimize(`x, `z)
-	,  Optimize(`y, `w)
+	,  BinOp(`op)
+
+pred BinOp(MetaFun(Int, Int) -> Int)
+axiom binop_mul: BinOp(mul)
+axiom binop_div: BinOp(div)
+axiom binop_shl: BinOp(shl)
+
+pred Better(Int, Int)
+axiom bet_lit:
+	Better(lit(`t1), lit(`t2))
+	:- Fail
+axiom bet_binop:
+	Better(`op1(`x, `y), `op2(`z, `w))
+	:- Better(`x, `z)
+	,  Better(`y, `w)
+	,  BinOp(`op1)
+axiom bet_binop_lit:
+	Better(`op(`a, `b), lit(`t))
+	:- BinOp(`op)
+
+metadef tm1 = div(mul(lit("3"), lit("2")), lit("2"))
+metadef tm2 = mul(lit("3"), lit("2"))
 
 metavar x
-query Optimize(div(mul(lit("3"), lit("2")), lit("2")), x)
+query
+	with Optimize(tm1, x)
+	for x as i {
+		for x as j {
+			Better(i, j)
+		}
+	}

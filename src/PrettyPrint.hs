@@ -112,8 +112,8 @@ pretty term =
     CodeObjElim quote -> combine [pure "~", pretty quote]
     CodeCElim quote -> combine [pure "c~", pretty quote]
     LocalVar ix -> fromMaybe "_" . (Map.lookup ix) . unLocals <$> ask
-    GlobalVar (Rigid (RNameIntro (UserName name) _ did)) _ -> pure name
-    GlobalVar name _ -> combine [pure "GLOBAL(", pretty name, pure ")"]
+    GlobalVar (Rigid (RNameIntro (UserName name) _ did)) _ _ -> pure name
+    GlobalVar name _ _ -> combine [pure "GLOBAL(", pretty name, pure ")"]
     UniVar (unGlobal -> n) _ ->
       lookupUV n >>= \case
         Just name -> pure ("`" <> name)
@@ -181,6 +181,14 @@ pretty term =
     TextElimCat t1 t2 -> combine [pretty t1, pure " ++ ", pretty t2]
     Rigid TextIntroNil -> pure "\"\""
     Rigid (TextIntroCons c t) -> combine [pure . pack $ '\"':c:"\" ++ ", pretty t]
+    Rigid (Iterate p e q) ->
+      combine
+        [ pure "with "
+        , pretty p
+        , pure " for "
+        , pretty e
+        , pure " in "
+        , pretty q ]
     e -> pure . pack . show $ e
 
 lookupUV :: Print sig m => Natural -> m (Maybe Text)

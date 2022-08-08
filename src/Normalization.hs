@@ -206,13 +206,13 @@ eval (C.MetaFunElim pm lam arg) = do
             _ -> pure Nothing
   pure (N.Neutral reded (N.MetaFunElim pm vLam vArg))
 eval (C.LocalVar ix) = entry ix
-eval (C.GlobalVar did sunf) = do
+eval (C.GlobalVar did sunf u) = do
   vDid <- eval did
   unfold vDid >>= \vDid -> case N.viewName vDid of
     Just did' -> do
       N.Env _ ((Map.lookup did') -> def) <- unEnv <$> ask
-      pure (N.Neutral (pure def) (N.GlobalVar vDid sunf))
-    Nothing -> pure (N.Neutral (pure Nothing) (N.GlobalVar vDid sunf))
+      pure (N.Neutral (pure def) (N.GlobalVar vDid sunf u))
+    Nothing -> pure (N.Neutral (pure Nothing) (N.GlobalVar vDid sunf u))
 eval (C.UniVar gl ty) = do
   vTy <- traverse eval ty
   pure (N.Neutral (uvRedex gl) (N.UniVar gl vTy))
@@ -392,6 +392,11 @@ readback' opt e@(N.Neutral sol redex) = do
               , unUVEqs = unUVEqs ctx })
             (readback' opt vSol)
         Nothing -> error "TODO: Error reporting"
+    (notNone -> True, Just vSol, N.GlobalVar _ True _) -> do
+      sol <- force sol
+      case sol of
+        Just sol -> readback' opt sol
+        Nothing -> error "TODO: Error reporting 2"
     (Full, Just vSol, _) -> readback' Full vSol
     -- (True, Nothing, N.UniVar gl) -> error $ "UNSOLVED VAR " ++ show gl
     _ -> readbackRedex opt redex
@@ -433,7 +438,7 @@ readbackRedex opt (N.ObjFunElim pm lam arg) =
     readback' opt lam <*>
     readback' opt arg
 readbackRedex opt (N.CodeObjElim quote) = C.CodeObjElim <$> readback' opt quote
-readbackRedex opt (N.GlobalVar did sunf) = flip C.GlobalVar sunf <$> readback' opt did
+readbackRedex opt (N.GlobalVar did sunf u) = flip C.GlobalVar sunf <$> readback' opt did <*> pure u
 readbackRedex opt (N.UniVar gl ty) = C.UniVar gl <$> traverse (readback' opt) ty
 readbackRedex opt (N.TwoElim scr body1 body2) =
   C.TwoElim <$>
