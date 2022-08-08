@@ -16,25 +16,25 @@ axiom lookupvar_pass:
 pred NotFree(inf A: Code(Type), Code(~A))
 
 pred FreeVars
-	( inf A: Code(Type)
-	, Code(~A)
-	, Context
-	, Context)
+  ( inf A: Code(Type)
+  , Code(~A)
+  , Context
+  , Context)
 axiom fv_bound:
-	FreeVars(`x, `_, nil)
-	:- NotFree(`x)
+  FreeVars(`x, `_, nil)
+  :- NotFree(`x)
 axiom fv_free:
-	FreeVars(`x, `ctx, cons(sigma(?, `x), nil))
-	:- LookupVar(`ctx, `x)
+  FreeVars(`x, `ctx, cons(sigma(?, `x), nil))
+  :- LookupVar(`ctx, `x)
 axiom fv_fun:
-	FreeVars(<fun(x) => ~(`f(<x>))>, `ctx, `fv)
-	:- forall(x: ?) -> Implies(NotFree(x), FreeVars(`f(x), `ctx, `fv))
+  FreeVars(<fun(x) => ~(`f(<x>))>, `ctx, `fv)
+  :- forall(x: ?) -> Implies(NotFree(x), FreeVars(`f(x), `ctx, `fv))
 
 pred Foo
-	( inf A: Code(Type)
-	, Code(~A)
-	, Context
-	, Context)
+  ( inf A: Code(Type)
+  , Code(~A)
+  , Context
+  , Context)
 axiom foo:
-	Foo(<fun(x) => ~(`f(x))>, `ctx, `fv)
-	:- forall(x: ?) -> FreeVars(`f(x), cons(sigma(?, x), `ctx), `fv)
+  Foo(<fun(x) => ~(`f(x))>, `ctx, `fv)
+  :- forall(x: ?) -> FreeVars(`f(x), cons(sigma(?, x), `ctx), `fv)

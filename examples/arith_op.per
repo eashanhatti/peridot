@@ -9,16 +9,16 @@ axiom div: MetaFun(Int, Int) -> Int
 pred Optimize(Int, Int)
 axiom op_lit: Optimize(lit(`t), lit(`t))
 axiom op_cancel:
-	Optimize(div(mul(`x, `y), `y), `z)
-	:- Optimize(`x, `z)
+  Optimize(div(mul(`x, `y), `y), `z)
+  :- Optimize(`x, `z)
 axiom op_shl:
-	Optimize(mul(`x, lit("2")), shl(`y, lit("1")))
-	:- Optimize(`x, `y)
+  Optimize(mul(`x, lit("2")), shl(`y, lit("1")))
+  :- Optimize(`x, `y)
 axiom op_binop:
-	Optimize(`op(`x, `y), `op(`z, `w))
-	:- Optimize(`x, `z)
-	,  Optimize(`y, `w)
-	,  BinOp(`op)
+  Optimize(`op(`x, `y), `op(`z, `w))
+  :- Optimize(`x, `z)
+  ,  Optimize(`y, `w)
+  ,  BinOp(`op)
 
 pred BinOp(MetaFun(Int, Int) -> Int)
 axiom binop_mul: BinOp(mul)
@@ -27,25 +27,25 @@ axiom binop_shl: BinOp(shl)
 
 pred Better(Int, Int)
 axiom bet_lit:
-	Better(lit(`t1), lit(`t2))
-	:- Fail
+  Better(lit(`t1), lit(`t2))
+  :- Fail
 axiom bet_binop:
-	Better(`op1(`x, `y), `op2(`z, `w))
-	:- Better(`x, `z)
-	,  Better(`y, `w)
-	,  BinOp(`op1)
+  Better(`op1(`x, `y), `op2(`z, `w))
+  :- Better(`x, `z)
+  ,  Better(`y, `w)
+  ,  BinOp(`op1)
 axiom bet_binop_lit:
-	Better(`op(`a, `b), lit(`t))
-	:- BinOp(`op)
+  Better(`op(`a, `b), lit(`t))
+  :- BinOp(`op)
 
 metadef tm1 = div(mul(lit("3"), lit("2")), lit("2"))
 metadef tm2 = mul(lit("3"), lit("2"))
 
 metavar x
 query
-	with Optimize(tm1, x)
-	for x as i {
-		for x as j {
-			Better(i, j)
-		}
-	}
+  with Optimize(tm1, x)
+  for x as i {
+    for x as j {
+      Better(i, j)
+    }
+  }
