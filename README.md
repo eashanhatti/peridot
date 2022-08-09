@@ -12,7 +12,7 @@ Discussion takes place on the [r/ProgrammingLanguages Discord server](https://di
 
 ### Introduction
 
-In high level languages, abstractions are easy to create - moreover, these abstractions may be implemented entirely in userspace. However, high performance demands that we reduce use of these abstractions to a minimum. In order to have both, one needs an optimizing compiler that can recognize these abstractions and reduce them to lower-level code. However, even this can fail when the optimizer encounters a user-written abstraction it was not built to deal with. As programmers develop new abstractions, a choice has to be made:
+High-level programming and program performance are at odds. High-level languages enable complex, pervasive abstractions, whereas high performance demands these abstractions be reduced to a minimum. Thus, an optimizing compiler is an essential part of a high-level language that seeks to accomplish both goals. However, even the most sophisticated optimizer can fall short when presented with abstraction it was not built to deal with. As programmers develop new abstractions, a choice must be made:
 
 1. Augmenting the optimizer to deal with these new abstractions
 2. Accepting subpar performance
