@@ -78,7 +78,8 @@ check did = memo (CheckDecl did) $ withDecl did $ withPos' $ \decl -> do
                     cSol <- Norm.zonk (unTerm sol)
                     sols <- unLogSols <$> get
                     vSols <- traverse eval (sols ! name)
-                    b' <- not . or <$> traverse (convertible (unTerm sol)) vSols
+                    -- b' <- not . or <$> traverse (convertible (unTerm sol)) vSols
+                    let b' = True
                     when b'
                       (modify (\st -> st
                         { unLogSols = Map.adjust (cSol <|) name (unLogSols st)})))

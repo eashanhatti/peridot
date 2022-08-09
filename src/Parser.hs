@@ -573,8 +573,14 @@ propF hd = do
 rel :: Parser Declaration
 rel = do
   string "axiom"; ws
-  n <- name; ws
-  char ':'; ws
+  n <-
+    try (do
+      n <- name; ws
+      char ':'; ws
+      pure n) <|>
+    (do
+      did <- freshId
+      pure (NameAst (MachineName (Syntax.Common.unId did))))
   hd <- prec0; ws
   string ":-"; ws
   p <- propF hd
@@ -609,8 +615,14 @@ prop = do
 axiom :: Parser Declaration
 axiom = do
   string "axiom"; ws
-  n <- name; ws
-  char ':'; ws
+  n <-
+    try (do
+      n <- name; ws
+      char ':'; ws
+      pure n) <|>
+    (do
+      did <- freshId
+      pure (NameAst (MachineName (Syntax.Common.unId did))))
   ty <- prec0
   pure (Axiom n ty)
 

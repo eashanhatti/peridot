@@ -139,7 +139,7 @@ prove ctx (Rigid (Iterate p e (MetaFunIntro q))) = do
   subst' <- oneOf substs
   q' <- appClosure q e'
   subst'' <- withSubst subst' (prove ctx q')
-  unionSubsts subst' subst''
+  unionSubsts subst'' subst'
 
 prove _ MetaTypeType = pure mempty
 prove _ goal = empty

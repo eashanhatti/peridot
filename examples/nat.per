@@ -1,0 +1,13 @@
+axiom Nat: MetaType
+axiom nzero: Nat
+axiom nsucc: MetaFun(Nat) -> Nat
+
+pred NAdd(Nat, Nat, Nat)
+axiom NAdd(nzero, `n, `n)
+axiom NAdd(`n, nzero, `n)
+axiom NAdd(nsucc(`n), `m, nsucc(`j)) :- NAdd(`n, `m, `j)
+axiom NAdd(`n, nsucc(`m), nsucc(`j)) :- NAdd(`n, `m, `j)
+
+pred Less(Nat, Nat)
+axiom Less(nzero, nsucc(`_))
+axiom Less(nsucc(`n), nsucc(`m)) :- Less(`n, `m)
