@@ -1,0 +1,21 @@
+import base_preds.per
+
+pred Inline
+	( inf A: Code(Type)
+	, Code(~A)
+	, Code(~A))
+
+axiom
+	Inline(<(fun(x) => ~(`f(<x>)))(`arg)>, `f(<`arg>))
+/*
+metadef term =
+	<let {
+		def func: Fun(Struct{}) -> Struct{} = fun(x) => x
+	} in {
+		func(struct{})
+	}>*/
+
+metadef term = <(fun(x) => x)(struct{})>
+
+metavar new_term
+query Inline(term, new_term)
