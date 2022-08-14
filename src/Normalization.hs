@@ -211,7 +211,11 @@ eval (C.GlobalVar did sunf u) = do
   unfold vDid >>= \vDid -> case N.viewName vDid of
     Just did' -> do
       N.Env _ ((Map.lookup did') -> def) <- unEnv <$> ask
-      pure (N.Neutral (pure def) (N.GlobalVar vDid sunf u))
+      let
+        reded = case def of
+          Just def -> Just <$> eval def
+          Nothing -> pure Nothing
+      pure (N.Neutral reded (N.GlobalVar vDid sunf u))
     Nothing -> pure (N.Neutral (pure Nothing) (N.GlobalVar vDid sunf u))
 eval (C.UniVar gl ty) = do
   vTy <- traverse eval ty
@@ -312,9 +316,9 @@ eval (C.Define name def cont) = do
   vName <- eval name
   vDef <- eval def
   let
-    reded = unfold vDef >>= \case
+    reded = unfold vName >>= \case
       N.Rigid (N.NameIntro _ did) ->
-        Just <$> local (\ctx -> ctx { unEnv = N.withGlobal did vDef (unEnv ctx) }) (eval cont)
+        Just <$> local (\ctx -> ctx { unEnv = N.withGlobal did def (unEnv ctx) }) (eval cont)
       _ -> pure Nothing
   vCont <- eval cont
   pure (N.Neutral reded (N.Define vName vDef vCont))
@@ -335,7 +339,7 @@ evalFields ((name, fd) :<| fds) = do
   fds' <- define vFd (evalFields fds)
   pure ((name, vFd) <| fds')
 
-withGlobals :: Seq (Id, N.Term) -> N.Environment -> N.Environment
+withGlobals :: Seq (Id, C.Term) -> N.Environment -> N.Environment
 withGlobals defs (N.Env locals globals) =
   let globals' = foldl' (\acc (did, def) -> Map.insert did def acc) globals defs
   in N.Env locals globals'

@@ -69,7 +69,7 @@ data UnifyContext = UnifyContext
   { unOpts :: Set.Set UnifyOption }
 
 data ThrowReason
-  = UTerm Term Term
+  = UTerm String Term Term
   | RTerm (RigidTerm Term) (RigidTerm Term)
   | Redex Redex Redex
   | ErrorU
@@ -281,13 +281,13 @@ unify' term1 term2 =
       when (not b) (case (ty1, ty2) of
         (Just ty1, Just ty2) -> unifyS' ty1 ty2
         (Nothing, Nothing) -> pure ()
-        _ -> throwError (singleton (UTerm nterm1 nterm2)))
+        _ -> throwError (singleton (UTerm "_-_ uv-uv" nterm1 nterm2)))
       term1 <- force term1
       term2 <- force term2
       case (term1, term2) of
         (Just term1, Just term2) -> unify' term1 term2
-        (Just term1, Nothing) -> throwError (singleton (UTerm term1 nterm2))
-        (Nothing, Just term2) -> throwError (singleton (UTerm nterm1 term2))
+        (Just term1, Nothing) -> throwError (singleton (UTerm "uv-uv jus-not" term1 nterm2))
+        (Nothing, Just term2) -> throwError (singleton (UTerm "uv-uv not-jus" nterm1 term2))
         (Nothing, Nothing) -> equateUVs gl1 gl2 *> pure noop
     simple nterm1@(Neutral term1 redex1) nterm2@(Neutral term2 redex2) =
       (unifyRedexes redex1 redex2 *> pure noop) `catchError`
@@ -300,7 +300,7 @@ unify' term1 term2 =
           term2 <- force term2
           case (term1, term2) of
             (Just term1, Just term2) -> unify' term1 term2
-            _ -> throwError (singleton (UTerm nterm1 nterm2))
+            _ -> throwError (singleton (UTerm "neu-neu _" nterm1 nterm2))
     simple (MetaFunType pm1 inTy1 outTy1) (MetaFunType pm2 inTy2 outTy2)
       | pm1 == pm2
       = do
@@ -351,7 +351,7 @@ unify' term1 term2 =
     simple (Rigid term1) (Rigid term2) = do
       unifyRigid term1 term2
       pure noop
-    simple e1 e2 = throwError (singleton (UTerm e1 e2))
+    simple e1 e2 = throwError (singleton (UTerm "sim _-_" e1 e2))
 
     goFields ::
       Unify sig m =>
@@ -361,7 +361,7 @@ unify' term1 term2 =
       m (Seq (Coercion sig m))
     goFields _ u Empty = pure Empty
     goFields defs u (((fd1, ty1), (fd2, ty2)) :<| tys) = do
-      when (fd1 /= fd2) (throwError (singleton (UTerm (Rigid (Dummy "fd1")) (Rigid (Dummy "fd2")))))
+      when (fd1 /= fd2) (throwError (singleton (UTerm "fd-fd" (Rigid (Dummy "fd1")) (Rigid (Dummy "fd2")))))
       vTy1 <- appClosureN ty1 defs
       vTy2 <- appClosureN ty2 defs
       coe <- u vTy1 vTy2
@@ -418,13 +418,13 @@ unify' term1 term2 =
       term1 <- force term1
       case term1 of
         Just term1 -> unify' term1 term2
-        Nothing -> throwError (singleton (UTerm nterm1 term2))
+        Nothing -> throwError (singleton (UTerm "not-tm" nterm1 term2))
     complex term1 nterm2@(Neutral term2 _) = do
       term2 <- force term2
       case term2 of
         Just term2 -> unify' term1 term2
-        Nothing -> throwError (singleton (UTerm term1 nterm2))
-    complex term1 term2 = throwError (singleton (UTerm term1 term2))
+        Nothing -> throwError (singleton (UTerm "tm-not" term1 nterm2))
+    complex term1 term2 = throwError (singleton (UTerm "com-com" term1 term2))
 
     puValid args = go args mempty where
       go Empty _ = Just mempty

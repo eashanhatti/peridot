@@ -227,14 +227,14 @@ asType = local (\ctx -> ctx { unIsType = True })
 
 unify :: Elab sig m => C.Term -> N.Term -> N.Term -> m C.Term
 unify e term1 term2 = do
-  vDefs <- allDefs
+  defs <- allDefs
   typeUVs <- unTypeUVs <$> get
   eqs <- unUVEqs <$> get
   ctx@(unEnv -> N.Env locals globals) <- ask
   r <-
     local
       (\ctx -> ctx
-        { unEnv = N.Env locals (globals <> vDefs)
+        { unEnv = N.Env locals (globals <> defs)
         , Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
         , Norm.unUVEqs = eqs
         })
@@ -253,14 +253,14 @@ unify e term1 term2 = do
 
 unifyR :: Elab sig m => N.Term -> N.Term -> m ()
 unifyR term1 term2 = do
-  vDefs <- allDefs
+  defs <- allDefs
   typeUVs <- unTypeUVs <$> get
   eqs <- unUVEqs <$> get
   ctx@(unEnv -> N.Env locals globals) <- ask
   subst <-
     local
       (\ctx -> ctx
-        { unEnv = N.Env locals (globals <> vDefs)
+        { unEnv = N.Env locals (globals <> defs)
         , Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
         , Norm.unUVEqs = eqs
         })
@@ -277,13 +277,13 @@ unifyR term1 term2 = do
 
 convertible :: Elab sig m => N.Term -> N.Term -> m Bool
 convertible term1 term2 = do
-  vDefs <- allDefs
+  defs <- allDefs
   typeUVs <- unTypeUVs <$> get
   eqs <- unUVEqs <$> get
   ctx@(unEnv -> N.Env locals globals) <- ask
   local
     (\ctx -> ctx
-      { unEnv = N.Env locals (globals <> vDefs)
+      { unEnv = N.Env locals (globals <> defs)
       , Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
       , Norm.unUVEqs = eqs
       })
@@ -291,14 +291,14 @@ convertible term1 term2 = do
 
 convertibleO :: Elab sig m => N.Term -> N.Term -> m Bool
 convertibleO term1 term2 = do
-  vDefs <- allDefs
+  defs <- allDefs
   typeUVs <- unTypeUVs <$> get
   eqs <- unUVEqs <$> get
   ctx@(unEnv -> N.Env locals globals) <- ask
   subst <-
     local
       (\ctx -> ctx
-        { unEnv = N.Env locals (globals <> vDefs)
+        { unEnv = N.Env locals (globals <> defs)
         , Norm.unTypeUVs = fmap fromJust . Map.filter isJust $ typeUVs
         , Norm.unUVEqs = eqs
         })
@@ -466,31 +466,24 @@ errorTerm err = do
 
 eval :: forall sig m. Elab sig m => C.Term -> m N.Term
 eval term = do
-  vDefs <- allDefs
+  defs <- allDefs
   ctx@(unEnv -> N.Env locals globals) <- ask
-  local (\ctx -> ctx { unEnv = N.Env locals (globals <> vDefs) }) (Norm.eval term)
+  local (\ctx -> ctx { unEnv = N.Env locals (globals <> defs) }) (Norm.eval term)
 
-allDefs :: Elab sig m => m (Map Id N.Term)
+allDefs :: Elab sig m => m (Map Id C.Term)
 allDefs = do
   memoTable <- unMemoTable <$> get
   let
     f = \case
       CheckDecl _ DMap.:=> _ -> True
       _ -> False
-    decls :: [(Id, C.Term)]
-    decls =
+    defs :: [(Id, C.Term)]
+    defs =
       map (\case CheckDecl did DMap.:=> Identity def -> (did, def)) .
       Pre.filter f .
       DMap.toList $
       memoTable
-  ctx@(unEnv -> N.Env locals globals) <- ask
-  rec
-    (vDefs :: Map.Map Id N.Term) <- (\f -> foldlM f mempty decls) \acc (did, decl) -> do
-      vDecl <- local
-        (\ctx -> ctx { unEnv = N.Env locals (vDefs <> globals) })
-        (Norm.eval decl)
-      pure (Map.insert did vDecl acc)
-  pure vDefs
+  pure (Map.fromList defs)
 
 readback' :: Elab sig m => ReadbackDepth -> N.Term -> m C.Term
 readback' unf term = do

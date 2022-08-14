@@ -21,13 +21,13 @@ import Debug.Trace
 
 data Environment = Env
   { unLocals :: Seq Term
-  , unGlobals :: Map Id Term }
+  , unGlobals :: Map Id C.Term }
   deriving (Eq)
 
 withLocal :: Term -> Environment -> Environment
 withLocal def (Env locals globals) = Env (def <| locals) globals
 
-withGlobal :: Id -> Term -> Environment -> Environment
+withGlobal :: Id -> C.Term -> Environment -> Environment
 withGlobal did def (Env locals globals) = Env locals (insert did def globals)
 
 envSize :: Environment -> Natural

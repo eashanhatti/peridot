@@ -97,6 +97,7 @@ prove :: forall sig m. Search sig m => Seq Term -> Term -> m Substitution
 prove ctx goal@(Neutral p _) =
   (do
     cGoal <- readback goal
+    let !_ = tracePretty cGoal
     def <- oneOf ctx
     ls <- Syntax.Semantic.unLocals . unEnv <$> ask
     snd <$> local
@@ -161,9 +162,17 @@ search ctx gEnv g@(C.MetaFunElims gHead gArgs) d@(MetaFunElims dHead dArgs)
           (\ctx -> ctx { unEnv = Env gEnv (unGlobals . unEnv $ ctx) })
           (eval arg))
         gArgs
+    -- substs <-
+    --   traverse
+    --     (\(dArg, gArg) -> eToM <$> unifyRS gArg dArg)
+    --     (zip dArgs vGArgs)
     substs <-
       traverse
-        (\(dArg, gArg) -> eToM <$> unifyRS gArg dArg)
+        (\(dArg, gArg) -> do
+          r <- unifyRS gArg dArg
+          pure case r of
+            Right x -> Just x
+            Left e -> {-trace (shower (e, gArg, dArg)) -}Nothing)
         (zip dArgs vGArgs)
     -- let !_ = tracePrettyS "DEF" d
     -- let !_ = tracePrettyS "GOAL" g
