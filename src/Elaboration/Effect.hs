@@ -71,7 +71,7 @@ instance Show QueryState where
 
 data Error
   = TooManyParams
-  | TooManyArgs C.Term
+  | TooManyArgs Natural C.Term
   | WrongAppArity Natural Natural
   | FailedUnify C.Term C.Term C.Term
   | UnboundVariable Name

@@ -27,7 +27,7 @@ keywords =
   , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
   , "MetaType", "forall", "Exists", "Implies", "And", "Or", "Text", "def"
   , "metadef", "axiom", "output", "query", "metavar", "Code", "Prop"
-  , "pred", "Name", "for", "with", "as"]
+  , "pred", "Name", "for", "with", "as", "dontcare", "ex"]
 
 keyword :: Parser ()
 keyword = do
@@ -74,7 +74,7 @@ barWs = void (ws *> char '|' *> ws)
 semiWs :: Parser ()
 semiWs = void (ws *> char ';' *> ws)
 
-nameChar = (try alphaNumChar <|> char '_')
+nameChar = (try alphaNumChar <|> try (char '_') <|> char '\'')
 
 data ParseState = ParseState
   { unNextId :: Id

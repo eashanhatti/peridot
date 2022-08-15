@@ -56,8 +56,8 @@ prettyError eqs (InferredFunType infTy) =
   "\ESC[33mActual type was a function type\ESC[0m.\n" <>
   "\ESC[33mExpected type\ESC[0m:\n" <>
   (indent . prettyPure eqs $ infTy)
-prettyError eqs (TooManyArgs ty) =
-  "\ESC[33mIncorrect argument number\ESC[0m. \ESC[33mFunction type\ESC[0m:\n" <>
+prettyError eqs (TooManyArgs n ty) =
+  "\ESC[33mIncorrect argument number\ESC[0m " <> pack (show n) <> ". \ESC[33mFunction type\ESC[0m:\n" <>
   (indent . prettyPure eqs $ ty)
 prettyError _ e = pack . show $ e
 

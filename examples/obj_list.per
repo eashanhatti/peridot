@@ -1,0 +1,61 @@
+def OUnit = Struct{}
+def ounit = struct{}
+
+def List
+	: Fun(Type) -> Type
+	= fun(A) =>
+			Struct {
+				tag: Bool,
+				data:
+					if tag {
+						OUnit
+					} else {
+						Struct {
+							elem: A,
+							next: List(A)
+						}
+					}
+			}
+
+def fold_from_right
+	: Fun(Fun(`A, `B) -> `B, `B, List(`A)) -> `B
+	= fun(fn, init, list) =>
+			if list.tag {
+				init
+			} else {
+				fn(list.data.elem, fold_from_right(fn, init, list.data.next))
+			}
+
+def onil: List(`A) = fun() => struct { tag = true, data = ounit }
+def ocons
+	: Fun(`A, List(`A)) -> List(`A)
+	= fun(x, list) =>
+			struct {
+				tag = false,
+				data =
+					struct {
+						elem = x,
+						next = list
+					}
+			}
+
+def map
+	: Fun(Fun(`A) -> `B, List(`A)) -> List(`B)
+	= fun(fn, list) =>
+			fold_from_right(
+				fun(x, xs) => ocons(fn(x), xs),
+				onil,
+				list)
+
+def filter
+	: Fun(Fun(`A) -> Bool, List(`A)) -> List(`A)
+	= fun(p, list) =>
+			fold_from_right(
+				fun(x, xs) =>
+					if p(x) {
+						ocons(x, xs)
+					} else {
+						xs
+					},
+				onil,
+				list)

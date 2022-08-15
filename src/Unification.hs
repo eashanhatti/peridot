@@ -450,15 +450,22 @@ unify' term1 term2 =
       l <- level
       pure (Map.fromList . fmap (\(lvl, i) -> (lvl, i + l)) $ Pre.zip lvls [0..])
 
+    lift :: Norm sig m => Map.Map Level Level -> m (Map.Map Level Level)
+    lift ren = do
+      l <- level
+      pure (Map.insert l l ren)
+
     rename :: Unify sig m => Map.Map Level Level -> Term -> m C.Term
     rename ren = \case
       ObjFunType pm inTy outTy -> do
         cInTy <- rename ren inTy
         vOutTy <- evalClosure outTy
+        ren <- lift ren
         cOutTy <- bind (rename ren vOutTy)
         pure (C.ObjFunType pm cInTy cOutTy)
       ObjFunIntro body -> do
         vBody <- evalClosure body
+        ren <- lift ren
         cBody <- bind (rename ren vBody)
         pure (C.ObjFunIntro cBody)
       RecIntro defs -> do
@@ -478,10 +485,12 @@ unify' term1 term2 =
       MetaFunType pm inTy outTy -> do
         cInTy <- rename ren inTy
         vOutTy <- evalClosure outTy
+        ren <- lift ren
         cOutTy <- bind (rename ren vOutTy)
         pure (C.MetaFunType pm cInTy cOutTy)
       MetaFunIntro body -> do
         vBody <- evalClosure body
+        ren <- lift ren
         cBody <- bind (rename ren vBody)
         pure (C.MetaFunIntro cBody)
       LocalVar lvl -> case Map.lookup lvl ren of
@@ -499,6 +508,10 @@ unify' term1 term2 =
       Neutral _ (Declare u name ty cont) -> C.Declare u <$> rename ren name <*> rename ren ty <*> rename ren cont
       Neutral _ (Define name def cont) -> C.Define <$> rename ren name <*> rename ren def <*> rename ren cont
       Neutral _ (TextElimCat t1 t2) -> C.TextElimCat <$> rename ren t1 <*> rename ren t2
+      Neutral _ (GlobalVar did b u) -> do
+        cDid <- rename ren did
+        pure (C.GlobalVar cDid b u)
+      e -> error $ shower e
 
 unifyS' :: HasCallStack => Unify sig m => Term -> Term -> m ()
 unifyS' term1 term2 = do

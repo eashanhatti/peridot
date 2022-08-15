@@ -25,6 +25,7 @@ import Prelude hiding(zip, concatMap, head, tail, length, unzip, null)
 import Shower
 import Data.Bifunctor
 import Data.Text qualified as Text
+import Numeric.Natural
 
 check :: Elab sig m => TermAst -> N.Term -> m C.Term
 check (SourcePos term pos) goal = withPos pos (check term goal)
@@ -91,13 +92,13 @@ check (TermAst (Case scr body1 body2)) goal = do
   pure (C.TwoElim cScr cBody1 cBody2)
 check (TermAst (App lam args)) (N.tmUniv -> Just N.Meta) = do
   (cLam, lamTy) <- infer lam
-  r <- runThrow @Error $ checkArgs (N.MetaFunType Explicit) args lamTy
+  r <- runThrow @Error $ checkArgs (N.MetaFunType Explicit) args 0 lamTy
   case r of
     Right (cArgs, outTy) -> pure (foldl' (\lam (pm, arg) -> C.MetaFunElim pm lam arg) cLam cArgs)
     Left err -> report err *> pure (C.Rigid C.ElabError)
 check (TermAst (App lam args)) u@(N.tmUniv -> Just N.Obj) = do
   (cLam, lamTy) <- infer lam
-  r <- runThrow @Error $ checkArgs (N.ObjFunType Explicit) args lamTy
+  r <- runThrow @Error $ checkArgs (N.ObjFunType Explicit) args 0 lamTy
   case r of
     Right (cArgs, outTy) -> pure (foldl' (\lam (pm, arg) -> C.ObjFunElim pm lam arg) cLam cArgs)
     Left err -> report err *> pure (C.Rigid C.ElabError)
@@ -192,7 +193,7 @@ infer term = case term of
             pure (Left (ExpectedFunType cLamTy))
     case cs of
       Right (elim, tyc) -> do
-        r <- runThrow @Error $ checkArgs tyc args lamTy
+        r <- runThrow @Error $ checkArgs tyc args 0 lamTy
         case r of
           Right (cArgs, outTy) ->
             pure (foldl' (\lam (pm, arg) -> elim pm lam arg) cLam cArgs, outTy)
@@ -462,42 +463,43 @@ checkArgs ::
   (Has (Throw Error) sig m, Elab sig m) =>
   (N.Term -> N.Closure -> N.Term) ->
   Seq (PassMethod, TermAst) ->
+  Natural ->
   N.Term ->
   m (Seq (PassMethod, C.Term), N.Term)
 -- checkArgs Empty outTy@(N.viewImFunType -> Nothing) = pure (Empty, outTy)
-checkArgs tyc ((pm1, arg) :<| args) (N.FunType pm2 inTy outTy)
+checkArgs tyc ((pm1, arg) :<| args) an (N.FunType pm2 inTy outTy)
   | pm1 == pm2
   = do
     cArg <- check arg inTy
     vArg <- eval cArg
-    (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs tyc args
+    (cArgs, outTy') <- appClosure outTy vArg >>= checkArgs tyc args (an + 1)
     pure ((pm1, cArg) <| cArgs, outTy')
-checkArgs tyc args (N.FunType Unification inTy outTy) = do
+checkArgs tyc args an (N.FunType Unification inTy outTy) = do
   arg <- freshTypeUV inTy
   cArg <- readback arg
-  (cArgs, outTy') <- appClosure outTy arg >>= checkArgs tyc args
+  (cArgs, outTy') <- appClosure outTy arg >>= checkArgs tyc args (an + 1)
   pure ((Unification, cArg) <| cArgs, outTy')
-checkArgs tyc Empty ty = pure (Empty, ty)
-checkArgs tyc args nty@(N.Neutral ty redex) = do
+checkArgs tyc Empty an ty = pure (Empty, ty)
+checkArgs tyc args an nty@(N.Neutral ty redex) = do
   ty <- force ty
   let
     u = case tyc undefined undefined of
       N.MetaFunType _ _ _ -> N.MetaTypeType
       N.ObjFunType _ _ _ -> N.ObjTypeType
   case ty of
-    Just ty -> checkArgs tyc args ty
+    Just ty -> checkArgs tyc args an ty
     Nothing -> do
       inTy <- freshTypeUV u
       outTy <- freshTypeUV u >>= readback >>= closureOf
       r <- convertibleO (tyc inTy outTy) nty
       if r then
-        checkArgs tyc args (tyc inTy outTy)
+        checkArgs tyc args an (tyc inTy outTy)
       else do
         cNty <- readback nty
         throwError (ExpectedFunType cNty)
-checkArgs tyc args ty = do
+checkArgs tyc args an ty = do
   cTy <- readback ty
-  throwError (TooManyArgs cTy)
+  throwError (TooManyArgs an cTy)
 
 checkMetaType :: Elab sig m => TermAst -> m (C.Term, N.Universe)
 checkMetaType term =

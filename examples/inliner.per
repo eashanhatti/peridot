@@ -1,21 +1,39 @@
 import base_preds.per
 
-pred Inline
-	( inf A: Code(Type)
-	, Code(~A)
-	, Code(~A))
+pred Inline(inf A: Code(Type), Code(~A), Code(~A))
 
 axiom
 	Inline(<(fun(x) => ~(`f(<x>)))(`arg)>, `f(<`arg>))
-/*
-metadef term =
-	<let {
-		def func: Fun(Struct{}) -> Struct{} = fun(x) => x
-	} in {
-		func(struct{})
-	}>*/
 
-metadef term = <(fun(x) => x)(struct{})>
+def main =
+	let {
+		def term1 =
+			let {
+				def func: Fun(A: Type, A) -> A = fun(_, x) => x
+			} in {
+				func(Struct{}, struct{})
+			}
+
+		def term2 = (fun(x) => x)(true)
+
+		def term3 =
+			let {
+				def func: Fun(Bool) -> ? =
+					fun(b) =>
+						if b {
+							fun(x) => true
+						} else {
+							fun(x) => false
+						}
+			} in {
+				func(true)
+			}
+
+		def loop: Fun(Bool) -> Bool =
+			fun(x) => loop(x)
+	} in {
+		term3
+	}
 
 metavar new_term
-query Inline(term, new_term)
+query Inline(<main>, new_term)
