@@ -246,11 +246,11 @@ eval (C.TwoElim scr body1 body2) = do
         N.Rigid N.TwoIntro1 -> pure (Just vBody2)
         _ -> do
           r <- findDefEq vScr
-          -- let !_ = ()--tracePretty (vScr, vBody1, vBody2)
-          -- !_ <- ()--tracePretty . unDefEqs <$> ask
+          -- let !_ = tracePretty (r, vScr, vBody1, vBody2)
+          -- !_ <- tracePretty . unDefEqs <$> ask
           case r of
             Just (N.Rigid N.TwoIntro0) -> pure (Just vBody1)
-            Just (N.Rigid N.TwoIntro1) -> pure (Just vBody2)
+            Just (N.Rigid N.TwoIntro1) -> pure (Just $ tracePretty vBody2)
             _ -> pure Nothing
   pure (N.Neutral reded (N.TwoElim vScr vBody1 vBody2))
 eval (C.TextElimCat t1 t2) = do

@@ -1,0 +1,61 @@
+import obj_nat.per
+import obj_list.per
+
+def Stream
+	= fun(A) => Struct {
+			S: Type,
+			step: Fun(S) -> Step(A, S),
+			init: S
+	}
+
+def Step
+	= fun(A, S) => Struct {
+			tag: ONat,
+			data:
+				if tag.tag {
+					OUnit /* Done */
+				} elseif tag.data.tag {
+					Struct { /* Yield */
+						elem: A,
+						next: S
+					}
+				} else {
+					Struct { /* Skip */
+						next: S
+					}
+				}
+	}
+/*
+def done
+	: Step(`A, `S)
+	= fun() => struct { tag = ozero, data = ounit }
+def yield
+	: Fun(`A, `S) -> Step(`A, `S)
+	= fun(a, s) => struct {
+			tag = osucc(ozero),
+			data = struct {
+				elem = a,
+				next = s
+			}
+		}
+def skip
+	: Fun(`S) -> Step(`A, `S)
+	= fun(s) => struct {
+			tag = osucc(osucc(ozero)),
+			data = struct {
+				next = s
+			}
+	}*/
+/*
+def stream
+	: Fun(List(`A)) -> Stream(`A)
+	= let {
+		def next
+			= fun(list) =>
+					if list.tag {
+
+					}
+	} in {
+
+	}
+*/

@@ -1,0 +1,17 @@
+import obj_unit.per
+
+def ONat
+  : Type
+  = Struct {
+      tag: Bool,
+      data:
+        if tag {
+          OUnit
+        } else {
+          ONat
+        }
+    }
+
+def ozero = struct { tag = true, data = ounit }
+
+def osucc = fun(n) => struct { tag = false, data = n }

@@ -24,7 +24,7 @@ import Debug.Trace
 
 keywords =
   [ "Fun", "fun", "Type", "let", "in", "Bool", "true", "false"
-  , "Struct", "struct", "if", "else", "elif", "Equal", "refl", "patch"
+  , "Struct", "struct", "if", "else", "elseif", "Equal", "refl", "patch"
   , "MetaType", "forall", "Exists", "Implies", "And", "Or", "Text", "def"
   , "metadef", "axiom", "output", "query", "metavar", "Code", "Prop"
   , "pred", "Name", "for", "with", "as", "dontcare", "ex"]

@@ -1,16 +1,31 @@
-import examples/equal.per
+axiom OrderingC: Code(Type)
+metadef Ordering = ~OrderingC
+axiom gtC: Code(Ordering)
+metadef gt = ~gtC
+axiom ltC: Code(Ordering)
+metadef lt = ~ltC
+axiom eqC: Code(Ordering)
+metadef eq = ~eqC
 
-axiom B: MetaType
-axiom t: B
-axiom f: B
+def ORD: Type = Struct {
+  T: Type,
+  compare: Fun(T, T) -> Ordering
+}
 
-axiom C: MetaFun(B) -> MetaType
-axiom c_t: C(t)
-axiom c_f: C(f)
-
-metavar b
-query
-	with C(b)
-	for x in b {
-		Eq(x, t)
-	}
+def BoolOrd: ORD = struct {
+  T = Bool,
+  compare = fun(b1, b2) =>
+    if b1 {
+      if b2 {
+        eq /* true == true */
+      } else {
+        gt /* true > false */
+      }
+    } else {
+      if b2 {
+        lt /* false < true */
+      } else {
+        eq /* false == false */
+      }
+    }
+}

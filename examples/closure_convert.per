@@ -38,3 +38,5 @@ pred Foo
 axiom foo:
   Foo(<fun(x) => ~(`f(x))>, `ctx, `fv)
   :- forall(x: ?) -> FreeVars(`f(x), cons(sigma(?, x), `ctx), `fv)
+
+query FreeVars(<fun(x) => x>, nil, nil)
