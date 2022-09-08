@@ -1,3 +1,9 @@
+### STATUS NOTE
+
+Peridot is no longer being maintained. The research paper may be updated as I am suggested improvements or come up with them, but the implementation is no longer being worked on. My current project is [SynthML](https://github.com/eashanhatti/SynthML).
+
+---
+
 An experimental language for exploring the practical applications of two level type theory.
 
 Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/jFZ8JyUNtn) in the #peridot channel.
