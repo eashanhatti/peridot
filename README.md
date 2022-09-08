@@ -17,7 +17,7 @@ Discussion takes place on the [r/ProgrammingLanguages Discord server](https://di
 ### Information
 
 * [OLD_VS_NEW.md](./notes/OLD_VS_NEW.md): A comparison of Peridot and [Konna](https://github.com/eashanhatti/konna), a previous project of mine also based on 2LTT
-* [peridot.pdf](./peridot.pdf): A detailed research paper on Peridot's design. This is a preprint.
+* [peridot.pdf](./peridot.pdf): A research paper on Peridot's design. This is a preprint.
 
 ### Introduction
 
