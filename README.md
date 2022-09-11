@@ -8,7 +8,7 @@ An experimental language for exploring the practical applications of two level t
 
 Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/jFZ8JyUNtn) in the #peridot channel.
 
-**Note**: Peridot is a proof-of-concept! Don't use it for anything serious.
+**Note**: Peridot is a proof-of-concept! It is not intended for real-world use.
 
 ### References and Inspiration
 
