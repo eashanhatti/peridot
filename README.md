@@ -1,8 +1,14 @@
+### STATUS NOTE
+
+Peridot is no longer being maintained. The research paper may be updated as I am suggested improvements or come up with them, but the implementation is no longer being worked on. My current project is [SynthML](https://github.com/eashanhatti/SynthML).
+
+---
+
 An experimental language for exploring the practical applications of two level type theory.
 
 Discussion takes place on the [r/ProgrammingLanguages Discord server](https://discord.gg/jFZ8JyUNtn) in the #peridot channel.
 
-**Note**: Peridot is a proof-of-concept! Don't use it for anything serious.
+**Note**: Peridot is a proof-of-concept! It is not intended for real-world use.
 
 ### References and Inspiration
 
@@ -11,7 +17,7 @@ Discussion takes place on the [r/ProgrammingLanguages Discord server](https://di
 ### Information
 
 * [OLD_VS_NEW.md](./notes/OLD_VS_NEW.md): A comparison of Peridot and [Konna](https://github.com/eashanhatti/konna), a previous project of mine also based on 2LTT
-* [peridot.pdf](./peridot.pdf): A detailed research paper on Peridot's design. This is a preprint.
+* [peridot.pdf](./peridot.pdf): A research paper on Peridot's design. This is a preprint.
 
 ### Introduction
 
