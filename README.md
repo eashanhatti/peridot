@@ -1,6 +1,6 @@
 ### STATUS NOTE
 
-Peridot is no longer being maintained. The research paper may be updated as I am suggested improvements or come up with them, but the implementation is no longer being worked on. My current project is [SynthML](https://github.com/eashanhatti/SynthML).
+Peridot is no longer being maintained.
 
 ---
 
