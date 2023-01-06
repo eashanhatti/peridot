@@ -14,11 +14,6 @@ Discussion takes place on the [r/ProgrammingLanguages Discord server](https://di
 
 * [REFERENCES.md](./REFERENCES.md): A list of prior art that have influenced Peridot's design and implementation in major ways
 
-### Information
-
-* [OLD_VS_NEW.md](./notes/OLD_VS_NEW.md): A comparison of Peridot and [Konna](https://github.com/eashanhatti/konna), a previous project of mine also based on 2LTT
-* [peridot.pdf](./peridot.pdf): A research paper on Peridot's design. This is a preprint.
-
 ### Introduction
 
 High-level programming and program performance are at odds. High-level languages enable complex, pervasive abstractions, whereas high performance demands these abstractions be reduced to a minimum. Thus, an optimizing compiler is an essential part of a high-level language that seeks to accomplish both goals. However, even the most sophisticated optimizer can fall short when presented with abstraction it was not built to deal with. As programmers develop new abstractions, a choice must be made between the following options:
